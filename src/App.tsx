@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import type { SqlDriver } from "./db/driver";
 import { openDatabase } from "./db/open";
+import { FoodScreen } from "./screens/FoodScreen";
 import { MealPrepScreen } from "./screens/MealPrepScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { TodayScreen } from "./screens/TodayScreen";
@@ -11,7 +12,7 @@ import { freddySource, loadTransport } from "./sync/freddyClient";
 import { runSync } from "./sync/runSync";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
-type Tab = "today" | "mealprep" | "settings";
+type Tab = "today" | "food" | "mealprep" | "settings";
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -73,6 +74,9 @@ export function App() {
           <button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}>
             Today
           </button>
+          <button className={tab === "food" ? "active" : ""} onClick={() => setTab("food")}>
+            Food
+          </button>
           <button className={tab === "mealprep" ? "active" : ""} onClick={() => setTab("mealprep")}>
             Meal prep
           </button>
@@ -83,6 +87,8 @@ export function App() {
       </header>
       {tab === "today" ? (
         <TodayScreen db={dbStatus.db} configured={configured} syncing={syncing} onSync={sync} version={version} />
+      ) : tab === "food" ? (
+        <FoodScreen db={dbStatus.db} />
       ) : tab === "mealprep" ? (
         <MealPrepScreen db={dbStatus.db} />
       ) : (

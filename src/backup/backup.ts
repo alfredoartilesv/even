@@ -26,6 +26,8 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "sync_state", key: ["source"], lastWriteWins: true },
   { name: "metric_catalog", key: ["source", "metric"], lastWriteWins: true },
   { name: "health_samples", key: ["source", "device", "metric", "external_id"], lastWriteWins: true },
+  { name: "food_photos", key: ["id"], lastWriteWins: true },
+  { name: "saved_meals", key: ["id"], lastWriteWins: true },
   { name: "food_entries", key: ["id"], lastWriteWins: true },
   { name: "drink_entries", key: ["id"], lastWriteWins: true },
   { name: "manual_measurements", key: ["id"], lastWriteWins: true },
