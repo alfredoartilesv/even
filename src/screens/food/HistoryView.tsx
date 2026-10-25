@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { dayFood, getCalorieGoal, loggedDaysBefore, nutritionRange, type DayTotals, type FoodEntry } from "../../db/food";
+import { mean } from "../../lib/health";
 import { addDays } from "../../lib/tz";
 import { fmtDay, MsgLine, today, type Msg } from "../mealprep/common";
 import { EntryList, kcal, WeekChart, weekEnding } from "./components";
@@ -45,7 +46,7 @@ export function HistoryView({ db, version, onChanged }: Props) {
   };
 
   const logged = week.filter((d) => d.calories !== null);
-  const avg = logged.length ? logged.reduce((n, d) => n + (d.calories ?? 0), 0) / logged.length : null;
+  const avg = mean(logged.map((d) => d.calories ?? 0));
   const overDays = target === null ? 0 : logged.filter((d) => (d.calories ?? 0) > target).length;
   const selected = week.find((d) => d.day === day);
 

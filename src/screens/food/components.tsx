@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedMeal } from "../../db/food";
+import { kcalFromMacros } from "../../lib/health";
 import { addDays } from "../../lib/tz";
 import { MEALS, type Meal } from "../../meals/suggest";
 import { fmtDay, numOrNull } from "../mealprep/common";
@@ -165,11 +166,22 @@ export const draftFrom = (m: Macros & { name: string; meal: Meal | null; notes: 
   notes: m.notes ?? "",
 });
 
-/** Parse the form. Bad numbers come back as NaN and the db layer rejects them with a message. */
+/** kcal from the macros typed so far, when they are all valid numbers. */
+function estimateKcal(d: MealDraft): number | null {
+  const m = { proteinG: numOrNull(d.proteinG), carbsG: numOrNull(d.carbsG), fatG: numOrNull(d.fatG) };
+  if (Object.values(m).some((v) => v !== null && !(v >= 0))) return null;
+  const k = kcalFromMacros(m);
+  return k === null ? null : Math.round(k);
+}
+
+/**
+ * Parse the form. Bad numbers come back as NaN and the db layer rejects them with a message.
+ * Empty kcal with macros filled in is estimated from the macros (4/4/9 kcal per gram).
+ */
 export const parseDraft = (d: MealDraft) => ({
   name: d.name,
   meal: d.meal,
-  calories: numOrNull(d.calories),
+  calories: numOrNull(d.calories) ?? estimateKcal(d),
   proteinG: numOrNull(d.proteinG),
   carbsG: numOrNull(d.carbsG),
   fatG: numOrNull(d.fatG),
@@ -222,7 +234,13 @@ export function MealFields({
       <div className="grid">
         <label>
           kcal
-          <input inputMode="decimal" value={draft.calories} onChange={(e) => set({ calories: e.target.value })} />
+          <input
+            inputMode="decimal"
+            value={draft.calories}
+            placeholder={estimateKcal(draft) !== null ? `≈ ${estimateKcal(draft)}` : undefined}
+            title={estimateKcal(draft) !== null ? "Left empty, kcal is estimated from the macros" : undefined}
+            onChange={(e) => set({ calories: e.target.value })}
+          />
         </label>
         <label>
           Protein g
