@@ -18,7 +18,7 @@ A personal health app, Android first, iPhone second. It pulls wearable and healt
 | Mobile shell | Capacitor (Android first, iOS from the same code) | Decided |
 | Local database | SQLite via `@capacitor-community/sqlite`, encrypted with SQLCipher | Decided |
 | Query layer | Drizzle (sqlite-proxy driver). Fallback: typed raw SQL + Zod | Test early |
-| Data source | freddy as the single intermediary, behind a `FreddySource` adapter | **Unverified, see section 4** |
+| Data source | freddy as the single intermediary, via its Personal REST API (bearer key), behind a `FreddySource` adapter | Decided; key + plan still to confirm (section 4) |
 | Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
 | Garmin | Via freddy only. No direct Garmin integration. | Decided |
 | Claude integration | Called directly from the app with a user-supplied API key; tool-use loop runs locally against SQLite | Decided |
@@ -42,13 +42,31 @@ A personal health app, Android first, iPhone second. It pulls wearable and healt
 
 ## 4. Open risks and spikes (do these first)
 
-1. **[CRITICAL] Can a third-party phone app read from freddy?** Confirmed: freddy has a hosted MCP endpoint, iOS and Android apps, and windowed queries (max 365 days per call, day/week/month aggregation). Not confirmed: a documented REST API, its auth, rate limits, or terms for third-party apps.
-   - Spike (about 1 day): read freddy's docs and terms; if MCP only, test the TypeScript MCP SDK from a Capacitor app (native HTTP to avoid CORS, OAuth with PKCE via system browser and deep link); contact the founder if unclear.
-   - Fallback if freddy does not allow this: Health Connect directly through a native plugin.
+1. **[RESOLVED 25 Oct 2026] Can a third-party phone app read from freddy?** Yes. freddy has a documented read-only REST API ("Personal API", v1.2.0), so the app does not need MCP.
+   - Base URL `https://freddy.coach/api/v1/`, auth `Authorization: Bearer fk_live_...`. Keys are created in the freddy dashboard (AI apps -> API keys); the secret is shown once. Up to 10 active keys.
+   - Endpoints (all GET): `/metrics` (filters `metric`, `provider`, `device`, `source_id`, `from`, `to`, `limit` up to 1000, cursor paging via `next_cursor`, optional `include_raw`), `/catalog`, `/sources`, `/profile`. Spec: `https://freddy.coach/api/openapi.json`.
+   - Record fields: `date`, `timestamp` (UTC), `provider`, `source`, `metric`, `device`, `deviceLabel`, `sourceId`, `numValue`, `textValue`, `unit`, `stream`, plus `raw`/`rawStatus` with `include_raw=true`. One provider record can span several rows: join on (`provider`, `sourceId`). Use `device` (stable), never `deviceLabel`, for filtering.
+   - Limits: 120 req/min per key (per freddy's API page), 30 `include_raw` req/min per account, raw pages capped at 50 rows / about 8 MB. Results are newest first and bounded by the plan's history window.
+   - Terms: freddy's terms do not mention API use or apps built on the data. They forbid sharing your MCP endpoint with third parties for data collection and accessing other users' data. Garmin rule: keep the `source` label (for example "Garmin Forerunner 245") when showing Garmin data. For anything beyond personal use, email freddy (contact in their terms) first.
+   - API page says the API is included in the **Pro** plan and is in beta. Not yet verified that the FREE plan can create keys.
+   - Not verified: CORS. Avoid the question by calling the API with native HTTP (Capacitor `CapacitorHttp`), not browser fetch.
+   - Not tested live: we have no API key yet.
 2. **[HIGH] The phone holds the only copy of user-authored data** (notes, goals, manual logs, settings). Health samples can be re-fetched from freddy. Mitigation: encrypted manual export/restore. Phase 2 sync removes the problem.
 3. **[HIGH] Vendor dependency on freddy**, a small service. Keep the `Source` interface swappable and mirror data locally.
 4. **[MEDIUM] Drizzle with Capacitor SQLite** needs glue code. Test it in the first spike.
 5. **[MEDIUM] Android background sync is unreliable** (Doze, battery optimization). Main path: sync on app open and pull-to-refresh. Periodic background sync is a bonus. Backfill history in windowed calls with a progress indicator.
+
+6. **[HIGH] Free-plan history window.** The owner's freddy account is on FREE: 7 days of history, 1 connected source, Garmin the only queryable provider. Anything older than 7 days cannot be fetched, so the local mirror only keeps what it has synced. Sync at least every few days and build the first sync soon. Health Connect (the Android phone's own data, including any nutrition or hydration entries) is connected in freddy but **paused** because of the 1-source limit, so it is not flowing in. Decide: upgrade, or choose which source to keep.
+
+## 4b. Decision 25 Oct 2026: stay on the FREE plan and read freddy through MCP
+
+The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP endpoint (the personal URL, plus a key if the probe shows it is needed).
+- The MCP tools return **text**, not JSON. `src/sources/freddyText.ts` parses it; unknown lines are reported, not dropped. Formats are pinned by tests in `tests/fixtures.ts`.
+- `FreddySource` talks to a small `ToolCaller` interface, so the transport can change (MCP now, REST later) without touching the sync logic.
+- Free-plan limits still apply: 7-day window, 1 source (Garmin). The first sync window is 7 days; a cursor older than the window produces a "Gap" warning.
+- The MCP URL and key are secrets: stored on the device (Keystore), never in the repo. Rotate them if they are ever pasted anywhere.
+- Terms: freddy forbids sharing the MCP endpoint with third parties for data collection. An app on the owner's own phone, using the owner's own endpoint, is not a third party, but it is not what the endpoint is documented for. Revisit before any public release.
+- Unverified until `scripts/freddy-probe.mjs` is run against the real endpoint: auth mode (URL only vs Bearer key), JSON vs SSE responses, CORS for a WebView. If the WebView cannot reach it (CORS, or SSE buffered by native HTTP), the fallback order is: native HTTP plugin, then a small relay, then upgrade to Pro and use the REST API.
 
 ## 5. Claude integration (phase 1)
 
@@ -87,7 +105,7 @@ Which 2–3 screens will be opened every day (for example today's sleep and reco
 
 ## 9. Next steps
 
-1. Run the freddy spike (section 4, item 1).
+1. ~~freddy spike~~ done: REST API exists. Next: get an API key, call `/profile` and `/catalog`, confirm what the FREE plan allows.
 2. Answer the open question in section 8.
 3. Draft the local schema from the daily screens.
 4. Scaffold Capacitor + React + SQLite + migrations, and test Drizzle.
