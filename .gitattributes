@@ -1,0 +1,2 @@
+# The Android SQLite plugin splits migrations on ";\n"; keep SQL files LF on every checkout.
+*.sql text eol=lf

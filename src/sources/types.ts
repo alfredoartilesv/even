@@ -14,8 +14,20 @@ export interface SampleInput {
   raw?: unknown;
 }
 
+/** What a source says it holds for one metric (for metric_catalog). */
+export interface CatalogEntry {
+  metric: string;
+  unit?: string;
+  device?: string;
+  firstDay?: string;
+  lastDay?: string;
+  records?: number;
+}
+
 export interface SyncResult {
   samples: SampleInput[];
+  /** Present when the source listed its metrics during this sync. */
+  catalog?: CatalogEntry[];
   /** Opaque cursor to store in sync_state; pass back on the next call. */
   nextCursor: string | null;
   /** Things the user should know about (data lost to a window gap, lines we could not parse). */
