@@ -8,7 +8,10 @@ import type { HttpOptions, HttpResponse } from "@capacitor/core";
  *
  * `request` is injected so this file has no runtime Capacitor import and tests can fake it.
  */
-export function makeNativeFetch(request: (o: HttpOptions) => Promise<HttpResponse>): typeof fetch {
+export function makeNativeFetch(
+  request: (o: HttpOptions) => Promise<HttpResponse>,
+  timeouts: { connectTimeoutMs?: number; readTimeoutMs?: number } = {},
+): typeof fetch {
   return async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const headers = Object.fromEntries(new Headers(init?.headers).entries());
@@ -20,7 +23,15 @@ export function makeNativeFetch(request: (o: HttpOptions) => Promise<HttpRespons
 
     let res: HttpResponse;
     try {
-      res = await request({ url, method: init?.method ?? "GET", headers, data, responseType: "text" });
+      res = await request({
+        url,
+        method: init?.method ?? "GET",
+        headers,
+        data,
+        responseType: "text",
+        connectTimeout: timeouts.connectTimeoutMs,
+        readTimeout: timeouts.readTimeoutMs,
+      });
     } catch (e) {
       // Match fetch: network failures reject with a TypeError (callers already handle that shape).
       throw new TypeError("Native HTTP request failed", { cause: e });
