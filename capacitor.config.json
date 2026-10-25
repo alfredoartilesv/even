@@ -1,0 +1,14 @@
+{
+  "appId": "app.health.personal",
+  "appName": "Health",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": true,
+      "androidBiometric": { "biometricAuth": false },
+      "iosIsEncryption": true,
+      "iosKeychainPrefix": "app.health.personal",
+      "iosBiometric": { "biometricAuth": false }
+    }
+  }
+}

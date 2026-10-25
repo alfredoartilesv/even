@@ -29,7 +29,7 @@ test("expected tables exist", async () => {
   );
   assert.deepEqual(
     rows.map((r) => r.name),
-    ["app_settings", "drink_entries", "food_entries", "health_samples", "sync_state"],
+    ["ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "food_entries", "goals", "health_samples", "manual_measurements", "metric_catalog", "sync_runs", "sync_state"],
   );
 });
 
