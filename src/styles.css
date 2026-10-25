@@ -58,3 +58,41 @@ ul.plain { list-style: none; padding: 0; margin: 0.4rem 0; display: flex; flex-d
 .checklist label span:first-of-type { flex: 1; }
 .checklist input[type="checkbox"] { min-height: 0; width: 1.25rem; height: 1.25rem; }
 .checklist li.done span { text-decoration: line-through; color: var(--muted); }
+.block { display: block; }
+.grow { flex: 1; min-width: 0; }
+.wide-button { width: 100%; margin: 0.75rem 0; }
+input.qty.wide { width: 6.5rem; }
+.actions.compact { margin-top: 0.3rem; }
+.actions.compact button { flex: 0 0 auto; min-height: 36px; padding: 0.25rem 0.6rem; font-size: 0.85rem; }
+.thumb { border-radius: 8px; object-fit: cover; flex: none; }
+.thumb.empty { background: var(--line); }
+.meter-card { border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.5rem; }
+.hero strong { font-size: 2.25rem; font-variant-numeric: tabular-nums; }
+.meter { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 0.5rem 0 0.3rem; }
+.meter .fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.meter .fill.over { background: var(--warning); }
+.macros { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.4rem; color: var(--muted); }
+.suggest { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+.suggestion { display: flex; align-items: center; gap: 0.5rem; text-align: left; flex: none; max-width: 15rem; }
+.suggestion.dim { opacity: 0.7; }
+.photo-picker { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.file-button { display: inline-flex; flex-direction: row; align-items: center; min-height: 44px; padding: 0 0.8rem; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.file-button input { display: none; }
+.group-head { margin-top: 0.75rem; }
+ul.entries { list-style: none; padding: 0; margin: 0; }
+ul.entries li { display: flex; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
+.week { margin: 0.5rem 0; }
+.week .plot { position: relative; height: 150px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line); }
+.week .col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; background: none; border: none; padding: 0 3px; min-height: 0; border-radius: 0; color: var(--fg); position: relative; z-index: 1; }
+.week .bar { width: 100%; max-width: 28px; background: var(--accent); opacity: 0.55; border-radius: 4px 4px 0 0; }
+.week .col.selected .bar { opacity: 1; }
+.week .bar.over { background: var(--warning); }
+.week .value { font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+.week .target { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); }
+.week .target span { position: absolute; right: 0; top: -1.2rem; }
+.week .axis { display: flex; gap: 2px; }
+.week .axis span { flex: 1; text-align: center; }
+.saved-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.6rem; }
+.card.saved { margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.card.saved .link { display: flex; flex-direction: column; gap: 0.4rem; }
+.card.saved .row { flex-wrap: nowrap; }
