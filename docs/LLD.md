@@ -55,6 +55,7 @@ src/
     secrets.ts                    SecretStore, freddy credentials
     secureStore.ts                Keystore-backed SecretStore
   lib/
+    health.ts                     health maths: BMR/TDEE, calorie target, BMI, macros, alcohol, HR zones, series stats
     tz.ts                         timezone helpers (Intl, no library)
     uuidv7.ts                     UUIDv7 generator
 tests/                            node:test suites, fixtures, fakes
@@ -164,6 +165,22 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 - `latestSampleDay(db)`: `MAX(local_day)` of `health_samples`.
 - `dayValues(db, day)`: `daily_metric_values` left-joined with `metric_catalog`, ordered by pinned, `sort_order`, category, metric. Picks `avg_num` / `sum_num` / `min_num` / `max_num` / `last_num` according to `daily_agg` (default `avg`). Returns label (catalog label or metric name), device, unit, readings and the partial flag.
+
+### 3.6 Health calculations (`src/lib/health.ts`)
+
+Pure functions, no dependencies, shared by screens and (later) the chat tools. Inputs are validated: bad values throw `RangeError` with the field name.
+
+| Area | Functions | Formula |
+|---|---|---|
+| Age | `ageOn(birthDay, day)` | whole years, birthday counts on the day |
+| Body | `bmi`, `bmiClass`, `healthyWeightRange` | kg/m², WHO adult classes 18.5 / 25 / 30, range = BMI 18.5 to 24.9 |
+| Energy | `bmr`, `tdee`, `calorieTarget`, `kgPerWeekFromBalance` | Mifflin-St Jeor; activity factors 1.2 / 1.375 / 1.55 / 1.725 / 1.9; 7700 kcal per kg; target rounded to 10 kcal and never below BMR (`floored` says so) |
+| Nutrition | `kcalFromMacros`, `macroSplit`, `proteinTarget` | Atwater 4 / 4 / 9 / 7 kcal per g (protein, carbs, fat, alcohol); protein default 1.6 g/kg |
+| Alcohol | `alcoholGrams`, `standardDrinks` | ml x ABV / 100 x 0.789 (same as `daily_alcohol`); standard drink 10 g (ES, EU), 8 g (UK), 14 g (US) |
+| Heart rate | `maxHeartRate`, `heartRateZones` | Tanaka 208 - 0.7 x age; five zones 50 to 100 % in 10 % steps, of the heart rate reserve (Karvonen) when a resting rate is given |
+| Series | `mean`, `slopePerDay`, `rollingAverage`, `smoothed` | least squares over calendar days; trailing window by calendar days, gaps not counted as zero; exponential smoothing (alpha 0.1 default) |
+
+The food log form uses `kcalFromMacros` to estimate kcal when only macros are typed, and History uses `mean`. `src/chat/tools.ts` still has its own `slopePerDay`, to be replaced by this one.
 
 ## 4. Schema
 
@@ -564,7 +581,7 @@ The SDK already retries 408/409/429/5xx twice before this. Messages never includ
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --test tests/*.test.ts`), 117 tests, no device needed.
+Run with `npm test` (`tsx --test tests/*.test.ts`), 124 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -583,6 +600,7 @@ Run with `npm test` (`tsx --test tests/*.test.ts`), 117 tests, no device needed.
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
+| `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
 | `food.test.ts` | slot by hour and ranking, log/edit/relog/delete in the owner's zone, range with empty days, history paging, calorie goal history, saved meals from entries with linked history and photo replace/delete, servings, photo validation, suggestions by time of day without prep, deleting a prep entry restores stock, backup round trip with photos |
 | `mealPrep.test.ts` | recipes with tags and ingredients, edit in place, moves and limits, food log rows, undo rules, tag filter, deleted recipes and batches, portions-a-day setting, unit folding, shopping list merge and clear |
 
