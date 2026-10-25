@@ -89,7 +89,7 @@ export async function lastSync(db: SqlDriver, source: string): Promise<LastSync 
     error: string | null;
   }>(
     `SELECT status, started_ms, finished_ms, samples_written, warnings_json, error
-     FROM sync_runs WHERE source = ? ORDER BY started_ms DESC, id DESC LIMIT 1`,
+     FROM sync_runs WHERE source = ? ORDER BY started_ms DESC, rowid DESC LIMIT 1`,
     [source],
   );
   const r = rows[0];

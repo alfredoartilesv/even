@@ -48,7 +48,7 @@ flowchart LR
 | External system | Role | Direction | Data |
 |---|---|---|---|
 | freddy | Single source of wearable data | App reads | Daily metrics as text through MCP tools (`list_metrics`, `query_metrics`) |
-| Anthropic API | Answers questions (not built yet) | App sends, receives | Aggregates by default; raw series and notes only with consent |
+| Anthropic API | Answers questions about the data (core built) | App sends, receives | Aggregates by default; raw series and notes only with consent |
 | Share targets | Where the owner keeps backups | App sends | One password-encrypted file |
 
 ## 3. Components
@@ -68,6 +68,7 @@ flowchart TB
     repo[Data access<br/>samples, catalog, settings, queries]
     migrate[Migration runner]
     secretsApi[Secrets API<br/>SecretStore]
+    chat[Chat engine<br/>tools, consent, disclosures]
   end
   subgraph platform[Platform adapters - Capacitor]
     driver[SqlDriver on<br/>capacitor-community/sqlite]
@@ -87,6 +88,9 @@ flowchart TB
   migrate --> driver
   secretsApi --> secure
   settings --> files
+  chat --> repo
+  chat --> secretsApi
+  chat -- "Anthropic SDK" --> nativeHttp
 ```
 
 | Component | Responsibility | Main files |
@@ -102,7 +106,8 @@ flowchart TB
 | Migration runner | Applies numbered SQL files, versioned in `PRAGMA user_version` | `src/db/migrate.ts`, `src/db/migrations/` |
 | SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/db/capacitorDriver.ts` |
 | Backup | Export every table to an encrypted file; restore by merging | `src/backup/` |
-| Secrets | freddy URL and key, later the Claude key | `src/settings/` |
+| Secrets | freddy URL and key, Claude API key | `src/settings/` |
+| Chat engine | Tool-use loop with Claude, local data tools, consent per data class, disclosure log, conversation store | `src/chat/` |
 
 **Design principle:** everything in "Core" depends only on interfaces (`SqlDriver`, `Source`, `ToolCaller`, `SecretStore`, a `fetch` function). Only the platform adapters import Capacitor. That is why the whole core runs in Node tests and in PC scripts (`scripts/freddy-sync.ts`) without a phone.
 
@@ -170,9 +175,29 @@ flowchart LR
   end
 ```
 
-### 4.4 Claude chat (planned)
+### 4.4 Claude chat (core built, no screen yet)
 
-The app sends the question plus tool definitions to the Anthropic API. Claude asks for tools such as `trend(metric, range)`. The app runs them locally as SQL, checks consent for the data class, logs the payload in `ai_disclosures`, and returns the result. Messages are stored verbatim in `chat_messages`.
+```mermaid
+sequenceDiagram
+  participant UI as Chat screen (to build)
+  participant E as Chat engine
+  participant DB as SQLite
+  participant C as Claude API
+  UI->>E: askClaude(question)
+  E->>DB: consent claude.aggregates? (ask the owner if missing)
+  E->>DB: append user message
+  E->>C: history + 8 tool definitions (native HTTP, cached prefix, fallback on)
+  C-->>E: tool_use blocks (e.g. metric_summary)
+  E->>DB: append assistant reply verbatim
+  E->>DB: per call: consent for its data class? run SQL tool
+  E->>DB: append all tool_results in one message, log each in ai_disclosures
+  E->>C: history again
+  C-->>E: final answer
+  E->>DB: append assistant reply
+  E-->>UI: text, status, tools used, tokens
+```
+
+Only tool results leave the phone, never the database. Summaries need the base consent; day-by-day series and the owner's notes need their own. A tool without consent is not run: Claude is told to answer without it.
 
 ## 5. Data
 
@@ -182,7 +207,7 @@ One local SQLite database (`health`), encrypted with SQLCipher. Main groups:
 |---|---|---|
 | Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync |
 | Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals` | UI (screens not built yet) |
-| Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents` | Chat (not built yet) |
+| Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents` | Chat engine (screen not built yet) |
 | Settings | `app_settings` (non-secret) | UI |
 | Read models | Views `daily_metric_values`, `daily_nutrition`, `daily_alcohol` | Derived |
 
@@ -198,7 +223,7 @@ Full columns and constraints: [LLD.md section 4](LLD.md#4-schema).
 | Backup files | AES-256-GCM with a key derived from the owner's password (PBKDF2-SHA256, 600k iterations). The header is authenticated, so any edit makes the file unreadable |
 | OS backups | Android auto-backup, adb backup and device-to-device transfer disabled |
 | Logs and errors | Network errors never include the URL or key. Scripts print counts, not health values |
-| Data sent to Claude (planned) | Explicit consent per scope, aggregates by default, every payload logged and visible |
+| Data sent to Claude | Explicit consent per data class (summaries, day-by-day series, notes) with a policy version; tools without consent are not run; every payload logged in `ai_disclosures` |
 
 Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hands while the app is open, and a weak backup password chosen by the owner (minimum length 8 is enforced).
 
@@ -219,7 +244,7 @@ Native projects are generated and git-ignored; the repo holds only the web code,
 |---|---|
 | Offline first | Everything except sync and chat works without network |
 | Data durability | Idempotent upserts; one transaction per migration, per sync batch and per restore; encrypted backups |
-| Testability | Core depends on interfaces; 78 Node tests, including a fake of the Android plugin's statement splitting and transactions |
+| Testability | Core depends on interfaces; 96 Node tests, including a fake of the Android plugin's statement splitting and transactions |
 | Replaceable source | `Source` and `ToolCaller` interfaces; MCP today, REST later, others possible |
 | Phase 2 readiness | UUIDv7 keys, `updated_at` / `deleted_at` / `origin_device_id` on user tables, append-only samples |
 | Performance | Personal scale. Indexed by (metric, local_day). Restore inserts in multi-row batches to limit bridge calls |
