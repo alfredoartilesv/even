@@ -1,36 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
 import { migrate, parseMigrations } from "../src/db/migrate";
-
-function memoryDriver(): { db: SqlDriver; raw: DatabaseSync } {
-  const raw = new DatabaseSync(":memory:");
-  const db: SqlDriver = {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      // node:sqlite returns null-prototype rows; normalise to plain objects.
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
-  return { db, raw };
-}
-
-function realMigrations() {
-  const dir = join(import.meta.dirname, "../src/db/migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) {
-    files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  }
-  return parseMigrations(files);
-}
+import { memoryDriver, realMigrations } from "./helpers";
 
 const NOW = 1_800_000_000_000;
 
