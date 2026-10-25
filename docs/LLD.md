@@ -7,7 +7,8 @@ Status as of 25 Oct 2026, phase 1, schema version 2. This document describes the
 ```
 src/
   App.tsx, main.tsx, styles.css   App shell (DB open, auto sync, tabs)
-  screens/                        TodayScreen, SettingsScreen
+  screens/                        TodayScreen, MealPrepScreen, SettingsScreen
+    mealprep/                     Stock, Recipes and Shopping views of the meal prep tab
   db/
     driver.ts                     SqlDriver interface
     capacitorDriver.ts            SqlDriver on @capacitor-community/sqlite
@@ -16,10 +17,15 @@ src/
     migrations.ts                 Vite import of migrations/*.sql
     migrations/0001_init.sql      base tables
     migrations/0002_daily_data.sql
+    migrations/0003_meal_prep.sql recipes, tags, batches, portion moves, shopping list
     samples.ts                    upsertSamples, sync_state cursor
     catalog.ts                    metric_catalog upsert, classifyMetric
     settings.ts                   app_settings get/set, deviceId
     queries.ts                    read models for screens
+    mealPrep.ts                   recipes, tags, batches, portion moves, stock loading
+    shopping.ts                   shopping list, unit folding
+  mealprep/
+    stock.ts                      pure: foldBatch, stockAlerts, planDefrost
   sources/
     types.ts                      Source, SampleInput, SyncResult, CatalogEntry
     freddy.ts                     FreddySource, ToolCaller, metric filter
@@ -44,7 +50,7 @@ docs/                             this documentation
 capacitor.config.json             app id, SQLite encryption settings
 ```
 
-Dependency rule: nothing under `db/` (except `open.ts`), `sources/`, `sync/` (except the types it imports), `backup/backup.ts`, `settings/secrets.ts` or `lib/` imports Capacitor at runtime. Those modules run in Node.
+Dependency rule: nothing under `db/` (except `open.ts`), `mealprep/`, `sources/`, `sync/` (except the types it imports), `backup/backup.ts`, `settings/secrets.ts` or `lib/` imports Capacitor at runtime. Those modules run in Node.
 
 ## 2. Core interfaces
 
@@ -148,7 +154,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 ## 4. Schema
 
-Version 2 (`0001_init.sql` + `0002_daily_data.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 3 (`0001_init.sql` + `0002_daily_data.sql` + `0003_meal_prep.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -158,9 +164,15 @@ erDiagram
   chat_conversations ||--o{ ai_disclosures : conversation_id
   chat_messages ||--o{ ai_disclosures : message_id
   goals }o..o| metric_catalog : "metric (logical)"
+  meal_preps ||--o{ meal_prep_ingredients : meal_prep_id
+  meal_preps ||--o{ meal_prep_tags : meal_prep_id
+  meal_preps ||--o{ meal_prep_batches : meal_prep_id
+  meal_prep_batches ||--o{ meal_prep_moves : batch_id
+  meal_prep_moves |o--o| food_entries : food_entry_id
+  meal_preps |o--o{ shopping_list_items : meal_prep_id
 ```
 
-Only the `chat_*` and `ai_disclosures` links are real foreign keys; the others are logical (matching values, no constraint).
+Only the `chat_*`, `ai_disclosures` and `meal_prep_*` / `shopping_list_items` links are real foreign keys; the others are logical (matching values, no constraint).
 
 ### 4.1 Synced data
 
@@ -200,6 +212,23 @@ Unique (source, device, metric, external_id). Indexes: (metric, start_ms), (metr
 | `goals` | `id`, `title`, `target_kind`, `metric`, `comparator`, `target_num`, `unit`, `period`, `start_day` NOT NULL, `end_day`, `notes` | `target_kind` in sample, manual, food, drink, none. `comparator` in `>=`, `<=`. `period` in day, week, month (default day). CHECK: `target_kind = 'none'` or metric, comparator and target_num all set |
 
 `local_day` on `food_entries` and `drink_entries` was added in 0002 (nullable, backfilled). Code that inserts these rows must set it.
+
+### 4.2b Meal prep (0003)
+
+| Table | Columns besides Std | Constraints / indexes |
+|---|---|---|
+| `meal_preps` | `id`, `name`, `portions` (per batch, default 4), `fridge_days` (4), `freezer_days` (90), `thaw_hours` (24), `calories`, `protein_g`, `carbs_g`, `fat_g` (per portion), `notes` | counts > 0, `thaw_hours` >= 0 |
+| `meal_prep_ingredients` | `id`, `meal_prep_id` FK, `sort_order`, `name`, `quantity`, `unit` | `quantity` NULL or > 0. Index (meal_prep_id), live |
+| `meal_prep_tags` | `id`, `meal_prep_id` FK, `tag` | `tag` non-empty, already `lower(trim())`. Unique (meal_prep_id, tag) among live rows. Index (tag), live |
+| `meal_prep_batches` | `id`, `meal_prep_id` FK, `cooked_at_ms`, `offset_min`, `local_day`, `portions`, `notes` | `portions` > 0. Index (meal_prep_id), live |
+| `meal_prep_moves` | `id`, `batch_id` FK, `at_ms`, `offset_min`, `local_day`, `kind`, `from_loc`, `portions`, `food_entry_id` FK | `kind` in freeze (from fridge), thaw (from freezer), eat (from fridge), discard (either). Append only, undo = soft delete. Index (batch_id, at_ms), live |
+| `shopping_list_items` | `id`, `name`, `quantity`, `unit`, `checked` (0/1), `meal_prep_id` FK (where it came from) | Index (checked, name), live |
+
+Stock is never stored. `loadStock` reads live batches that still have portions (`portions` > eaten + discarded, in SQL) and `foldBatch` replays their moves: every portion starts in the fridge with eat-by `local_day + fridge_days`; freeze takes the fridge lot that goes off first and makes a freezer lot (best by `freeze day + freezer_days`); thaw takes the oldest freezer lot and makes a fridge lot ready at `at_ms + thaw_hours`, eat-by `thaw day + ceil(thaw_hours / 24) + fridge_days`; eat prefers lots already ready. `addMove` refuses more portions than the location holds; `undoMove` refuses when the remaining moves would overdraw (for example undoing a defrost whose portion was eaten). Eating writes a `food_entries` row (`meal = 'prep'`, macros x portions); undo and `deleteBatch` soft-delete it too. Deleting a recipe keeps its batches in stock.
+
+`planDefrost` simulates the next 7 days at `portions_per_day` (setting `meal_prep.portions_per_day.<tag|all>`, default 1, minus portions eaten today): each day eats from ready fridge lots by eat-by, and covers any gap from the freezer lot with the earliest best-by, advising to start the defrost `ceil(thaw_hours / 24)` days earlier (`late` when that day is past). It also reports days nothing covers and fridge portions that will pass eat-by uneaten. `stockAlerts` lists expired, due today/tomorrow, still defrosting and past-best-by freezer lots.
+
+Shopping: `addShoppingItem` merges into an open (unchecked) item with the same name (case-insensitive) and unit, after folding g/kg and ml/cl/dl/l into g and ml. `addRecipesToShopping` adds each recipe's ingredients x batches in one transaction.
 
 ### 4.3 Claude
 
@@ -315,12 +344,13 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 ## 8. UI
 
-`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
+`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, mealprep, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, the last error, warnings, and the latest day's values with device and "day not over".
+- **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
-Screens for the logs, goals and chat are not built yet; their tables exist.
+Screens for the other logs, goals and chat are not built yet; their tables exist.
 
 ## 9. Backup and restore
 
@@ -377,10 +407,10 @@ All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWe
 | `sync_state` | source | newest wins |
 | `metric_catalog` | source, metric | newest wins |
 | `health_samples` | source, device, metric, external_id | newest wins; existing `id` kept |
-| `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents` | id | newest wins |
+| `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `meal_preps`, `meal_prep_ingredients`, `meal_prep_tags`, `meal_prep_batches`, `meal_prep_moves`, `shopping_list_items` | id | newest wins |
 | `sync_runs` | id | existing rows kept |
 
-Known failure: a backup with a live `day_notes` row for a day that already has a live note under another id breaks the unique index, and the whole restore rolls back with that message.
+Known failure: a backup with a live `day_notes` row for a day that already has a live note under another id (or a live `meal_prep_tags` row duplicating a tag under another id) breaks the unique index, and the whole restore rolls back with that message.
 
 ## 10. Time and ids
 
@@ -402,7 +432,7 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --test tests/*.test.ts`), 78 tests, no device needed.
+Run with `npm test` (`tsx --test tests/*.test.ts`), 91 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -417,6 +447,8 @@ Run with `npm test` (`tsx --test tests/*.test.ts`), 78 tests, no device needed.
 | `capacitorDriver.test.ts` | migrations through the plugin fake, CRLF files, rollback via plugin, iOS column row |
 | `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches |
 | `secrets.test.ts` | credential validation and storage |
+| `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
+| `mealPrep.test.ts` | recipes with tags and ingredients, edit in place, moves and limits, food log rows, undo rules, tag filter, deleted recipes and batches, portions-a-day setting, unit folding, shopping list merge and clear |
 
 `tests/fakePlugin.ts` copies the Android plugin's behaviour that matters: `execute` splits on `";\n"`, strips comments, runs each piece as one statement, and both `execute` and `run` open their own transaction unless told not to.
 
@@ -453,5 +485,6 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 - Not yet run on a device (see [architecture.md risk 7](architecture.md#4-open-risks-and-spikes)).
 - Backups are manual and the whole file is built in memory. Fine for years of personal data, but it grows with every sample.
 - No screens yet for food, drinks, manual measurements, notes, goals or chat.
+- Meal prep reminders only show inside the app: there are no push notifications to defrost yet. Shelf-life defaults (4 days fridge, 90 days freezer, 24 h defrost) are rules of thumb the owner can change per recipe, not food-safety advice.
 - Text parsing of freddy output can break if freddy changes its wording; unknown lines show up as warnings rather than being lost.
 - `last_num` in `daily_metric_values` uses a correlated subquery, fine at personal scale.
