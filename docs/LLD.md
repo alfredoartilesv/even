@@ -7,7 +7,8 @@ Status as of 25 Oct 2026, phase 1, schema version 2. This document describes the
 ```
 src/
   App.tsx, main.tsx, styles.css   App shell (DB open, auto sync, tabs)
-  screens/                        TodayScreen, MealPrepScreen, SettingsScreen
+  screens/                        TodayScreen, FoodScreen, MealPrepScreen, SettingsScreen
+    food/                         Calories, History and Saved views of the food tab, photo downscaling
     mealprep/                     Stock, Recipes and Shopping views of the meal prep tab
   db/
     driver.ts                     SqlDriver interface
@@ -18,12 +19,16 @@ src/
     migrations/0001_init.sql      base tables
     migrations/0002_daily_data.sql
     migrations/0003_meal_prep.sql recipes, tags, batches, portion moves, shopping list
+    migrations/0004_food_log.sql  saved meals, food photos, food_entries.saved_meal_id
     samples.ts                    upsertSamples, sync_state cursor
     catalog.ts                    metric_catalog upsert, classifyMetric
     settings.ts                   app_settings get/set, deviceId
     queries.ts                    read models for screens
     mealPrep.ts                   recipes, tags, batches, portion moves, stock loading
     shopping.ts                   shopping list, unit folding
+    food.ts                       food log, calorie goal, saved meals and photos, suggestions
+  meals/
+    suggest.ts                    pure: meal slot by hour, suggestion ranking
   mealprep/
     stock.ts                      pure: foldBatch, stockAlerts, planDefrost
   sources/
@@ -58,7 +63,7 @@ docs/                             this documentation
 capacitor.config.json             app id, SQLite encryption settings
 ```
 
-Dependency rule: nothing under `db/` (except `open.ts`), `mealprep/`, `sources/`, `sync/` (except the types it imports), `backup/backup.ts`, `settings/secrets.ts` or `lib/` imports Capacitor at runtime. Those modules run in Node.
+Dependency rule: nothing under `db/` (except `open.ts`), `mealprep/`, `meals/`, `sources/`, `sync/` (except the types it imports), `backup/backup.ts`, `settings/secrets.ts` or `lib/` imports Capacitor at runtime. Those modules run in Node.
 
 ## 2. Core interfaces
 
@@ -162,7 +167,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 ## 4. Schema
 
-Version 3 (`0001_init.sql` + `0002_daily_data.sql` + `0003_meal_prep.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 4 (`0001_init.sql` to `0004_food_log.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -178,6 +183,8 @@ erDiagram
   meal_prep_batches ||--o{ meal_prep_moves : batch_id
   meal_prep_moves |o--o| food_entries : food_entry_id
   meal_preps |o--o{ shopping_list_items : meal_prep_id
+  saved_meals ||--o{ food_entries : saved_meal_id
+  food_photos |o--o| saved_meals : photo_id
 ```
 
 Only the `chat_*`, `ai_disclosures` and `meal_prep_*` / `shopping_list_items` links are real foreign keys; the others are logical (matching values, no constraint).
@@ -237,6 +244,22 @@ Stock is never stored. `loadStock` reads live batches that still have portions (
 `planDefrost` simulates the next 7 days at `portions_per_day` (setting `meal_prep.portions_per_day.<tag|all>`, default 1, minus portions eaten today): each day eats from ready fridge lots by eat-by, and covers any gap from the freezer lot with the earliest best-by, advising to start the defrost `ceil(thaw_hours / 24)` days earlier (`late` when that day is past). It also reports days nothing covers and fridge portions that will pass eat-by uneaten. `stockAlerts` lists expired, due today/tomorrow, still defrosting and past-best-by freezer lots.
 
 Shopping: `addShoppingItem` merges into an open (unchecked) item with the same name (case-insensitive) and unit, after folding g/kg and ml/cl/dl/l into g and ml. `addRecipesToShopping` adds each recipe's ingredients x batches in one transaction.
+
+### 4.2c Food log (0004)
+
+| Table | Columns besides Std | Constraints |
+|---|---|---|
+| `food_photos` | `id`, `mime` (image/jpeg, image/webp), `data_b64`, `width`, `height`, `bytes` | The app sends at most 1024 px JPEG, re-encoded through a canvas (no EXIF). `food.ts` rejects non-base64 data and more than 1.5 MB |
+| `saved_meals` | `id`, `name`, `meal` (usual slot), `calories`, `protein_g`, `carbs_g`, `fat_g` (per serving), `notes`, `photo_id` FK | Same `meal` values as `food_entries` |
+| `food_entries` | + `saved_meal_id` FK | Index (saved_meal_id), live |
+
+Photos are only kept with saved meals: logging with a photo bookmarks the meal. Use counts and "last eaten" are not stored, they come from the entries linked by `saved_meal_id`. `saveEntryAsMeal` also links earlier live entries with the same name (case-insensitive) that have no live saved meal. Deleting a saved meal soft-deletes it and its photo; its entries stay in the history, without a photo. Replacing a photo soft-deletes the old one.
+
+The daily calorie target is a `goals` row (`target_kind = 'food'`, `metric = 'calories'`, `comparator = '<='`, `period = 'day'`, unit kcal). `setCalorieGoal` keeps one live row: a change on a later day sets `end_day` on the old one before soft-deleting it, a change on the same day replaces it.
+
+`deleteFood` on an entry made by eating a meal prep portion calls `undoMove`, so the portion goes back into stock. `relogFood` copies an entry to now; a copied meal prep entry gets the slot for the hour instead of `prep` and does not touch stock.
+
+`suggestions` offers saved meals plus anything else logged at least twice in the last 30 days (by lower-case name, `prep` excluded). `rankSuggestions` scores: uses in 30 days (capped at 10), +4 if its usual slot (most logged slot, else the saved slot) matches `mealForHour(now)` (5-10 breakfast, 11-15 lunch, 16-18 snack, otherwise dinner), +2 if saved, +1 if eaten in the last 3 days, -6 if already logged today.
 
 ### 4.3 Claude
 
@@ -354,9 +377,10 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 ## 8. UI
 
-`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, mealprep, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
+`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, the last error, warnings, and the latest day's values with device and "day not over".
+- **FoodScreen**: three views. *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day bar chart of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
@@ -417,7 +441,7 @@ All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWe
 | `sync_state` | source | newest wins |
 | `metric_catalog` | source, metric | newest wins |
 | `health_samples` | source, device, metric, external_id | newest wins; existing `id` kept |
-| `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `meal_preps`, `meal_prep_ingredients`, `meal_prep_tags`, `meal_prep_batches`, `meal_prep_moves`, `shopping_list_items` | id | newest wins |
+| `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `meal_preps`, `meal_prep_ingredients`, `meal_prep_tags`, `meal_prep_batches`, `meal_prep_moves`, `shopping_list_items`, `food_photos`, `saved_meals` | id | newest wins |
 | `sync_runs` | id | existing rows kept |
 
 Known failure: a backup with a live `day_notes` row for a day that already has a live note under another id (or a live `meal_prep_tags` row duplicating a tag under another id) breaks the unique index, and the whole restore rolls back with that message.
@@ -540,7 +564,7 @@ The SDK already retries 408/409/429/5xx twice before this. Messages never includ
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --test tests/*.test.ts`), 109 tests, no device needed.
+Run with `npm test` (`tsx --test tests/*.test.ts`), 117 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -559,6 +583,7 @@ Run with `npm test` (`tsx --test tests/*.test.ts`), 109 tests, no device needed.
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
+| `food.test.ts` | slot by hour and ranking, log/edit/relog/delete in the owner's zone, range with empty days, history paging, calorie goal history, saved meals from entries with linked history and photo replace/delete, servings, photo validation, suggestions by time of day without prep, deleting a prep entry restores stock, backup round trip with photos |
 | `mealPrep.test.ts` | recipes with tags and ingredients, edit in place, moves and limits, food log rows, undo rules, tag filter, deleted recipes and batches, portions-a-day setting, unit folding, shopping list merge and clear |
 
 `tests/fakePlugin.ts` copies the Android plugin's behaviour that matters: `execute` splits on `";\n"`, strips comments, runs each piece as one statement, and both `execute` and `run` open their own transaction unless told not to.
@@ -598,6 +623,7 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 - Backups are manual and the whole file is built in memory. Fine for years of personal data, but it grows with every sample.
 - No screens yet for food, drinks, manual measurements, notes, goals or chat.
 - The chat is non-streaming (native HTTP returns the whole reply), so a long answer shows up all at once after the wait.
+- Food photos live base64 in SQLite and in the backup file. Fine for a few hundred saved meals (about 100 kB each); a much larger photo library would need files on disk instead.
 - Meal prep reminders only show inside the app: there are no push notifications to defrost yet. Shelf-life defaults (4 days fridge, 90 days freezer, 24 h defrost) are rules of thumb the owner can change per recipe, not food-safety advice.
 - Text parsing of freddy output can break if freddy changes its wording; unknown lines show up as warnings rather than being lost.
 - `last_num` in `daily_metric_values` uses a correlated subquery, fine at personal scale.
