@@ -5,8 +5,8 @@ import type { SqlDriver } from "./driver";
 const UPSERT = `
 INSERT INTO health_samples
   (id, source, device, external_id, metric, start_ms, end_ms, offset_min,
-   value_num, value_text, unit, raw_json, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   value_num, value_text, unit, raw_json, local_day, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (source, device, metric, external_id) DO UPDATE SET
   start_ms   = excluded.start_ms,
   end_ms     = excluded.end_ms,
@@ -15,7 +15,13 @@ ON CONFLICT (source, device, metric, external_id) DO UPDATE SET
   value_text = excluded.value_text,
   unit       = excluded.unit,
   raw_json   = excluded.raw_json,
+  local_day  = excluded.local_day,
   updated_at = excluded.updated_at`;
+
+/** Calendar day of a sample in the zone its offset describes (same rule as migration 0002's backfill). */
+export function sampleLocalDay(s: Pick<SampleInput, "startMs" | "offsetMin">): string {
+  return new Date(s.startMs + s.offsetMin * 60_000).toISOString().slice(0, 10);
+}
 
 /** Insert or refresh samples in one transaction. Re-running with the same input is a no-op in effect. */
 export async function upsertSamples(
@@ -41,6 +47,7 @@ export async function upsertSamples(
         s.valueText ?? null,
         s.unit ?? null,
         s.raw === undefined ? null : JSON.stringify(s.raw),
+        sampleLocalDay(s),
         nowMs,
         nowMs,
       ]);

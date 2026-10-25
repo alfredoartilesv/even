@@ -1,6 +1,6 @@
 import { addDays, localDay } from "../lib/tz";
 import { parseListMetrics, parseQueryMetrics, type MetricInfo } from "./freddyText";
-import type { SampleInput, Source, SyncResult } from "./types";
+import type { CatalogEntry, SampleInput, Source, SyncResult } from "./types";
 
 /**
  * Anything that can call a freddy MCP tool and hand back its text output.
@@ -63,7 +63,20 @@ export class FreddySource implements Source {
       }
     }
 
-    const names = this.opts.metrics ?? defaultMetricFilter(parseListMetrics(await caller.callTool("list_metrics", {})));
+    let names = this.opts.metrics;
+    let catalog: CatalogEntry[] | undefined;
+    if (!names) {
+      const listed = parseListMetrics(await caller.callTool("list_metrics", {}));
+      names = defaultMetricFilter(listed);
+      catalog = listed.map((m) => ({
+        metric: m.name,
+        unit: m.unit,
+        device: m.device,
+        firstDay: m.from,
+        lastDay: m.to,
+        records: m.records,
+      }));
+    }
     if (names.length === 0) {
       warnings.push("No metrics selected (list_metrics returned nothing usable).");
     }
@@ -81,6 +94,6 @@ export class FreddySource implements Source {
     }
 
     // Re-fetch yesterday next time: it may have been incomplete at the last read.
-    return { samples, nextCursor: addDays(today, -1), warnings };
+    return { samples, catalog, nextCursor: addDays(today, -1), warnings };
   }
 }

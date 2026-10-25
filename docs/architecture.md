@@ -1,6 +1,6 @@
 # Health App: Architecture Decisions
 
-Status as of 24 Oct 2026. This file records the current decisions, not the discussion history. When a decision changes, edit it here and note the date.
+Status as of 25 Oct 2026. This file records the current decisions, not the discussion history. When a decision changes, edit it here and note the date.
 
 ## 1. Product summary
 
@@ -17,13 +17,14 @@ A personal health app, Android first, iPhone second. It pulls wearable and healt
 | UI | React + Vite | Decided |
 | Mobile shell | Capacitor (Android first, iOS from the same code) | Decided |
 | Local database | SQLite via `@capacitor-community/sqlite`, encrypted with SQLCipher | Decided |
-| Query layer | Drizzle (sqlite-proxy driver). Fallback: typed raw SQL + Zod | Test early |
+| Query layer | Typed raw SQL behind `SqlDriver`, Zod at the edges (backup files). Drizzle rejected 25 Oct 2026, see risk 4 | Decided |
 | Data source | freddy as the single intermediary, via its Personal REST API (bearer key), behind a `FreddySource` adapter | Decided; key + plan still to confirm (section 4) |
 | Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
 | Garmin | Via freddy only. No direct Garmin integration. | Decided |
 | Claude integration | Called directly from the app with a user-supplied API key; tool-use loop runs locally against SQLite | Decided |
-| Secrets | API key and DB encryption key in Android Keystore (secure-storage plugin) | Decided |
-| Backups | Automatic Google backup disabled for the DB; manual encrypted export/restore | Decided |
+| Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. DB passphrase in the SQLite plugin's own secure store. Secrets are never written to SQLite, so never in a backup | Built 25 Oct 2026 |
+| Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`); manual export/restore encrypted with a password | Built 25 Oct 2026 |
+| Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
 
 ### Why these choices
 - **TypeScript, no Rust:** a solo project at personal scale (a few million rows a year). One language, and the official Anthropic and MCP SDKs are first-class in TypeScript.
@@ -39,6 +40,29 @@ A personal health app, Android first, iPhone second. It pulls wearable and healt
 - A `sync_state` table holds per-source cursors.
 - Migrations are numbered SQL files, applied at startup using `PRAGMA user_version`.
 - For daily totals, prefer freddy's `<metric>_total` "Merged" metrics. They are already de-duplicated across apps. Never add per-app rows together.
+- Rows that belong to a calendar day also store `local_day` (YYYY-MM-DD in the zone in force for that row), so screens filter by day without timezone maths in SQL.
+- No semicolons inside SQL comments in migration files: the Android plugin splits scripts on `";\n"`.
+
+## 3b. Local schema (migrations 0001 + 0002, 25 Oct 2026)
+
+Designed for every candidate daily screen (section 8), so picking the screens does not need another migration.
+
+| Table / view | Holds | Notes |
+|---|---|---|
+| `health_samples` | Every synced reading | Unique (source, device, metric, external_id). `local_day` + index (metric, local_day) |
+| `metric_catalog` | What each source offers (from `list_metrics`) and how to show it | Sync refreshes unit, days and counts. Never overwrites the user's label, category, `daily_agg`, `higher_is_better`, `pinned`, `sort_order` |
+| `daily_metric_values` (view) | One row per metric/day/source/device with readings, avg, sum, min, max, last, partial | The screen picks the aggregate named by `metric_catalog.daily_agg` (`src/db/queries.ts`) |
+| `food_entries`, `drink_entries` | Food and alcohol logs | Views `daily_nutrition`, `daily_alcohol` (grams = ml Ã— ABV Ã— 0.789) |
+| `manual_measurements` | Hand-entered readings: other scale, blood pressure (`value_num2` = diastolic), glucose, supplements, symptoms | `kind` is free text, so new kinds need no migration |
+| `day_notes` | Daily check-in: mood 1â€“5, energy 1â€“5, note | One live row per day (partial unique index) |
+| `goals` | Targets on a sample metric, manual kind, food column, alcohol, or free text | `period` day/week/month. A CHECK requires metric + comparator + target unless free text |
+| `chat_conversations`, `chat_messages` | Claude chat | `content_json` = Anthropic content blocks verbatim (tool_use / tool_result included), so a chat can be replayed |
+| `ai_disclosures` | The "what was sent to Claude" panel | `data_class` aggregate / raw / note, plus payload and size |
+| `consents` | GDPR consent history per scope (e.g. `claude.raw_series`) | Newest row per scope is in force |
+| `sync_runs` | Every sync attempt | Drives "last synced", warnings, errors |
+| `sync_state`, `app_settings` | Per-source cursor; non-secret settings (`device_id`, `freddy.transport`) | |
+
+All user-authored tables carry `updated_at`, `deleted_at`, `origin_device_id`. Backup and restore cover every table (a test fails if a new table is not added to `BACKUP_TABLES`).
 
 ## 4. Open risks and spikes (do these first)
 
@@ -52,9 +76,11 @@ A personal health app, Android first, iPhone second. It pulls wearable and healt
    - Not verified: CORS. Avoid the question by calling the API with native HTTP (Capacitor `CapacitorHttp`), not browser fetch.
    - Not tested live: we have no API key yet.
 2. **[HIGH] The phone holds the only copy of user-authored data** (notes, goals, manual logs, settings). Health samples can be re-fetched from freddy. Mitigation: encrypted manual export/restore. Phase 2 sync removes the problem.
+   - 25 Oct 2026: built (`src/backup/backup.ts`, Settings screen). The file is a JSON envelope around AES-256-GCM(gzip(JSON)), with the key from the password via PBKDF2-SHA256 (600k iterations) and the header bound as GCM additional data. It covers every table, samples included, because on the FREE plan samples older than 7 days are not re-fetchable either. Restore is a merge in one transaction: newer `updated_at` wins, and this install keeps its own `device_id`. Not yet automatic: the user has to remember to export.
 3. **[HIGH] Vendor dependency on freddy**, a small service. Keep the `Source` interface swappable and mirror data locally.
 4. **[MEDIUM] Drizzle with Capacitor SQLite** needs glue code. Test it in the first spike.
-   - 25 Oct 2026: the raw `SqlDriver` now runs on the plugin (`src/db/capacitorDriver.ts`); Drizzle still untested. Plugin quirks the driver handles: `execute`/`run` open their own transaction unless passed `false` (we map BEGIN/COMMIT/ROLLBACK to the plugin's transaction calls); Android splits scripts on `";\n"` and runs each piece as one statement, so CRLF would silently drop statements (driver normalises, `.gitattributes` pins `*.sql` to LF); iOS `query` can prepend an `ios_columns` row. The plugin leaves `user_version` alone because we register no upgrade statements, so `migrate()` owns it. The DB passphrase is random per install and kept in the plugin's own secure store, not a separate secure-storage plugin.
+   - **[RESOLVED 25 Oct 2026] Drizzle rejected.** `sqlite-proxy` maps rows by position, but the plugin returns objects keyed by column name. Single-table queries work, but a join that selects two `id` columns silently puts values in the wrong fields (`npm run spike:drizzle` shows it). Making it safe means aliasing every joined column by hand, which defeats the point. Decision: typed raw SQL.
+   - 25 Oct 2026: the raw `SqlDriver` runs on the plugin (`src/db/capacitorDriver.ts`). Plugin quirks the driver handles: `execute`/`run` open their own transaction unless passed `false` (we map BEGIN/COMMIT/ROLLBACK to the plugin's transaction calls); Android splits scripts on `";\n"` and runs each piece as one statement, so CRLF would silently drop statements (driver normalises, `.gitattributes` pins `*.sql` to LF); iOS `query` can prepend an `ios_columns` row. The plugin leaves `user_version` alone because we register no upgrade statements, so `migrate()` owns it. The DB passphrase is random per install and kept in the plugin's own secure store, not a separate secure-storage plugin.
 5. **[MEDIUM] Android background sync is unreliable** (Doze, battery optimization). Main path: sync on app open and pull-to-refresh. Periodic background sync is a bonus. Backfill history in windowed calls with a progress indicator.
 
 6. **[HIGH] Free-plan history window.** The owner's freddy account is on FREE: 7 days of history, 1 connected source, Garmin the only queryable provider. Anything older than 7 days cannot be fetched, so the local mirror only keeps what it has synced. Sync at least every few days and build the first sync soon. Health Connect (the Android phone's own data, including any nutrition or hydration entries) is connected in freddy but **paused** because of the 1-source limit, so it is not flowing in. Decide: upgrade, or choose which source to keep.
@@ -69,6 +95,7 @@ The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP en
 - Terms: freddy forbids sharing the MCP endpoint with third parties for data collection. An app on the owner's own phone, using the owner's own endpoint, is not a third party, but it is not what the endpoint is documented for. Revisit before any public release.
 - **Probe result (25 Oct 2026, real endpoint):** URL alone returns 401; the URL plus `Authorization: Bearer <key>` works. Replies are `text/event-stream` (SSE), stateless (no session id), server `freddy 0.2.0`, 9 tools, 81 metrics. CORS preflight allows origin `*` and headers `content-type, authorization, mcp-session-id` only. So the official MCP SDK (which also sends `mcp-protocol-version`) would be blocked in a WebView; `src/sources/mcpHttp.ts` is a minimal fetch client that sends only the allowed headers.
 - Still unverified: the real POST response CORS headers from inside an Android WebView, and SSE handling there. Fallback if blocked: Capacitor native HTTP (bypasses CORS), then Pro + REST.
+- 25 Oct 2026: native HTTP is now the **default** transport on the phone (`src/sources/nativeFetch.ts`, a fetch look-alike over `CapacitorHttp`, so `McpHttpCaller` is unchanged). WebView `fetch` stays selectable in Settings to test CORS. The app syncs on every launch and on "Sync now". Each attempt is logged in `sync_runs`, and a failure keeps the cursor.
 
 ## 5. Claude integration (phase 1)
 
@@ -103,11 +130,12 @@ The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP en
 
 ## 8. Open question for the owner
 
-Which 2–3 screens will be opened every day (for example today's sleep and recovery, a weekly trend, a Claude chat)? The schema and sync scope should come from that, so that only the needed metrics are modeled. Also still unanswered: which differentiator justifies the app, given that Claude plus the freddy connector already lets you ask questions about your data (own history, dashboards, derived metrics, manual logs, proactive alerts).
+Which 2â€“3 screens will be opened every day (for example today's sleep and recovery, a weekly trend, a Claude chat)? The schema and sync scope should come from that, so that only the needed metrics are modeled. Also still unanswered: which differentiator justifies the app, given that Claude plus the freddy connector already lets you ask questions about your data (own history, dashboards, derived metrics, manual logs, proactive alerts).
 
 ## 9. Next steps
 
-1. ~~freddy spike~~ done: REST API exists. Next: get an API key, call `/profile` and `/catalog`, confirm what the FREE plan allows.
-2. Answer the open question in section 8.
-3. Draft the local schema from the daily screens.
-4. Scaffold Capacitor + React + SQLite + migrations, and test Drizzle.
+1. ~~freddy spike~~ done (MCP on FREE, section 4b).
+2. ~~Local schema~~ done for all candidate screens (section 3b). ~~Capacitor + SQLite + migrations, Drizzle spike~~ done.
+3. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once to settle the CORS question.
+4. Answer the open question in section 8, then build those screens on the schema in 3b.
+5. Claude chat (section 5) on `chat_*`, `ai_disclosures`, `consents`.

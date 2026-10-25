@@ -4,34 +4,36 @@ Personal health app: wearable data via freddy, local encrypted SQLite, Claude on
 
 ## Status (phase 1)
 
-Done and tested (`npm test`):
-- UUIDv7 ids, SQL driver interface, migration runner (`PRAGMA user_version`, one transaction per migration, rollback on failure)
-- `0001_init.sql`: `health_samples`, `sync_state`, `food_entries`, `drink_entries`, `app_settings`
-- freddy over MCP: text parsers, `FreddySource`, sample upsert, `scripts/freddy-sync.ts`
-- Capacitor SQLite driver (`src/db/capacitorDriver.ts`, SQLCipher, passphrase in the plugin's secure store); the app opens the DB and runs migrations at startup (`src/db/open.ts`). Tested against a fake that copies the Android plugin's statement splitting; **not yet run on a device**.
+Done and tested (`npm test`, all against Node's SQLite and a fake that copies the Android plugin's behaviour):
+- Schema `0001` + `0002`: samples with `local_day`, metric catalog, daily views, food/drink/manual logs, day notes, goals, Claude chat with a "what was sent" log, consents, sync history. Table guide: [docs/architecture.md section 3b](docs/architecture.md).
+- Encrypted SQLite on the phone (SQLCipher), migrations at startup.
+- freddy sync in the app: URL + key in the Keystore (Settings), sync on launch and with "Sync now", native HTTP by default, every attempt logged.
+- Encrypted backup export (share sheet) and restore (merge, newest wins).
+- Android auto-backup off (`scripts/android-harden.mjs`).
+- Drizzle evaluated and rejected (`npm run spike:drizzle`).
 
-Not started: in-app freddy sync, screens, Claude chat.
-## First-time setup
+**Not yet run on a device.** Not started: the daily screens beyond the "latest day" list, Claude chat.
+
+## Setup
 
 ```bash
-npm install react react-dom @capacitor/core @capacitor-community/sqlite zod
-npm install -D vite @vitejs/plugin-react typescript tsx @types/react @types/react-dom @types/node @capacitor/cli
-npm test          # all tests should pass
-npm run build     # typecheck + vite build
-npm run dev       # browser dev server
+npm install
+npm test
+npm run build
+npm run dev                         # browser: UI only, no local database (native only)
+node --env-file=.env --import tsx scripts/freddy-sync.ts   # real freddy -> SQLite on this PC
 ```
 
-Then, for Android (needs Android Studio):
+On the phone (needs Android Studio and the SDK):
 
 ```bash
-npx cap add android
-npm run build && npx cap sync android
-npx cap open android
+npx cap add android        # once. android/ is git-ignored
+npm run android:sync       # build + cap sync + disable Android backups. Run after every change
+npx cap open android       # run on the S23 from Android Studio
 ```
 
 ## Next steps
 
-1. **freddy spike** (see docs/architecture.md section 4): can a third-party app read freddy data, and how?
-2. Run the app on the S23 (`npx cap add android`) and confirm the encrypted DB opens and migrates.
-3. Pick the 2-3 daily screens, then build the freddy adapter against them.
-4. Disable Android auto-backup for the database; add manual encrypted export/restore.
+1. Run it on the S23: DB opens and migrates, sync works over native HTTP, backup export/restore works. Then try the "WebView fetch" transport once (CORS question, docs 4b).
+2. Choose the 2-3 daily screens (docs section 8) and build them on the existing schema.
+3. Claude chat.
