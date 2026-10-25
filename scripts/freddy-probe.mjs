@@ -6,19 +6,20 @@
 //   3. Does the server send CORS headers for a WebView origin?
 //   4. What do list_metrics / query_metrics return, in text?
 //
-// It never prints the URL or the key. Run in PowerShell, typing the values at the prompts
-// (prompt input is not stored in your command history):
+// It never prints the URL or the key. Put them in .env (copy .env.example), then run:
+//
+//   node --env-file=.env scripts/freddy-probe.mjs
+//
+// (--env-file needs Node 20.6+.) Or set them for one session in PowerShell:
 //
 //   $env:FREDDY_MCP_URL = Read-Host "MCP URL"
 //   $env:FREDDY_MCP_KEY = Read-Host "MCP key (Enter to skip)"
 //   node scripts/freddy-probe.mjs
-//
-// Clear them afterwards:  Remove-Item Env:FREDDY_MCP_URL, Env:FREDDY_MCP_KEY
 
 const url = process.env.FREDDY_MCP_URL;
 const key = process.env.FREDDY_MCP_KEY || "";
 if (!url) {
-  console.error("Set FREDDY_MCP_URL first (see comments at the top of this file).");
+  console.error("FREDDY_MCP_URL is empty. Fill it in .env and run: node --env-file=.env scripts/freddy-probe.mjs");
   process.exit(1);
 }
 
