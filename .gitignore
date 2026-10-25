@@ -9,3 +9,6 @@ dist/
 # Remove these two lines if you decide to commit the native projects.
 android/
 ios/
+
+# Keep the committed template
+!.env.example
