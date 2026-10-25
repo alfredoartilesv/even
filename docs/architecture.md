@@ -25,7 +25,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 | Transport to freddy | Capacitor native HTTP by default (not subject to WebView CORS). WebView `fetch` selectable in Settings | Built 25 Oct 2026 |
 | Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
 | Garmin | Via freddy only. No direct Garmin integration. | Decided |
-| Claude integration | Called directly from the app with the owner's API key via the official SDK over native HTTP; manual tool-use loop runs locally against SQLite; per-class consent and a disclosure log | Core built 25 Oct 2026; no screen yet |
+| Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; no chat screen yet |
 | Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
 | Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`). Manual export/restore, encrypted with a password | Built 25 Oct 2026 |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
@@ -102,6 +102,17 @@ Core built 25 Oct 2026 (`src/chat/`); the chat screen is not built yet. Details 
 - Chat needs network; the rest of the app works offline.
 - Present output as insights, not diagnosis (in the system prompt).
 
+**Decision 26 Oct 2026: the chat is an agent that can change data, under the owner's control.** It logs meals (also estimated from a photo), logs saved meals and meal prep portions, saves favourites (with the chat photo), creates meal prep recipes, puts ingredients on the shopping list, records cooked batches, and logs drinks, measurements, day notes and goals. It writes through the same functions as the Food and Meal prep screens (`food.ts`, `mealPrep.ts`, `shopping.ts`), so its entries behave exactly like the owner's. The limits are enforced in code, not only described in the prompt:
+- **Additive only.** New rows, or more of an open shopping-list line. It cannot edit or delete anything, set the calorie target, or touch settings, consents, keys, sync or backups.
+- **Every change is confirmed** by the owner against the exact lines to be saved. Without a confirmation handler every change is declined.
+- **Every proposal is logged** (`agent_actions`) and each saved one can be **undone** with the app's own undo for that kind of row (an eaten prep portion goes back into stock, a merged shopping quantity goes back to what it was). Undo checks every effect's table first.
+- **Hard input limits:** logs only from 60 days back to today, plausible ranges for calories, macros, portions and volumes, capped counts and text lengths.
+- **Photos** need their own consent (`claude.photos`), come from the app's downscaling picker, and each one sent is logged.
+- **Prompt injection** (text in photos, notes, food names) is contained by the rules above: the worst an injected instruction can do is propose a change the owner sees and must confirm.
+- **Health guardrails** in the prompt: no very-low-calorie or unsafe plans, allergens cannot be guaranteed, estimates come with their assumptions.
+
+Why additive-only with confirmation rather than full editing: wrong numbers in a health log are worse than a missing entry, and an undo per action keeps every mistake one tap from fixed. Editing and deleting stay on the app's own screens.
+
 ## 6. Phase 2 parking lot (noted, not built)
 
 - **Server:** Node + TypeScript API (Fastify or Hono), Postgres in Docker, same setup in dev and production. No SQLite on the server.
@@ -133,6 +144,6 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once.
 2. Answer the open question in section 8, then build those screens on the existing schema.
-3. Chat screen on top of `src/chat/` (owner is building the UI): key field in Settings, consent dialog, conversation list, "what was sent" panel. Try the engine first from the PC with `npm run chat`.
+3. Chat screen on top of `src/chat/` (owner is building the UI): key field in Settings, consent dialog, confirmation sheet for changes, photo button (`downscalePhoto` + `attachmentFromPhoto`), conversation list, "What was sent to Claude" and "Assistant activity" (with undo). Try the agent first from the PC with `npm run chat`.
 4. Garmin export importer, once the owner's export arrives.
 5. Decide on freddy FREE vs Pro (risk 6).

@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SqlDriver } from "../db/driver";
 import { uuidv7 } from "../lib/uuidv7";
+import { logAgentAction, WRITE_TOOLS, WRITE_TOOLS_BY_NAME, type ActionProposal } from "./actions";
 import { CONSENT_TEXT, hasConsent, recordConsent, SCOPE_FOR, type ConsentScope, type DataClass } from "./consent";
+import { imageBytes, validateAttachments, type ImageAttachment } from "./images";
 import { dateContext, SYSTEM_PROMPT } from "./prompt";
 import { appendMessage, createConversation, loadApiMessages, loadMessages, renameConversation } from "./store";
 import { CHAT_TOOLS, TOOLS_BY_NAME } from "./tools";
@@ -17,7 +19,9 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Claude Opus 5.5 defaults to medium; set explicitly so a default change upstream does not move cost silently. */
 export const DEFAULT_EFFORT: Effort = "medium";
 const MAX_TOKENS = 16000; // non-streaming: native HTTP reads the whole reply at once
-const DEFAULT_MAX_TOOL_ROUNDS = 8;
+const DEFAULT_MAX_TOOL_ROUNDS = 10;
+/** Read tools, then write tools, in a fixed order: the list is part of the cached prompt prefix. */
+const TOOL_DEFINITIONS = [...CHAT_TOOLS.map((t) => t.definition), ...WRITE_TOOLS.map((t) => t.definition)];
 
 /** One non-streaming Messages API call. The real one is claudeCreate() in client.ts; tests pass a fake. */
 export type ClaudeCreate = (params: CreateParams) => Promise<BetaMessage>;
@@ -27,14 +31,19 @@ export interface ChatDeps {
   create: ClaudeCreate;
   deviceId: string;
   now?: () => number;
-  /** Zone used for "today" in the prompt. Default: the device's zone. */
+  /** Zone for "now" and for the times of logged entries. Default: the device's zone. */
   timeZone?: string;
   effort?: Effort;
   /**
    * Asked when a kind of data has no consent yet. Show CONSENT_TEXT[scope] and resolve with
-   * the user's answer; the decision is recorded either way. Without it, missing consent is a "no".
+   * the owner's answer; the decision is recorded either way. Without it, missing consent is a "no".
    */
   askConsent?: (scope: ConsentScope, text: string) => Promise<boolean>;
+  /**
+   * Asked before every change the assistant wants to make. Show proposal.summary and
+   * proposal.lines, resolve true to save. Without it, every change is declined.
+   */
+  confirmAction?: (proposal: ActionProposal) => Promise<boolean>;
   maxToolRounds?: number;
 }
 
@@ -43,6 +52,15 @@ export interface ToolCallReport {
   dataClass: DataClass | null;
   /** false when consent was missing; nothing was sent. */
   allowed: boolean;
+  error?: string;
+}
+
+export interface ActionReport {
+  /** agent_actions id: pass to undoAgentAction. */
+  id: string;
+  tool: string;
+  summary: string;
+  status: "applied" | "declined" | "failed";
   error?: string;
 }
 
@@ -59,13 +77,20 @@ export interface ChatTurnResult {
   fallbackUsed: boolean;
   refusal?: { category: string | null; explanation: string | null };
   toolCalls: ToolCallReport[];
+  /** Changes the assistant proposed in this turn and what happened to them. */
+  actions: ActionReport[];
   usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; requests: number };
 }
 
-/** No consent to send anything to Claude: show CONSENT_TEXT[scope] and record the answer first. */
+export interface AskOptions {
+  /** Photos to send with the question (needs the claude.photos consent). */
+  images?: ImageAttachment[];
+}
+
+/** No consent to send something: show CONSENT_TEXT[scope] and record the answer first. Nothing was sent or stored. */
 export class ConsentRequiredError extends Error {
   constructor(readonly scope: ConsentScope) {
-    super("Allow sending your questions and data summaries to Claude first");
+    super(scope === "claude.photos" ? "Allow sending photos to Claude first" : "Allow sending your questions and data summaries to Claude first");
     this.name = "ConsentRequiredError";
   }
 }
@@ -102,43 +127,63 @@ export function toChatError(err: unknown): ChatApiError {
   return new ChatApiError("unknown", `Chat failed: ${(err as Error)?.message ?? String(err)}`, false);
 }
 
-/** Start a conversation with a first question. */
-export async function startConversation(deps: ChatDeps, text: string): Promise<ChatTurnResult> {
-  await requireBaseConsent(deps);
+/** Start a conversation with a first question (and optional photos). */
+export async function startConversation(deps: ChatDeps, text: string, opts: AskOptions = {}): Promise<ChatTurnResult> {
+  await requireConsents(deps, opts);
   const now = (deps.now ?? Date.now)();
-  const id = await createConversation(deps.db, deps.deviceId, { title: titleFrom(text), model: CHAT_MODEL, now });
-  return askClaude(deps, id, text);
+  const id = await createConversation(deps.db, deps.deviceId, { title: titleFrom(text, opts), model: CHAT_MODEL, now });
+  return askClaude(deps, id, text, opts);
 }
 
 /** Add a question to a conversation and run Claude (with local tools) until it answers. */
-export async function askClaude(deps: ChatDeps, conversationId: string, text: string): Promise<ChatTurnResult> {
+export async function askClaude(deps: ChatDeps, conversationId: string, text: string, opts: AskOptions = {}): Promise<ChatTurnResult> {
   const question = text.trim();
-  if (!question) throw new Error("Empty question");
-  await requireBaseConsent(deps);
+  const images = validateAttachments(opts.images ?? []);
+  if (!question && images.length === 0) throw new Error("Empty message");
+  await requireConsents(deps, opts);
+  const now = deps.now ?? Date.now;
+  const timeZone = deps.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const history = await loadMessages(deps.db, conversationId);
-  if (history.length === 0) await renameConversation(deps.db, conversationId, titleFrom(question), (deps.now ?? Date.now)());
-  await appendMessage(deps.db, deps.deviceId, {
-    conversationId,
-    role: "user",
-    content: [{ type: "text", text: question }],
-    now: (deps.now ?? Date.now)(),
-  });
+  if (history.length === 0) await renameConversation(deps.db, conversationId, titleFrom(question, opts), now());
+
+  // Photos first, then the question, then the app's clock line. Stored as sent, so the cache prefix stays stable.
+  const content: ContentBlockParam[] = [
+    ...images.map((i) => ({ type: "image" as const, source: { type: "base64" as const, media_type: i.mediaType, data: i.data } })),
+    ...(question ? [{ type: "text" as const, text: question }] : []),
+    { type: "text", text: `[App] ${dateContext(now(), timeZone)}` },
+  ];
+  const t = now();
+  const messageId = await appendMessage(deps.db, deps.deviceId, { conversationId, role: "user", content, now: t });
+  for (const img of images) {
+    const bytes = imageBytes(img.data);
+    await insertDisclosure(deps, {
+      conversationId,
+      messageId,
+      at: t,
+      toolName: null,
+      dataClass: "photo",
+      summary: `Photo (${img.mediaType}, ${Math.round(bytes / 1024)} KB)`,
+      payload: JSON.stringify({ media_type: img.mediaType, bytes, stored_in: "chat_messages" }),
+      bytes,
+    });
+  }
   return runLoop(deps, conversationId);
 }
 
 /**
- * Resume after a ChatApiError: the stored history already ends with the user's question
+ * Resume after a ChatApiError: the stored history already ends with the owner's question
  * (or tool results), so this only re-runs the loop.
  */
 export async function continueConversation(deps: ChatDeps, conversationId: string): Promise<ChatTurnResult> {
-  await requireBaseConsent(deps);
+  await requireConsents(deps, {});
   const history = await loadMessages(deps.db, conversationId);
   if (history.at(-1)?.role !== "user") throw new Error("Nothing to continue: the last message is already an answer");
   return runLoop(deps, conversationId);
 }
 
-async function requireBaseConsent(deps: ChatDeps): Promise<void> {
+async function requireConsents(deps: ChatDeps, opts: AskOptions): Promise<void> {
   if (!(await consentFor(deps, "claude.aggregates"))) throw new ConsentRequiredError("claude.aggregates");
+  if ((opts.images?.length ?? 0) > 0 && !(await consentFor(deps, "claude.photos"))) throw new ConsentRequiredError("claude.photos");
 }
 
 async function consentFor(deps: ChatDeps, scope: ConsentScope): Promise<boolean> {
@@ -151,10 +196,10 @@ async function consentFor(deps: ChatDeps, scope: ConsentScope): Promise<boolean>
 
 async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurnResult> {
   const now = deps.now ?? Date.now;
-  const timeZone = deps.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const maxRounds = deps.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
   const usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, requests: 0 };
   const toolCalls: ToolCallReport[] = [];
+  const actions: ActionReport[] = [];
   let fallbackUsed = false;
   let toolRounds = 0;
 
@@ -163,12 +208,10 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
     const params: CreateParams = {
       model: CHAT_MODEL,
       max_tokens: MAX_TOKENS,
-      // Stable prefix first (tools, then this system text), date last, so the cache survives across turns.
-      system: [
-        { type: "text", text: SYSTEM_PROMPT },
-        { type: "text", text: dateContext(now(), timeZone) },
-      ],
-      tools: CHAT_TOOLS.map((t) => t.definition),
+      // Cached prefix: tools, then this fixed system text (explicit breakpoint), then the history
+      // (automatic breakpoint at its end). The clock lives in each user message, not here.
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools: TOOL_DEFINITIONS,
       // Out of tool rounds: let Claude answer with what it has instead of asking for more.
       tool_choice: { type: toolRounds >= maxRounds ? "none" : "auto" },
       messages,
@@ -210,21 +253,21 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
     const toolUses = res.content.filter((b): b is ToolUseBlock => b.type === "tool_use");
 
     if (res.stop_reason === "tool_use") {
-      await answerToolCalls(deps, conversationId, toolUses, toolCalls);
+      await answerToolCalls(deps, conversationId, toolUses, toolCalls, actions);
       toolRounds += 1;
       continue;
     }
     if (res.stop_reason === "pause_turn") continue; // re-send as is; Claude resumes its turn
 
     // Any other stop with unanswered tool_use blocks (cut off by max_tokens, a refusal): close them,
-    // or the next request would be rejected for tool_use without tool_result.
+    // or the next request would be rejected for tool_use without tool_result. Nothing was run.
     if (toolUses.length > 0) {
       await appendMessage(deps.db, deps.deviceId, {
         conversationId,
         role: "user",
-        content: toolUses.map((t) => ({
+        content: toolUses.map((tu) => ({
           type: "tool_result" as const,
-          tool_use_id: t.id,
+          tool_use_id: tu.id,
           is_error: true,
           content: "Not run: the reply ended before the tool could be used.",
         })),
@@ -237,7 +280,7 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
       .map((b) => b.text)
       .join("\n")
       .trim();
-    const base = { conversationId, text, servedBy: res.model, fallbackUsed, toolCalls, usage };
+    const base = { conversationId, text, servedBy: res.model, fallbackUsed, toolCalls, actions, usage };
     if (res.stop_reason === "refusal") {
       return {
         ...base,
@@ -251,26 +294,67 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
 }
 
 /** Run every tool call of one reply and return all results in a single user message (parallel calls stay parallel). */
-async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses: ToolUseBlock[], report: ToolCallReport[]) {
+async function answerToolCalls(
+  deps: ChatDeps,
+  conversationId: string,
+  toolUses: ToolUseBlock[],
+  report: ToolCallReport[],
+  actions: ActionReport[],
+) {
   const now = deps.now ?? Date.now;
+  const timeZone = deps.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const results: ToolResultBlockParam[] = [];
   const disclosures: { toolName: string; dataClass: DataClass; summary: string; payload: string }[] = [];
+  const error = (id: string, content: string): ToolResultBlockParam => ({ type: "tool_result", tool_use_id: id, is_error: true, content });
 
   for (const call of toolUses) {
+    const writer = WRITE_TOOLS_BY_NAME.get(call.name);
+    if (writer) {
+      // Validate and describe first; then the owner decides; only then write.
+      let prepared;
+      try {
+        prepared = await writer.prepare({ db: deps.db, deviceId: deps.deviceId, now: now(), timeZone, conversationId }, call.input);
+      } catch (err) {
+        const message = errorText(err);
+        results.push(error(call.id, message));
+        report.push({ name: call.name, dataClass: null, allowed: true, error: message });
+        continue;
+      }
+      const proposal: ActionProposal = { tool: prepared.tool, summary: prepared.summary, lines: prepared.lines };
+      const approved = deps.confirmAction ? await deps.confirmAction(proposal) : false;
+      const log = { conversationId, tool: call.name, summary: prepared.summary, input: call.input, deviceId: deps.deviceId };
+      if (!approved) {
+        const id = await logAgentAction(deps.db, { ...log, status: "declined", now: now() });
+        actions.push({ id, tool: call.name, summary: prepared.summary, status: "declined" });
+        results.push(error(call.id, "The owner declined this change. Nothing was saved. Ask what they want different before proposing it again."));
+        report.push({ name: call.name, dataClass: null, allowed: true });
+        continue;
+      }
+      try {
+        const applied = await prepared.apply();
+        const id = await logAgentAction(deps.db, { ...log, status: "applied", rows: applied.rows, now: now() });
+        actions.push({ id, tool: call.name, summary: prepared.summary, status: "applied" });
+        results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify({ status: "saved", ...(applied.result as object) }) });
+        report.push({ name: call.name, dataClass: null, allowed: true });
+      } catch (err) {
+        const message = errorText(err);
+        const id = await logAgentAction(deps.db, { ...log, status: "failed", error: message, now: now() });
+        actions.push({ id, tool: call.name, summary: prepared.summary, status: "failed", error: message });
+        results.push(error(call.id, `Saving failed, nothing was saved: ${message}`));
+        report.push({ name: call.name, dataClass: null, allowed: true, error: message });
+      }
+      continue;
+    }
+
     const tool = TOOLS_BY_NAME.get(call.name);
     if (!tool) {
-      results.push({ type: "tool_result", tool_use_id: call.id, is_error: true, content: `Unknown tool ${call.name}` });
+      results.push(error(call.id, `Unknown tool ${call.name}`));
       report.push({ name: call.name, dataClass: null, allowed: false, error: "unknown tool" });
       continue;
     }
     const scope = SCOPE_FOR[tool.dataClass];
     if (!(await consentFor(deps, scope))) {
-      results.push({
-        type: "tool_result",
-        tool_use_id: call.id,
-        is_error: true,
-        content: `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`,
-      });
+      results.push(error(call.id, `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`));
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: false });
       continue;
     }
@@ -283,7 +367,7 @@ async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses:
     } catch (err) {
       // Validation and query errors carry no health data; let Claude correct its arguments.
       const message = errorText(err);
-      results.push({ type: "tool_result", tool_use_id: call.id, is_error: true, content: message });
+      results.push(error(call.id, message));
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: true, error: message });
     }
   }
@@ -292,14 +376,21 @@ async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses:
   const messageId = await appendMessage(deps.db, deps.deviceId, { conversationId, role: "user", content: results, now: t });
   // Logged when queued: the next request sends them (and a retry after a failure would send the same).
   for (const d of disclosures) {
-    await deps.db.run(
-      `INSERT INTO ai_disclosures
-         (id, conversation_id, message_id, sent_at_ms, tool_name, data_class, summary, payload_json, bytes,
-          created_at, updated_at, origin_device_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [uuidv7(t), conversationId, messageId, t, d.toolName, d.dataClass, d.summary, d.payload, utf8Bytes(d.payload), t, t, deps.deviceId],
-    );
+    await insertDisclosure(deps, { conversationId, messageId, at: t, ...d, bytes: utf8Bytes(d.payload) });
   }
+}
+
+async function insertDisclosure(
+  deps: ChatDeps,
+  d: { conversationId: string; messageId: string; at: number; toolName: string | null; dataClass: DataClass; summary: string; payload: string; bytes: number },
+) {
+  await deps.db.run(
+    `INSERT INTO ai_disclosures
+       (id, conversation_id, message_id, sent_at_ms, tool_name, data_class, summary, payload_json, bytes,
+        created_at, updated_at, origin_device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [uuidv7(d.at), d.conversationId, d.messageId, d.at, d.toolName, d.dataClass, d.summary, d.payload, d.bytes, d.at, d.at, deps.deviceId],
+  );
 }
 
 function errorText(err: unknown): string {
@@ -312,7 +403,7 @@ function utf8Bytes(s: string): number {
   return new TextEncoder().encode(s).length;
 }
 
-function titleFrom(text: string): string {
-  const t = text.trim().replace(/\s+/g, " ");
+function titleFrom(text: string, opts: AskOptions = {}): string {
+  const t = text.trim().replace(/\s+/g, " ") || ((opts.images?.length ?? 0) > 0 ? "Photo" : "Chat");
   return t.length > 60 ? `${t.slice(0, 57)}...` : t;
 }
