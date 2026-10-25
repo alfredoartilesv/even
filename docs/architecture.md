@@ -66,7 +66,8 @@ The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP en
 - Free-plan limits still apply: 7-day window, 1 source (Garmin). The first sync window is 7 days; a cursor older than the window produces a "Gap" warning.
 - The MCP URL and key are secrets: stored on the device (Keystore), never in the repo. Rotate them if they are ever pasted anywhere.
 - Terms: freddy forbids sharing the MCP endpoint with third parties for data collection. An app on the owner's own phone, using the owner's own endpoint, is not a third party, but it is not what the endpoint is documented for. Revisit before any public release.
-- Unverified until `scripts/freddy-probe.mjs` is run against the real endpoint: auth mode (URL only vs Bearer key), JSON vs SSE responses, CORS for a WebView. If the WebView cannot reach it (CORS, or SSE buffered by native HTTP), the fallback order is: native HTTP plugin, then a small relay, then upgrade to Pro and use the REST API.
+- **Probe result (25 Oct 2026, real endpoint):** URL alone returns 401; the URL plus `Authorization: Bearer <key>` works. Replies are `text/event-stream` (SSE), stateless (no session id), server `freddy 0.2.0`, 9 tools, 81 metrics. CORS preflight allows origin `*` and headers `content-type, authorization, mcp-session-id` only. So the official MCP SDK (which also sends `mcp-protocol-version`) would be blocked in a WebView; `src/sources/mcpHttp.ts` is a minimal fetch client that sends only the allowed headers.
+- Still unverified: the real POST response CORS headers from inside an Android WebView, and SSE handling there. Fallback if blocked: Capacitor native HTTP (bypasses CORS), then Pro + REST.
 
 ## 5. Claude integration (phase 1)
 
