@@ -7,18 +7,27 @@ import { makeNativeFetch } from "../sources/nativeFetch";
 import { claudeCreate } from "./client";
 import type { ChatDeps, Effort } from "./engine";
 import { DEFAULT_EFFORT } from "./engine";
+import type { ActionProposal } from "./actions";
 import type { ConsentScope } from "./consent";
 
 /**
  * Entry point for the UI: everything the chat needs on this device, or null when no
  * Claude API key is stored yet (show the key field in Settings).
  *
- *   const deps = await chatDeps(db, { askConsent: (scope, text) => showConsentDialog(text) });
- *   const res = deps && (await startConversation(deps, question));
+ *   const deps = await chatDeps(db, {
+ *     askConsent: (scope, text) => showConsentDialog(text),
+ *     confirmAction: (p) => showConfirmSheet(p.summary, p.lines),   // every change the agent wants to save
+ *   });
+ *   const photo = attachmentFromPhoto(await downscalePhoto(file));    // file from <input type="file" capture>
+ *   const res = deps && (await startConversation(deps, "Log this meal", { images: [photo] }));
+ *   // res.actions: what was saved / declined; undoAgentAction(db, res.actions[0].id) to revert
  */
 export async function chatDeps(
   db: SqlDriver,
-  opts: { askConsent?: (scope: ConsentScope, text: string) => Promise<boolean> } = {},
+  opts: {
+    askConsent?: (scope: ConsentScope, text: string) => Promise<boolean>;
+    confirmAction?: (proposal: ActionProposal) => Promise<boolean>;
+  } = {},
 ): Promise<ChatDeps | null> {
   const key = await loadClaudeKey(secretStore);
   if (!key) return null;
@@ -32,6 +41,7 @@ export async function chatDeps(
     deviceId: await deviceId(db),
     effort: await loadEffort(db),
     askConsent: opts.askConsent,
+    confirmAction: opts.confirmAction,
   };
 }
 

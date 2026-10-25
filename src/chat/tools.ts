@@ -1,7 +1,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { SqlDriver } from "../db/driver";
+import { dayFood, listSavedMeals } from "../db/food";
+import { listMealPreps, loadStock } from "../db/mealPrep";
 import { dailySeries, type MetricSeries } from "../db/queries";
+import { listShopping } from "../db/shopping";
+import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../lib/health";
+import { addDays } from "../lib/tz";
 import type { DataClass } from "./consent";
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
@@ -27,25 +32,25 @@ export interface ToolOutput {
 const MAX_SERIES_DAYS = 400;
 const MAX_RANGE_DAYS = 3660;
 
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dates are YYYY-MM-DD");
+export const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dates are YYYY-MM-DD");
 const range = z
   .object({ from: day, to: day })
   .refine((r) => r.from <= r.to, "from must not be after to")
   .refine((r) => daysBetween(r.from, r.to) <= MAX_RANGE_DAYS, `ranges are limited to ${MAX_RANGE_DAYS} days`);
 
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 }
 
-const round = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? null : Math.round(n * 100) / 100);
+export const round = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? null : Math.round(n * 100) / 100);
 
-const DATE_DESC = "Local calendar day, YYYY-MM-DD";
+export const DATE_DESC = "Local calendar day, YYYY-MM-DD";
 
 function schema(properties: Record<string, unknown>): BetaTool["input_schema"] {
   return { type: "object", properties, required: Object.keys(properties), additionalProperties: false };
 }
 
-function tool(name: string, description: string, properties: Record<string, unknown>): BetaTool {
+export function tool(name: string, description: string, properties: Record<string, unknown>): BetaTool {
   return { name, description, input_schema: schema(properties), strict: true };
 }
 
@@ -68,21 +73,6 @@ export function summarise(s: MetricSeries) {
     last: last ? { day: last.day, value: round(last.value), day_not_over: last.partial } : null,
     trend_per_week: round(slopePerDay(s.points) * 7),
   };
-}
-
-/** Least-squares slope of value over days, in units per day (0 with fewer than 2 points). */
-function slopePerDay(points: { day: string; value: number }[]): number {
-  if (points.length < 2) return 0;
-  const xs = points.map((p) => Date.parse(`${p.day}T00:00:00Z`) / 86_400_000);
-  const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
-  const my = points.reduce((a, p) => a + p.value, 0) / points.length;
-  let num = 0;
-  let den = 0;
-  points.forEach((p, i) => {
-    num += (xs[i] - mx) * (p.value - my);
-    den += (xs[i] - mx) ** 2;
-  });
-  return den === 0 ? 0 : num / den;
 }
 
 const listMetrics: ChatTool = {
@@ -235,7 +225,7 @@ const listGoals: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
     "list_goals",
-    "List the user's active goals: title, what is measured (target_kind and metric), comparator, target, unit, period and dates.",
+    "List the owner's active goals, including the daily calorie target (target_kind food, metric calories): title, what is measured (target_kind and metric), comparator, target, unit, period and dates.",
     {},
   ),
   async run(db) {
@@ -297,6 +287,182 @@ const dayNotes: ChatTool = {
   },
 };
 
+const listFoodEntries: ChatTool = {
+  dataClass: "raw",
+  definition: tool(
+    "list_food_entries",
+    "Individual entries of the food log over a date range (at most 31 days): id, local time, meal, name, calories and macros, notes, whether it came from a meal prep portion or a saved meal, and who logged it. Use it to see what was already logged before adding more. Sends detailed records, which the owner must allow separately.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    if (daysBetween(p.from, p.to) > 31) throw new Error("list_food_entries is limited to 31 days");
+    const ids: string[] = [];
+    const entries = [];
+    for (let d = p.from; d <= p.to; d = addDays(d, 1)) {
+      for (const e of await dayFood(db, d)) {
+        ids.push(e.id);
+        entries.push({
+          id: e.id,
+          day: e.localDay,
+          meal: e.meal,
+          name: e.name,
+          calories: round(e.calories),
+          protein_g: round(e.proteinG),
+          carbs_g: round(e.carbsG),
+          fat_g: round(e.fatG),
+          notes: e.notes,
+          from_meal_prep: e.fromPrep,
+          saved_meal_id: e.savedMealId,
+        });
+      }
+    }
+    // Local time and author are not on FoodEntry; read them for the same rows.
+    const extra = new Map<string, { time: string; logged_by: string }>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const rows = await db.all<{ id: string; eaten_at_ms: number; offset_min: number; created_by: string }>(
+        `SELECT id, eaten_at_ms, offset_min, created_by FROM food_entries WHERE id IN (${chunk.map(() => "?").join(",")})`,
+        chunk,
+      );
+      for (const r of rows) extra.set(r.id, { time: new Date(r.eaten_at_ms + r.offset_min * 60_000).toISOString().slice(11, 16), logged_by: r.created_by });
+    }
+    const full = entries.map((e) => ({ ...e, ...extra.get(e.id) }));
+    return { result: { from: p.from, to: p.to, entries: full }, summary: `Food log entries, ${p.from} to ${p.to} (${full.length})` };
+  },
+};
+
+const listSavedMealsTool: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "list_saved_meals",
+    "The owner's saved (favourite) meals: id, name, usual meal, calories and macros per serving, how often and when last logged. Log one with log_saved_meal.",
+    {},
+  ),
+  async run(db) {
+    const meals = (await listSavedMeals(db)).map((m) => ({
+      id: m.id,
+      name: m.name,
+      meal: m.meal,
+      calories: round(m.calories),
+      protein_g: round(m.proteinG),
+      carbs_g: round(m.carbsG),
+      fat_g: round(m.fatG),
+      has_photo: m.photoId !== null,
+      times_logged: m.uses,
+      last_logged_ms: m.lastMs,
+    }));
+    return { result: { saved_meals: meals }, summary: `Saved meals (${meals.length})` };
+  },
+};
+
+const listMealPrepsTool: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "list_meal_preps",
+    "The owner's meal prep recipes: id, name, tags, portions per batch, shelf life (fridge days, freezer days, thaw hours), calories and macros per portion, ingredients for one batch, notes. Optionally only recipes with a tag (e.g. 'lunch').",
+    { tag: { type: ["string", "null"], description: "Only recipes with this tag, or null for all" } },
+  ),
+  async run(db, input) {
+    const p = z.object({ tag: z.string().trim().max(40).nullable() }).parse(input);
+    const preps = (await listMealPreps(db, p.tag || null)).map((r) => ({
+      id: r.id,
+      name: r.name,
+      tags: r.tags,
+      portions: r.portions,
+      fridge_days: r.fridgeDays,
+      freezer_days: r.freezerDays,
+      thaw_hours: r.thawHours,
+      calories: round(r.calories),
+      protein_g: round(r.proteinG),
+      carbs_g: round(r.carbsG),
+      fat_g: round(r.fatG),
+      ingredients: r.ingredients.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit })),
+      notes: r.notes,
+    }));
+    return { result: { meal_preps: preps }, summary: `Meal prep recipes (${preps.length})` };
+  },
+};
+
+const mealPrepStock: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "meal_prep_stock",
+    "Cooked meal prep batches that still have portions: batch id, recipe, day cooked, portions in the fridge (with eat-by days, and whether thawed) and in the freezer (with best-before days), portions eaten and thrown out.",
+    {},
+  ),
+  async run(db) {
+    const stock = (await loadStock(db)).map((s) => ({
+      batch_id: s.batch.id,
+      meal_prep_id: s.batch.mealPrepId,
+      recipe: s.batch.name,
+      tags: s.batch.tags,
+      cooked_day: s.batch.localDay,
+      portions_made: s.batch.portions,
+      fridge: s.fridge.map((l) => ({ portions: l.portions, eat_by: l.eatBy, thawed: l.thawed })),
+      freezer: s.freezer.map((l) => ({ portions: l.portions, frozen_day: l.frozenDay, best_before: l.bestBefore })),
+      in_fridge: s.fridgeCount,
+      in_freezer: s.freezerCount,
+      eaten: s.eaten,
+      discarded: s.discarded,
+      left: s.left,
+    }));
+    return { result: { batches: stock }, summary: `Meal prep stock (${stock.length} batches)` };
+  },
+};
+
+const shoppingListTool: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool("shopping_list", "The shopping list: item, quantity, unit, and whether it is ticked off.", {}),
+  async run(db) {
+    const items = (await listShopping(db)).map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit, checked: i.checked }));
+    return { result: { items }, summary: `Shopping list (${items.length} items)` };
+  },
+};
+
+const ACTIVITY = Object.keys(ACTIVITY_FACTORS) as ActivityLevel[];
+
+const energyNeeds: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "energy_needs",
+    "Calculator, reads nothing from the phone: basal metabolic rate (Mifflin-St Jeor), daily energy expenditure for an activity level, the daily calorie intake for a weight change per week (never below BMR, flagged if the goal would need less), and a protein target (1.6 g/kg). Use the owner's own numbers, asking for missing ones.",
+    {
+      sex: { type: "string", enum: ["male", "female"], description: "For the BMR formula" },
+      age_years: { type: "number", description: "Age in years" },
+      height_cm: { type: "number", description: "Height in cm" },
+      weight_kg: { type: "number", description: "Weight in kg" },
+      activity: { type: "string", enum: ACTIVITY, description: "sedentary, light (1-3 days/week), moderate (3-5), active (6-7), very_active" },
+      kg_per_week: { type: "number", description: "Wanted weight change per week, negative to lose (e.g. -0.5), 0 to maintain" },
+    },
+  ),
+  async run(_db, input) {
+    const p = z
+      .object({
+        sex: z.enum(["male", "female"]),
+        age_years: z.number().min(16).max(110),
+        height_cm: z.number().min(120).max(230),
+        weight_kg: z.number().min(30).max(300),
+        activity: z.enum(ACTIVITY as [ActivityLevel, ...ActivityLevel[]]),
+        kg_per_week: z.number().min(-1).max(1),
+      })
+      .parse(input);
+    const person = { sex: p.sex, ageYears: p.age_years, heightCm: p.height_cm, weightKg: p.weight_kg };
+    const target = calorieTarget(person, p.activity, p.kg_per_week);
+    return {
+      result: {
+        bmr_kcal: Math.round(bmr(person)),
+        tdee_kcal: Math.round(tdee(person, p.activity)),
+        target_kcal: target.kcal,
+        target_floored_at_bmr: target.floored,
+        protein_target_g: proteinTarget(p.weight_kg),
+        assumptions: "Mifflin-St Jeor BMR, activity factor, 7700 kcal per kg of body weight. Estimates, typically within about 10%.",
+      },
+      summary: "Energy needs calculation (no stored data sent)",
+    };
+  },
+};
+
 /** Fixed order: the tool list is part of the cached prompt prefix, so it must not change between requests. */
 export const CHAT_TOOLS: ChatTool[] = [
   listMetrics,
@@ -305,7 +471,13 @@ export const CHAT_TOOLS: ChatTool[] = [
   nutritionSummary,
   manualSummary,
   listGoals,
+  listSavedMealsTool,
+  listMealPrepsTool,
+  mealPrepStock,
+  shoppingListTool,
+  energyNeeds,
   dailySeriesTool,
+  listFoodEntries,
   dayNotes,
 ];
 

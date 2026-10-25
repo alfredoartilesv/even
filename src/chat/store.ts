@@ -142,7 +142,7 @@ export interface Disclosure {
   messageId: string | null;
   sentAtMs: number;
   toolName: string | null;
-  dataClass: "aggregate" | "raw" | "note";
+  dataClass: "aggregate" | "raw" | "note" | "photo";
   summary: string;
   bytes: number;
 }
