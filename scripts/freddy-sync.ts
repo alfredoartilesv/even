@@ -58,12 +58,12 @@ async function main() {
   await saveSyncState(db, source.id, res.nextCursor);
   console.log(`samples fetched and stored: ${written}`);
 
-  const summary = await db.all<{ metrics: number; days: number; first: number; last: number }>(
-    `SELECT COUNT(DISTINCT metric) AS metrics, COUNT(DISTINCT external_id) AS days, MIN(start_ms) AS first, MAX(start_ms) AS last FROM health_samples`,
+  const summary = await db.all<{ metrics: number; first: string; last: string }>(
+    `SELECT COUNT(DISTINCT metric) AS metrics, MIN(substr(external_id,1,10)) AS first, MAX(substr(external_id,1,10)) AS last FROM health_samples`,
   );
   const s = summary[0];
   if (s.metrics > 0) {
-    console.log(`distinct metrics: ${s.metrics}; first day: ${new Date(s.first).toISOString().slice(0, 10)}; last day starts: ${new Date(s.last).toISOString()}`);
+    console.log(`distinct metrics: ${s.metrics}; local days covered: ${s.first} to ${s.last}`);
     const byFamily = await db.all<{ family: string; n: number }>(
       `SELECT CASE WHEN instr(metric,'_')>0 THEN substr(metric,1,instr(metric,'_')-1) ELSE metric END AS family, COUNT(*) AS n
        FROM health_samples GROUP BY family ORDER BY n DESC`,
