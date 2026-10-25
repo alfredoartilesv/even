@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  clearClaudeKey,
   clearFreddyCredentials,
+  loadClaudeKey,
   loadFreddyCredentials,
   memorySecretStore,
+  saveClaudeKey,
   saveFreddyCredentials,
 } from "../src/settings/secrets";
 
@@ -21,4 +24,14 @@ test("freddy credentials: validate, trim, store, and clear", async () => {
 
   await clearFreddyCredentials(store);
   assert.equal(await loadFreddyCredentials(store), null);
+});
+
+test("Claude API key: shape check, trim, store, clear", async () => {
+  const store = memorySecretStore();
+  assert.equal(await loadClaudeKey(store), null);
+  await assert.rejects(saveClaudeKey(store, "sk-proj-abc"), /starts with sk-ant-/);
+  await saveClaudeKey(store, "  sk-ant-api03-abcdefghijklmnopqrstuvwxyz  ");
+  assert.equal(await loadClaudeKey(store), "sk-ant-api03-abcdefghijklmnopqrstuvwxyz");
+  await clearClaudeKey(store);
+  assert.equal(await loadClaudeKey(store), null);
 });

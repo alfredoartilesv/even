@@ -25,7 +25,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 | Transport to freddy | Capacitor native HTTP by default (not subject to WebView CORS). WebView `fetch` selectable in Settings | Built 25 Oct 2026 |
 | Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
 | Garmin | Via freddy only. No direct Garmin integration. | Decided |
-| Claude integration | Called directly from the app with a user-supplied API key; the tool-use loop runs locally against SQLite | Decided, not built |
+| Claude integration | Called directly from the app with the owner's API key via the official SDK over native HTTP; manual tool-use loop runs locally against SQLite; per-class consent and a disclosure log | Core built 25 Oct 2026; no screen yet |
 | Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
 | Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`). Manual export/restore, encrypted with a password | Built 25 Oct 2026 |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
@@ -88,17 +88,19 @@ The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP en
 - **Real sync from a PC (25 Oct 2026):** 260 samples, 38 metrics, 7 local days; a second sync adds no rows.
 - Native HTTP is the default on the phone, so CORS does not apply there. Still unverified: whether WebView `fetch` would also work (selectable in Settings to test once).
 
-## 5. Claude integration (phase 1, not built yet)
+## 5. Claude integration (phase 1)
 
-- The app calls the Anthropic API directly with the user's own key (acceptable for personal use; not for a public release).
-- Tools exposed to Claude are aggregate queries over local SQLite, for example `sleep_summary(range)`, `trend(metric, range)`, `compare_periods`.
-- Send aggregates by default. Ask the user before sending raw time series or notes. Consent is stored per scope in `consents`.
-- Every piece of data sent is logged in `ai_disclosures` and shown in a "what was sent to Claude" panel.
-- Use native HTTP for the API call. Chat needs network; the rest of the app works offline.
-- Present output as insights, not diagnosis.
-- Privacy: health data is special-category data under GDPR. Sending it to an API needs explicit, granular consent.
+Core built 25 Oct 2026 (`src/chat/`); the chat screen is not built yet. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
 
-The tables for this already exist (`chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`), see [LLD.md section 4](LLD.md#4-schema).
+- The app calls the Anthropic API directly with the owner's own key, kept in the Keystore (acceptable for personal use; not for a public release).
+- **Model:** `claude-opus-5-5`, effort set explicitly to `medium` (its default; set so an upstream change does not move cost silently), thinking at the model default (always on). Server-side refusal fallback on (`fallbacks: "default"`), so a false-positive safety decline is re-run on the recommended fallback model instead of failing.
+- **SDK:** the official `@anthropic-ai/sdk`, given our native-HTTP `fetch` (`CapacitorHttp`), so there is no WebView CORS question. Non-streaming, because native HTTP reads the whole reply at once.
+- **Tools** are SQL over the local database. Only their results leave the phone. Each tool declares a data class: `aggregate` (summaries: `list_metrics`, `metric_summary`, `compare_periods`, `nutrition_summary`, `manual_summary`, `list_goals`), `raw` (`daily_series`), `note` (`day_notes`).
+- **Consent (GDPR, special-category data):** one consent per class (`claude.aggregates`, `claude.raw_series`, `claude.notes`), stored as history in `consents` with a policy version. No aggregates consent means nothing is sent at all. A tool whose class has no consent is not run; Claude gets an error telling it to answer without that data.
+- Every tool result sent is logged in `ai_disclosures` (class, one-line summary, exact payload, size) for the "what was sent to Claude" panel.
+- **History is append-only and stored verbatim** (`chat_messages.content_json`), thinking and fallback blocks included, so replays keep thinking blocks valid and the prompt cache warm. Prompt caching: fixed tool list and system text first, date block after, automatic cache breakpoint.
+- Chat needs network; the rest of the app works offline.
+- Present output as insights, not diagnosis (in the system prompt).
 
 ## 6. Phase 2 parking lot (noted, not built)
 
@@ -131,5 +133,6 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once.
 2. Answer the open question in section 8, then build those screens on the existing schema.
-3. Claude chat (section 5).
-4. Decide on freddy FREE vs Pro (risk 6).
+3. Chat screen on top of `src/chat/` (owner is building the UI): key field in Settings, consent dialog, conversation list, "what was sent" panel. Try the engine first from the PC with `npm run chat`.
+4. Garmin export importer, once the owner's export arrives.
+5. Decide on freddy FREE vs Pro (risk 6).
