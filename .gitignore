@@ -12,3 +12,7 @@ ios/
 
 # Keep the committed template
 !.env.example
+
+# Local databases (contain health data)
+*.sqlite
+*.sqlite-journal
