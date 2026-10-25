@@ -35,6 +35,12 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "chat_messages", key: ["id"], lastWriteWins: true },
   { name: "ai_disclosures", key: ["id"], lastWriteWins: true },
   { name: "consents", key: ["id"], lastWriteWins: true },
+  { name: "meal_preps", key: ["id"], lastWriteWins: true },
+  { name: "meal_prep_ingredients", key: ["id"], lastWriteWins: true },
+  { name: "meal_prep_tags", key: ["id"], lastWriteWins: true },
+  { name: "meal_prep_batches", key: ["id"], lastWriteWins: true },
+  { name: "meal_prep_moves", key: ["id"], lastWriteWins: true },
+  { name: "shopping_list_items", key: ["id"], lastWriteWins: true },
   { name: "sync_runs", key: ["id"], lastWriteWins: false },
 ];
 
