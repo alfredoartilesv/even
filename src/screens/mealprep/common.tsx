@@ -1,0 +1,41 @@
+import { addDays, localDay } from "../../lib/tz";
+
+export const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+export const today = () => localDay(Date.now(), timeZone());
+
+export type Msg = { kind: "ok" | "error"; text: string } | null;
+
+export function MsgLine({ msg }: { msg: Msg }) {
+  if (!msg) return null;
+  return <p className={msg.kind === "error" ? "error small" : "muted small"}>{msg.text}</p>;
+}
+
+/** "today", "tomorrow", "yesterday", otherwise "Thu 23 Oct". */
+export function fmtDay(day: string, ref: string = today()): string {
+  if (day === ref) return "today";
+  if (day === addDays(ref, 1)) return "tomorrow";
+  if (day === addDays(ref, -1)) return "yesterday";
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** Empty input -> null, otherwise the number (NaN for junk, so callers can reject it). */
+export const numOrNull = (s: string): number | null => (s.trim() === "" ? null : Number(s));
+
+export function TagChips({ tags, value, onChange }: { tags: string[]; value: string | null; onChange: (t: string | null) => void }) {
+  if (!tags.length) return null;
+  return (
+    <div className="chips">
+      <button className={value === null ? "chip active" : "chip"} onClick={() => onChange(null)}>
+        All
+      </button>
+      {tags.map((t) => (
+        <button key={t} className={value === t ? "chip active" : "chip"} onClick={() => onChange(t)}>
+          {t}
+        </button>
+      ))}
+    </div>
+  );
+}

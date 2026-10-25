@@ -29,3 +29,32 @@ button:disabled { opacity: 0.5; cursor: default; }
 .values { width: 100%; border-collapse: collapse; }
 .values td { padding: 0.5rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 .values .num { text-align: right; white-space: nowrap; }
+textarea { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; box-sizing: border-box; width: 100%; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0; padding: 0.5rem 0.75rem 0.75rem; }
+h3 { margin: 0.25rem 0; font-size: 1.05rem; }
+button.danger { color: var(--error); border-color: var(--error); }
+button.link { background: none; border: none; color: inherit; padding: 0; min-height: 0; text-align: left; }
+.tabs.sub { margin-bottom: 0.75rem; }
+.stack.tight { gap: 0.4rem; margin-bottom: 0; }
+.card { border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem; margin-bottom: 0.75rem; }
+.totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; text-align: center; }
+.totals > div { border: 1px solid var(--line); border-radius: 12px; padding: 0.5rem; display: flex; flex-direction: column; }
+.totals strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 0.5rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.4rem 0 0.75rem; }
+.chip { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 0.3rem 0.8rem; min-height: 36px; font-size: 0.9rem; }
+.chip.active { border-color: var(--accent); color: var(--accent); }
+.chip.static { min-height: 0; padding: 0.1rem 0.6rem; font-size: 0.8rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.actions button { flex: 1 1 auto; }
+label.inline { flex-direction: row; align-items: center; gap: 0.5rem; }
+input.qty { width: 4.5rem; }
+ul.plain { list-style: none; padding: 0; margin: 0.4rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.ingredient { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.4rem; margin-bottom: 0.5rem; }
+.ingredient input { min-width: 0; }
+.checklist { list-style: none; padding: 0; margin: 0.5rem 0; }
+.checklist li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--line); }
+.checklist label { flex: 1; flex-direction: row; align-items: center; gap: 0.6rem; padding: 0.35rem 0; font-size: 1rem; }
+.checklist label span:first-of-type { flex: 1; }
+.checklist input[type="checkbox"] { min-height: 0; width: 1.25rem; height: 1.25rem; }
+.checklist li.done span { text-decoration: line-through; color: var(--muted); }
