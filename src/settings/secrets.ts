@@ -13,7 +13,23 @@ export interface SecretStore {
 export const SECRET_KEYS = {
   freddyUrl: "freddy.mcp_url",
   freddyKey: "freddy.mcp_key",
+  claudeKey: "anthropic.api_key",
 } as const;
+
+export async function loadClaudeKey(store: SecretStore): Promise<string | null> {
+  return (await store.get(SECRET_KEYS.claudeKey))?.trim() || null;
+}
+
+/** The user's own Anthropic API key. Shape check only; the API itself is the real check. */
+export async function saveClaudeKey(store: SecretStore, apiKey: string): Promise<void> {
+  const k = apiKey.trim();
+  if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(k)) throw new Error("That does not look like an Anthropic API key (it starts with sk-ant-)");
+  await store.set(SECRET_KEYS.claudeKey, k);
+}
+
+export async function clearClaudeKey(store: SecretStore): Promise<void> {
+  await store.remove(SECRET_KEYS.claudeKey);
+}
 
 export interface FreddyCredentials {
   url: string;

@@ -23,13 +23,13 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Android auto-backup disabled | Built (patch script) |
 | Run on the S23 | **Not done yet** |
 | Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
-| Claude chat | Not started; tables exist |
+| Claude chat | Engine built and tested (`src/chat/`, `npm run chat` on a PC); no screen yet |
 
 ## Quick start
 
 ```bash
 npm install
-npm test                    # 78 tests, no device needed
+npm test                    # 96 tests, no device needed
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
 ```
