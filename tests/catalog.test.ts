@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyMetric, upsertCatalog } from "../src/db/catalog";
-import { FreddySource, type ToolCaller } from "../src/sources/freddy";
+import { classifyMetric, upsertCatalog } from "../src/features/metrics/catalog";
+import { FreddySource, type ToolCaller } from "../src/features/sync/freddy";
 import { LIST_METRICS, QUERY_METRICS } from "./fixtures";
 import { migratedDb } from "./helpers";
 
