@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { logDrink } from "../src/features/alcohol/alcohol";
 import { figure, loadDashboard, shiftSpan, spanRange } from "../src/features/dashboard/dashboard";
-import { logFood } from "../src/features/food/food";
+import { logFood, setCalorieGoal } from "../src/features/food/food";
+import { insertGoal } from "../src/features/journal/journal";
 import { upsertCatalog } from "../src/features/metrics/catalog";
 import { upsertSamples } from "../src/features/metrics/samples";
 import type { SampleInput } from "../src/features/sync/types";
@@ -67,6 +68,14 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.equal(week.protein.total, 100);
   assert.equal(week.prep.total, null);
   assert.deepEqual(week.stock, { portions: 0, batches: 0 });
+  assert.deepEqual(week.targets, { kcal: null, steps: null });
+
+  // The live calorie target and steps goal, for the rings.
+  await setCalorieGoal(db, 2300, "2026-10-01", 1);
+  const stamp = { createdBy: "user" as const, deviceId: "dev" };
+  await insertGoal(db, { title: "8,000 steps", targetKind: "sample", metric: "daily_steps", comparator: ">=", targetNum: 8000, unit: "steps", period: "day", startDay: "2026-09-01", endDay: "2026-09-30" }, stamp);
+  await insertGoal(db, { title: "10,000 steps", targetKind: "sample", metric: "daily_steps", comparator: ">=", targetNum: 10000, unit: "steps", period: "day", startDay: "2026-10-01" }, stamp);
+  assert.deepEqual((await loadDashboard(db, "week", "2026-10-22", TODAY)).targets, { kcal: 2300, steps: 10000 });
 
   // The current week stops at today.
   const now = await loadDashboard(db, "week", TODAY, TODAY);
