@@ -4,7 +4,8 @@ import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedM
 import { kcalFromMacros } from "../../../core/health";
 import { addDays } from "../../../core/tz";
 import { MEALS, type Meal } from "../suggest";
-import { failed, fmtDay, numOrNull } from "../../../ui/common";
+import { failed, numOrNull } from "../../../ui/common";
+import { CalorieMeter as Meter, MacroSplit } from "../../../ui/nutrition";
 import { downscalePhoto, photoInputUrl } from "./photo";
 
 export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", prep: "Meal prep" };
@@ -67,77 +68,12 @@ export function PhotoPicker({ value, onChange }: { value: PhotoInput | null; onC
   );
 }
 
-/** Today against the target: a single meter, numbers in text so the color is never the only signal. */
+/** Today against the target, with the macro split underneath. */
 export function CalorieMeter({ eaten, target, macros, fromDrinks = 0 }: { eaten: number; target: number | null; macros: Macros; fromDrinks?: number }) {
-  const over = target !== null && eaten > target;
-  const pct = target ? Math.min(100, (eaten / target) * 100) : 0;
   return (
     <div className="meter-card">
-      <div className="hero">
-        <strong>{kcal(eaten)}</strong>
-        <span className="muted"> kcal{target !== null && ` of ${kcal(target)}`}</span>
-      </div>
-      {target !== null && (
-        <>
-          <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={target} aria-valuenow={eaten} aria-label="Calories today">
-            <div className={over ? "fill over" : "fill"} style={{ width: `${pct}%` }} />
-          </div>
-          <div className={over ? "warning small" : "muted small"}>
-            {over ? `${kcal(eaten - target)} kcal over target` : `${kcal(target - eaten)} kcal left`}
-          </div>
-        </>
-      )}
-      {fromDrinks > 0 && <div className="muted small">including {kcal(fromDrinks)} kcal from drinks</div>}
-      <div className="macros small">
-        <span>Protein {kcal(macros.proteinG)} g</span>
-        <span>Carbs {kcal(macros.carbsG)} g</span>
-        <span>Fat {kcal(macros.fatG)} g</span>
-      </div>
-    </div>
-  );
-}
-
-/** Seven days of calories, one bar a day, the target as a dashed line. Tap a bar to open the day. */
-export function WeekChart({
-  days,
-  target,
-  selected,
-  onSelect,
-}: {
-  days: { day: string; calories: number | null }[];
-  target: number | null;
-  selected: string;
-  onSelect: (day: string) => void;
-}) {
-  const max = Math.max(target ?? 0, ...days.map((d) => d.calories ?? 0), 1) * 1.1;
-  const y = (v: number) => `${(v / max) * 100}%`;
-  return (
-    <div className="week">
-      <div className="plot">
-        {target !== null && (
-          <div className="target" style={{ bottom: y(target) }}>
-            <span className="small muted">target {kcal(target)}</span>
-          </div>
-        )}
-        {days.map((d) => {
-          const v = d.calories ?? 0;
-          const over = target !== null && v > target;
-          const label = `${fmtDay(d.day)}: ${d.calories === null ? "nothing logged" : `${kcal(v)} kcal${over ? ", over target" : ""}`}`;
-          return (
-            <button key={d.day} className={d.day === selected ? "col selected" : "col"} onClick={() => onSelect(d.day)} aria-label={label} title={label}>
-              {d.day === selected && d.calories !== null && <span className="value small">{kcal(v)}</span>}
-              <span className={over ? "bar over" : "bar"} style={{ height: v ? y(v) : 0 }} />
-            </button>
-          );
-        })}
-      </div>
-      <div className="axis">
-        {days.map((d) => (
-          <span key={d.day} className={d.day === selected ? "small" : "small muted"}>
-            {new Date(`${d.day}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" })}
-          </span>
-        ))}
-      </div>
+      <Meter eaten={eaten} target={target} fromDrinks={fromDrinks} />
+      <MacroSplit proteinG={macros.proteinG} carbsG={macros.carbsG} fatG={macros.fatG} />
     </div>
   );
 }
