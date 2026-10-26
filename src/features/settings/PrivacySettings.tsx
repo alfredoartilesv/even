@@ -140,7 +140,7 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
 
       <h2>On this phone</h2>
       <p className="muted small">
-        Everything is in an encrypted database on this phone. Keys (freddy, Claude) are in the phone's secure storage, never in the
+        Everything is in an encrypted database on this phone. Keys (Garmin, Claude) are in the phone's secure storage, never in the
         database or a backup. Logs keep no health values and are cleared when the app closes.
       </p>
       <table className="values">
@@ -163,8 +163,8 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
 
       <h2>Backup</h2>
       <p className="muted small">
-        An encrypted copy of everything in the local database (synced data, logs, notes, chats, your profile). On the free plan freddy
-        keeps only 7 days, so this file is the only copy of anything older. Keys are not included.
+        An encrypted copy of everything in the local database (synced data, logs, notes, chats, your profile).
+        Your notes, logs and chats exist only here, so keep a copy. Keys are not included.
       </p>
       <form onSubmit={doExport} className="stack">
         <label>

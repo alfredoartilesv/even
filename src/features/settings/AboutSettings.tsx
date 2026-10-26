@@ -48,7 +48,7 @@ export function AboutSettings({ db }: { db: SqlDriver }) {
         </tbody>
       </table>
       <p className="muted small">
-        A personal health app. Your data stays in an encrypted database on this phone. It leaves only when you sync with freddy, ask Claude in the chat (with your
+        A personal health app. Your data stays in an encrypted database on this phone. It leaves only when you sync with Garmin, ask Claude in the chat (with your
         permission for each kind of data), or export a backup or the debug logs.
       </p>
     </section>

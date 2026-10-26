@@ -122,7 +122,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           {w}
         </p>
       ))}
-      {!configured && !hasAny && <p className="muted small">Connect freddy in Settings to bring in steps and calories burned, or import your Garmin export.</p>}
+      {!configured && !hasAny && <p className="muted small">Add your Garmin key in Settings to bring in steps and calories burned, or import your Garmin export.</p>}
 
       <div className="viz-tiles pairs">
         <StatTile label="Steps" {...tile(d?.steps)} />

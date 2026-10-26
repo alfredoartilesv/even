@@ -15,7 +15,7 @@ import { metricDays } from "../metrics/queries";
 
 export type Span = "day" | "week" | "month";
 
-/** Synced daily metrics the dashboard reads (freddy and the Garmin import use the same names). */
+/** Synced daily metrics the dashboard reads (the Garmin sync and the Garmin export import use the same names). */
 export const DASH_METRICS = {
   steps: "daily_steps",
   /** Everything burned: resting (BMR) plus active. */

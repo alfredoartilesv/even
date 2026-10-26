@@ -13,6 +13,7 @@
     "spike:drizzle": "tsx scripts/drizzle-spike.ts",
     "chat": "node --env-file=.env --import tsx scripts/claude-chat.ts",
     "import:garmin": "tsx scripts/garmin-import.ts",
+    "sync:garmin": "node --env-file=.env --import tsx scripts/garmin-sync.ts",
     "docs:screens": "tsx scripts/screens/capture.ts"
   },
   "dependencies": {

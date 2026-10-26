@@ -1,13 +1,13 @@
 # Health
 
-Personal health app: wearable data via freddy, local encrypted SQLite, Claude on top. Android first (Samsung S23), iPhone 14 / 14 Plus second. Documentation: [docs/README.md](docs/README.md) (start there), with the [architecture decisions](docs/architecture.md), the [high-level design](docs/HLD.md) and the [low-level design](docs/LLD.md).
+Personal health app: wearable data from the Garmin Connect Personal API, local encrypted SQLite, Claude on top. Android first (Samsung S23), iPhone 14 / 14 Plus second. Documentation: [docs/README.md](docs/README.md) (start there), with the [architecture decisions](docs/architecture.md), the [high-level design](docs/HLD.md) and the [low-level design](docs/LLD.md).
 
 ## Status (phase 1)
 
 Done and tested (`npm test`, all against Node's SQLite and a fake that copies the Android plugin's behaviour):
 - Schema `0001` + `0002`: samples with `local_day`, metric catalog, daily views, food/drink/manual logs, day notes, goals, Claude chat with a "what was sent" log, consents, sync history. Table guide: [docs/LLD.md section 4](docs/LLD.md#4-schema).
 - Encrypted SQLite on the phone (SQLCipher), migrations at startup.
-- freddy sync in the app: URL + key in the Keystore (Settings), sync on launch and with "Sync now", native HTTP by default, every attempt logged.
+- Garmin sync in the app: personal API key in the Keystore (Settings → Connections), sync on launch and with "Sync now", native HTTP on the phone, every attempt logged. The earlier freddy sync code is still in src/features/sync but no longer used by the app.
 - Encrypted backup export (share sheet) and restore (merge, newest wins).
 - Android auto-backup off (`scripts/android-harden.mjs`).
 - Drizzle evaluated and rejected (`npm run spike:drizzle`).
@@ -27,7 +27,8 @@ npm test
 npm run build
 npm run dev                         # browser: UI only, no local database (native only)
 npm run import:garmin      # Garmin export ZIP in imports/garmin/ -> encrypted backup to restore on the phone
-node --env-file=.env --import tsx scripts/freddy-sync.ts   # real freddy -> SQLite on this PC
+npm run sync:garmin        # real Garmin Personal API -> SQLite on this PC (GARMIN_API_KEY in .env); add -- --db file.sqlite to keep it
+node --env-file=.env --import tsx scripts/garmin-probe.ts   # which Garmin endpoints work for the key, field names only
 ```
 
 On the phone (needs Android Studio and the SDK):

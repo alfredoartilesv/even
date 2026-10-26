@@ -39,7 +39,7 @@ export function logReport(records: LogRecord[], ctx: ReportContext): string {
   const lines = [
     "# Health app logs",
     "",
-    "Logs from my personal health app (React + Capacitor, local SQLite, freddy sync, Claude agent).",
+    "Logs from my personal health app (React + Capacitor, local SQLite, Garmin sync, Claude agent).",
     "Please find the cause of any errors or warnings, explain it, and suggest a fix.",
     "",
     "## Context",

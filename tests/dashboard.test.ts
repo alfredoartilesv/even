@@ -73,6 +73,17 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.deepEqual([now.from, now.to, now.days.length], [TODAY, TODAY, 1]);
   assert.equal(now.steps.total, 3000);
 
+  // A workout synced by both Garmin and (before the switch) freddy is one session.
+  const run = (source: string, metric: string, v: { valueNum?: number; valueText?: string }): SampleInput => ({ ...daily(metric, "2026-10-22", 0), source, valueNum: null, ...v });
+  await upsertSamples(db, [
+    run("garmin", "activity_activityType", { valueText: "RUNNING" }),
+    run("garmin", "activity_durationInSeconds", { valueNum: 1800 }),
+    run("freddy", "activity_activityType", { valueText: "RUNNING" }),
+    run("freddy", "activity_durationInSeconds", { valueNum: 1810 }),
+  ]);
+  const withRun = await loadDashboard(db, "week", "2026-10-22", TODAY);
+  assert.deepEqual(withRun.workouts, { count: 1, durationS: 1800 });
+
   const day = await loadDashboard(db, "day", "2026-10-21", TODAY);
   assert.equal(day.days[0].eatenKcal, 300);
   assert.equal(day.days[0].activeKcal, 600);

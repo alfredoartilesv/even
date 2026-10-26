@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isNative, nativeRequest } from "../platform/device";
+import { deviceFetch, isNative } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
 import { AlcoholScreen } from "../features/alcohol/ui/AlcoholScreen";
@@ -10,9 +10,9 @@ import { SettingsScreen, type SettingsPage } from "../features/settings/Settings
 import { LogsScreen } from "../features/logs/LogsScreen";
 import { MeScreen } from "../features/me/MeScreen";
 import { ProfileButton } from "../features/dashboard/ProfileButton";
-import { loadFreddyCredentials } from "../features/settings/secrets";
+import { loadGarminKey } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
-import { freddySource, loadTransport } from "../features/sync/freddyClient";
+import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
 import { lastSync, runSync, type LastSync } from "../features/sync/runSync";
 import { refreshSyncReminder, RESYNC_ON_RESUME_MS } from "../features/sync/reminder";
 import { SyncBanner, SyncButton } from "../features/sync/SyncStatus";
@@ -60,21 +60,23 @@ export function App() {
   /** Reload the header status and move the "not synced for 3 days" reminder to match. */
   const refreshStatus = useCallback(async () => {
     if (!db) return;
-    const isConfigured = Boolean(await loadFreddyCredentials(secretStore));
+    const isConfigured = Boolean(await loadGarminKey(secretStore));
     setConfigured(isConfigured);
-    setStatus(await lastSync(db, "freddy"));
+    setStatus(await lastSync(db, GARMIN_SOURCE));
     setNow(Date.now());
-    await refreshSyncReminder(db, notifier, { configured: isConfigured });
+    await refreshSyncReminder(db, notifier, { configured: isConfigured, source: GARMIN_SOURCE });
   }, [db]);
 
   const sync = useCallback(async () => {
     if (!db) return;
-    const creds = await loadFreddyCredentials(secretStore);
-    setConfigured(Boolean(creds));
-    if (!creds) return log.info("sync skipped: freddy not configured");
+    const apiKey = await loadGarminKey(secretStore);
+    setConfigured(Boolean(apiKey));
+    if (!apiKey) return log.info("sync skipped: Garmin not configured");
     setSyncing(true);
     try {
-      const source = freddySource(creds, await loadTransport(db, isNative), nativeRequest);
+      // Native HTTP on the phone: no WebView CORS in the way.
+      const api = new GarminApi({ apiKey, fetch: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
+      const source = new GarminSource({ api });
       await runSync(db, source); // never throws; the outcome is in sync_runs
     } finally {
       setSyncing(false);
@@ -104,7 +106,7 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [configured, syncing, status, sync]);
 
-  // Sync on open: the free plan only keeps 7 days, so every launch is a chance not to lose data.
+  // Sync on open, so the latest Garmin day is there when the app is.
   useEffect(() => {
     if (!db || autoSynced.current) return;
     autoSynced.current = true;
