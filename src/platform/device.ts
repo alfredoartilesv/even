@@ -5,6 +5,9 @@ import { makeNativeFetch } from "./nativeFetch";
 /** True in the Android/iOS app, false in the browser build. */
 export const isNative = Capacitor.isNativePlatform();
 
+/** "android", "ios" or "web". */
+export const platformName = Capacitor.getPlatform();
+
 /** One HTTP request through the native stack (no WebView CORS). */
 export const nativeRequest = (o: HttpOptions): Promise<HttpResponse> => CapacitorHttp.request(o);
 

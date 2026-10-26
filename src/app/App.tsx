@@ -5,6 +5,7 @@ import { openDatabase } from "../platform/openDatabase";
 import { FoodScreen } from "../features/food/ui/FoodScreen";
 import { MealPrepScreen } from "../features/mealprep/ui/MealPrepScreen";
 import { SettingsScreen } from "../features/settings/SettingsScreen";
+import { LogsScreen } from "../features/logs/LogsScreen";
 import { TodayScreen } from "../features/metrics/TodayScreen";
 import { loadFreddyCredentials } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
@@ -19,7 +20,7 @@ import { DEFAULT_LOG_LEVEL } from "./logging";
 import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
-type Tab = "today" | "food" | "mealprep" | "settings";
+type Tab = "today" | "food" | "mealprep" | "logs" | "settings";
 
 const log = createLogger("app");
 
@@ -109,6 +110,12 @@ export function App() {
         <p className={dbStatus.state === "error" ? "error" : "muted"}>
           {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
         </p>
+        {dbStatus.state === "error" && (
+          <>
+            <h2>Logs</h2>
+            <LogsScreen db={null} />
+          </>
+        )}
       </main>
     );
   }
@@ -128,6 +135,9 @@ export function App() {
           <button className={tab === "mealprep" ? "active" : ""} onClick={() => setTab("mealprep")}>
             Meal prep
           </button>
+          <button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>
+            Logs
+          </button>
           <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
             Settings
           </button>
@@ -140,6 +150,8 @@ export function App() {
         <FoodScreen db={dbStatus.db} />
       ) : tab === "mealprep" ? (
         <MealPrepScreen db={dbStatus.db} />
+      ) : tab === "logs" ? (
+        <LogsScreen db={dbStatus.db} />
       ) : (
         <SettingsScreen
           db={dbStatus.db}
