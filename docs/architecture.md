@@ -61,7 +61,7 @@ Code structure (26 Oct 2026):
 - Writes that touch several rows go through `withTransaction` (`src/db/tx.ts`).
 
 Logging (26 Oct 2026):
-- Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in Settings > Logs and stored in `app_settings` (`log.level`).
+- Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in the Logs tab and stored in `app_settings` (`log.level`).
 - Log what happened, not the data: ids, counts, kinds, durations, statuses. Never health values, food or recipe names, notes, chat text, URLs or keys. The logger redacts secret-looking fields as a backstop and `tests/logging.test.ts` checks real flows.
 - Logs stay on the phone in memory (500 records) and are only shared when the owner copies them.
 

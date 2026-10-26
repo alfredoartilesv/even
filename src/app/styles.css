@@ -23,7 +23,7 @@ label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; 
 input, select, button { font: inherit; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: inherit; min-height: 44px; box-sizing: border-box; }
 button { background: var(--accent); color: var(--bg); border-color: var(--accent); cursor: pointer; }
 button.secondary, .tabs button { background: transparent; color: var(--fg); border-color: var(--line); }
-.tabs { display: flex; gap: 0.5rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .tabs button.active { border-color: var(--accent); color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }
 .values { width: 100%; border-collapse: collapse; }
