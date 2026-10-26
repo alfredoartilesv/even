@@ -107,7 +107,7 @@ test("without consent nothing is stored or sent; asking records the decision eit
   assert.deepEqual(asked, ["claude.aggregates", "claude.aggregates"]);
   const rows = await db.all<{ granted: number; policy_version: string }>("SELECT granted, policy_version FROM consents ORDER BY decided_at_ms, granted");
   assert.deepEqual(rows.map((r) => r.granted), [0, 1]);
-  assert.equal(rows[0].policy_version, CONSENT_POLICY_VERSION);
+  assert.equal(rows[0].policy_version, CONSENT_POLICY_VERSION["claude.aggregates"]);
 });
 
 test("consent given under an older policy wording no longer counts", async () => {
@@ -133,19 +133,29 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
   assert.deepEqual(p.cache_control, { type: "ephemeral" });
   assert.deepEqual(p.tool_choice, { type: "auto" });
   assert.equal("thinking" in p, false, "thinking stays at the model default (always on for Opus 5.5)");
-  const system = p.system as Array<{ text: string }>;
-  assert.equal(system[0].text, SYSTEM_PROMPT);
-  assert.equal(system[1].text, "Today is Sunday 2026-10-25 (time zone Europe/Madrid).");
+  assert.deepEqual(p.system, [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }], "system is fixed: no clock in it");
   const tools = p.tools as Anthropic.Beta.Messages.BetaTool[];
-  assert.deepEqual(
-    tools.map((t) => t.name),
-    ["list_metrics", "metric_summary", "compare_periods", "nutrition_summary", "manual_summary", "list_goals", "daily_series", "day_notes"],
-  );
+  assert.deepEqual(tools.map((t) => t.name), [
+    "list_metrics", "metric_summary", "compare_periods", "nutrition_summary", "manual_summary", "list_goals",
+    "list_saved_meals", "list_meal_preps", "meal_prep_stock", "shopping_list", "energy_needs",
+    "daily_series", "list_food_entries", "day_notes",
+    "log_food", "log_saved_meal", "save_meal", "create_meal_prep", "log_cooked_batch", "prep_portions",
+    "add_shopping_items", "add_recipe_to_shopping", "log_drink", "log_measurement", "add_day_note", "create_goal",
+  ]);
   for (const t of tools) {
     assert.equal(t.strict, true);
     assert.equal((t.input_schema as { additionalProperties?: boolean }).additionalProperties, false);
   }
-  assert.deepEqual(p.messages, [{ role: "user", content: [{ type: "text", text: "Hola" }] }]);
+  // The clock travels in the stored user message, so earlier turns never change.
+  assert.deepEqual(p.messages, [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Hola" },
+        { type: "text", text: "[App] Now: Sunday 2026-10-25, 19:00 (time zone Europe/Madrid)." },
+      ],
+    },
+  ]);
 });
 
 test("tool loop: parallel calls answered in one message, history replayed verbatim, disclosures logged", async () => {

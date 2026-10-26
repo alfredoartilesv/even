@@ -5,30 +5,40 @@ import { uuidv7 } from "../lib/uuidv7";
  * GDPR: health data is special-category data, so each kind of data sent to Claude needs
  * its own explicit consent, kept as history (newest row per scope is in force).
  *
- * - aggregates: summaries (averages, ranges, trends, counts). Needed for any chat at all,
- *   because the question itself and every tool answer leave the phone.
- * - raw_series: one value per day, or individual readings.
- * - notes: text the user wrote (day notes).
+ * - aggregate: the questions themselves, summaries (averages, ranges, trends, counts), goals and
+ *   meal plans. Needed for any chat at all.
+ * - raw: detailed records: one value per day of a metric, individual food log entries.
+ * - note: text the owner wrote (day notes, mood and energy).
+ * - photo: pictures the owner attaches (for example of a meal).
  */
-export type DataClass = "aggregate" | "raw" | "note";
-export type ConsentScope = "claude.aggregates" | "claude.raw_series" | "claude.notes";
+export type DataClass = "aggregate" | "raw" | "note" | "photo";
+export type ConsentScope = "claude.aggregates" | "claude.raw_series" | "claude.notes" | "claude.photos";
 
 export const SCOPE_FOR: Record<DataClass, ConsentScope> = {
   aggregate: "claude.aggregates",
   raw: "claude.raw_series",
   note: "claude.notes",
+  photo: "claude.photos",
 };
 
-/** Bump when the wording shown to the user changes; older consents then no longer count. */
-export const CONSENT_POLICY_VERSION = "2026-10-25";
-
-/** Text the UI shows when asking. Keep in step with CONSENT_POLICY_VERSION. */
+/** Text the UI shows when asking. Change a text -> bump its version: older consents to it stop counting. */
 export const CONSENT_TEXT: Record<ConsentScope, string> = {
   "claude.aggregates":
-    "Send your questions and summaries of your health data (averages, ranges, trends, counts) to Anthropic's Claude API to answer them.",
-  "claude.raw_series": "Also send day-by-day values of a metric when Claude asks for them.",
+    "Send your questions, and summaries of your health data (averages, ranges, trends, counts), your goals and meal plans, to Anthropic's Claude API to answer them.",
+  "claude.raw_series":
+    "Also send detailed records when Claude asks for them: day-by-day values of a metric and individual food log entries.",
   "claude.notes": "Also send the notes you wrote (day notes, mood and energy) when Claude asks for them.",
+  "claude.photos": "Send the photos you attach in the chat (for example of a meal) to Claude so it can look at them.",
 };
+
+export const CONSENT_POLICY_VERSION: Record<ConsentScope, string> = {
+  "claude.aggregates": "2026-10-25",
+  "claude.raw_series": "2026-10-25",
+  "claude.notes": "2026-10-25",
+  "claude.photos": "2026-10-25",
+};
+
+export const ALL_SCOPES = Object.keys(CONSENT_TEXT) as ConsentScope[];
 
 export async function hasConsent(db: SqlDriver, scope: ConsentScope): Promise<boolean> {
   // Tie-break on rowid (insertion order): UUIDv7 ids are not ordered within one millisecond.
@@ -39,7 +49,7 @@ export async function hasConsent(db: SqlDriver, scope: ConsentScope): Promise<bo
     [scope],
   );
   const r = rows[0];
-  return r !== undefined && r.granted === 1 && r.policy_version === CONSENT_POLICY_VERSION;
+  return r !== undefined && r.granted === 1 && r.policy_version === CONSENT_POLICY_VERSION[scope];
 }
 
 export async function recordConsent(
@@ -52,14 +62,12 @@ export async function recordConsent(
   await db.run(
     `INSERT INTO consents (id, scope, granted, decided_at_ms, policy_version, created_at, updated_at, origin_device_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [uuidv7(nowMs), scope, granted ? 1 : 0, nowMs, CONSENT_POLICY_VERSION, nowMs, nowMs, deviceId],
+    [uuidv7(nowMs), scope, granted ? 1 : 0, nowMs, CONSENT_POLICY_VERSION[scope], nowMs, nowMs, deviceId],
   );
 }
 
 export async function consentStatus(db: SqlDriver): Promise<Record<ConsentScope, boolean>> {
-  return {
-    "claude.aggregates": await hasConsent(db, "claude.aggregates"),
-    "claude.raw_series": await hasConsent(db, "claude.raw_series"),
-    "claude.notes": await hasConsent(db, "claude.notes"),
-  };
+  const out = {} as Record<ConsentScope, boolean>;
+  for (const s of ALL_SCOPES) out[s] = await hasConsent(db, s);
+  return out;
 }

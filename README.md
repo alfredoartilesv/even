@@ -12,7 +12,7 @@ Done and tested (`npm test`, all against Node's SQLite and a fake that copies th
 - Android auto-backup off (`scripts/android-harden.mjs`).
 - Drizzle evaluated and rejected (`npm run spike:drizzle`).
 
-- Claude chat engine: Opus 5.5 over native HTTP, 8 local data tools, consent per data class, every payload logged (`src/chat/`). Try it on a PC: `npm run chat -- --db health.sqlite "How did I sleep this week?"`.
+- Claude agent (`src/chat/`): answers questions about your data, estimates and logs meals from photos, logs saved meals and meal prep portions, saves favourites, creates meal prep recipes and shopping lists, records cooked batches, and logs drinks, measurements, notes and goals. Every change is confirmed by you, logged and undoable; what it can read depends on your permissions. Try it on a PC: `npm run chat -- --db health.sqlite --photo lunch.jpg "Log this lunch"`.
 
 **Not yet run on a device.** Not started: the screens beyond the "latest day" list (including the chat screen).
 
@@ -38,4 +38,4 @@ npx cap open android       # run on the S23 from Android Studio
 
 1. Run it on the S23: DB opens and migrates, sync works over native HTTP, backup export/restore works. Then try the "WebView fetch" transport once (CORS question, docs/architecture.md section 4b).
 2. Choose the 2-3 daily screens (docs section 8) and build them on the existing schema.
-3. Chat screen on top of `src/chat/`.
+3. Chat screen on top of `src/chat/` (consent dialog, change confirmation, photo button, activity with undo).

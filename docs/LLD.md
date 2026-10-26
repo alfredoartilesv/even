@@ -1,6 +1,6 @@
 # Health App: Low-Level Design (LLD)
 
-Status as of 25 Oct 2026, phase 1, schema version 2. This document describes the code: modules, interfaces, the full schema, the algorithms and file formats, error handling and tests. It assumes you have read [HLD.md](HLD.md). Reasons for decisions are in [architecture.md](architecture.md).
+Status as of 25 Oct 2026, phase 1, schema version 5. This document describes the code: modules, interfaces, the full schema, the algorithms and file formats, error handling and tests. It assumes you have read [HLD.md](HLD.md). Reasons for decisions are in [architecture.md](architecture.md).
 
 ## 1. Repository layout
 
@@ -20,6 +20,7 @@ src/
     migrations/0002_daily_data.sql
     migrations/0003_meal_prep.sql recipes, tags, batches, portion moves, shopping list
     migrations/0004_food_log.sql  saved meals, food photos, food_entries.saved_meal_id
+    migrations/0005_agent.sql     agent_actions, created_by on agent-writable tables, photo disclosures
     samples.ts                    upsertSamples, sync_state cursor
     catalog.ts                    metric_catalog upsert, classifyMetric
     settings.ts                   app_settings get/set, deviceId
@@ -27,6 +28,7 @@ src/
     mealPrep.ts                   recipes, tags, batches, portion moves, stock loading
     shopping.ts                   shopping list, unit folding
     food.ts                       food log, calorie goal, saved meals and photos, suggestions
+    logs.ts                       inserts for drinks, manual measurements, day notes, goals
   meals/
     suggest.ts                    pure: meal slot by hour, suggestion ranking
   mealprep/
@@ -45,10 +47,12 @@ src/
     files.ts                      share sheet / download
   chat/
     engine.ts                     startConversation, askClaude, continueConversation (tool-use loop)
-    tools.ts                      the 8 local data tools and their data classes
+    tools.ts                      the 14 read tools and their data classes
+    actions.ts                    the 12 write tools, agent_actions log, undo
+    images.ts                     photo attachment checks
     consent.ts                    per-class consent (GDPR)
     store.ts                      conversations, messages, disclosures
-    prompt.ts                     system prompt, date block
+    prompt.ts                     system prompt, clock line, quick prompts
     client.ts                     Anthropic SDK client (custom fetch)
     service.ts                    phone wiring: key, native HTTP, device id, effort
   settings/
@@ -184,7 +188,7 @@ The food log form uses `kcalFromMacros` to estimate kcal when only macros are ty
 
 ## 4. Schema
 
-Version 4 (`0001_init.sql` to `0004_food_log.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 5 (`0001_init.sql` to `0005_agent.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -202,6 +206,8 @@ erDiagram
   meal_preps |o--o{ shopping_list_items : meal_prep_id
   saved_meals ||--o{ food_entries : saved_meal_id
   food_photos |o--o| saved_meals : photo_id
+  chat_conversations ||--o{ agent_actions : conversation_id
+  agent_actions }o..o{ food_entries : "rows_json (logical)"
 ```
 
 Only the `chat_*`, `ai_disclosures` and `meal_prep_*` / `shopping_list_items` links are real foreign keys; the others are logical (matching values, no constraint).
@@ -243,7 +249,9 @@ Unique (source, device, metric, external_id). Indexes: (metric, start_ms), (metr
 | `day_notes` | `id`, `local_day` NOT NULL, `mood`, `energy`, `body` | `mood`, `energy` between 1 and 5. Unique `local_day` among live rows |
 | `goals` | `id`, `title`, `target_kind`, `metric`, `comparator`, `target_num`, `unit`, `period`, `start_day` NOT NULL, `end_day`, `notes` | `target_kind` in sample, manual, food, drink, none. `comparator` in `>=`, `<=`. `period` in day, week, month (default day). CHECK: `target_kind = 'none'` or metric, comparator and target_num all set |
 
-`local_day` on `food_entries` and `drink_entries` was added in 0002 (nullable, backfilled). Code that inserts these rows must set it.
+`local_day` on `food_entries` and `drink_entries` was added in 0002 (nullable, backfilled). Code that inserts these rows must set it; use `food.ts` for food and `logs.ts` for the other four.
+
+0005 adds `created_by` (`user` or `assistant`, default `user`) to the five tables above and to `meal_preps`, `meal_prep_batches`, `saved_meals` and `shopping_list_items`: the rows the chat agent can create.
 
 ### 4.2b Meal prep (0003)
 
@@ -284,8 +292,9 @@ The daily calorie target is a `goals` row (`target_kind = 'food'`, `metric = 'ca
 |---|---|---|
 | `chat_conversations` | `id`, `title`, `model` | Index on `updated_at`, live rows |
 | `chat_messages` | `id`, `conversation_id` FK, `seq`, `role`, `content_json`, `model`, `stop_reason`, `input_tokens`, `output_tokens` | `role` in user, assistant. Unique (conversation_id, seq). `content_json` = the Anthropic content blocks array, verbatim |
-| `ai_disclosures` | `id`, `conversation_id` FK, `message_id` FK, `sent_at_ms`, `tool_name`, `data_class`, `summary`, `payload_json`, `bytes` | `data_class` in aggregate, raw, note. Index on `sent_at_ms` |
+| `ai_disclosures` | `id`, `conversation_id` FK, `message_id` FK, `sent_at_ms`, `tool_name`, `data_class`, `summary`, `payload_json`, `bytes` | `data_class` in aggregate, raw, note, photo (photo added in 0005 by rebuilding the table; rows kept). Index on `sent_at_ms` |
 | `consents` | `id`, `scope`, `granted` (0/1), `decided_at_ms`, `policy_version` | Index (scope, decided_at_ms). Newest row per scope is in force |
+| `agent_actions` (0005) | `id`, `conversation_id` FK, `tool_name`, `summary`, `input_json`, `status`, `rows_json`, `error`, `decided_at_ms` | `status` in applied, declined, failed, undone. `rows_json` = the effects to reverse (`{op, table, id}`, plus `before`/`after` for a shopping-list merge). Index (conversation_id, decided_at_ms) |
 
 ### 4.4 Settings
 
@@ -463,26 +472,34 @@ All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWe
 
 Known failure: a backup with a live `day_notes` row for a day that already has a live note under another id (or a live `meal_prep_tags` row duplicating a tag under another id) breaks the unique index, and the whole restore rolls back with that message.
 
-## 9b. Claude chat
+## 9b. Claude chat agent
 
-Files: `src/chat/engine.ts` (loop), `tools.ts`, `consent.ts`, `store.ts`, `prompt.ts`, `client.ts` (SDK), `service.ts` (phone wiring). No UI yet.
+The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
+
+Files: `src/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK), `service.ts` (phone wiring). No chat screen yet.
 
 ### 9b.1 Entry points
 
 ```ts
 // UI: get everything for this device (null = no Claude key stored yet)
-const deps = await chatDeps(db, { askConsent: (scope, text) => showDialog(text) });
+const deps = await chatDeps(db, {
+  askConsent: (scope, text) => showConsentDialog(text),        // a data class has no consent yet
+  confirmAction: (p) => showConfirmSheet(p.summary, p.lines),   // every change the agent wants to save
+});
 
-startConversation(deps, question)        // new conversation, titled from the question
-askClaude(deps, conversationId, question) // follow-up
-continueConversation(deps, conversationId) // retry after a ChatApiError; the question is already stored
+startConversation(deps, question, { images })        // new conversation, titled from the question
+askClaude(deps, conversationId, question, { images }) // follow-up; images optional (max 4, 5 MB each)
+continueConversation(deps, conversationId)            // retry after a ChatApiError; the question is already stored
+attachmentFromPhoto(await downscalePhoto(file))       // a photo from the app's picker as an attachment
+QUICK_PROMPTS                                         // starters, each with the permission it needs
 listConversations / loadMessages / renameConversation / deleteConversation (soft)
-listDisclosures(db, conversationId?) / disclosurePayload(db, id)   // "what was sent" panel
-consentStatus(db) / recordConsent(db, scope, granted, deviceId)    // settings toggles
+listDisclosures(db, conversationId?) / disclosurePayload(db, id)   // "What was sent to Claude"
+listAgentActions(db, conversationId?) / undoAgentAction(db, id)    // "Assistant activity" + undo
+consentStatus(db) / recordConsent(db, scope, granted, deviceId)    // permission toggles
 saveClaudeKey / loadClaudeKey / clearClaudeKey (secrets.ts), loadEffort / saveEffort (service.ts)
 ```
 
-All of them return a `ChatTurnResult`: `status` (`ok`, `refusal`, `max_tokens`, `tool_limit`), `text`, `servedBy`, `fallbackUsed`, `refusal` (category, explanation), `toolCalls` (name, class, allowed, error), and summed `usage` (input, output, cache read/write tokens, request count).
+All of them return a `ChatTurnResult`: `status` (`ok`, `refusal`, `max_tokens`, `tool_limit`), `text`, `servedBy`, `fallbackUsed`, `refusal` (category, explanation), `toolCalls` (name, class, allowed, error), `actions` (id, tool, summary, applied / declined / failed), and summed `usage` (input, output, cache read/write tokens, request count).
 
 ### 9b.2 Request
 
@@ -490,8 +507,8 @@ All of them return a `ChatTurnResult`: `status` (`ok`, `refusal`, `max_tokens`, 
 client.beta.messages.create({
   model: "claude-opus-5-5",
   max_tokens: 16000,                                   // non-streaming
-  system: [ { text: SYSTEM_PROMPT }, { text: "Today is Sunday 2026-10-25 (time zone Europe/Madrid)." } ],
-  tools: CHAT_TOOLS (8, fixed order, strict: true, additionalProperties: false),
+  system: [ { text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } } ],   // fixed text, no clock
+  tools: 14 read + 12 write tools (fixed order, strict: true, additionalProperties: false),
   tool_choice: { type: "auto" }                        // "none" on the last allowed round
   messages: <stored history, verbatim>,
   output_config: { effort: "medium" },                 // setting claude.effort
@@ -507,46 +524,58 @@ Transport: `claudeCreate(key, fetchImpl)` builds the SDK client with `dangerousl
 ### 9b.3 Loop
 
 ```
-require consent claude.aggregates (ask if askConsent is given; record the answer) else ConsentRequiredError
-append user message [{type: text}]
+require consent claude.aggregates, and claude.photos if images are attached (ask if askConsent is given;
+  record the answer) else ConsentRequiredError, nothing stored
+append user message [image blocks..., {text: question}, {text: "[App] Now: Sunday 2026-10-25, 19:00 (time zone ...)"}]
+log one "photo" disclosure per image
 loop:
   res = create(params(history))           errors -> ChatApiError
   append assistant message = res.content verbatim (thinking, fallback, tool_use blocks), model, stop_reason, tokens
-  tool_use   -> run every tool_use block; ONE user message with all tool_results; log disclosures; round += 1; loop
+  tool_use   -> answer every tool_use block; ONE user message with all tool_results; log disclosures; round += 1; loop
   pause_turn -> loop without adding anything
   other stop with unanswered tool_use blocks -> append is_error tool_results so the history stays valid
   refusal    -> status refusal (+ stop_details);  max_tokens -> status max_tokens
-  else       -> status ok, or tool_limit if the round cap (8) was reached
+  else       -> status ok, or tool_limit if the round cap (10) was reached
 ```
 
-For each tool call: unknown name -> `is_error`. No consent for its class (after asking, if possible) -> `is_error` "the owner has not allowed ... answer without it" and nothing is run or logged. Otherwise run it: success -> JSON result + a disclosure row (`message_id` = the tool-result message); a Zod or query error -> `is_error` with the validation message (no health data), so Claude can fix its arguments.
+The clock goes in the user message, not the system prompt: the system text stays byte-identical, and each stored turn keeps the time it was asked at, so the whole history stays cacheable.
+
+For each **read** tool call: unknown name -> `is_error`. No consent for its class (after asking, if possible) -> `is_error` "the owner has not allowed ... answer without it", and nothing is run or logged. Otherwise run it: success -> JSON result + a disclosure row (`message_id` = the tool-result message); a Zod or query error -> `is_error` with the validation message (no health data), so Claude can fix its arguments.
+
+For each **write** tool call (9b.7): `prepare` validates and describes. Invalid -> `is_error`; the owner is not asked; nothing is logged. Valid -> `confirmAction(proposal)`. Declined, or no `confirmAction` -> `agent_actions` row `declined` and `is_error` "the owner declined". Approved -> `apply` -> `agent_actions` row `applied` with its effects, and the result `{status: "saved", ...ids}`. A failure while saving -> row `failed`, `is_error`.
 
 Rules this keeps:
 - **Append-only.** Nothing rewrites or drops an earlier message. Edited history would invalidate thinking blocks and the cache.
 - **The history is always valid to resend.** It never ends with an unanswered `tool_use`; after an API error it ends with a user message, which `continueConversation` resends. A new question after that is a second consecutive user message, which the API merges.
 - **Fallback detection:** a `fallback` content block or a `fallback_message` entry in `usage.iterations`. `servedBy` is `res.model`.
 
-### 9b.4 Tools
+### 9b.4 Read tools
 
 | Tool | Class | Input | Returns |
 |---|---|---|---|
 | `list_metrics` | aggregate | none | Synced metrics with local coverage (first/last day, days, unit, category, `daily_agg`), manual kinds, food/drink log day counts |
-| `metric_summary` | aggregate | metric, from, to | Per source/device: days with data, avg, min, max, first, last (with `day_not_over`), least-squares trend per week |
+| `metric_summary` | aggregate | metric, from, to | Per source/device: days with data, avg, min, max, first, last (with `day_not_over`), trend per week (`slopePerDay` from `health.ts`) |
 | `compare_periods` | aggregate | metric, a_from, a_to, b_from, b_to | Both summaries, change of the average (absolute and %) |
 | `nutrition_summary` | aggregate | from, to | Days logged, average calories and macros per logged day; alcohol drinks, grams total, per drinking day, per calendar day |
 | `manual_summary` | aggregate | kind, from, to | Count, avg/min/max of `value_num` and `value_num2`, unit, first/last day |
-| `list_goals` | aggregate | none | Live goals |
+| `list_goals` | aggregate | none | Live goals, including the daily calorie target |
+| `list_saved_meals` | aggregate | none | Saved meals: id, name, usual meal, macros per serving, has photo, times and last time logged |
+| `list_meal_preps` | aggregate | tag or null | Recipes: id, name, tags, portions, shelf life, macros per portion, ingredients for one batch, notes |
+| `meal_prep_stock` | aggregate | none | Batches with portions left: fridge lots (eat-by, thawed), freezer lots (best-before), eaten, discarded |
+| `shopping_list` | aggregate | none | Items, quantities, units, ticked or not |
+| `energy_needs` | aggregate | sex, age, height, weight, activity, kg per week | BMR, TDEE, calorie target (floored at BMR), protein target, from `health.ts`. Reads nothing from the database |
 | `daily_series` | raw | metric, from, to (max 400 days) | One value per day per source/device |
+| `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
 | `day_notes` | note | from, to (max 92 days) | Day, mood, energy, note text |
 
-A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/db/queries.ts`, shared with the Today screen logic), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
+A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/db/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
 
 ### 9b.5 Consent and disclosures
 
-- Scopes: `claude.aggregates` (needed for any chat, since the question itself is sent), `claude.raw_series`, `claude.notes`. UI wording in `CONSENT_TEXT`.
-- `CONSENT_POLICY_VERSION` (`2026-10-25`): a consent recorded under another version does not count, so changing the wording asks again.
+- Scopes: `claude.aggregates` (questions, summaries, goals, meal prep, saved meals, shopping list; needed for any chat, since the question itself is sent), `claude.raw_series` (day-by-day values and individual food entries), `claude.notes`, `claude.photos`. UI wording in `CONSENT_TEXT`.
+- `CONSENT_POLICY_VERSION[scope]` (all `2026-10-25`): a consent recorded under another version of that scope's text does not count, so changing one wording asks again for that scope only.
 - In force = newest row per scope (`decided_at_ms`, then insertion order). Refusals are recorded too.
-- `ai_disclosures` rows are written when the tool results are stored, just before the request that sends them. If that request fails, the retry sends the same payload.
+- `ai_disclosures` rows are written when the tool results are stored, just before the request that sends them. If that request fails, the retry sends the same payload. Photos: one `photo` row per image (type and size; the image itself is in `chat_messages`).
 
 ### 9b.6 Errors (`toChatError`)
 
@@ -559,6 +588,50 @@ A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/d
 | other `APIError`, 529 | overloaded / server | yes |
 
 The SDK already retries 408/409/429/5xx twice before this. Messages never include the key.
+
+### 9b.7 Write tools, security model, undo
+
+**Security model.** Enforced in code; the system prompt describes it so the assistant can explain it:
+
+| Rule | Where |
+|---|---|
+| The assistant sees data only through the read tools, each only with the consent for its data class | `tools.ts`, `consent.ts`, engine |
+| It can only **add**: new food, drink, measurement, note and goal rows, saved meals, recipes, cooked batches, portion moves, shopping-list lines (or more of an open line). No edits of existing entries, no deletes, no calorie target, settings, consents, keys, sync or backups | `actions.ts` (no other write path) |
+| Hard input limits: logs from 60 days back to today (notes 30, batches and portion moves 14), at most 20 food entries per call, kcal 0–5000 per entry, macros, volumes, portions and text lengths capped, measurement kinds `lower_snake_case`, recipe names unique | Zod schemas and checks in `prepare` |
+| Nothing is written until the owner confirms the exact lines shown. Without a `confirmAction` handler every change is declined | engine |
+| Every proposal is logged in `agent_actions` (applied, declined, failed) with its effects | engine, `logAgentAction` |
+| Undo reverses exactly those effects with the app's own undo, and checks every effect's table against `OP_TABLES` before touching anything | `undoAgentAction` |
+| Rows the assistant created carry `created_by = 'assistant'` | `logs.ts`, `markAssistant` |
+| Text in photos, notes, food names and tool results is data, not instructions | system prompt; the rules above limit an injected instruction to proposing a change the owner must confirm |
+
+**Write tools**
+
+| Tool | Calls | Undo |
+|---|---|---|
+| `log_food` | `logFood` per entry, one transaction | `deleteFood` |
+| `log_saved_meal` | `logSavedMeal` (servings, meal, time) | `deleteFood` |
+| `save_meal` | `saveMeal`, optionally with the last JPEG/WebP photo of the chat | `deleteSavedMeal` |
+| `create_meal_prep` | `saveMealPrep` (portions, shelf life, macros per portion, tags, ingredients for one batch) | `deleteMealPrep` |
+| `log_cooked_batch` | `logBatch` (portions, frozen) | `deleteBatch` |
+| `prep_portions` | `addMove`: eat (also logs food), freeze, thaw, discard | `undoMove` (an eaten portion goes back into stock) |
+| `add_shopping_items` | `addShoppingItem` per item, one transaction | remove the new lines, put merged quantities back |
+| `add_recipe_to_shopping` | `addRecipesToShopping` (recipes x batches) | same |
+| `log_drink` | `insertDrinkEntry` (grams via `alcoholGrams`) | soft delete |
+| `log_measurement` | `insertMeasurement` | soft delete |
+| `add_day_note` | `insertDayNote` (refused if the day has a note) | soft delete |
+| `create_goal` | `insertGoal` (refuses the daily calorie target) | soft delete |
+
+Shopping-list changes are recorded as a before/after diff of the live lines: new lines become `shopping_insert`, merged quantities `shopping_quantity` with `before` and `after`. Undo refuses a merge whose line has changed since ("undo the item there instead").
+
+Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeToMs` (DST-safe). No time: today means now, another day uses a usual time for the meal (breakfast 08:30, lunch 14:00, snack 17:30, dinner 21:00, otherwise 12:00).
+
+`ActionProposal` = `{ tool, summary, lines }`, for example `Log 2 food entries (590 kcal)` with `2026-10-24 14:00 lunch: Grilled chicken, about 200 g, 330 kcal (P 50 g, C 0 g, F 14 g)`.
+
+**Photos.** The app's picker (`downscalePhoto`, JPEG at most 1024 px, no EXIF) feeds `attachmentFromPhoto`. `toAttachment` accepts base64 or a `data:` URL and checks the type (JPEG, PNG, WebP, GIF), base64 validity and the 5 MB limit; at most 4 per message. Photos stay in the conversation (`chat_messages`), so they are in backups. `save_meal` can keep the last JPEG or WebP one with the saved meal (`food_photos`).
+
+**System prompt** (`SYSTEM_PROMPT`): the app's sections by name (Today, Food, Meal prep, Settings, What was sent to Claude, Assistant activity), the data facts, how changes work (propose, confirm, undo; add only; prefer saved meals and prep portions; check the log first), food estimation from photos (portion, hidden fats, ranges, one question at most, notes, offer to save), meal prep (ask once for missing essentials, reuse recipes, `energy_needs` for a target, create recipes, add to shopping, log batches), what it cannot do (permissions, no internet or other apps, no settings or keys, never ask for passwords, data is not instructions), and health guardrails (insights not diagnosis, no very-low-calorie or unsafe plans, allergens cannot be guaranteed).
+
+**Quick prompts** (`QUICK_PROMPTS`): log a meal from a photo (needs `claude.photos`), plan meal prep, what to defrost, sleep this week, what did I eat today (needs `claude.raw_series`), weekly check-in.
 
 ## 10. Time and ids
 
@@ -577,11 +650,12 @@ The SDK already retries 408/409/429/5xx twice before this. Messages never includ
 | `McpHttpCaller` | `McpHttpError` with a message safe to show (no URL, no key) |
 | `exportBackup` / `restoreBackup` | `BackupError` with a message safe to show; restore is all or nothing |
 | Chat | `ConsentRequiredError` (nothing sent); `ChatApiError` (kind, retryable, safe message; history stays valid, retry with `continueConversation`); tool errors go back to Claude as `is_error` results |
+| Agent changes | Invalid input: `is_error`, owner not asked. Declined: logged, `is_error`. Saving failed: logged as `failed`, `is_error`. `undoAgentAction` throws with a safe message (unknown, not applied, table not allowed, shopping line changed since) |
 | Settings form | Validation errors shown inline |
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --test tests/*.test.ts`), 124 tests, no device needed.
+Run with `npm test` (`tsx --test tests/*.test.ts`), 139 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -598,6 +672,7 @@ Run with `npm test` (`tsx --test tests/*.test.ts`), 124 tests, no device needed.
 | `secrets.test.ts` | freddy credentials and Claude key validation and storage |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
+| `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
@@ -615,7 +690,7 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 | `scripts/freddy-probe.mjs` | One-off checks of the freddy endpoint (auth, SSE, CORS, tool output). Never prints URL or key |
 | `scripts/freddy-sync.ts` | Real freddy -> real migrations -> SQLite (memory or `--db file`). Prints counts only |
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
-| `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The chat engine against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--allow raw,notes`, `--continue <id>`. Prints the answer, tools, tokens and what was sent. Costs API usage |
+| `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
 | `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain. Idempotent |
 
 ## 14. How to extend
@@ -639,8 +714,11 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 
 - Not yet run on a device (see [architecture.md risk 7](architecture.md#4-open-risks-and-spikes)).
 - Backups are manual and the whole file is built in memory. Fine for years of personal data, but it grows with every sample.
-- No screens yet for food, drinks, manual measurements, notes, goals or chat.
+- No screens yet for drinks, manual measurements, notes, goals or the chat.
 - The chat is non-streaming (native HTTP returns the whole reply), so a long answer shows up all at once after the wait.
+- Calorie estimates from photos are estimates: portion size and hidden fats can be off by a lot. The agent says so and keeps its assumption in the entry notes.
+- The agent cannot edit or delete entries, or set the calorie target (by design); corrections are an undo plus a new entry, or an edit on the Food screen.
+- Photos sent in the chat stay in the conversation, so they are in backups and make them larger.
 - Food photos live base64 in SQLite and in the backup file. Fine for a few hundred saved meals (about 100 kB each); a much larger photo library would need files on disk instead.
 - Meal prep reminders only show inside the app: there are no push notifications to defrost yet. Shelf-life defaults (4 days fridge, 90 days freezer, 24 h defrost) are rules of thumb the owner can change per recipe, not food-safety advice.
 - Text parsing of freddy output can break if freddy changes its wording; unknown lines show up as warnings rather than being lost.
