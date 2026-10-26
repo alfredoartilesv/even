@@ -61,17 +61,17 @@ test("logs from real flows carry no health values, food names, notes, URLs or ke
   const secrets = memorySecretStore();
   await saveFreddyCredentials(secrets, "https://freddy.example/mcp/SECRET-PATH", "freddy-key-XYZ");
   await saveClaudeKey(secrets, "sk-ant-ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-  const id = await logFood(db, { name: "Grandma's lasagne", meal: "dinner", calories: 1234, proteinG: 56, carbsG: null, fatG: null, notes: "felt bloated", atMs: NOW, timeZone: TZ });
+  const id = await logFood(db, { name: "Grandma's lasagne", meal: "dinner", calories: 1234.5, proteinG: 56.5, carbsG: null, fatG: null, notes: "felt bloated", atMs: NOW, timeZone: TZ });
   await saveEntryAsMeal(db, id, { mime: "image/jpeg", dataB64: "/9j/4AAQ", width: 1, height: 1 }, NOW + 1);
   await setCalorieGoal(db, 2345, "2026-10-20", NOW + 2);
-  const prep = await saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "Secret chili", calories: 777, notes: "family recipe" }, NOW);
+  const prep = await saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "Secret chili", calories: 777.25, notes: "family recipe" }, NOW);
   const batch = await logBatch(db, { mealPrepId: prep, cookedAtMs: NOW, timeZone: TZ });
   await addMove(db, { batchId: batch, kind: "eat", portions: 1, atMs: NOW + 1000, timeZone: TZ });
   await exportBackup(db, "correct horse battery", { iterations: 1000, now: NOW });
 
   assert.ok(records.length >= 8, "the flows are logged");
   const text = JSON.stringify(records);
-  for (const leak of ["lasagne", "1234", "bloated", "Secret chili", "777", "family recipe", "SECRET-PATH", "freddy-key", "sk-ant", "/9j/"]) {
+  for (const leak of ["lasagne", "1234.5", "56.5", "bloated", "Secret chili", "777.25", "family recipe", "SECRET-PATH", "freddy-key", "sk-ant", "/9j/"]) {
     assert.ok(!text.includes(leak), `log contains ${leak}`);
   }
   // The calorie target is the owner's setting, not a reading; it is fine to log.

@@ -22,7 +22,7 @@ src/
     driver.ts                      SqlDriver interface
     tx.ts                          withTransaction (nests by joining the outer transaction)
     migrate.ts, migrations.ts      runner and the Vite import of migrations/*.sql
-    migrations/0001..0005_*.sql    schema (section 4)
+    migrations/0001..0006_*.sql    schema (section 4)
     settings.ts                    app_settings get/set, deviceId
   platform/                        the only code that imports Capacitor plugins at runtime
     openDatabase.ts                encryption secret, connection, migrate
@@ -38,7 +38,8 @@ src/
     sync/                          runSync, freddyClient, FreddySource, text parsers, MCP client, Source types
     food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ Calories, History, Saved
     mealprep/                      recipes, batches, stock fold and defrost plan, shopping list; ui/ Stock, Recipes, Shopping
-    journal/                       drinks, manual measurements, day notes, goals
+    alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; ui/ Alcohol view
+    journal/                       manual measurements, day notes, goals
     chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
     settings/                      secrets, log level, SettingsScreen, LogsPanel
@@ -204,7 +205,8 @@ Pure functions, no dependencies, shared by screens and (later) the chat tools. I
 | Body | `bmi`, `bmiClass`, `healthyWeightRange` | kg/m², WHO adult classes 18.5 / 25 / 30, range = BMI 18.5 to 24.9 |
 | Energy | `bmr`, `tdee`, `calorieTarget`, `kgPerWeekFromBalance` | Mifflin-St Jeor; activity factors 1.2 / 1.375 / 1.55 / 1.725 / 1.9; 7700 kcal per kg; target rounded to 10 kcal and never below BMR (`floored` says so) |
 | Nutrition | `kcalFromMacros`, `macroSplit`, `proteinTarget` | Atwater 4 / 4 / 9 / 7 kcal per g (protein, carbs, fat, alcohol); protein default 1.6 g/kg |
-| Alcohol | `alcoholGrams`, `standardDrinks` | ml x ABV / 100 x 0.789 (same as `daily_alcohol`); standard drink 10 g (ES, EU), 8 g (UK), 14 g (US) |
+| Alcohol | `alcoholGrams`, `standardDrinks`, `alcoholKcal` | ml x ABV / 100 x 0.789 (same as `daily_alcohol`); standard drink 10 g (ES, EU), 8 g (UK), 14 g (US); kcal = grams x 7 (alcohol only, so sugary drinks are undercounted) |
+| Weight | `weightWithoutKcal(kg, kcal)` | kg - kcal / 7700: the weight without those kcal if they were not made up for elsewhere (an upper bound) |
 | Heart rate | `maxHeartRate`, `heartRateZones` | Tanaka 208 - 0.7 x age; five zones 50 to 100 % in 10 % steps, of the heart rate reserve (Karvonen) when a resting rate is given |
 | Series | `mean`, `slopePerDay`, `rollingAverage`, `smoothed` | least squares over calendar days; trailing window by calendar days, gaps not counted as zero; exponential smoothing (alpha 0.1 default) |
 
@@ -212,7 +214,7 @@ The food log form uses `kcalFromMacros` to estimate kcal when only macros are ty
 
 ## 4. Schema
 
-Version 5 (`0001_init.sql` to `0005_agent.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 6 (`0001_init.sql` to `0006_alcohol.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -268,7 +270,7 @@ Unique (source, device, metric, external_id). Indexes: (metric, start_ms), (metr
 | Table | Columns besides Std | Constraints / indexes |
 |---|---|---|
 | `food_entries` | `id`, `eaten_at_ms`, `offset_min`, `local_day`, `name`, `meal`, `calories`, `protein_g`, `carbs_g`, `fat_g`, `notes` | `meal` in breakfast, lunch, dinner, snack, prep. Index on `eaten_at_ms` and on `local_day`, live rows only |
-| `drink_entries` | `id`, `drunk_at_ms`, `offset_min`, `local_day`, `name`, `volume_ml` NOT NULL, `abv_percent` NOT NULL, `notes` | Index on `drunk_at_ms` and on `local_day`, live rows only |
+| `drink_entries` | `id`, `drunk_at_ms`, `offset_min`, `local_day`, `name`, `volume_ml` NOT NULL, `abv_percent` NOT NULL, `notes`; 0006: `drink_type_id` FK, `calories`, `price` (per drink, copied from the type when logged; NULL kcal = estimate) | Index on `drunk_at_ms`, `local_day` and `drink_type_id`, live rows only |
 | `manual_measurements` | `id`, `measured_at_ms`, `offset_min`, `local_day` NOT NULL, `kind` NOT NULL, `value_num`, `value_num2`, `value_text`, `unit`, `notes` | `kind` free text (weight, blood_pressure, glucose, supplement, symptom...). `value_num2` = second number of a pair (diastolic). Index (kind, local_day), live rows |
 | `day_notes` | `id`, `local_day` NOT NULL, `mood`, `energy`, `body` | `mood`, `energy` between 1 and 5. Unique `local_day` among live rows |
 | `goals` | `id`, `title`, `target_kind`, `metric`, `comparator`, `target_num`, `unit`, `period`, `start_day` NOT NULL, `end_day`, `notes` | `target_kind` in sample, manual, food, drink, none. `comparator` in `>=`, `<=`. `period` in day, week, month (default day). CHECK: `target_kind = 'none'` or metric, comparator and target_num all set |
@@ -310,6 +312,16 @@ The daily calorie target is a `goals` row (`target_kind = 'food'`, `metric = 'ca
 
 `suggestions` offers saved meals plus anything else logged at least twice in the last 30 days (by lower-case name, `prep` excluded). `rankSuggestions` scores: uses in 30 days (capped at 10), +4 if its usual slot (most logged slot, else the saved slot) matches `mealForHour(now)` (5-10 breakfast, 11-15 lunch, 16-18 snack, otherwise dinner), +2 if saved, +1 if eaten in the last 3 days, -6 if already logged today.
 
+### 4.2d Alcohol (0006)
+
+| Table | Columns besides Std | Constraints |
+|---|---|---|
+| `drink_types` | `id`, `name`, `volume_ml` (one serving), `abv_percent`, `calories` and `price` (per serving, both optional), `created_by` | Unique `lower(name)` among live rows. `volume_ml` > 0, ABV 0 to 100, kcal and price >= 0 |
+
+Prices are in the currency in `app_settings` key `currency` (ISO code, default EUR). Each drink stores its own kcal and price, so editing or deleting a type never rewrites history. `logDrink` takes a type (its values are defaults, any can be overridden) or a name, ml and ABV, and a count (1 to 20 rows). Totals come from `daily_alcohol`; kcal is the stored value or 7 kcal per gram of alcohol, and money only counts drinks with a price (`priced` says how many).
+
+`latestWeight(db, day)` takes the newest of a manual `weight` measurement (unit kg, g or lb; kg if empty) and a synced `body_weightInGrams` sample, on or before the day. `weightWithoutAlcohol(db, from, to)` = that weight - drink kcal in the range / 7700.
+
 ### 4.3 Claude
 
 | Table | Columns besides Std | Constraints |
@@ -330,7 +342,7 @@ The daily calorie target is a `goals` row (`target_kind = 'food'`, `metric = 'ca
 |---|---|---|
 | `daily_metric_values` | metric, local_day, source, device (numeric samples with a `local_day`) | `readings`, `avg_num`, `sum_num`, `min_num`, `max_num`, `last_num` (latest by `start_ms`, then `rowid`), `unit`, `partial` (1 if any row's `raw_json` has `"partial":true`) |
 | `daily_nutrition` | local_day, live food rows | `entries`, `calories`, `protein_g`, `carbs_g`, `fat_g` |
-| `daily_alcohol` | local_day, live drink rows | `drinks`, `volume_ml`, `alcohol_g` = sum(ml x ABV / 100 x 0.789) |
+| `daily_alcohol` | local_day, live drink rows | `drinks`, `volume_ml`, `alcohol_g` = sum(ml x ABV / 100 x 0.789), `calories` (stored, else alcohol_g x 7), `calories_estimated` (rows without a kcal), `price` (sum of known prices), `priced` (rows with a price). Rebuilt in 0006 |
 
 ## 5. freddy source
 
@@ -431,7 +443,8 @@ If samples were written but a later step failed, the next run rewrites them in p
 `App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, the last error, warnings, and the latest day's values with device and "day not over".
-- **FoodScreen**: three views. *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day bar chart of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
+- **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day bar chart of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
+- **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
@@ -598,6 +611,8 @@ Rules this keeps:
 | `daily_series` | raw | metric, from, to (max 400 days) | One value per day per source/device |
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
 | `day_notes` | note | from, to (max 92 days) | Day, mood, energy, note text |
+| `drink_types` | aggregate | none | Currency; saved drink types with serving ml, ABV, kcal per serving (and whether estimated), price, times logged |
+| `alcohol_impact` | aggregate | from, to | Drinks, drinking days, alcohol g, standard drinks, kcal (and how many estimated), kcal per calendar day, money (and how many priced), currency, latest weight, kg from alcohol, expected weight without alcohol |
 
 A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/features/metrics/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
 
@@ -627,7 +642,7 @@ The SDK already retries 408/409/429/5xx twice before this. Messages never includ
 | Rule | Where |
 |---|---|
 | The assistant sees data only through the read tools, each only with the consent for its data class | `tools.ts`, `consent.ts`, engine |
-| It can only **add**: new food, drink, measurement, note and goal rows, saved meals, recipes, cooked batches, portion moves, shopping-list lines (or more of an open line). No edits of existing entries, no deletes, no calorie target, settings, consents, keys, sync or backups | `actions.ts` (no other write path) |
+| It can only **add**: new food, drink, measurement, note and goal rows, saved meals, recipes, cooked batches, portion moves, shopping-list lines (or more of an open line), drink types, and a missing kcal or price on an existing drink type (never overwriting a value). No other edits of existing entries, no deletes, no calorie target, settings, consents, keys, sync or backups | `actions.ts` (no other write path) |
 | Hard input limits: logs from 60 days back to today (notes 30, batches and portion moves 14), at most 20 food entries per call, kcal 0–5000 per entry, macros, volumes, portions and text lengths capped, measurement kinds `lower_snake_case`, recipe names unique | Zod schemas and checks in `prepare` |
 | Nothing is written until the owner confirms the exact lines shown. Without a `confirmAction` handler every change is declined | engine |
 | Every proposal is logged in `agent_actions` (applied, declined, failed) with its effects | engine, `logAgentAction` |
@@ -647,7 +662,8 @@ The SDK already retries 408/409/429/5xx twice before this. Messages never includ
 | `prep_portions` | `addMove`: eat (also logs food), freeze, thaw, discard | `undoMove` (an eaten portion goes back into stock) |
 | `add_shopping_items` | `addShoppingItem` per item, one transaction | remove the new lines, put merged quantities back |
 | `add_recipe_to_shopping` | `addRecipesToShopping` (recipes x batches) | same |
-| `log_drink` | `insertDrinkEntry` (grams via `alcoholGrams`) | soft delete |
+| `add_drink_type` | `saveDrinkType` (created by the assistant). If the name exists, only a missing kcal or price is filled in (`drink_type_fill`); set values are never changed | delete the type / blank the filled value if it is still the same |
+| `log_drink` | `logDrink`: by `drink_type` (its values as defaults) or name, ml and ABV; count 1 to 20; kcal and price per drink | soft delete of each drink |
 | `log_measurement` | `insertMeasurement` | soft delete |
 | `add_day_note` | `insertDayNote` (refused if the day has a note) | soft delete |
 | `create_goal` | `insertGoal` (refuses the daily calorie target) | soft delete |
@@ -686,7 +702,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 154 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 163 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -710,6 +726,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 15
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
 | `log.test.ts`, `logging.test.ts` | levels and scope overrides, redaction and summaries, timers, ring buffer, broken sinks; nested transactions; stored log level; no data leaks from real flows into logs |
+| `alcohol.test.ts` | kcal and weight maths; drink types (unique names, estimates, delete keeps history); totals in drinks, grams, kcal, money and per day; latest weight from manual or synced in kg/g/lb; expected weight; currency; 0006 on existing drinks; chat add/fill/refuse types, log by type, undo of each, read tools |
 | `food.test.ts` | slot by hour and ranking, log/edit/relog/delete in the owner's zone, range with empty days, history paging, calorie goal history, saved meals from entries with linked history and photo replace/delete, servings, photo validation, suggestions by time of day without prep, deleting a prep entry restores stock, backup round trip with photos |
 | `mealPrep.test.ts` | recipes with tags and ingredients, edit in place, moves and limits, food log rows, undo rules, tag filter, deleted recipes and batches, portions-a-day setting, unit folding, shopping list merge and clear |
 
