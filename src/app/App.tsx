@@ -9,7 +9,10 @@ import { TodayScreen } from "../features/metrics/TodayScreen";
 import { loadFreddyCredentials } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { freddySource, loadTransport } from "../features/sync/freddyClient";
-import { runSync } from "../features/sync/runSync";
+import { lastSync, runSync, type LastSync } from "../features/sync/runSync";
+import { refreshSyncReminder, RESYNC_ON_RESUME_MS } from "../features/sync/reminder";
+import { SyncBanner, SyncButton } from "../features/sync/SyncStatus";
+import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../features/settings/logLevel";
 import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
@@ -25,6 +28,8 @@ export function App() {
   const [configured, setConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
+  const [status, setStatus] = useState<LastSync | null>(null);
+  const [now, setNow] = useState(Date.now());
   const autoSynced = useRef(false);
 
   useEffect(() => {
@@ -42,6 +47,16 @@ export function App() {
 
   const db = dbStatus.state === "ready" ? dbStatus.db : null;
 
+  /** Reload the header status and move the "not synced for 3 days" reminder to match. */
+  const refreshStatus = useCallback(async () => {
+    if (!db) return;
+    const isConfigured = Boolean(await loadFreddyCredentials(secretStore));
+    setConfigured(isConfigured);
+    setStatus(await lastSync(db, "freddy"));
+    setNow(Date.now());
+    await refreshSyncReminder(db, notifier, { configured: isConfigured });
+  }, [db]);
+
   const sync = useCallback(async () => {
     if (!db) return;
     const creds = await loadFreddyCredentials(secretStore);
@@ -54,15 +69,37 @@ export function App() {
     } finally {
       setSyncing(false);
       setVersion((v) => v + 1);
+      await refreshStatus();
     }
-  }, [db]);
+  }, [db, refreshStatus]);
+
+  // Keep "Synced 5 min ago" current.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Back in front after a while (the app can sit in memory for days): sync again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setNow(Date.now());
+      const lastOk = status?.lastOkMs ?? 0;
+      if (configured && !syncing && Date.now() - lastOk > RESYNC_ON_RESUME_MS) {
+        log.info("app resumed, syncing", { sinceLastOkMin: lastOk ? Math.round((Date.now() - lastOk) / 60_000) : null });
+        void sync();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [configured, syncing, status, sync]);
 
   // Sync on open: the free plan only keeps 7 days, so every launch is a chance not to lose data.
   useEffect(() => {
     if (!db || autoSynced.current) return;
     autoSynced.current = true;
-    void sync();
-  }, [db, sync]);
+    void refreshStatus().then(sync);
+  }, [db, sync, refreshStatus]);
 
   if (dbStatus.state !== "ready") {
     return (
@@ -79,6 +116,7 @@ export function App() {
     <main className="shell">
       <header className="row">
         <h1>Health</h1>
+        <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <nav className="tabs">
           <button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}>
             Today
@@ -94,8 +132,9 @@ export function App() {
           </button>
         </nav>
       </header>
+      <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
       {tab === "today" ? (
-        <TodayScreen db={dbStatus.db} configured={configured} syncing={syncing} onSync={sync} version={version} />
+        <TodayScreen db={dbStatus.db} configured={configured} version={version} />
       ) : tab === "food" ? (
         <FoodScreen db={dbStatus.db} />
       ) : tab === "mealprep" ? (
@@ -106,7 +145,7 @@ export function App() {
           secrets={secretStore}
           isNative={isNative}
           onChanged={() => {
-            void loadFreddyCredentials(secretStore).then((c) => setConfigured(Boolean(c)));
+            void refreshStatus();
             setVersion((v) => v + 1);
           }}
         />
