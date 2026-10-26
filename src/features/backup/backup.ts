@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SqlDriver, SqlValue } from "../../db/driver";
 import { DEVICE_ID_KEY } from "../../db/settings";
 import { createLogger } from "../../core/log";
+import { assertSameOwner, getOwner } from "../account/account";
 
 const log = createLogger("backup");
 
@@ -26,6 +27,7 @@ export interface BackupTable {
 /** Every table, in restore order (parents before children). A test keeps this in step with the schema. */
 export const BACKUP_TABLES: BackupTable[] = [
   { name: "app_settings", key: ["key"], lastWriteWins: true },
+  { name: "account", key: ["id"], lastWriteWins: true },
   { name: "sync_state", key: ["source"], lastWriteWins: true },
   { name: "metric_catalog", key: ["source", "metric"], lastWriteWins: true },
   { name: "health_samples", key: ["source", "device", "metric", "external_id"], lastWriteWins: true },
@@ -139,6 +141,16 @@ export interface RestoreReport {
   rows: Record<string, number>;
 }
 
+/** The live owner row in a backup's account table, if the backup has one. */
+function liveOwnerIn(payload: Payload): { subject: string; email: string | null } | null {
+  const part = payload.tables.account;
+  if (!part) return null;
+  const col = (name: string) => part.columns.indexOf(name);
+  const [id, subject, email, deleted] = ["id", "subject", "email", "deleted_at"].map(col);
+  const row = part.rows.find((r) => r[id] === "owner" && (deleted < 0 || r[deleted] === null));
+  return row && typeof row[subject] === "string" ? { subject: row[subject] as string, email: (row[email] as string | null) ?? null } : null;
+}
+
 /** Merge a backup into the database in one transaction: all of it, or nothing. */
 export async function restoreBackup(db: SqlDriver, fileText: string, password: string): Promise<RestoreReport> {
   let envelope: z.infer<typeof envelopeSchema>;
@@ -168,6 +180,15 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
   if (payload.schemaVersion > current) {
     log.warn("restore refused: backup from a newer schema", { backup: payload.schemaVersion, current });
     throw new BackupError(`This backup comes from a newer app (schema ${payload.schemaVersion}, this app has ${current}). Update the app first.`);
+  }
+
+  // Never merge another Google account's data into this phone's (one owner per install).
+  const backupOwner = liveOwnerIn(payload);
+  try {
+    assertSameOwner(await getOwner(db), backupOwner?.subject ?? null, backupOwner?.email ?? null);
+  } catch (err) {
+    log.warn("restore refused: backup belongs to another account");
+    throw new BackupError((err as Error).message);
   }
 
   const counts: Record<string, number> = {};

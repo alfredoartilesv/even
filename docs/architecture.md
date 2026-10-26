@@ -28,6 +28,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 | Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; no chat screen yet |
 | Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
 | Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`). Manual export/restore, encrypted with a password | Built 25 Oct 2026 |
+| Account | Optional Google sign-in (Android Credential Manager via `@capgo/capacitor-social-login`, no Firebase). One owner per install: the first account to sign in owns the phone's data. See section 5b | Built 26 Oct 2026; needs the Google Cloud setup |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
 | Native projects | `android/` and `ios/` are generated (`npx cap add`) and git-ignored. Anything we change in them is a script (`scripts/android-harden.mjs`) | 25 Oct 2026 |
 
@@ -125,6 +126,21 @@ Core built 25 Oct 2026 (`src/features/chat/`); the chat screen is not built yet.
 The one edit allowed (26 Oct 2026): filling a missing kcal or price on a drink type, because the owner usually learns those from the chat ("a Mahou costs 1.20"); it never overwrites a value and undo blanks it again.
 
 Why additive-only with confirmation rather than full editing: wrong numbers in a health log are worse than a missing entry, and an undo per action keeps every mistake one tap from fixed. Editing and deleting stay on the app's own screens.
+
+## 5b. Account: Google sign-in (decided 26 Oct 2026)
+
+**What it is for:** knowing whose data this is. The phone's data gets an owner (Google's stable account id), so phase 2 sync can key everything by that account and a backup cannot be restored into another person's data. It is **not** a lock: the data is protected on the phone by SQLCipher with a Keystore key whether or not anyone is signed in (a biometric lock would be the tool for that).
+
+**Decisions (by the owner):**
+- **One owner per install.** The first Google account that signs in owns the phone's data, including everything already stored. A different account is told whose data this is and nothing changes. Releasing ownership (confirmed in the UI) lets the next account bind; the data stays.
+- **Optional.** The app works offline without an account, as before. Signing out ends the local session but keeps the binding.
+
+**How:**
+- Android Credential Manager through `@capgo/capacitor-social-login` (Capacitor 8, no Firebase). It returns an ID token; the app checks its claims (issuer `accounts.google.com`, audience = our Web client id, expiry, subject) and stores only identity facts in the `account` table: subject, email, whether Google verified it, name, times. **No token is stored.** The signature is not checked on the phone: the token arrives from the OS over the native bridge and only labels ownership. Any server that trusts it (phase 2) must verify the signature.
+- Logs never contain the email or the account id.
+- Backups include the `account` row; restore refuses a backup whose owner is a different account (message names its email), and on a phone with no owner the restore brings its owner along.
+
+**Setup the owner does once (Google Cloud Console):** a project; the OAuth consent screen (Testing mode, add your own Google account as a test user; scopes `email`, `profile`); a **Web application** OAuth client, whose id goes in `.env` as `VITE_GOOGLE_WEB_CLIENT_ID` (public, not a secret); an **Android** OAuth client for package `app.health.personal` with the SHA-1 of the signing key (debug key from Android Studio, Gradle `signingReport`; later also the release / Play App Signing key). Credential Manager needs the **Web** client id in the app; using the Android one is the usual cause of "Developer console is not set up correctly".
 
 ## 6. Phase 2 parking lot (noted, not built)
 
