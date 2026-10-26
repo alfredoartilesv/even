@@ -16,5 +16,8 @@ How to get the Garmin export: Garmin Connect on the web → Account → Data Man
 Export Your Data → Request Data Export. Garmin emails a download link (usually within 48 hours,
 up to 30 days; the link expires, so download it soon).
 
-The Garmin importer is not built yet: once the ZIP is here, it will read it on the PC and
-produce an encrypted backup file that you restore in the app (Settings → Restore).
+Then run `npm run import:garmin`. It reads the ZIP on the PC and writes an encrypted backup file
+next to it (`imports/garmin/garmin-import-<date>.json`, also git-ignored). Copy that file to the
+phone and restore it in the app (Settings → Restore) with the password you chose. Restoring merges:
+nothing already on the phone is lost or duplicated. `npm run import:garmin -- --dry-run` only reports
+what it would import.
