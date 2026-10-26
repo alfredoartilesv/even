@@ -5,8 +5,11 @@ import { dayFood, getCalorieGoal, loggedDaysBefore, nutritionRange, type DayTota
 import { mean } from "../../../core/health";
 import { addDays } from "../../../core/tz";
 import { fmtDay, MsgLine, today, type Msg } from "../../../ui/common";
-import { EntryList, kcal, WeekChart, weekEnding } from "./components";
+import { BarChart } from "../../../ui/charts";
+import { EntryList, kcal, weekEnding } from "./components";
 import { entryActions } from "./entryActions";
+
+const weekdayLetter = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" });
 
 interface Props {
   db: SqlDriver;
@@ -77,7 +80,19 @@ export function HistoryView({ db, version, onChanged }: Props) {
           ›
         </button>
       </div>
-      <WeekChart days={week} target={target} selected={day} onSelect={setDay} />
+      <BarChart
+        title="Calories"
+        subtitle="Food and drinks, tap a day to open it"
+        x={week.map((d) => d.day)}
+        values={week.map((d) => d.calories)}
+        formatX={weekdayLetter}
+        formatXLong={(d) => fmtDay(d)}
+        formatValue={kcal}
+        unit="kcal"
+        target={target}
+        selected={day}
+        onSelect={setDay}
+      />
       <p className="muted small">
         {avg === null
           ? "Nothing logged this week."
