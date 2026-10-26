@@ -5,7 +5,7 @@ import { CHAT_MODEL, ChatApiError, toChatError, type ClaudeCreate } from "./engi
  * The real Messages API call, through the official SDK.
  *
  * On the phone, pass makeNativeFetch(CapacitorHttp.request, { readTimeoutMs: ... }) as `fetchImpl`
- * so the request goes over native HTTP (no WebView CORS, same as the freddy sync). The SDK
+ * so the request goes over native HTTP (no WebView CORS, same as the Garmin sync). The SDK
  * refuses to run in a browser-like environment unless `dangerouslyAllowBrowser` is set; that
  * guard is about shipping a shared key to strangers' browsers. Here the key is the owner's own,
  * typed into their own phone and kept in the Keystore (architecture.md section 5: acceptable for

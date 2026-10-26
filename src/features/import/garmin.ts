@@ -19,10 +19,11 @@ import type { CatalogEntry, SampleInput } from "../sync/types";
  * files, routes and locations, social, profile images, workouts, gear, personal records.
  *
  * Privacy: activity names, locations and coordinates are not imported.
- * Metric names are the ones freddy uses for the same Garmin values (checked against freddy's list,
- * 26 Oct 2026), so the history and freddy's recent days form one series per metric. They are stored
+ * Metric names are the ones the Personal API sync (src/features/sync/garmin.ts) uses for the same
+ * Garmin values, so the history and the synced days form one series per metric. They are stored
  * under their own source, so neither overwrites the other; where both have a metric on the same day,
- * daily_metric_values shows the live source only (migrations 0008 and 0009: the Personal API, then freddy, then the export).
+ * daily_metric_values shows the sync's value only (migrations 0008 and 0009: the Personal API, then
+ * freddy rows from before the switch, then the export).
  */
 
 export const GARMIN_EXPORT_SOURCE = "garmin_export";
@@ -64,17 +65,6 @@ export interface GarminImport {
   catalog: CatalogEntry[];
   report: Record<GarminKind, KindReport> & { weightProfileValuesSkipped: number };
 }
-
-/** Daily aggregation for metrics where classifyMetric's guess from the name would be wrong. */
-export const GARMIN_DAILY_AGG: Record<string, "avg" | "sum" | "min" | "max" | "last"> = {
-  activity_aerobicTrainingEffect: "max",
-  activity_anaerobicTrainingEffect: "max",
-  activity_vo2Max: "max",
-  daily_minHeartRateInBeatsPerMinute: "min",
-  daily_maxHeartRateInBeatsPerMinute: "max",
-  daily_maxStressLevel: "max",
-  pulseOx_minSpo2InPercent: "min",
-};
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -169,7 +159,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       n += add("daily_totalKilocalories", inRange(num(r.totalKilocalories), 0, 20_000), "kcal", at, id);
       n += add("daily_activeKilocalories", inRange(num(r.activeKilocalories), 0, 20_000), "kcal", at, id);
       n += add("daily_bmrKilocalories", inRange(num(r.bmrKilocalories), 0, 10_000), "kcal", at, id);
-      // restingHeartRate is Garmin's 7-day average; freddy's daily value is this one.
+      // restingHeartRate is Garmin's 7-day average; the day's own value, as the Personal API gives it, is this one.
       n += add("daily_restingHeartRateInBeatsPerMinute", inRange(num(r.currentDayRestingHeartRate), 20, 200), "bpm", at, id);
       n += add("daily_minHeartRateInBeatsPerMinute", inRange(num(r.minHeartRate), 20, 250), "bpm", at, id);
       n += add("daily_maxHeartRateInBeatsPerMinute", inRange(num(r.maxHeartRate), 20, 250), "bpm", at, id);

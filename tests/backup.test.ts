@@ -15,10 +15,10 @@ const FAST = { iterations: 1000, now: NOW }; // real exports use 600k; speed onl
 async function seeded() {
   const { db, raw } = await migratedDb();
   await deviceId(db, NOW);
-  await setSetting(db, "freddy.transport", "native", NOW);
+  await setSetting(db, "sync.reminder", "off", NOW);
   await upsertSamples(
     db,
-    [{ source: "freddy", device: "Garmin", externalId: "2026-10-24#0", metric: "daily_steps", startMs: NOW, offsetMin: 120, valueNum: 10000 }],
+    [{ source: "garmin", device: "Garmin", externalId: "2026-10-24#0", metric: "daily_steps", startMs: NOW, offsetMin: 120, valueNum: 10000 }],
     NOW,
   );
   await db.run(
@@ -58,7 +58,7 @@ test("round trip into an empty install restores everything except the device id"
   const [msg] = await fresh.all<{ content_json: string }>("SELECT content_json FROM chat_messages");
   assert.match(msg.content_json, /How did I sleep/);
   assert.equal((await fresh.all("SELECT * FROM health_samples")).length, 1);
-  assert.equal(await getSetting(fresh, "freddy.transport"), "native");
+  assert.equal(await getSetting(fresh, "sync.reminder"), "off");
   assert.equal(await deviceId(fresh), freshId);
 });
 
@@ -146,7 +146,7 @@ test("export and restore through the Capacitor driver (plugin transactions, mult
   const { db } = await seeded();
   // Enough rows to need several INSERT batches (health_samples has 15 columns -> 60 rows per batch).
   const many = Array.from({ length: 250 }, (_, i) => ({
-    source: "freddy", device: "Garmin", externalId: `2026-10-24#${i + 1}`, metric: "daily_steps",
+    source: "garmin", device: "Garmin", externalId: `2026-10-24#${i + 1}`, metric: "daily_steps",
     startMs: NOW, offsetMin: 120, valueNum: i,
   }));
   await upsertSamples(db, many, NOW);

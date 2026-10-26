@@ -80,7 +80,7 @@ test("latest weight: manual and synced, newest wins, units converted", async () 
   assert.equal(await latestWeight(db, "2026-10-25"), null);
   await db.run(
     `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, offset_min, value_num, unit, local_day, created_at, updated_at)
-     VALUES ('s1', 'freddy', 'Garmin', '2026-10-24#0', 'body_weightInGrams', ?, 120, 86500, 'grams', '2026-10-24', ?, ?)`,
+     VALUES ('s1', 'garmin', 'Garmin', '2026-10-24#0', 'body_weightInGrams', ?, 120, 86500, 'grams', '2026-10-24', ?, ?)`,
     [NOW, NOW, NOW],
   );
   assert.deepEqual(await latestWeight(db, "2026-10-25"), { kg: 86.5, day: "2026-10-24", source: "synced" });

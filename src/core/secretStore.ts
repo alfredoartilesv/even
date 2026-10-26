@@ -1,5 +1,5 @@
 /**
- * Where secrets live (freddy URL and key, Claude key). Implemented by the Keystore/Keychain
+ * Where secrets live (Garmin key, Claude key). Implemented by the Keystore/Keychain
  * adapter in src/platform/secureStore.ts; tests and the browser build use the memory store.
  */
 export interface SecretStore {
