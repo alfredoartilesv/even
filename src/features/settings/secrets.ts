@@ -4,7 +4,8 @@ import type { SecretStore } from "../../core/secretStore";
 export { memorySecretStore, type SecretStore } from "../../core/secretStore";
 
 /**
- * Secrets: the freddy MCP URL and key now, the Claude API key later.
+ * Secrets: the Garmin personal API key, the Claude API key (and the freddy MCP URL and key of
+ * the earlier sync, no longer used by the app).
  * On the phone they live in the Android Keystore / iOS Keychain via
  * @aparajita/capacitor-secure-storage (src/platform/secureStore.ts). They are never
  * written to SQLite, so they are never in a backup file either.
@@ -16,7 +17,26 @@ export const SECRET_KEYS = {
   freddyUrl: "freddy.mcp_url",
   freddyKey: "freddy.mcp_key",
   claudeKey: "anthropic.api_key",
+  garminKey: "garmin.api_key",
 } as const;
+
+export async function loadGarminKey(store: SecretStore): Promise<string | null> {
+  return (await store.get(SECRET_KEYS.garminKey))?.trim() || null;
+}
+
+/** The Garmin Connect personal API key. Shape check only: the first sync is the real test. */
+export async function saveGarminKey(store: SecretStore, apiKey: string): Promise<void> {
+  const k = apiKey.trim();
+  if (!k) throw new Error("Paste the personal API key from Garmin Connect");
+  if (/\s/.test(k) || k.length < 16) throw new Error("That does not look like a Garmin personal API key");
+  await store.set(SECRET_KEYS.garminKey, k);
+  log.info("Garmin API key saved");
+}
+
+export async function clearGarminKey(store: SecretStore): Promise<void> {
+  await store.remove(SECRET_KEYS.garminKey);
+  log.info("Garmin API key removed");
+}
 
 export async function loadClaudeKey(store: SecretStore): Promise<string | null> {
   return (await store.get(SECRET_KEYS.claudeKey))?.trim() || null;
