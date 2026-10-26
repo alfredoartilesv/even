@@ -12,7 +12,7 @@ const DAY_START = Date.UTC(2026, 9, 23, 22, 0, 0);
 
 function sample(over: Partial<SampleInput> = {}): SampleInput {
   return {
-    source: "freddy",
+    source: "garmin",
     device: "Garmin",
     externalId: "2026-10-24#0",
     metric: "daily_steps",
@@ -29,7 +29,7 @@ test("0002 backfills local_day on rows written before it, in the row's own zone"
   await migrate(db, [m1]);
   await db.run(
     `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, offset_min, value_num, created_at, updated_at)
-     VALUES ('a', 'freddy', 'Garmin', '2026-10-24#0', 'daily_steps', ?, 120, 1, ?, ?)`,
+     VALUES ('a', 'garmin', 'Garmin', '2026-10-24#0', 'daily_steps', ?, 120, 1, ?, ?)`,
     [DAY_START, NOW, NOW],
   );
   await db.run(
@@ -75,7 +75,7 @@ test("daily_metric_values offers every aggregate, flags partial days, and dayVal
 
   await db.run(
     `INSERT INTO metric_catalog (source, metric, label, category, daily_agg, pinned, updated_at)
-     VALUES ('freddy', 'body_weightInGrams', 'Weight', 'body', 'min', 1, ?)`,
+     VALUES ('garmin', 'body_weightInGrams', 'Weight', 'body', 'min', 1, ?)`,
     [NOW],
   );
   assert.equal(await latestSampleDay(db), "2026-10-24");

@@ -4,8 +4,7 @@ import type { SecretStore } from "../../core/secretStore";
 export { memorySecretStore, type SecretStore } from "../../core/secretStore";
 
 /**
- * Secrets: the Garmin personal API key, the Claude API key (and the freddy MCP URL and key of
- * the earlier sync, no longer used by the app).
+ * Secrets: the Garmin personal API key and the Claude API key.
  * On the phone they live in the Android Keystore / iOS Keychain via
  * @aparajita/capacitor-secure-storage (src/platform/secureStore.ts). They are never
  * written to SQLite, so they are never in a backup file either.
@@ -14,8 +13,6 @@ export { memorySecretStore, type SecretStore } from "../../core/secretStore";
 const log = createLogger("settings.secrets");
 
 export const SECRET_KEYS = {
-  freddyUrl: "freddy.mcp_url",
-  freddyKey: "freddy.mcp_key",
   claudeKey: "anthropic.api_key",
   garminKey: "garmin.api_key",
 } as const;
@@ -61,38 +58,16 @@ export async function clearClaudeKey(store: SecretStore): Promise<void> {
   log.info("Claude API key removed");
 }
 
-export interface FreddyCredentials {
-  url: string;
-  apiKey: string | null;
-}
+/** Where the earlier freddy sync kept its MCP URL and key. Only read to delete them. */
+const LEGACY_FREDDY_KEYS = ["freddy.mcp_url", "freddy.mcp_key"];
 
-export async function loadFreddyCredentials(store: SecretStore): Promise<FreddyCredentials | null> {
-  const url = (await store.get(SECRET_KEYS.freddyUrl))?.trim();
-  if (!url) return null;
-  const apiKey = (await store.get(SECRET_KEYS.freddyKey))?.trim() || null;
-  return { url, apiKey };
-}
-
-/** Validate and store. An empty key removes it (freddy currently needs one, see docs 4b). */
-export async function saveFreddyCredentials(store: SecretStore, url: string, apiKey: string): Promise<void> {
-  const u = url.trim();
-  let parsed: URL;
-  try {
-    parsed = new URL(u);
-  } catch {
-    throw new Error("The freddy MCP URL is not a valid URL");
+/** Remove the freddy URL and key a phone may still hold from before the Garmin sync. Safe to call on every start. */
+export async function removeLegacySecrets(store: SecretStore): Promise<void> {
+  let removed = 0;
+  for (const k of LEGACY_FREDDY_KEYS) {
+    if ((await store.get(k)) === null) continue;
+    await store.remove(k);
+    removed++;
   }
-  if (parsed.protocol !== "https:") throw new Error("The freddy MCP URL must start with https://");
-  await store.set(SECRET_KEYS.freddyUrl, u);
-  const k = apiKey.trim();
-  if (k) await store.set(SECRET_KEYS.freddyKey, k);
-  else await store.remove(SECRET_KEYS.freddyKey);
-  log.info("freddy credentials saved", { hasKey: Boolean(k) });
+  if (removed) log.info("old freddy credentials removed", { removed });
 }
-
-export async function clearFreddyCredentials(store: SecretStore): Promise<void> {
-  await store.remove(SECRET_KEYS.freddyUrl);
-  await store.remove(SECRET_KEYS.freddyKey);
-  log.info("freddy credentials removed");
-}
-

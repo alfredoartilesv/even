@@ -18,12 +18,12 @@ test("levels filter, scopes override by prefix", () => {
   setLogLevel("silent", "chat");
   createLogger("db").debug("hidden");
   createLogger("db").info("shown");
-  createLogger("sync.freddy").debug("shown too");
+  createLogger("sync.garmin").debug("shown too");
   createLogger("synchro").debug("hidden: not a child of sync");
   createLogger("chat").error("hidden: silent");
-  assert.deepEqual(records.map((r) => `${r.scope}:${r.msg}`), ["db:shown", "sync.freddy:shown too"]);
+  assert.deepEqual(records.map((r) => `${r.scope}:${r.msg}`), ["db:shown", "sync.garmin:shown too"]);
   assert.equal(getLogLevel(), "info");
-  assert.equal(enabled("sync.freddy.http", "debug"), true);
+  assert.equal(enabled("sync.garmin.http", "debug"), true);
   assert.throws(() => setLogLevel("loud" as never), /Unknown/);
   assert.equal(isLevel("warn"), true);
   assert.equal(isLevel("verbose"), false);
@@ -32,14 +32,14 @@ test("levels filter, scopes override by prefix", () => {
 test("fields are sanitised: secrets redacted, errors flattened, long and deep values cut", () => {
   const f = sanitize({
     apiKey: "sk-123",
-    freddyUrl: "https://x",
+    serverUrl: "https://x",
     nested: { password: "p", count: 3, deeper: { deepest: { x: 1 } } },
     err: new TypeError("boom"),
     long: "x".repeat(300),
     many: Array.from({ length: 30 }, (_, i) => i),
   });
   assert.equal(f.apiKey, "[redacted]");
-  assert.equal(f.freddyUrl, "[redacted]");
+  assert.equal(f.serverUrl, "[redacted]");
   assert.deepEqual(f.nested, { password: "[redacted]", count: 3, deeper: { deepest: "[object]" } });
   assert.deepEqual(f.err, { name: "TypeError", message: "boom" });
   assert.equal((f.long as string).length, 201);

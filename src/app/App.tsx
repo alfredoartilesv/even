@@ -7,7 +7,7 @@ import { MealPrepScreen } from "../features/mealprep/ui/MealPrepScreen";
 import { SettingsScreen } from "../features/settings/SettingsScreen";
 import { LogsScreen } from "../features/logs/LogsScreen";
 import { TodayScreen } from "../features/metrics/TodayScreen";
-import { loadGarminKey } from "../features/settings/secrets";
+import { loadGarminKey, removeLegacySecrets } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
 import { lastSync, runSync, type LastSync } from "../features/sync/runSync";
@@ -38,6 +38,7 @@ export function App() {
     openDatabase().then(
       async ({ db }) => {
         await applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
+        void removeLegacySecrets(secretStore).catch((err) => log.warn("old secrets not removed", { err }));
         setDbStatus({ state: "ready", db });
       },
       (err: Error) => {

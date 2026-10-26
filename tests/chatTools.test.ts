@@ -12,7 +12,7 @@ async function db() {
   const { db } = await migratedDb();
   const sample = (day: string, metric: string, value: number, n = 0, device = "Garmin") => {
     const s = localDayStart(day, "Europe/Madrid");
-    return { source: "freddy", device, externalId: `${day}#${n}`, metric, startMs: s.startMs, offsetMin: s.offsetMin, valueNum: value };
+    return { source: "garmin", device, externalId: `${day}#${n}`, metric, startMs: s.startMs, offsetMin: s.offsetMin, valueNum: value };
   };
   await upsertSamples(
     db,
@@ -26,7 +26,7 @@ async function db() {
     ],
     NOW,
   );
-  await upsertCatalog(db, "freddy", [{ metric: "daily_steps", records: 4 }, { metric: "body_weightInGrams", unit: "grams" }], NOW);
+  await upsertCatalog(db, "garmin", [{ metric: "daily_steps", records: 4 }, { metric: "body_weightInGrams", unit: "grams" }], NOW);
   const food = `INSERT INTO food_entries (id, eaten_at_ms, offset_min, local_day, name, calories, protein_g, created_at, updated_at, origin_device_id)
                 VALUES (?, 0, 120, ?, 'x', ?, ?, ?, ?, 'dev')`;
   await db.run(food, ["f1", "2026-10-19", 2000, 100, NOW, NOW]);

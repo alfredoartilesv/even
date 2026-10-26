@@ -66,7 +66,7 @@ test("get_profile gives Claude age and estimates, never the name or birth date",
   const today = localDay(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
   await saveProfile(db, full, today);
   const t = Date.now() - 86_400_000;
-  await upsertSamples(db, [{ source: "freddy", device: "", externalId: "w1", metric: "body_weightInGrams", startMs: t, endMs: t, offsetMin: 0, valueNum: 80_000, unit: "grams" }]);
+  await upsertSamples(db, [{ source: "garmin", device: "", externalId: "w1", metric: "body_weightInGrams", startMs: t, endMs: t, offsetMin: 0, valueNum: 80_000, unit: "grams" }]);
   const tool = TOOLS_BY_NAME.get("get_profile")!;
   assert.equal(tool.dataClass, "aggregate");
   const out = await tool.run(db, {});
@@ -92,8 +92,8 @@ test("data inventory reads every table of the real schema", async () => {
   assert.ok(empty.every((r) => r.count === 0 && r.from === null));
   const t = Date.UTC(2026, 9, 20, 10);
   await upsertSamples(db, [
-    { source: "freddy", device: "", externalId: "a", metric: "daily_steps", startMs: t, endMs: t, offsetMin: 0, valueNum: 1 },
-    { source: "freddy", device: "", externalId: "b", metric: "daily_steps", startMs: t + 3 * 86_400_000, endMs: t, offsetMin: 0, valueNum: 2 },
+    { source: "garmin", device: "", externalId: "a", metric: "daily_steps", startMs: t, endMs: t, offsetMin: 0, valueNum: 1 },
+    { source: "garmin", device: "", externalId: "b", metric: "daily_steps", startMs: t + 3 * 86_400_000, endMs: t, offsetMin: 0, valueNum: 2 },
   ]);
   const readings = (await dataInventory(db)).find((r) => r.label.startsWith("Health readings"))!;
   assert.deepEqual(readings, { label: readings.label, count: 2, from: "2026-10-20", to: "2026-10-23" });

@@ -7,8 +7,30 @@ const log = createLogger("metrics.catalog");
 export type MetricCategory = "sleep" | "recovery" | "activity" | "heart" | "stress" | "body" | "nutrition" | "other";
 export type DailyAgg = "avg" | "sum" | "min" | "max" | "last";
 
+/**
+ * Garmin metrics whose day is not what the name rule below guesses. The activity_* ones matter
+ * most: a day with two workouts has two rows, and summing training effect or VO2 max is wrong.
+ * Applies to every source (the Personal API, the export, freddy's old rows), as they share names.
+ */
+export const DAILY_AGG_OVERRIDES: Record<string, DailyAgg> = {
+  activity_aerobicTrainingEffect: "max",
+  activity_anaerobicTrainingEffect: "max",
+  activity_vo2Max: "max",
+  activity_maxHeartRateInBeatsPerMinute: "max",
+  daily_minHeartRateInBeatsPerMinute: "min",
+  daily_maxHeartRateInBeatsPerMinute: "max",
+  daily_maxStressLevel: "max",
+  pulseOx_minSpo2InPercent: "min",
+};
+
 /** First guess at how to show a metric, from its name. The user can change it later. */
 export function classifyMetric(metric: string): { category: MetricCategory; dailyAgg: DailyAgg } {
+  const guess = classifyByName(metric);
+  const agg = DAILY_AGG_OVERRIDES[metric];
+  return agg ? { ...guess, dailyAgg: agg } : guess;
+}
+
+function classifyByName(metric: string): { category: MetricCategory; dailyAgg: DailyAgg } {
   const n = metric.toLowerCase();
   if (n.startsWith("sleep_")) return { category: "sleep", dailyAgg: "last" };
   if (n.startsWith("dailybodybattery_") || n.includes("hrv")) return { category: "recovery", dailyAgg: "last" };
