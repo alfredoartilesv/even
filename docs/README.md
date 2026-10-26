@@ -31,7 +31,7 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 
 ```bash
 npm install
-npm test                    # 168 tests, no device needed
+npm test                    # 172 tests, no device needed
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
 ```
