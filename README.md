@@ -23,6 +23,7 @@ npm install
 npm test
 npm run build
 npm run dev                         # browser: UI only, no local database (native only)
+npm run import:garmin      # Garmin export ZIP in imports/garmin/ -> encrypted backup to restore on the phone
 node --env-file=.env --import tsx scripts/freddy-sync.ts   # real freddy -> SQLite on this PC
 ```
 

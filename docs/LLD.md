@@ -420,6 +420,22 @@ A value that is `<number>` optionally followed by a unit made of letters, `_`, `
 
 `freddySource(creds, transport, nativeRequest)` (`src/features/sync/freddyClient.ts`) wires `McpHttpCaller` with the native adapter when the transport is `native`, otherwise with the WebView's `fetch`. `loadTransport` reads `freddy.transport`, defaulting to `native` on the phone and `fetch` in the browser.
 
+## 5b. Garmin export import (`src/features/import/`)
+
+`readGarminZip(bytes)` (fflate `unzipSync` with a filter) unpacks only the files `garminKind(path)` recognises, matched on their tail because some names start with the account email:
+
+| Kind | File | Read as |
+|---|---|---|
+| daily | `DI-Connect-Aggregator/UDSFile_*.json` | One record per `calendarDate`. Offset = `wellnessStartTimeLocal - wellnessStartTimeGmt` (kept per day, reused for sleep, weight and VO2) |
+| sleep | `DI-Connect-Wellness/*_sleepData.json` | One per night, stage seconds; total = deep + light + REM |
+| biometrics | `DI-Connect-Wellness/*_userBioMetrics.json` | Weight rows only (grams). `sourceType = USER_SETTING` is the profile value: skipped. `calendarDate` here is a date-time |
+| vo2max | `DI-Connect-Metrics/MetricsMaxMetData_*.json` | Per day and sport the latest `updateTimestamp` wins; also fitness age |
+| activities | `DI-Connect-Fitness/*_summarizedActivities.json` | `distance`, `elevationGain` in **cm**, `duration`, `movingDuration` in **ms**; `avgSpeed` ((m/s)/10) not used. Start = `startTimeGmt`, offset = local - GMT |
+
+`parseGarminExport(files, { timeZone })` returns samples (source `garmin_export`, device `Garmin`), catalog entries and a report per kind (files, records, imported, skipped, first/last day). Day metrics use `externalId = <day>#0` (weigh-ins `<day>#<sequence>`), activities `activity:<activityId>`. Each value is range-checked (steps 0–200k, heart rate 20–250, SpO2 50–100, stress and Body Battery 0–100, ...), so Garmin's -1/-2/null markers and impossible values are dropped. Metrics: `daily_*` (steps, distance, kcal total/active/BMR, resting/min/max HR, moderate/vigorous/active/highly active durations, average/max stress, stress/rest durations), `dailyBodyBattery_*` (highest, lowest, charged, drained), `pulseOx_*`, `respiration_avgWakingBreathsPerMinute`, `sleep_*` (total, deep, light, REM, awake, SpO2, HR, respiration), `body_weightInGrams`, `userMetrics_vo2Max{Running,Walking,Cycling,}`, `userMetrics_fitnessAge`, `activity_*` (type as text, duration, moving duration, distance, elevation gain, kcal, average/max HR, steps, aerobic/anaerobic training effect, VO2 max). Not imported: names, locations, coordinates, hydration (only sweat estimates), nutrition (only goals), FIT files, routes, social, images, workouts, gear.
+
+`storeGarminImport(db, parsed)` runs in one transaction: `upsertSamples` (idempotent), `upsertCatalog`, then `GARMIN_DAILY_AGG` defaults (max for training effect, VO2 and max HR/stress, min for min HR and lowest SpO2) only for catalog rows this import created, so the owner's later choices survive a re-import.
+
 ## 6. Sync orchestrator (`src/features/sync/runSync.ts`)
 
 ```
@@ -733,7 +749,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 172 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 175 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -753,6 +769,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 17
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
+| `garminImport.test.ts` | file selection by tail (emails in names), unreadable/empty ZIPs, unit conversions (cm, ms, minutes), per-day offsets, no-data markers dropped, date-time dates, profile weight skipped, VO2 latest wins, privacy (no names, places, coordinates, email), report counts, store with aggregation defaults, re-import idempotent and keeping the owner's choices, day view |
 | `account.test.ts` | ID token claim checks (issuer, audience incl. arrays, expiry with skew, subject), bind with existing data adopted, owner re-sign-in refreshes email, other account refused, sign-out keeps binding, release and re-bind, backup owner guard (refused / fresh phone / same owner), sign-in flow outcomes and safe messages |
 | `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
@@ -772,6 +789,7 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 | Script | Purpose |
 |---|---|
 | `scripts/freddy-probe.mjs` | One-off checks of the freddy endpoint (auth, SSE, CORS, tool output). Never prints URL or key |
+| `scripts/garmin-import.ts` (`npm run import:garmin`) | Garmin account export ZIP (the one in `imports/garmin/`, or `--zip`) -> real migrations -> encrypted backup in `imports/garmin/garmin-import-<date>.json` to restore on the phone. Password from `GARMIN_BACKUP_PASSWORD` or a hidden prompt. `--db file` also keeps a local SQLite file, `--no-backup` with `--db` only that, `--dry-run` reads and reports only, `--tz` for days without an offset (default: the PC's zone). Prints counts and date ranges only |
 | `scripts/freddy-sync.ts` | Real freddy -> real migrations -> SQLite (memory or `--db file`). Prints counts only |
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
 | `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
