@@ -1,0 +1,10 @@
+{
+  // Offered when the folder is opened. Android setup: docs/dev-setup.md.
+  "recommendations": [
+    "diemasmichiels.emulate",
+    "vscjava.vscode-gradle",
+    "redhat.java",
+    "esbenp.prettier-vscode",
+    "anthropic.claude-code"
+  ]
+}

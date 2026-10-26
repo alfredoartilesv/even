@@ -1,0 +1,75 @@
+{
+  // Terminal > Run Task. Needs JDK 21 and the Android SDK on JAVA_HOME / ANDROID_HOME (docs/dev-setup.md).
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "avd",
+      "type": "promptString",
+      "description": "Emulator (AVD) name; `emulator -list-avds` lists them",
+      "default": "Pixel_8_API_36"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "Android: create native project",
+      "detail": "First time after a clone: android/ is generated, not committed",
+      "type": "shell",
+      "command": "npx cap add android; node scripts/android-harden.mjs",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: sync",
+      "detail": "Build the web app and copy it and the plugins into android/",
+      "type": "npm",
+      "script": "android:sync",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Android: build debug APK",
+      "detail": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "type": "shell",
+      "command": ".\gradlew.bat assembleDebug",
+      "options": { "cwd": "${workspaceFolder}/android" },
+      "dependsOn": "Android: sync",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: start emulator",
+      "detail": "Same as the emulator button in the editor title bar",
+      "type": "shell",
+      "command": "emulator -avd ${input:avd} -no-snapshot-load",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: run on emulator or phone",
+      "detail": "Sync, build, install and launch on a running emulator or a USB phone",
+      "type": "shell",
+      "command": "npx cap run android",
+      "dependsOn": "Android: sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: logcat (app only)",
+      "detail": "App logs, including the app's own log lines from the WebView console",
+      "type": "shell",
+      "command": "adb logcat --pid=$(adb shell pidof -s app.health.personal)",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Test",
+      "type": "npm",
+      "script": "test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}
