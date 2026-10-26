@@ -1,8 +1,8 @@
 /**
- * Talk to the health agent about the data in a local SQLite file (made by scripts/freddy-sync.ts --db).
+ * Talk to the health agent about the data in a local SQLite file (made by npm run sync:garmin -- --db).
  * Same engine, tools, consent, confirmations and logs as the app. Costs API usage on your key.
  *
- *   node --env-file=.env --import tsx scripts/freddy-sync.ts --db health.sqlite
+ *   npm run sync:garmin -- --db health.sqlite
  *   npm run chat -- --db health.sqlite "How did I sleep this week?"
  *   npm run chat -- --db health.sqlite --photo lunch.jpg "Log this lunch"
  *   npm run chat -- --db health.sqlite "Plan a 5-day high-protein meal prep, 2 servings"
@@ -58,7 +58,7 @@ async function main() {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY is empty. Add it to .env and run with --env-file=.env");
   const dbPath = arg("--db");
-  if (!dbPath) throw new Error("Pass --db <file> (create one with scripts/freddy-sync.ts --db)");
+  if (!dbPath) throw new Error("Pass --db <file> (create one with npm run sync:garmin -- --db <file>)");
   const withValue = new Set(["--db", "--allow", "--continue", "--photo"]);
   const question = process.argv
     .slice(2)

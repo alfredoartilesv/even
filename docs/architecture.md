@@ -1,13 +1,13 @@
 # Health App: Architecture
 
-Status as of 25 Oct 2026. This file records **why** the system is built the way it is: the decisions in force, the rules the code must keep, the open risks and the rejected options. When a decision changes, edit it here and note the date.
+Status as of 26 Oct 2026. This file records **why** the system is built the way it is: the decisions in force, the rules the code must keep, the open risks and the rejected options. When a decision changes, edit it here and note the date.
 
 - How the parts fit together and how data flows: [HLD.md](HLD.md).
 - Modules, interfaces, the full schema and the algorithms: [LLD.md](LLD.md).
 
 ## 1. Product summary
 
-A personal health app, Android first (Samsung S23), iPhone second. It pulls wearable and health data through freddy, stores it locally and encrypted on the phone, shows daily screens and trends, keeps manual logs, and lets the owner ask Claude questions about their own data.
+A personal health app, Android first (Samsung S23), iPhone second. It reads the owner's Garmin data from the Garmin Connect Personal API, stores it locally and encrypted on the phone, shows daily screens and trends, keeps manual logs, and lets the owner ask Claude questions about their own data.
 
 - **Phase 1 (now):** phone only. Everything is local.
 - **Phase 2 (later):** server with Postgres, sync between devices, and a web app.
@@ -21,12 +21,11 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 | Mobile shell | Capacitor 8 (Android first, iOS from the same code) | Decided |
 | Local database | SQLite via `@capacitor-community/sqlite`, encrypted with SQLCipher | Built 25 Oct 2026 |
 | Query layer | Typed raw SQL behind a 3-method `SqlDriver` interface, Zod at untrusted edges (backup files). Drizzle rejected, see risk 4 | Decided 25 Oct 2026 |
-| Data source | freddy as the single intermediary, behind the `Source` interface. Now: freddy's **MCP endpoint** (works on the FREE plan, section 4b). Later, on Pro: its Personal REST API, behind the same interface | Built 25 Oct 2026 |
-| Transport to freddy | Capacitor native HTTP by default (not subject to WebView CORS). WebView `fetch` selectable in Settings | Built 25 Oct 2026 |
-| Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
-| Garmin | Via freddy only. No direct Garmin integration. | Decided |
+| Data source | Garmin Connect **Personal API**, read directly with the owner's personal API key, behind the `Source` interface (section 4b). Full history from the Garmin account export (section 4c). Replaced freddy | Built 26 Oct 2026 |
+| Transport to Garmin | Capacitor native HTTP on the phone (not subject to WebView CORS) | Built 26 Oct 2026 |
+| Apple Health / Health Connect | Not read. Garmin is the only wearable source | Decided 26 Oct 2026 |
 | Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; no chat screen yet |
-| Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
+| Secrets | Garmin personal API key and Claude API key in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
 | Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`). Manual export/restore, encrypted with a password | Built 25 Oct 2026 |
 | Account | Optional Google sign-in (Android Credential Manager via `@capgo/capacitor-social-login`, no Firebase). One owner per install: the first account to sign in owns the phone's data. See section 5b | Built 26 Oct 2026; needs the Google Cloud setup |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
@@ -36,7 +35,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 
 - **TypeScript, no Rust:** a solo project at personal scale (a few million rows a year). One language, and the official Anthropic and MCP SDKs are first-class in TypeScript.
 - **Capacitor, not a PWA:** the only copy of offline data must not live in browser storage that can be evicted. Capacitor gives native SQLite with encryption, native HTTP, and later background tasks and push.
-- **freddy, not direct integrations:** HealthKit needs native iOS code, and Garmin's API is partner-gated (new public access was reported closed as of Sept 2026; verify on Garmin's portal). freddy covers Apple Health, Health Connect and Garmin.
+- **Garmin's Personal API, not a hub:** until Oct 2026 Garmin's API was partner-gated, so the app started on freddy (a hub with a 7-day free window). Garmin's free Personal API gives the owner's own data directly, with full history, no third party in between and no plan limits. HealthKit and Health Connect would need native code and are not needed for a Garmin owner.
 - **Raw SQL, not an ORM:** the schema is small and SQLite-specific (partial indexes, views, upserts). Plain SQL behind `SqlDriver` runs unchanged on the phone, in Node tests and in scripts.
 
 ## 3. Rules the code must keep
@@ -52,8 +51,9 @@ Schema (so phase 2 is cheap):
 - Every new table must be added to `BACKUP_TABLES` (`src/features/backup/backup.ts`). A test fails otherwise.
 
 Data:
-- For daily totals from Apple Health / Health Connect, prefer freddy's `<metric>_total` "Merged" metrics. They are already de-duplicated across apps. Never add per-app rows together.
-- Keep the source label (for example "Garmin Forerunner 245") when showing Garmin data (Garmin's attribution rule, via freddy's terms).
+- The same Garmin reading can be stored by several sources (`garmin`, `freddy`, `garmin_export`). Screens read `daily_metric_values`, which shows one per metric and day (migration 0009). Never add sources together.
+- How a metric's day is aggregated comes from `classifyMetric` (`DAILY_AGG_OVERRIDES` where the name rule is wrong, for example the max training effect of a day with two workouts). A new override needs a migration line too; a test checks the two lists match.
+- Keep the source label (for example "Garmin Forerunner 245") when showing Garmin data (Garmin's attribution rule).
 
 Code structure (26 Oct 2026):
 - Layers: `app/` (shell) -> `features/<name>/` -> `ui/`, `platform/`, `db/` -> `core/`. Only `platform/` imports Capacitor plugins at runtime, and no feature logic reaches one even indirectly. Platform pieces are passed in as parameters. `tests/architecture.test.ts` enforces this. Details: [LLD section 1](LLD.md#1-repository-layout).
@@ -67,44 +67,39 @@ Logging (26 Oct 2026):
 
 Privacy and security:
 - Secrets only in the Keystore/Keychain. Never in SQLite, logs, error messages or the repo.
-- Error messages from the network layer never contain the freddy URL or key.
-- Health data leaves the phone only to freddy (reads) and, later, to Claude with recorded consent and a disclosure log.
+- Error messages from the network layer never contain a URL, key or token.
+- The phone only reads from Garmin. Health data leaves the phone only to Claude, with recorded consent and a disclosure log, and in backup files the owner shares.
 
 ## 4. Open risks and spikes
 
-1. **[RESOLVED 25 Oct 2026] Can a third-party phone app read from freddy?** Yes, two ways. The MCP endpoint is what we use now (section 4b). freddy also has a documented read-only REST API ("Personal API", v1.2.0), included in the Pro plan:
-   - Base URL `https://freddy.coach/api/v1/`, auth `Authorization: Bearer fk_live_...`. Keys are created in the freddy dashboard (AI apps -> API keys); the secret is shown once. Up to 10 active keys.
-   - Endpoints (all GET): `/metrics` (filters `metric`, `provider`, `device`, `source_id`, `from`, `to`, `limit` up to 1000, cursor paging via `next_cursor`, optional `include_raw`), `/catalog`, `/sources`, `/profile`. Spec: `https://freddy.coach/api/openapi.json`.
-   - Record fields: `date`, `timestamp` (UTC), `provider`, `source`, `metric`, `device`, `deviceLabel`, `sourceId`, `numValue`, `textValue`, `unit`, `stream`, plus `raw`/`rawStatus` with `include_raw=true`. One provider record can span several rows: join on (`provider`, `sourceId`). Use `device` (stable), never `deviceLabel`, for filtering.
-   - Limits: 120 req/min per key, 30 `include_raw` req/min per account, raw pages capped at 50 rows / about 8 MB. Results are newest first and bounded by the plan's history window.
-   - Terms: freddy's terms do not mention API use or apps built on the data. They forbid sharing your MCP endpoint with third parties for data collection and accessing other users' data. For anything beyond personal use, email freddy (contact in their terms) first.
-2. **[HIGH, mitigated] The phone holds the only copy of user-authored data** (notes, goals, manual logs, chats, settings), and on the FREE plan also of samples older than 7 days.
+1. **[SUPERSEDED 26 Oct 2026] Can a third-party phone app read from freddy?** Yes (MCP endpoint, and a REST API on the Pro plan), and the app did so from 25 to 26 Oct 2026. Garmin's Personal API (section 4b) made freddy unnecessary, and its code was removed.
+2. **[HIGH, mitigated] The phone holds the only copy of user-authored data** (notes, goals, manual logs, chats, settings).
    - Built 25 Oct 2026: encrypted manual backup covering every table (format in [LLD.md section 9](LLD.md#9-backup-and-restore)). Restore is a merge in one transaction.
    - Still open: backups are not automatic; the owner has to remember to export. Phase 2 sync removes the problem.
-3. **[HIGH] Vendor dependency on freddy**, a small service. Keep the `Source` interface swappable and mirror data locally.
+   - Synced Garmin data is no longer at risk: Garmin keeps the history and the next sync reads every day since the cursor.
+3. **[MEDIUM] The Garmin Personal API is new** (opened in Oct 2026) and its documentation is not always right (section 4b lists what differs). Keep the `Source` interface swappable, keep `scripts/garmin-probe.ts` to check endpoints quickly, and treat an endpoint failing for lack of access (HTTP 403/404) as a warning, not a failed sync.
 4. **[RESOLVED 25 Oct 2026] Drizzle with Capacitor SQLite: rejected.** `sqlite-proxy` maps rows by position, but the plugin returns objects keyed by column name. Single-table queries work, but a join that selects two `id` columns silently puts values in the wrong fields (`npm run spike:drizzle` shows it). Making it safe means aliasing every joined column by hand, which defeats the point. Decision: typed raw SQL. The plugin quirks the driver handles are listed in [LLD.md section 3](LLD.md#3-database-access).
-5. **[MEDIUM] Android background sync is unreliable** (Doze, battery optimisation). Main path: sync on app open, when the app comes back to the front after an hour, and with the header sync button. Since 26 Oct 2026 a local notification reminds the owner 3 days after the last successful sync (then daily), so the 7-day free window (risk 6) is not missed; it can be switched off in Settings. Periodic background sync is a bonus for later.
-6. **[HIGH] Free-plan history window.** The owner's freddy account is on FREE: 7 days of history, 1 connected source, Garmin the only queryable provider. Anything older than 7 days cannot be fetched, so the local mirror only keeps what it has synced; the app syncs on every launch and warns about gaps. Health Connect (the phone's own data, including any nutrition or hydration entries) is connected in freddy but **paused** because of the 1-source limit. Decide: upgrade, or choose which source to keep.
-7. **[MEDIUM] Not yet run on a device.** Everything is tested in Node against a fake that copies the Android plugin's behaviour, and a real freddy sync has been run from a PC. The first run on the S23 must confirm: encrypted DB opens and migrates, native-HTTP sync, backup share and restore.
+5. **[LOW] Android background sync is unreliable** (Doze, battery optimisation). Main path: sync on app open, when the app comes back to the front after an hour, and with the header sync button. A local notification reminds the owner 3 days after the last successful sync (then daily), which usually means the Garmin key expired; it can be switched off in Settings. Nothing is lost by syncing late. Periodic background sync is a bonus for later.
+6. **[MEDIUM] The Garmin personal API key expires** on a date the owner picks when making it (30 days to 1 year), and Garmin shows it only once. When it expires, syncs fail with a message that says so, the banner and the 3-day reminder appear, and the owner pastes a new key in Settings → Connections. Not built yet: a reminder before the expiry date.
+7. **[MEDIUM] Not yet run on a device.** Everything is tested in Node against a fake that copies the Android plugin's behaviour, and a real Garmin sync has been run from a PC. The first run on the S23 must confirm: encrypted DB opens and migrates, the Garmin sync over native HTTP, backup share and restore.
 
-## 4b. Decision 25 Oct 2026: stay on the FREE plan and read freddy through MCP
+## 4b. Decision 26 Oct 2026: read Garmin directly through the Garmin Connect Personal API
 
-The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP endpoint (the personal URL plus a key).
-- The MCP tools return **text**, not JSON. `src/features/sync/freddyText.ts` parses it; unknown lines are reported as warnings, never dropped silently. The formats seen so far are pinned by tests (`tests/fixtures.ts`).
-- `FreddySource` talks to a small `ToolCaller` interface, so the transport can change (MCP now, REST later) without touching the sync logic.
-- Free-plan limits apply: 7-day window, 1 source (Garmin). A cursor older than the window produces a "Gap" warning.
-- The MCP URL and key are secrets: stored on the device (Keystore), never in the repo. Rotate them if they are ever pasted anywhere.
-- Terms: freddy forbids sharing the MCP endpoint with third parties for data collection. An app on the owner's own phone, using the owner's own endpoint, is not a third party, but it is not what the endpoint is documented for. Revisit before any public release.
-- **Probe result (25 Oct 2026, real endpoint):** URL alone returns 401; the URL plus `Authorization: Bearer <key>` works. Replies are `text/event-stream` (SSE), stateless (no session id), server `freddy 0.2.0`, 9 tools, 81 metrics. CORS preflight allows origin `*` and headers `content-type, authorization, mcp-session-id` only. The official MCP SDK also sends `mcp-protocol-version`, which a WebView would block, so `src/features/sync/mcpHttp.ts` is a minimal client that sends only the allowed headers.
-- **Real sync from a PC (25 Oct 2026):** 260 samples, 38 metrics, 7 local days; a second sync adds no rows.
-- Native HTTP is the default on the phone, so CORS does not apply there. Still unverified: whether WebView `fetch` would also work (selectable in Settings to test once).
+Garmin opened a free, read-only Personal API for the owner's own data in Oct 2026. It replaces freddy (25-26 Oct 2026, through freddy's MCP endpoint on the FREE plan: 7 days of history, 1 source, text-only tools).
+- **Key and token:** the owner makes a personal API key in Garmin Connect on the web (Settings → Personal API Key). The app trades it for an access token (`POST personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token`, header `Authorization: ApiKey <key>`), valid about 24 h, with no refresh token. Data calls send `Authorization: Bearer <token>`. The token is kept in memory and renewed 5 minutes before it expires, or once after a 401.
+- **What is read** (`src/features/sync/garmin.ts`): profile settings (time zone), daily summaries, sleep, HRV, weight and activities, per 28-day chunk from the cursor (30 days back on the first sync), activities paged 99 at a time. Metric names are the export importer's (and freddy's), so one series per metric across sources.
+- **Seen with a real key, different from Garmin's OpenAPI document** (26 Oct 2026): the token comes back as `text/plain`, and asking for JSON gets HTTP 406. `weight/all` always answers HTTP 400, so `weight/range?includeAll=true` is used. Weight is in grams although documented as kilograms. Sleep may lack `avgHeartRate` (`averageSpO2HRSleep` is used instead) and `sleepScores`. HRV can come back empty. Timestamps are epoch milliseconds, not strings.
+- **Checked against the export** (26 Oct 2026, real data): of 902 metric-days stored by both, 0 are shown twice, and the values agree on nearly every metric. That comparison found that the export's activity calories are kilojoules (fixed, migration 0009). Daily minimum and maximum heart rate differ slightly: the API documents them as 2-minute averages.
+- **Transport:** Capacitor native HTTP on the phone (no WebView CORS). The browser build uses `fetch`, which Garmin may block.
+- **Terms:** for personal use. Revisit before any public release.
+- **Real sync from a PC** (`npm run sync:garmin`, 26 Oct 2026): 939 readings, 40 metrics, 30 days; a second sync adds no rows.
 
 ## 4c. Garmin history import (26 Oct 2026)
 
-The FREE plan only gives freddy's last 7 days, so the long history comes from Garmin's own account export (Garmin Connect → Account → Data Management → Export Your Data, a ZIP by email). The owner drops it in `imports/garmin/` (git-ignored) and runs `npm run import:garmin` on the PC. It reads the daily summaries, sleep, weigh-ins, VO2 max and fitness age, and activities, and writes an **encrypted backup file** that the owner restores on the phone (Settings → Restore). Restore merges, so nothing on the phone is lost or duplicated.
+The Personal API sync reads 30 days on its first run, so the long history comes from Garmin's own account export (Garmin Connect → Account → Data Management → Export Your Data, a ZIP by email). The owner drops it in `imports/garmin/` (git-ignored) and runs `npm run import:garmin` on the PC. It reads the daily summaries, sleep, weigh-ins, VO2 max and fitness age, and activities, and writes an **encrypted backup file** that the owner restores on the phone (Settings → Restore). Restore merges, so nothing on the phone is lost or duplicated.
 
-- **Own source:** `garmin_export`, with exactly freddy's metric names for the same Garmin values (`daily_steps`, `sleep_deepSleepDurationInSeconds`, `pulseOx_avgSpo2InPercent`, ...), so history and recent days are one series per metric. On a day both have a metric, it is the same watch reading twice: `daily_metric_values` shows freddy's only (migration 0008). Both rows stay in `health_samples`; nothing is summed or lost.
-- **Units** were checked against a real export: activity distance and elevation in centimetres, durations in milliseconds, weight in grams. Garmin's "no data" markers (-1, -2, null) are dropped, and the profile weight (`USER_SETTING`) is not taken as a weigh-in.
+- **Own source:** `garmin_export`, with the same metric names as the Personal API sync (`daily_steps`, `sleep_deepSleepDurationInSeconds`, `pulseOx_avgSpo2InPercent`, ...), so history and recent days are one series per metric. On a day both have a metric, it is the same watch reading twice: `daily_metric_values` shows the sync's only (migrations 0008 and 0009). Both rows stay in `health_samples`; nothing is summed or lost.
+- **Units** were checked against a real export: activity distance and elevation in centimetres, durations in milliseconds, activity calories in kilojoules (found 26 Oct 2026 by comparing with the API, fixed in the importer and migration 0009), weight in grams. Garmin's "no data" markers (-1, -2, null) are dropped, and the profile weight (`USER_SETTING`) is not taken as a weigh-in.
 - **Privacy:** activity names, places and coordinates, profile images, routes and social data are not imported. The script prints counts and date ranges only.
 - **Why a backup file rather than an import screen:** it reuses the tested restore path, and keeps an 80 MB ZIP off the phone. The parser (`src/features/import/`, `fflate`) also runs in the WebView, so an in-app import can come later.
 - First run (26 Oct 2026): 1,281 days, 1,231 nights, 45 weigh-ins, 690 VO2 max values and 245 activities from 2018 to 2026, 41,650 readings in 48 metrics. The backup is 1.4 MB.
@@ -166,9 +161,9 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 |---|---|
 | Rust core (Tauri / UniFFI) | Not needed at this scale; slower for a solo developer. React is the better UI layer. |
 | Drizzle ORM | Positional row mapping breaks on the plugin's object rows (risk 4). |
-| Official MCP SDK in the WebView | Sends a header freddy's CORS policy does not allow. |
-| Direct HealthKit / Health Connect plugins | freddy's apps already cover them. Kept only as a fallback. |
-| Direct Garmin Health API | Partner-gated, and public access reported closed. |
+| freddy (health data hub, MCP) | Used 25-26 Oct 2026. Replaced by the Garmin Personal API: no third party, full history, no 7-day window or 1-source limit, JSON instead of text. |
+| Direct HealthKit / Health Connect plugins | Native code for data a Garmin owner already has in Garmin Connect. |
+| Garmin Health API (partner program) | Partner-gated. The Personal API covers the owner's own data. |
 | Unofficial Garmin scrapers | Fragile, risk of account bans, poor base for a health product. |
 | PWA as the mobile shell | Browser storage eviction risk for the only offline copy. |
 | SQLite on the server | Two SQL dialects to maintain. Postgres everywhere on the server. |
@@ -177,12 +172,12 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 ## 8. Open question for the owner
 
-Which 2-3 screens will be opened every day (for example today's sleep and recovery, a weekly trend, a food and alcohol log, a Claude chat)? The schema already covers all of these, so the answer decides what to build next, not what to store. Also still unanswered: which differentiator justifies the app, given that Claude plus the freddy connector already lets you ask questions about your data (candidates: own long-term history, dashboards, derived metrics, manual logs, proactive alerts).
+Which 2-3 screens will be opened every day (for example today's sleep and recovery, a weekly trend, a food and alcohol log, a Claude chat)? The schema already covers all of these, so the answer decides what to build next, not what to store. Also still unanswered: which differentiator justifies the app, given that Claude plus a health-data connector already lets you ask questions about your data (candidates: own long-term history, dashboards, derived metrics, manual logs, proactive alerts).
 
 ## 9. Next steps
 
-1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once.
+1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that the Garmin sync works over native HTTP, and that backup export/share/restore works.
 2. Answer the open question in section 8, then build those screens on the existing schema.
 3. Chat screen on top of `src/features/chat/` (owner is building the UI): key field in Settings, consent dialog, confirmation sheet for changes, photo button (`downscalePhoto` + `attachmentFromPhoto`), conversation list, "What was sent to Claude" and "Assistant activity" (with undo). Try the agent first from the PC with `npm run chat`.
-4. Garmin export importer, once the owner's export arrives.
-5. Decide on freddy FREE vs Pro (risk 6).
+4. Remind the owner before the Garmin key expires (risk 6): ask for the expiry date with the key.
+5. Read the Garmin data the sync does not map yet: VO2 max and fitness age, nutrition and hydration logs, floors, respiration.

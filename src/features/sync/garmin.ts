@@ -12,7 +12,7 @@ const log = createLogger("sync.garmin");
  * Endpoints and fields are from Garmin's OpenAPI document (developer.garmin.com, personal
  * swagger-docs, read 26 Oct 2026).
  *
- * Metric names are the ones freddy and the Garmin export importer use for the same values, so the
+ * Metric names are the ones the Garmin export importer (and freddy, the earlier sync) use, so the
  * export history and the live days form one series per metric. Units differ from the export:
  * here activity distance is metres and durations are seconds.
  *

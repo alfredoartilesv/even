@@ -7,7 +7,7 @@ Personal health app: wearable data from the Garmin Connect Personal API, local e
 Done and tested (`npm test`, all against Node's SQLite and a fake that copies the Android plugin's behaviour):
 - Schema `0001` + `0002`: samples with `local_day`, metric catalog, daily views, food/drink/manual logs, day notes, goals, Claude chat with a "what was sent" log, consents, sync history. Table guide: [docs/LLD.md section 4](docs/LLD.md#4-schema).
 - Encrypted SQLite on the phone (SQLCipher), migrations at startup.
-- Garmin sync in the app: personal API key in the Keystore (Settings → Connections), sync on launch and with "Sync now", native HTTP on the phone, every attempt logged. The earlier freddy sync code is still in src/features/sync but no longer used by the app.
+- Garmin sync in the app: personal API key in the Keystore (Settings → Connections), sync on launch and with "Sync now", native HTTP on the phone, every attempt logged.
 - Encrypted backup export (share sheet) and restore (merge, newest wins).
 - Android auto-backup off (`scripts/android-harden.mjs`).
 - Drizzle evaluated and rejected (`npm run spike:drizzle`).
@@ -38,6 +38,6 @@ npx cap open android       # run on the S23 from Android Studio
 
 ## Next steps
 
-1. Run it on the S23: DB opens and migrates, sync works over native HTTP, backup export/restore works. Then try the "WebView fetch" transport once (CORS question, docs/architecture.md section 4b).
+1. Run it on the S23: DB opens and migrates, sync works over native HTTP, backup export/restore works (docs/architecture.md risk 7).
 2. Choose the 2-3 daily screens (docs section 8) and build them on the existing schema.
 3. Chat screen on top of `src/features/chat/` (consent dialog, change confirmation, photo button, activity with undo).
