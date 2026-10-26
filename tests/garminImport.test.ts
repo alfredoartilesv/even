@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { strToU8, zipSync } from "fflate";
 import { GARMIN_EXPORT_SOURCE, garminKind, parseGarminExport } from "../src/features/import/garmin";
 import { importGarminZip, readGarminZip } from "../src/features/import/garminImport";
-import { dayValues } from "../src/features/metrics/queries";
-import { migratedDb } from "./helpers";
+import { dailySeries, dayValues } from "../src/features/metrics/queries";
+import { upsertSamples } from "../src/features/metrics/samples";
+import { memoryDriver, migratedDb, realMigrations } from "./helpers";
+import { migrate } from "../src/db/migrate";
 
 // Synthetic export in the real export's shapes (field names and units checked against one, 26 Oct 2026).
 // Values are invented.
@@ -17,7 +19,8 @@ const uds = (day: string, over: Record<string, unknown> = {}) => ({
   totalKilocalories: 2500,
   activeKilocalories: 600,
   bmrKilocalories: 1900,
-  restingHeartRate: 52,
+  restingHeartRate: 52, // Garmin's 7-day average: not imported
+  currentDayRestingHeartRate: 49,
   minHeartRate: 48,
   maxHeartRate: 160,
   moderateIntensityMinutes: 20,
@@ -130,14 +133,16 @@ test("units are converted and the day's offset comes from the export", () => {
   assert.equal(get("daily_moderateIntensityDurationInSeconds")!.valueNum, 1200); // minutes -> seconds
   assert.equal(get("dailyBodyBattery_highestValue")!.valueNum, 85);
   assert.equal(get("daily_averageStressLevel")!.valueNum, 30);
+  assert.equal(get("daily_restingHeartRateInBeatsPerMinute")!.valueNum, 49, "the day's own value, as freddy has it");
 
   // Garmin's "no data" markers (-1, -2, null) are dropped, not imported as numbers.
   assert.equal(get("daily_averageStressLevel", "2026-10-25#0"), undefined);
-  assert.equal(get("pulseOx_averageSpO2", "2026-10-25#0"), undefined);
+  assert.equal(get("pulseOx_avgSpo2InPercent", "2026-10-25#0"), undefined);
   assert.equal(get("daily_steps", "2026-10-25#0")!.valueNum, 9000);
 
   assert.equal(get("sleep_durationInSeconds")!.valueNum, 5400 + 14400 + 6000);
   assert.equal(get("sleep_durationInSeconds")!.offsetMin, 120, "sleep reuses the day's offset");
+  assert.equal(get("sleep_deepSleepDurationInSeconds")!.valueNum, 5400, "freddy's name");
 
   assert.deepEqual(samples.filter((s) => s.metric === "body_weightInGrams").map((s) => s.valueNum), [80500, 80100]);
   assert.equal(report.weightProfileValuesSkipped, 1);
@@ -149,8 +154,8 @@ test("units are converted and the day's offset comes from the export", () => {
   const act = (metric: string) => get(metric, "activity:777")!;
   assert.equal(act("activity_distanceInMeters").valueNum, 6000); // cm -> m
   assert.equal(act("activity_durationInSeconds").valueNum, 1800); // ms -> s
-  assert.equal(act("activity_elevationGainInMeters").valueNum, 45); // cm -> m
-  assert.equal(act("activity_type").valueText, "running");
+  assert.equal(act("activity_totalElevationGainInMeters").valueNum, 45); // cm -> m
+  assert.equal(act("activity_activityType").valueText, "running");
   assert.equal(act("activity_distanceInMeters").offsetMin, 120);
   assert.equal(act("activity_distanceInMeters").endMs! - act("activity_distanceInMeters").startMs, 1_800_000);
 
@@ -190,4 +195,44 @@ test("stored as its own source with sensible daily aggregation; re-import adds n
   const day = await dayValues(db, "2026-10-24");
   assert.equal(day.find((v) => v.metric === "daily_steps")!.value, 9000);
   assert.equal(day.find((v) => v.metric === "body_weightInGrams")!.value, 80100);
+});
+
+test("where freddy has the same metric on the same day, only freddy's value is shown", async () => {
+  const { db } = await migratedDb();
+  await importGarminZip(db, exportZip(), { timeZone: TZ, nowMs: 1_000 });
+  // freddy synced 2026-10-24 (the same watch, so the same steps), not 2026-10-25.
+  const day = Date.UTC(2026, 9, 23, 22, 0);
+  await upsertSamples(db, [
+    { source: "freddy", device: "", externalId: "2026-10-24#0", metric: "daily_steps", startMs: day, endMs: day + 86_400_000, offsetMin: 120, valueNum: 9000 },
+  ], 2_000);
+
+  const steps = (await dayValues(db, "2026-10-24")).filter((v) => v.metric === "daily_steps");
+  assert.equal(steps.length, 1, "not counted twice");
+  assert.equal(steps[0].device, "", "freddy's row");
+  assert.equal((await dayValues(db, "2026-10-24")).filter((v) => v.metric === "sleep_durationInSeconds").length, 1, "metrics freddy lacks still come from the export");
+
+  const series = await dailySeries(db, "daily_steps", "2026-10-24", "2026-10-25");
+  assert.deepEqual(series.map((s) => [s.source, s.points.map((p) => p.day)]), [["freddy", ["2026-10-24"]], [GARMIN_EXPORT_SOURCE, ["2026-10-25"]]]);
+  const kept = await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples WHERE metric = 'daily_steps' AND local_day = '2026-10-24'");
+  assert.equal(kept[0].n, 2, "both rows are kept, only the view picks one");
+});
+
+test("migration 0008 renames metrics an earlier import stored under the old names", async () => {
+  const { db } = memoryDriver();
+  const all = realMigrations();
+  await migrate(db, all.filter((m) => m.version < 8));
+  await db.run(
+    `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, end_ms, offset_min, value_num, local_day, created_at, updated_at)
+     VALUES ('a', 'garmin_export', 'Garmin', '2026-10-24#0', 'sleep_deepDurationInSeconds', 0, 1, 0, 5400, '2026-10-24', 0, 0),
+            ('b', 'freddy', '', '2026-10-24#0', 'sleep_deepDurationInSeconds', 0, 1, 0, 5400, '2026-10-24', 0, 0)`,
+  );
+  await db.run("INSERT INTO metric_catalog (source, metric, updated_at) VALUES ('garmin_export', 'pulseOx_lowestSpO2', 0)");
+  await migrate(db, all);
+  const rows = await db.all<{ source: string; metric: string }>("SELECT source, metric FROM health_samples ORDER BY id");
+  assert.deepEqual(rows, [
+    { source: "garmin_export", metric: "sleep_deepSleepDurationInSeconds" },
+    { source: "freddy", metric: "sleep_deepDurationInSeconds" },
+  ], "only the import's rows");
+  const cat = await db.all<{ metric: string }>("SELECT metric FROM metric_catalog WHERE source = 'garmin_export'");
+  assert.deepEqual(cat.map((c) => c.metric), ["pulseOx_minSpo2InPercent"]);
 });
