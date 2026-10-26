@@ -2,14 +2,17 @@ import type { SqlDriver } from "../../db/driver";
 import { deviceId, getSetting, setSetting } from "../../db/settings";
 import { loadClaudeKey, type SecretStore } from "../settings/secrets";
 import { claudeCreate } from "./client";
+import { watchConnection } from "./connect";
 import type { ChatDeps, Effort } from "./engine";
 import { DEFAULT_EFFORT } from "./engine";
 import type { ActionProposal } from "./actions";
 import type { ConsentScope } from "./consent";
 
 /**
- * Entry point for the UI: everything the chat needs on this device, or null when no
- * Claude API key is stored yet (show the key field in Settings). The platform pieces come in
+ * Entry point for the UI: everything the chat needs on this device, or null when Claude is not
+ * connected yet (show the connect screen: connect.ts CONNECT_STEPS, CLAUDE_KEYS_URL, connectClaude
+ * with claudeKeyVerifier(deviceFetch(...))). Rejected keys during chat mark the connection
+ * "needs attention" (claudeConnection) so the screen can ask to reconnect. The platform pieces come in
  * from the caller (src/app), so this file runs in Node too.
  *
  *   const deps = await chatDeps(db, {
@@ -37,7 +40,7 @@ export async function chatDeps(
   if (!key) return null;
   return {
     db,
-    create: claudeCreate(key, opts.fetch),
+    create: watchConnection(db, claudeCreate(key, opts.fetch)),
     deviceId: await deviceId(db),
     effort: await loadEffort(db),
     askConsent: opts.askConsent,

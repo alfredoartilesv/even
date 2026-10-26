@@ -430,7 +430,8 @@ If samples were written but a later step failed, the next run rewrites them in p
 |---|---|---|
 | `freddy.mcp_url` | SecretStore | Settings. Must parse as a URL and use `https:` |
 | `freddy.mcp_key` | SecretStore | Settings. Empty input keeps the stored key; "Forget" removes both |
-| `anthropic.api_key` | SecretStore | `saveClaudeKey` (must look like `sk-ant-...`) |
+| `anthropic.api_key` | SecretStore | `connectClaude` after the key is verified (shape check `normalizeClaudeKey`, must look like `sk-ant-...`) |
+| `claude.verified_at`, `claude.key_hint`, `claude.problem` | `app_settings` | `connectClaude` (time, last 4 characters), `watchConnection` (problem when a request is rejected; cleared on the next success), `disconnectClaude` (all cleared). Never the key itself |
 | `claude.effort` | `app_settings` | `saveEffort`; default `medium` |
 | SQLCipher passphrase | SQLite plugin secure store | `openDatabase()` on first launch |
 | `device_id`, `freddy.transport` | `app_settings` | `deviceId()`, Settings |
@@ -513,7 +514,9 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
 
-Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK), `service.ts` (phone wiring). No chat screen yet.
+Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring). No chat screen yet.
+
+**Connecting.** There is no "Sign in with Claude" for a third-party Android app (architecture.md section 5), so the connect screen follows `CONNECT_STEPS`: open `CLAUDE_KEYS_URL` in the browser, create a personal key with an expiration, paste it. `connectClaude` checks its shape, verifies it with `claudeKeyVerifier` (`GET /v1/models/claude-opus-5-5` over the same native fetch as the chat: free, proves the key works and its workspace can use the model), and only then saves it. 401 → "rejected the API key", 404 → "workspace cannot use claude-opus-5-5", other errors as in 9b.6. `chatDeps` wraps the Messages call in `watchConnection`, so a 401/403 during chat sets `claude.problem` (status `needs_attention`, the screen asks to reconnect) and the next successful reply clears it.
 
 ### 9b.1 Entry points
 
@@ -533,7 +536,11 @@ listConversations / loadMessages / renameConversation / deleteConversation (soft
 listDisclosures(db, conversationId?) / disclosurePayload(db, id)   // "What was sent to Claude"
 listAgentActions(db, conversationId?) / undoAgentAction(db, id)    // "Assistant activity" + undo
 consentStatus(db) / recordConsent(db, scope, granted, deviceId)    // permission toggles
-saveClaudeKey / loadClaudeKey / clearClaudeKey (secrets.ts), loadEffort / saveEffort (service.ts)
+CONNECT_STEPS / CLAUDE_KEYS_URL                       // connect.ts: what the connect screen shows, the Console key page
+connectClaude(db, secrets, key, claudeKeyVerifier(fetch)) // verify with GET /v1/models/claude-opus-5-5 (free), then save
+claudeConnection(db, secrets)                         // not_connected | connected | needs_attention, key hint, verified at, problem
+disconnectClaude(db, secrets)                         // forget the key and its facts
+loadEffort / saveEffort (service.ts)
 ```
 
 All of them return a `ChatTurnResult`: `status` (`ok`, `refusal`, `max_tokens`, `tool_limit`), `text`, `servedBy`, `fallbackUsed`, `refusal` (category, explanation), `toolCalls` (name, class, allowed, error), `actions` (id, tool, summary, applied / declined / failed), and summed `usage` (input, output, cache read/write tokens, request count).
@@ -695,7 +702,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 159 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 163 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -714,6 +721,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 15
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
+| `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
