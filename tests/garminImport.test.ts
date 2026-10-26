@@ -133,7 +133,7 @@ test("units are converted and the day's offset comes from the export", () => {
   assert.equal(get("daily_moderateIntensityDurationInSeconds")!.valueNum, 1200); // minutes -> seconds
   assert.equal(get("dailyBodyBattery_highestValue")!.valueNum, 85);
   assert.equal(get("daily_averageStressLevel")!.valueNum, 30);
-  assert.equal(get("daily_restingHeartRateInBeatsPerMinute")!.valueNum, 49, "the day's own value, as freddy has it");
+  assert.equal(get("daily_restingHeartRateInBeatsPerMinute")!.valueNum, 49, "the day's own value, as the Personal API has it");
 
   // Garmin's "no data" markers (-1, -2, null) are dropped, not imported as numbers.
   assert.equal(get("daily_averageStressLevel", "2026-10-25#0"), undefined);
@@ -142,7 +142,7 @@ test("units are converted and the day's offset comes from the export", () => {
 
   assert.equal(get("sleep_durationInSeconds")!.valueNum, 5400 + 14400 + 6000);
   assert.equal(get("sleep_durationInSeconds")!.offsetMin, 120, "sleep reuses the day's offset");
-  assert.equal(get("sleep_deepSleepDurationInSeconds")!.valueNum, 5400, "freddy's name");
+  assert.equal(get("sleep_deepSleepDurationInSeconds")!.valueNum, 5400, "the sync's name");
 
   assert.deepEqual(samples.filter((s) => s.metric === "body_weightInGrams").map((s) => s.valueNum), [80500, 80100]);
   assert.equal(report.weightProfileValuesSkipped, 1);

@@ -187,3 +187,25 @@ test("profile: sports are kept in order, the picture must be a small JPEG", asyn
   await saveProfilePhoto(db, null);
   assert.equal(await loadProfilePhoto(db), null);
 });
+
+test("workouts: the Garmin sync keeps start times and wins its days over freddy and the export", async () => {
+  const { db } = await migratedDb();
+  const day = "2026-10-24";
+  const run = (source: string, externalId: string, h: number) => {
+    const at = { startMs: midnight(day) + h * 3_600_000, endMs: midnight(day) + (h + 1) * 3_600_000 };
+    return [
+      sample({ source, externalId, metric: "activity_activityType", valueText: "running", ...at }, day),
+      sample({ source, externalId, metric: "activity_durationInSeconds", valueNum: 1800, ...at }, day),
+    ];
+  };
+  await upsertSamples(db, [
+    ...run("garmin", "activity:777", 8),
+    ...run("garmin", "activity:778", 18),
+    ...run("garmin_export", "activity:777", 8), // the same session, from the export
+    ...run("freddy", `${day}#0`, 0), // and from freddy
+  ], 1);
+
+  const ws = await listWorkouts(db, day, day);
+  assert.deepEqual(ws.map((w) => [w.source, w.key.split("|")[1]]), [["garmin", "activity:778"], ["garmin", "activity:777"]], "latest first, each once");
+  assert.equal(ws[1].startMs, midnight(day) + 8 * 3_600_000, "the sync has real start times");
+});

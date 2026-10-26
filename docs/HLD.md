@@ -1,22 +1,22 @@
 # Health App: High-Level Design (HLD)
 
-Status as of 25 Oct 2026, phase 1. This document shows the system as a whole: its context, its main components, how data flows between them, and the security and quality properties it is built to have. The reasons behind each choice are in [architecture.md](architecture.md); module-level detail is in [LLD.md](LLD.md).
+Status as of 26 Oct 2026, phase 1. This document shows the system as a whole: its context, its main components, how data flows between them, and the security and quality properties it is built to have. The reasons behind each choice are in [architecture.md](architecture.md); module-level detail is in [LLD.md](LLD.md).
 
 ## 1. Goals and scope
 
 **Goals (phase 1)**
-- Mirror the owner's wearable data (Garmin today, via freddy) into a local, encrypted database on their phone, and keep it beyond freddy's 7-day free-plan window.
+- Mirror the owner's Garmin data, read from the Garmin Connect Personal API, into a local, encrypted database on their phone, with the full history from the Garmin account export.
 - Show daily values and trends, and record what wearables do not capture: food, alcohol, manual measurements, daily notes, goals.
 - Later in phase 1: let the owner ask Claude about their data, with consent and a record of what was sent.
 
 **Non-goals (phase 1)**
 - No server, no account, no multi-user support.
-- No direct integration with Garmin, HealthKit or Health Connect (freddy does that).
+- No HealthKit or Health Connect integration. Garmin is the only wearable source.
 - No medical diagnosis.
 
 **Constraints**
 - One developer, personal scale (a few million rows a year at most).
-- freddy FREE plan: 7 days of history, 1 source, text-only MCP tools.
+- Garmin Personal API: read-only, pull-only, for the owner's own data. The personal API key expires on a date the owner picks (30 days to 1 year) and must then be replaced.
 - Health data is GDPR special-category data.
 
 ## 2. System context
@@ -30,24 +30,22 @@ flowchart LR
     ks[[Keystore / Keychain]]
   end
   garmin[Garmin Connect]
-  hc[Health Connect / Apple Health]
-  freddy[freddy<br/>health data hub]
   claude[Anthropic API<br/>Claude]
   share[Drive, email, Files<br/>via share sheet]
 
   owner -- uses --> app
   app --- db
   app --- ks
-  garmin -- wearable data --> freddy
-  hc -. paused on FREE plan .-> freddy
-  app -- "MCP over HTTPS (read only)" --> freddy
+  app -- "Personal API over HTTPS (read only)" --> garmin
+  owner -. "export ZIP, imported on the PC" .-> app
   app -. "later: aggregates, with consent" .-> claude
   app -- "encrypted backup file" --> share
 ```
 
 | External system | Role | Direction | Data |
 |---|---|---|---|
-| freddy | Single source of wearable data | App reads | Daily metrics as text through MCP tools (`list_metrics`, `query_metrics`) |
+| Garmin Connect Personal API | Single source of wearable data | App reads | JSON: daily summaries, sleep, HRV, weight, activities. Key -> 24 h token, then GET per date range |
+| Garmin account export | Full history, once | Owner downloads, PC script imports | ZIP of JSON files, turned into an encrypted backup to restore on the phone |
 | Anthropic API | The agent: answers questions, estimates meals from photos, plans meal prep (core built) | App sends, receives | Aggregates by default; detailed records, notes and photos only with consent |
 | Share targets | Where the owner keeps backups | App sends | One password-encrypted file |
 
@@ -63,8 +61,8 @@ flowchart TB
   end
   subgraph core[Core - plain TypeScript, no Capacitor imports]
     sync[Sync orchestrator<br/>runSync]
-    source[FreddySource<br/>+ text parsers]
-    mcp[MCP HTTP client<br/>McpHttpCaller]
+    source[GarminSource<br/>endpoint mapping]
+    api[Garmin API client<br/>GarminApi]
     backup[Backup / restore]
     repo[Data access<br/>samples, catalog, settings, queries]
     migrate[Migration runner]
@@ -83,7 +81,7 @@ flowchart TB
   dash --> repo
   chatUi --> chat
   settings --> backup & secretsApi & repo
-  sync --> source --> mcp --> nativeHttp
+  sync --> source --> api --> nativeHttp
   sync --> repo
   backup --> repo
   repo --> driver
@@ -103,25 +101,25 @@ flowchart TB
 | Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list) | `src/features/mealprep/ui/`, `src/features/food/ui/` |
 | UI kit and palette | Shared components (charts, figures, controls, `PageHeader`, `SubTabs`, `Segmented`, `Icon`) and the one color palette (`palette.css`), checked by tests. Screens: `docs/screens/index.html` | `src/ui/` |
 | Alcohol tab | One-tap drink logging first, then drinks per period, their kcal and cost, weight without alcohol | `src/features/alcohol/ui/` |
-| Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: freddy, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/features/settings/` |
+| Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: Garmin personal API key, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/features/settings/` |
 | Profile (from the Dashboard) | past activity imported and synced, picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/features/me/` |
 | Debug logs (Settings) | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/features/logs/` |
 | Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/features/sync/runSync.ts` |
-| FreddySource | Decides the date window, discovers metrics, calls tools, parses text into samples | `src/features/sync/freddy.ts`, `src/features/sync/freddyText.ts` |
-| MCP HTTP client | JSON-RPC over HTTP with SSE replies, only CORS-safe headers, no secrets in errors | `src/features/sync/mcpHttp.ts` |
+| GarminSource | Decides the date window (30 days on the first sync, then from the cursor), reads each endpoint in 28-day chunks, maps the JSON to samples with the export's metric names | `src/features/sync/garmin.ts` |
+| Garmin API client | Trades the personal API key for a token (cached, renewed before expiry or on a 401), GETs JSON, no secrets in errors | `src/features/sync/garmin.ts` (`GarminApi`) |
 | Native HTTP adapter | `fetch` look-alike over `CapacitorHttp` | `src/platform/nativeFetch.ts` |
 | Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, journal. Shared: settings, transactions | `src/features/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
 | Migration runner | Applies numbered SQL files, versioned in `PRAGMA user_version` | `src/db/migrate.ts`, `src/db/migrations/` |
 | Logging | Scoped, levelled logger; console and an in-memory buffer; secrets redacted; level stored in settings | `src/core/log.ts`, `src/app/logging.ts`, `src/features/settings/logLevel.ts` |
 | SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/platform/sqlite.ts` |
 | Backup | Export every table to an encrypted file; restore by merging | `src/features/backup/` |
-| Secrets | freddy URL and key, Claude API key | `src/features/settings/` |
+| Secrets | Garmin personal API key, Claude API key (old freddy URL and key are deleted on start) | `src/features/settings/` |
 | Alcohol counter | Drink types with price and kcal, drink log, totals in kcal and money, expected weight without alcohol | `src/features/alcohol/` |
 | Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/features/chat/` |
 
 **Code layout:** `app/` (shell), `features/<name>/` (logic, data access and screens per feature), `ui/`, `platform/` (every Capacitor adapter), `db/`, `core/` (pure helpers). See [LLD section 1](LLD.md#1-repository-layout) and the rules in [architecture.md section 3](architecture.md#3-rules-the-code-must-keep).
 
-**Design principle:** everything in "Core" depends only on interfaces (`SqlDriver`, `Source`, `ToolCaller`, `SecretStore`, a `fetch` function). Only the platform adapters import Capacitor. That is why the whole core runs in Node tests and in PC scripts (`scripts/freddy-sync.ts`) without a phone.
+**Design principle:** everything in "Core" depends only on interfaces (`SqlDriver`, `Source`, `SecretStore`, a `fetch` function). Only the platform adapters import Capacitor. That is why the whole core runs in Node tests and in PC scripts (`scripts/garmin-sync.ts`) without a phone.
 
 ## 4. Main flows
 
@@ -140,7 +138,7 @@ sequenceDiagram
   Open->>M: migrate(db, migrations)
   M->>SQL: PRAGMA user_version, then each pending file in its own transaction
   Open-->>UI: db ready
-  UI->>UI: auto sync if freddy credentials exist
+  UI->>UI: remove old freddy secrets, auto sync if a Garmin key exists
 ```
 
 The browser build (`npm run dev`) stops at the first step: the local database exists only in the native app.
@@ -151,18 +149,23 @@ The browser build (`npm run dev`) stops at the first step: the local database ex
 sequenceDiagram
   participant UI as App (launch, resume, sync button)
   participant S as runSync
-  participant F as FreddySource
-  participant H as McpHttpCaller
-  participant Fr as freddy
+  participant F as GarminSource
+  participant H as GarminApi
+  participant G as Garmin Personal API
   participant DB as SQLite
   UI->>S: runSync(db, source)
   S->>DB: load cursor, insert sync_runs (running)
   S->>F: fetchSince(cursor)
-  F->>H: list_metrics
-  H->>Fr: POST initialize, tools/call
-  Fr-->>H: SSE text
-  F->>H: query_metrics(start..today, up to 50 metrics per call)
-  H-->>F: text
+  H->>G: POST token (ApiKey), once per ~24 h
+  G-->>H: access token (plain text)
+  F->>H: profile settings (time zone)
+  loop each 28-day chunk from start to today
+    F->>H: daily summaries, sleep, HRV, weight
+    H->>G: GET (Bearer token)
+    G-->>H: JSON
+  end
+  F->>H: activities (paged, 99 per page)
+  H-->>F: JSON
   F-->>S: samples, catalog, next cursor (yesterday), warnings
   S->>DB: upsert samples (one transaction), upsert catalog, save cursor
   S->>DB: sync_runs = ok (or error, cursor unchanged)
@@ -172,7 +175,8 @@ sequenceDiagram
 Key properties:
 - **Idempotent:** samples are keyed by (source, device, metric, external_id), so re-reading a day updates rows in place.
 - **Self-healing window:** the next cursor is yesterday, because today (and sometimes yesterday) are incomplete when read.
-- **Visible gaps:** if the last cursor is older than the plan's window, a "Gap" warning names the days that could not be fetched.
+- **No history window:** Garmin keeps the history, so a sync after a long pause reads every day since the cursor. An endpoint the key may not read (HTTP 403 or 404) becomes a warning; any other failure stops the sync and keeps the cursor.
+- **One value per day:** the export and the sync store the same readings under their own sources; `daily_metric_values` shows the Personal API first, then freddy rows from before 26 Oct 2026, then the export (migration 0009).
 - **Never throws to the UI:** failures are stored in `sync_runs` and `sync_state.last_error`; concurrent triggers share one run.
 
 ### 4.3 Backup and restore
@@ -223,7 +227,7 @@ One local SQLite database (`health`), encrypted with SQLCipher. Main groups:
 
 | Group | Tables | Written by |
 |---|---|---|
-| Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync |
+| Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync (source `garmin`), Garmin export import (`garmin_export`); older rows from freddy (`freddy`) |
 | Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals` | UI (screens not built yet) |
 | Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `agent_actions` | Agent engine (Chat tab) |
 | Settings | `app_settings` (non-secret) | UI |
@@ -236,11 +240,11 @@ Full columns and constraints: [LLD.md section 4](LLD.md#4-schema).
 | Asset | Protection |
 |---|---|
 | Database at rest | SQLCipher. Random 32-byte passphrase per install, kept by the SQLite plugin in Keystore-backed storage (Android) / Keychain (iOS) |
-| freddy URL and key, future Claude key | Keystore / Keychain via secure storage. Never in SQLite, so never in a backup. Memory only in the browser build |
-| Data in transit | HTTPS only (the URL validator rejects `http://`) |
+| Garmin personal API key, Claude API key | Keystore / Keychain via secure storage. Never in SQLite, so never in a backup. Memory only in the browser build. The Garmin access token lives in memory only |
+| Data in transit | HTTPS only (Garmin and Anthropic endpoints are fixed `https://` URLs) |
 | Backup files | AES-256-GCM with a key derived from the owner's password (PBKDF2-SHA256, 600k iterations). The header is authenticated, so any edit makes the file unreadable |
 | OS backups | Android auto-backup, adb backup and device-to-device transfer disabled |
-| Logs and errors | Network errors never include the URL or key. Scripts print counts, not health values |
+| Logs and errors | Network errors never include the URL, key or token. Scripts print counts and field names, not health values |
 | Data sent to Claude | Explicit consent per data class (summaries, detailed records, notes, photos) with a policy version; tools without consent are not run; every payload and photo logged in `ai_disclosures` |
 | Changes made by the agent | Additive only, through the app's own functions; validated; confirmed by the owner line by line; logged in `agent_actions`; undo per action with the app's own undo. Injected instructions (in photos or notes) can at most propose a change the owner must confirm |
 | Who owns the data | Optional Google sign-in binds the phone's data to one account (its stable id, no token stored); another account cannot see or restore into it. Not a lock: SQLCipher protects the data either way |
@@ -254,7 +258,7 @@ Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hand
 | Android (S23) | `npm run android:sync` (build, `cap sync`, hardening script), then build and run from Android Studio | Not yet run on the device |
 | iOS (iPhone 14) | Same code; `npx cap add ios` on a Mac | Not started |
 | Browser | `npm run dev`, UI only, no database | Development aid |
-| PC scripts | `scripts/freddy-sync.ts` (real freddy -> SQLite file), `scripts/garmin-import.ts` (Garmin account export -> encrypted backup to restore on the phone), `scripts/freddy-probe.mjs` | In use |
+| PC scripts | `scripts/garmin-sync.ts` (`npm run sync:garmin`: real Garmin Personal API -> SQLite file), `scripts/garmin-probe.ts` (which endpoints the key can read, field names only), `scripts/garmin-import.ts` (Garmin account export -> encrypted backup to restore on the phone) | In use |
 
 Native projects are generated and git-ignored; the repo holds only the web code, the Capacitor config and the patch scripts.
 
@@ -264,8 +268,8 @@ Native projects are generated and git-ignored; the repo holds only the web code,
 |---|---|
 | Offline first | Everything except sync and chat works without network |
 | Data durability | Idempotent upserts; one transaction per migration, per sync batch and per restore; encrypted backups |
-| Testability | Core depends on interfaces; 175 Node tests, including a fake of the Android plugin's statement splitting and transactions |
-| Replaceable source | `Source` and `ToolCaller` interfaces; MCP today, REST later, others possible |
+| Testability | Core depends on interfaces; 193 Node tests, including a fake of the Android plugin's statement splitting and transactions |
+| Replaceable source | `Source` interface (`fetchSince(cursor)`); the freddy source was swapped for the Garmin Personal API on 26 Oct 2026 without changes to sync, storage or screens |
 | Phase 2 readiness | UUIDv7 keys, `updated_at` / `deleted_at` / `origin_device_id` on user tables, append-only samples |
 | Performance | Personal scale. Indexed by (metric, local_day). Restore inserts in multi-row batches to limit bridge calls |
 

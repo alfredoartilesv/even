@@ -5,9 +5,8 @@ const log = createLogger("http.native");
 
 /**
  * A fetch() look-alike on top of Capacitor's native HTTP (CapacitorHttp.request).
- * Native requests are not subject to WebView CORS, which is the fallback planned in
- * docs/architecture.md section 4b. Only what McpHttpCaller needs: POST with a JSON
- * string body, text or event-stream replies read in full.
+ * Native requests are not subject to WebView CORS. Used for the Garmin sync and the Claude
+ * chat: GET, and POST with a JSON or text body; replies (text or event-stream) are read in full.
  *
  * `request` is injected so this file has no runtime Capacitor import and tests can fake it.
  */

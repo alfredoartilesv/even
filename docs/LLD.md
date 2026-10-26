@@ -24,7 +24,7 @@ src/
     driver.ts                      SqlDriver interface
     tx.ts                          withTransaction (nests by joining the outer transaction)
     migrate.ts, migrations.ts      runner and the Vite import of migrations/*.sql
-    migrations/0001..0006_*.sql    schema (section 4)
+    migrations/0001..0010_*.sql    schema (section 4)
     settings.ts                    app_settings get/set, deviceId
   platform/                        the only code that imports Capacitor plugins at runtime
     openDatabase.ts                encryption secret, connection, migrate
@@ -47,7 +47,7 @@ src/
   features/<name>/                 logic (*.ts), data access and screens (*.tsx or ui/)
     metrics/                       samples, catalog, queries
     dashboard/                     dashboard.ts (spans, per-day figures, totals and averages); DashboardScreen, ProfileButton
-    sync/                          runSync, freddyClient, FreddySource, text parsers, MCP client, Source types
+    sync/                          runSync, GarminApi + GarminSource, staleness and reminder, Source types
     food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ TodayView, HistoryView, SavedView (shown in the Meal prep tab)
     mealprep/                      recipes, batches, stock fold and defrost plan, shopping list; ui/ Stock, Recipes, Shopping
     alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; ui/ AlcoholScreen (the Alcohol tab), AlcoholView
@@ -74,7 +74,7 @@ Dependency rules, enforced by `tests/architecture.test.ts`:
 | `features/` | other features, `ui/`, `platform/`, `db/`, `core/` |
 | `app/` | everything |
 
-On top of that, feature logic (`*.ts` outside a `ui/` folder) never imports a screen and never reaches a Capacitor plugin at runtime, not even through another module (the test follows the import graph; `import type` is allowed). That is what keeps all logic runnable in Node tests and PC scripts. Platform pieces reach the logic as parameters: `freddySource(creds, transport, nativeRequest)`, `chatDeps(db, { secrets, fetch })`.
+On top of that, feature logic (`*.ts` outside a `ui/` folder) never imports a screen and never reaches a Capacitor plugin at runtime, not even through another module (the test follows the import graph; `import type` is allowed). That is what keeps all logic runnable in Node tests and PC scripts. Platform pieces reach the logic as parameters: `new GarminApi({ apiKey, fetch: deviceFetch(...) })`, `chatDeps(db, { secrets, fetch })`.
 
 ## 2. Core interfaces
 
@@ -89,7 +89,7 @@ interface SqlDriver {
 
 // src/features/sync/types.ts
 interface Source {
-  readonly id: string;                                                 // "freddy"
+  readonly id: string;                                                 // "garmin"
   fetchSince(cursor: string | null): Promise<SyncResult>;
 }
 interface SyncResult {
@@ -104,9 +104,6 @@ interface SampleInput {
   valueNum?: number; valueText?: string; unit?: string; raw?: unknown;
 }
 
-// src/features/sync/freddy.ts
-interface ToolCaller { callTool(name: string, args: Record<string, unknown>): Promise<string>; }
-
 // src/features/settings/secrets.ts
 interface SecretStore {
   get(key: string): Promise<string | null>;
@@ -119,8 +116,8 @@ Implementations:
 
 | Interface | Phone | Tests / PC |
 |---|---|---|
-| `SqlDriver` | `capacitorDriver(conn)` | `memoryDriver()` on `node:sqlite` (`tests/helpers.ts`); `capacitorDriver(fakePlugin().conn)` (`tests/fakePlugin.ts`); file DB in `scripts/freddy-sync.ts` |
-| `ToolCaller` | `McpHttpCaller` with native fetch | `McpHttpCaller` with a fake fetch; plain fake callers |
+| `SqlDriver` | `capacitorDriver(conn)` | `memoryDriver()` on `node:sqlite` (`tests/helpers.ts`); `capacitorDriver(fakePlugin().conn)` (`tests/fakePlugin.ts`); file DB in `scripts/garmin-sync.ts` |
+| `Source` | `GarminSource` over `GarminApi` with the native fetch | `GarminSource` over a fake Garmin server (`tests/garminSource.test.ts`); plain fake sources (`tests/runSync.test.ts`) |
 | `SecretStore` | `secretStore` (Keystore/Keychain) | `memorySecretStore()` (also used by the browser build) |
 
 ## 3. Database access
@@ -166,7 +163,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 | `sampleLocalDay(s)` | `new Date(startMs + offsetMin * 60000).toISOString().slice(0, 10)`. Same rule as the SQL backfill in 0002 |
 | `saveSyncState(db, source, cursor, nowMs, error)` | Upsert. On success sets `last_synced_ms`; on error keeps the previous `last_synced_ms` and stores `last_error` |
 | `loadCursor(db, source)` | Cursor or `null` |
-| `upsertCatalog(db, source, entries, nowMs)` | Insert with a guessed `category` and `daily_agg` (`classifyMetric`). On conflict refreshes only `unit`, `device` (when given), `first_day`, `last_day`, `records`, `updated_at` |
+| `upsertCatalog(db, source, entries, nowMs)` | Insert with a guessed `category` and `daily_agg` (`classifyMetric`: a rule on the name, then `DAILY_AGG_OVERRIDES` for Garmin metrics the rule gets wrong, such as `activity_aerobicTrainingEffect` = max, so a day with two workouts is not summed). On conflict refreshes only `unit`, `device` (when given), `first_day`, `last_day`, `records`, `updated_at` |
 | `getSetting`, `setSetting`, `deviceId` | `app_settings` key/value. `deviceId` creates a UUIDv7 on first use |
 
 `classifyMetric(name)` rules, first match wins: `sleep_*` -> sleep/last; `dailyBodyBattery_*` or contains `hrv` -> recovery/last; `stress_*` or contains `stress` -> stress/avg; contains `heartrate` or `pulseOx_*` -> heart/avg; `body_*`, `userMetrics_*` -> body/last; `nutrition_*`, `food_*`, `drink_*` -> nutrition/sum; `daily_*`, `activity_*`, contains `steps` -> activity/sum; otherwise other/avg.
@@ -178,7 +175,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 ### 3.6 Logging (`src/core/log.ts`)
 
-`createLogger(scope)` returns `debug / info / warn / error`, `time(msg, level?)` (logs `ms` when the returned function is called) and `child(sub)` (scope `parent.sub`). Levels: `debug < info < warn < error < silent`. `setLogLevel(level)` sets the global threshold and `setLogLevel(level, scope)` overrides it for a scope and its children (`sync` covers `sync.freddy`).
+`createLogger(scope)` returns `debug / info / warn / error`, `time(msg, level?)` (logs `ms` when the returned function is called) and `child(sub)` (scope `parent.sub`). Levels: `debug < info < warn < error < silent`. `setLogLevel(level)` sets the global threshold and `setLogLevel(level, scope)` overrides it for a scope and its children (`sync` covers `sync.garmin`).
 
 Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that Settings > Debug logs shows. Nothing is written to disk; records leave the phone only when the owner exports or shares them from that page. A sink that throws is ignored.
 
@@ -193,15 +190,15 @@ What is logged, by scope:
 | `app` | start (level, native), database unavailable, uncaught errors and rejections, sync skipped |
 | `db.open`, `db.migrate`, `db` | open time, first-launch secret, connection reuse; each migration applied (version, name, ms), failure; transaction rollback (debug) |
 | `http.native` | each native request (method, status, ms; debug), failures (warn) |
-| `sync`, `sync.freddy`, `sync.mcp` | start (cursor), finish (samples, catalog, warnings, cursor, ms), each warning, failure; window and chunks (debug); tool calls (tool, chars, ms; debug), HTTP errors and tool errors (warn) |
+| `sync`, `sync.garmin` | start (cursor), finish (samples, catalog, warnings, cursor, ms), each warning, failure; window, time zone, token obtained (validity in minutes) and sample count (debug) |
 | `metrics` | samples upserted (count, ms), catalog refreshed (debug) |
 | `backup` | export (tables, rows, bytes, ms), restore (rows, ms), every refusal and rollback |
 | `chat`, `chat.actions`, `chat.store`, `chat.consent` | each request and reply (model, stop reason, tokens, tool uses, ms), fallback, refusal, request errors; each tool (name, data class, bytes, ms) and each blocked or failed tool; proposals (approved or not), recorded and undone agent actions; consents |
 | `food`, `mealprep`, `mealprep.shopping`, `journal` | every write and delete, by id and kind (meal slot, move kind, portions, has photo), refusals at debug |
-| `settings`, `settings.secrets` | log level changes; credentials saved or removed (never the values) |
+| `settings`, `settings.secrets` | log level changes; keys saved or removed, old freddy credentials removed (never the values) |
 | `ui.<feature>` | actions a screen reported as failed (info: usually input the core refused) |
 
-Pure modules (`core/health.ts`, `tz.ts`, `stock.ts`, `suggest.ts`, the freddy text parsers) do not log: they have no side effects worth recording, and their callers log the outcome.
+Pure modules (`core/health.ts`, `tz.ts`, `stock.ts`, `suggest.ts`, the Garmin export parser) do not log: they have no side effects worth recording, and their callers log the outcome.
 
 Privacy rule (architecture.md section 3): log what happened, not the data. Ids, counts, kinds, durations and statuses only; never health values, food or recipe names, notes, chat text, URLs or keys. `tests/logging.test.ts` runs real flows with recognisable values and fails if any reaches a record.
 
@@ -228,7 +225,7 @@ The food log form uses `kcalFromMacros` to estimate kcal when only macros are ty
 
 ## 4. Schema
 
-Version 7 (`0001_init.sql` to `0007_account.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 10 (`0001_init.sql` to `0010_daily_agg_overrides.sql`). 0008 to 0010 change data and views only, no tables: 0008 renames old export metric names and hides an export day another source has; 0009 ranks sources in `daily_metric_values` (Personal API, freddy, export) and converts export activity kcal from kJ; 0010 sets `daily_agg` for the metrics in `DAILY_AGG_OVERRIDES` where a row still holds the old name-based guess, and deletes the `freddy.transport` setting. Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -259,14 +256,14 @@ Only the `chat_*`, `ai_disclosures` and `meal_prep_*` / `shopping_list_items` li
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT PK | UUIDv7 |
-| `source` | TEXT NOT NULL | `freddy` |
-| `device` | TEXT NOT NULL DEFAULT '' | freddy's source label, e.g. `Garmin` |
-| `external_id` | TEXT NOT NULL | `<day>#<n>` for freddy (n = nth reading of that metric/label that day) |
+| `source` | TEXT NOT NULL | `garmin` (Personal API), `garmin_export` (account export), `freddy` (rows from before 26 Oct 2026) |
+| `device` | TEXT NOT NULL DEFAULT '' | `Garmin` for both Garmin sources; freddy's source label for its rows |
+| `external_id` | TEXT NOT NULL | `<day>#0` for day metrics, `activity:<id>` for workouts, `weight:<samplePk>` for weigh-ins (sync); freddy used `<day>#<n>` |
 | `metric` | TEXT NOT NULL | provider metric name, e.g. `daily_steps` |
 | `start_ms`, `end_ms` | INTEGER | local day start and next day start, in UTC ms |
 | `offset_min` | INTEGER NOT NULL DEFAULT 0 | |
 | `value_num` / `value_text` | REAL / TEXT | `value_text` when the value is not `<number> [unit]` |
-| `unit` | TEXT | as freddy prints it |
+| `unit` | TEXT | canonical: `meters`, `seconds`, `kcal`, `bpm`, `grams`, `ms`, `%`, ... |
 | `raw_json` | TEXT | `{"partial":true}` when the day was not over |
 | `local_day` | TEXT | added in 0002, backfilled |
 | `created_at`, `updated_at` | INTEGER NOT NULL | |
@@ -366,60 +363,57 @@ Code: `src/features/account/account.ts` (pure) and `service.ts`, platform wrappe
 
 ### 4.4 Settings
 
-**`app_settings`**: PK `key`; `value`, `updated_at`. Keys in use: `device_id` (UUIDv7 of this install, never restored from a backup), `freddy.transport` (`native` or `fetch`), `sync.reminder` (`off` turns the 3-day reminder off; anything else, or unset, is on), `log.level`, `currency`, `meal_prep.portions_per_day.<tag|all>`.
+**`app_settings`**: PK `key`; `value`, `updated_at`. Keys in use: `device_id` (UUIDv7 of this install, never restored from a backup), `sync.reminder` (`off` turns the 3-day reminder off; anything else, or unset, is on), `log.level`, `currency`, `meal_prep.portions_per_day.<tag|all>`.
 
 ### 4.5 Views
 
 | View | Grain | Columns |
 |---|---|---|
-| `daily_metric_values` | metric, local_day, source, device (numeric samples with a `local_day`; a `garmin_export` row is left out when another source has the same metric on the same day, 0008) | `readings`, `avg_num`, `sum_num`, `min_num`, `max_num`, `last_num` (latest by `start_ms`, then `rowid`), `unit`, `partial` (1 if any row's `raw_json` has `"partial":true`) |
+| `daily_metric_values` | metric, local_day, source, device (numeric samples with a `local_day`; one source per metric and day: `garmin`, then `freddy`, then `garmin_export`, 0008 and 0009) | `readings`, `avg_num`, `sum_num`, `min_num`, `max_num`, `last_num` (latest by `start_ms`, then `rowid`), `unit`, `partial` (1 if any row's `raw_json` has `"partial":true`) |
 | `daily_nutrition` | local_day, live food rows | `entries`, `calories`, `protein_g`, `carbs_g`, `fat_g` |
 | `daily_alcohol` | local_day, live drink rows | `drinks`, `volume_ml`, `alcohol_g` = sum(ml x ABV / 100 x 0.789), `calories` (stored, else alcohol_g x 7), `calories_estimated` (rows without a kcal), `price` (sum of known prices), `priced` (rows with a price). Rebuilt in 0006 |
 
-## 5. freddy source
+## 5. Garmin source (`src/features/sync/garmin.ts`)
 
-### 5.1 Window and cursor (`FreddySource.fetchSince`)
+Garmin Connect Personal API, read-only, with the owner's personal API key. Replaced the freddy source on 26 Oct 2026 (why: [architecture.md section 4b](architecture.md#4b-decision-26-oct-2026-read-garmin-directly-through-the-garmin-connect-personal-api)).
 
-Options: `caller`, `timeZone` (default `Europe/Madrid`, replaced by the zone freddy reports), `windowDays` (default 7), `metrics` (default: discovered), `now`.
+### 5.1 API client (`GarminApi`)
+
+Options: `apiKey`, `fetch` (native adapter on the phone, global `fetch` otherwise), `baseUrl` (default `https://personal.connectapi.garmin.com`), `now`.
+
+- **Token:** `POST /personalapitoken-service/personal-api/personal-api-key/token` with `authorization: ApiKey <key>` and `accept: */*` (asking for JSON gets HTTP 406). The reply is the token as plain text. `parseTokenReply` also accepts a JSON string or an object with `access_token`, `accessToken` or `token`, and `expires_in` / `expiresIn` (seconds) or `expiresAt` / `expires_at` (seconds or ms). Without an expiry the token is kept 23 h. It lives in memory only and is asked for again 5 minutes before it runs out.
+- **Data:** `get(path, query)` sends `GET` with `authorization: Bearer <token>`, `accept: application/json`. A 401 drops the token and retries once. An empty body is `null`.
+- **Errors** (`GarminApiError`, with `status`): 401/403 on the token -> "Garmin rejected the personal API key (HTTP n). It may have expired: make a new one in Garmin Connect."; other token failures -> "Garmin token request failed (HTTP n)"; data calls -> "Garmin <service> failed (HTTP n)"; network -> "Could not reach Garmin (...)"; a body that is not JSON. No message contains the URL, key or token.
+
+### 5.2 Window and cursor (`GarminSource.fetchSince`)
+
+Options: `api`, `timeZone` (fallback `Europe/Madrid`, replaced by the profile's `timeZone`), `firstSyncDays` (default 30), `now`.
 
 ```
-today       = local day of now() in the zone
-windowStart = today - (windowDays - 1)
-start       = windowStart
-if cursor > windowStart: start = cursor
-if cursor < windowStart: warn "Gap: ... <cursor+1> to <windowStart-1> could not be fetched"
-names = opts.metrics ?? defaultMetricFilter(list_metrics)    (catalog returned only when discovered)
-for each chunk of 50 names: query_metrics { metrics, start, end: today } -> parse
+tz        = GET /userprofile-service/userprofile/settings -> timeZone (fallback on failure, but a rejected key throws)
+today     = local day of now() in tz
+start     = cursor ? min(cursor, today) : today - (firstSyncDays - 1)
+for each 28-day chunk [from, to] up to today:       (28 = the tightest per-call limit of the endpoints)
+  daily summaries, sleep, HRV, weight -> samples
+activities from start to today, 99 per page, until a short page
 nextCursor = today - 1      (yesterday may have been incomplete)
 ```
 
-`defaultMetricFilter` keeps names matching `^daily_`, `^dailyBodyBattery_`, `^sleep_`, `^pulseOx_`, `^stress_`, `^body_`, `^userMetrics_`, `^activity_`, and drops `^epoch_`, `^respiration_`, `^moveIQ_`, `_samples$` (high-volume or raw-only).
+An endpoint answering 403 or 404 becomes a warning (`"HRV: not available (HTTP 403)"`) and the sync goes on; any other failure throws, so `runSync` keeps the cursor. There is no history window: after a long pause the next sync reads every day since the cursor.
 
-### 5.2 Text formats (`src/features/sync/freddyText.ts`)
+### 5.3 Mapping
 
-`list_metrics` lines:
-```
-<name>: <n> records (<from> to <to>[, unit: <u>][, source: <s>][, device: "<d>"]) [optional bracket note]
-```
+Metric names are the Garmin export importer's (and freddy's), so each metric is one series across sources. Source `garmin`, device `Garmin`. Day metrics: `externalId = <day>#0`, `start_ms` = local midnight, `end_ms` = next local midnight, `offset_min` from the daily summary's `wellnessChronology` (`startTimestampLocal - startTimestampGmt`, strings without a zone), else from `tz`. Values outside a plausible range, `null` and Garmin's negative "no data" markers are skipped, never stored as 0. No `raw_json` is kept.
 
-`query_metrics` blocks:
-```
-Dates are local days in Europe/Madrid ...
-2026-10-24:
-  (possibly incomplete: ...)          -> following rows get raw {"partial":true}
-  <metric>: <value> [unit] (<label>)  -> one sample
-Note: ...                             -> collected in notes
-```
+| Endpoint | Metrics |
+|---|---|
+| `GET /usersummary-service/v2/dailysummaries?startDate&endDate` -> `data[]` | `daily_steps`, `daily_distanceInMeters` (`movement.steps`), `daily_totalKilocalories`, `daily_activeKilocalories`, `daily_bmrKilocalories` (`calories`), `daily_restingHeartRateInBeatsPerMinute`, `daily_min/maxHeartRateInBeatsPerMinute` (`heartRate`, documented as 2-minute averages), `daily_moderate/vigorousIntensityDurationInSeconds` (minutes x 60), `daily_averageStressLevel`, `daily_maxStressLevel`, `daily_stressDurationInSeconds` (low + medium + high ms / 1000), `daily_restStressDurationInSeconds`, `dailyBodyBattery_highest/lowest/charged/drainedValue`, `pulseOx_avg/minSpo2InPercent` |
+| `GET /sleep-service/sleep/dailySleepSummariesByDate?startDate&endDate` -> array | `sleep_durationInSeconds` (`sleepTimeSeconds`, else deep + light + REM), stage seconds, `sleep_awakeDurationInSeconds`, `sleep_averageSpO2`, `sleep_averageHeartRateInBeatsPerMinute` (`avgHeartRate`, else `averageSpO2HRSleep`), `sleep_averageRespiration`, `sleep_overallSleepScore` (`sleepScores.overall.value`, when sent) |
+| `GET /hrv-service/hrv/daily/{from}/{to}` -> `hrvSummaries[]` (can be `null`) | `hrv_lastNightAvg`, `hrv_lastNight5MinHigh`, `hrv_weeklyAvg` (ms) |
+| `GET /weight-service/weight/range/{from}/{to}?includeAll=true` -> `dailyWeightSummaries[].allWeightMetrics[]` | `body_weightInGrams`, one per weigh-in (`externalId = weight:<samplePk>`, `start_ms` = `timestampGMT`). Sent in grams although documented as kg (values under 1000 are read as kg). `sourceType = USER_SETTING` (the profile weight) is skipped. `weight/all` answers HTTP 400 and is not used |
+| `GET /activitylist-service/activities/search/activities?startDate&endDate&start&limit=99` -> array | Per activity (`externalId = activity:<activityId>`, the same id as the export, `start_ms` = `beginTimestamp`, `end_ms` = start + duration, offset from `startTimeLocal - startTimeGMT`): `activity_activityType` (text, `activityType.typeKey`), `activity_durationInSeconds`, `activity_movingDurationInSeconds`, `activity_distanceInMeters` (metres, unlike the export), `activity_totalElevationGainInMeters`, `activity_activeKilocalories`, `activity_average/maxHeartRateInBeatsPerMinute`, `activity_steps`, `activity_aerobic/anaerobicTrainingEffect`, `activity_vo2Max`. Names, places and coordinates are not stored |
 
-A value that is `<number>` optionally followed by a unit made of letters, `_`, `%`, `/` becomes `value_num` + `unit`; anything else (for example `very stressful`, or `5 bpm at 07:30+01:00`) is kept whole in `value_text`. Indented lines that do not match are returned in `skipped`, and the source turns them into a warning. The fixtures in `tests/fixtures.ts` pin the formats seen on 25 Oct 2026.
-
-### 5.3 MCP HTTP client (`src/features/sync/mcpHttp.ts`)
-
-- First call: `initialize` (`protocolVersion: "2025-03-26"`, client info) then the `notifications/initialized` notification. The handshake promise is cached; on failure it is cleared so the next call retries.
-- Each call: `POST url` with JSON-RPC 2.0, headers `content-type: application/json`, `accept: application/json, text/event-stream`, `authorization: Bearer <key>` if set, `mcp-session-id` if the server sent one. No other headers (freddy's CORS allows only these).
-- Reply: plain JSON (object or batch) or SSE. For SSE, every `data:` line is parsed and the reply with the matching `id` is taken.
-- `tools/call` result: `content[]` text blocks joined with newlines; `isError` -> `McpHttpError("freddy tool ... failed: <first 300 chars>")`.
-- Errors (`McpHttpError`, with `status`): 401/403 -> "freddy rejected the credentials"; other non-2xx -> "freddy answered HTTP n"; network -> "Network error contacting freddy (<code>)"; unreadable or missing reply. No message ever contains the URL or the key.
+The catalog for each sync is built from the samples (`catalogFor`, shared with the export importer).
 
 ### 5.4 Native HTTP adapter (`src/platform/nativeFetch.ts`)
 
@@ -430,7 +424,7 @@ A value that is `<number>` optionally followed by a unit made of letters, `_`, `
 - Returns a real `Response` (null body for 204, 205, 304).
 - A rejected request becomes `TypeError("Native HTTP request failed", { cause })`, the same shape as a failed `fetch`.
 
-`freddySource(creds, transport, nativeRequest)` (`src/features/sync/freddyClient.ts`) wires `McpHttpCaller` with the native adapter when the transport is `native`, otherwise with the WebView's `fetch`. `loadTransport` reads `freddy.transport`, defaulting to `native` on the phone and `fetch` in the browser.
+`App.tsx` builds `new GarminSource({ api: new GarminApi({ apiKey, fetch: deviceFetch(...) }) })`: the native adapter on the phone, the WebView's `fetch` in the browser build.
 
 ## 5b. Garmin export import (`src/features/import/`)
 
@@ -477,21 +471,21 @@ If samples were written but a later step failed, the next run rewrites them in p
 **Staleness and the 3-day reminder** (`src/features/sync/reminder.ts`, pure apart from settings):
 - `freshness(lastOkMs, now)`: `never`, `fresh`, or `stale` from 3 days (`STALE_AFTER_MS`) after the last success. Stale or a failed last attempt shows `SyncBanner` above every tab and turns the header button amber.
 - `nextReminderAt(lastOkMs, now)`: last success + 3 days, or now + 1 day once that has passed (repeats daily until a sync succeeds). Never synced: now + 3 days.
-- `reminderText`: "No freddy sync for N days", and how many days are left in freddy's 7-day free window.
-- `refreshSyncReminder(db, notifier, { configured })` keeps exactly one pending notification (id `SYNC_REMINDER_ID` = 1001, replaced on every call): it cancels it when freddy is not set up or `sync.reminder` is `off`, asks for the notification permission otherwise (Android 13+ shows the prompt the first time), and schedules it. Called at start, after every sync attempt and after any settings change. It never throws; failures are logged as `sync.reminder` warnings.
+- `reminderText`: "No Garmin sync for N days", and that the Garmin key may have expired.
+- `refreshSyncReminder(db, notifier, { configured })` keeps exactly one pending notification (id `SYNC_REMINDER_ID` = 1001, replaced on every call): it cancels it when no Garmin key is stored or `sync.reminder` is `off`, asks for the notification permission otherwise (Android 13+ shows the prompt the first time), and schedules it. Called at start, after every sync attempt and after any settings change. It never throws; failures are logged as `sync.reminder` warnings.
 - The `Notifier` interface is in `src/core/notifier.ts`; `src/platform/notifications.ts` implements it with `LocalNotifications.schedule({ at, allowWhileIdle: true })`, which Doze delivers close to the time. Tapping the notification opens the app, which syncs on launch.
 
 ## 7. Secrets and settings
 
 | Key | Where | Written by |
 |---|---|---|
-| `freddy.mcp_url` | SecretStore | Settings. Must parse as a URL and use `https:` |
-| `freddy.mcp_key` | SecretStore | Settings. Empty input keeps the stored key; "Forget" removes both |
+| `garmin.api_key` | SecretStore | Settings → Connections (`saveGarminKey`: trimmed, at least 16 characters, no spaces). "Forget" removes it. The access token is never stored |
+| `freddy.mcp_url`, `freddy.mcp_key` | SecretStore | No longer written. `removeLegacySecrets` deletes them on every start |
 | `anthropic.api_key` | SecretStore | `connectClaude` after the key is verified (shape check `normalizeClaudeKey`, must look like `sk-ant-...`) |
 | `claude.verified_at`, `claude.key_hint`, `claude.problem` | `app_settings` | `connectClaude` (time, last 4 characters), `watchConnection` (problem when a request is rejected; cleared on the next success), `disconnectClaude` (all cleared). Never the key itself |
 | `claude.effort` | `app_settings` | `saveEffort`; default `medium` |
 | SQLCipher passphrase | SQLite plugin secure store | `openDatabase()` on first launch |
-| `device_id`, `freddy.transport` | `app_settings` | `deviceId()`, Settings |
+| `device_id` | `app_settings` | `deviceId()`. (`freddy.transport` was deleted by migration 0010) |
 
 `secretStore` (`src/platform/secureStore.ts`) uses `SecureStorage.getItem/setItem/removeItem` on native platforms and `memorySecretStore()` in the browser, so secrets typed into the dev build are never written to `localStorage`.
 
@@ -500,23 +494,23 @@ If samples were written but a later step failed, the next run rewrites them in p
 `App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (dashboard, chat, mealprep, alcohol, settings), `profileOpen` (the profile over the Dashboard, with a back button), `mealPrepView`, `settingsPage` (null for the Settings menu, or the open page, so Edit profile and Connect Claude open the right one), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch). Each screen sits in a `.screen` wrapper keyed by tab and page, so it eases in when it changes. Tapping a tab goes to its top level (Dashboard closes the profile, Settings shows its menu) and scrolls up.
 
 - **Tab bar** (`TabBar`): fixed to the bottom on `--surface`, above the gesture area (`env(safe-area-inset-bottom)`), icon and label per tab, the open one with an `--accent-soft` pill behind its icon and `aria-current`.
-- **Sync**: `SyncButton` at the top of the Dashboard ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` above every tab (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
+- **Sync**: `SyncButton` at the top of the Dashboard ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until a Garmin key is stored) and `SyncBanner` above every tab (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
 - **DashboardScreen**, top to bottom: the sticky header (profile picture, a greeting by the hour with the first name, today's date, sync); the last sync's warnings; quick actions (*Log food* opens Meal prep on the food log, *Log a drink* the Alcohol tab, *Ask Claude* the Chat, *Meal prep* the stock); Day / Week / Month (segmented) and ‹ › between periods, with a way back to the current one (the next arrow stops at today); the hero card, animated in when the period changes: a `Ring` for calories eaten against the calorie target (a limit: warning color and "over" past it) and one for steps against the live steps goal (`targets` from `loadDashboard`), the day's number or the daily average, then burned, balance (eaten minus burned on days with both) and protein. *Energy* tiles: burned and active calories, and for a week or month also eaten and steps with their totals (a day has those in the rings). Week and month add a steps `BarChart` (tap a day to open it) and a calories in and out `LineChart` with the calorie target. *Workouts* (› *Your activity* opens the profile) and *Meal prep* (› *Open*): the figures as daily averages and totals; stock now. A day also lists every synced number (`dayValues`, with device and "day not over"). Averages divide by days with data, and the current week or month stops at today.
 - **MealPrepScreen** (Meal prep tab): two groups in a `Segmented` bar, *Food log* (Today, History, Saved meals) and *Meal prep* (Stock, Recipes, Shopping), each group's views as `SubTabs`; switching group returns to the view last open in it. `App` owns the open view so the Dashboard can open the food log or the stock. Entries have light text actions (Eat again, ☆ Save, Edit) and a quiet trash icon. *Today*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved meals*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
 - **AlcoholScreen** (Alcohol tab, `AlcoholView`): *Log a drink* first (one tap per drink type, with Undo, and "Other…"), then *How it adds up*: period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
   Then the meal prep, with tag filter chips on Stock and Recipes. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots, Eat / Freeze / Defrost / Undo for N portions and, under *More*, Toss and Delete batch, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
-- **MeScreen** (the profile, from the Dashboard's picture): the owner's page and their past activity, imported (Garmin export) or synced.
+- **MeScreen** (the profile, from the Dashboard's picture): the owner's page and their past activity, imported (Garmin export) or synced (Garmin Personal API).
   - *Header*: picture (tap to change: cropped to a 256 px square JPEG, EXIF dropped, stored as `profile.photo` in `app_settings`, so it is backed up; remove), name, age, height, latest weight, *Edit profile* (opens Settings > Profile).
   - *My sports*: the sports the owner picks, in their order (`profile.sports`); they lead the activity totals.
   - *Tiles*: workouts, active time and distance over 30 days, goals met or on track.
   - *Goals*: each live goal with a badge (met, on track, not yet, over, no data), the current value against the target in the owner's units (`fmtGoalValue`: hours for seconds, kg for body weight), a meter for at-least goals, and for day goals the last 7 days met and the streak. Delete asks once more (soft delete). *New goal*: a template (steps a day, sleep a night, protein a day, alcohol limit a week, target weight) with one number, or a free-text goal.
   - *Activities*: range chips (30 days, 1 year, all); totals per sport (sessions, time, distance), the owner's sports first; the longest session per sport; the 8 latest workouts (type, day, time, distance, average HR, kcal).
-  - Logic in `features/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbers each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR), and on a day freddy has sessions the export's copies are left out. `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
+  - Logic in `features/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbered each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR). A day's sessions come from one source, in the order of `daily_metric_values`: the Garmin sync, then freddy, then the export. Start times come from the sync and the export (freddy rows start at midnight). `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
 - **LogsScreen** (Settings > Debug logs): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
 - **ChatScreen** (Chat tab): not connected shows a card that opens Settings > Connections. Otherwise History (conversations, newest first, delete) and New; the conversation as bubbles (text and photos; tool calls, thinking and the `[App]` clock line are hidden); quick prompts when empty. The composer: a camera button that offers *Take a photo* (`capture="environment"`) or *Attach an image* (gallery, several), up to `MAX_IMAGES_PER_MESSAGE`, each through `downscalePhoto` with a preview and remove; Enter sends, Shift+Enter breaks the line. `askConsent` and `confirmAction` show an inline card and wait for the tap. Retryable API errors offer *Try again* (`continueConversation`); a send that failed before anything was stored (permission declined) puts the text and photos back. *Changes in this chat* lists `listAgentActions` with Undo for applied ones.
 - **SettingsScreen**: a menu (`MenuList`, `SETTINGS_MENU`) in three groups, *You* (Profile), *Data* (Connections, Privacy & data) and *App* (Debug logs, About), each row with an icon and what is inside; a page opens with a back button to the menu. The page is owned by `App`. Messages are shown inline; nothing throws to React.
   - *Profile* (`ProfileSettings`): the Google account (sign in, sign out, release ownership after a second confirmation; sign-in only in a native build with `VITE_GOOGLE_WEB_CLIENT_ID`), and the profile: name, birth date, sex, height, activity level, weight goal per week. Below it, live estimates from the form and the latest weight (`latestWeight`: manual or synced): age, BMI and class, BMR, daily energy, calorie target (flagged when held at BMR), protein, the healthy weight range, and which inputs are still missing.
-  - *Connections* (`ConnectionSettings`): freddy (status badge, last successful sync and last error, URL, key kept when left empty, transport, the 3-day reminder); Claude (status, key hint and check time, problem text, disconnect; when not connected the three `CONNECT_STEPS`, a link to the Console and the key field, verified with `claudeKeyVerifier` over native HTTP before saving); how to bring in the Garmin history.
+  - *Connections* (`ConnectionSettings`): Garmin (status badge, last successful sync and last error, the personal API key field (paste a new one to replace it), Forget, a link to Garmin Connect's key page, the 3-day reminder); Claude (status, key hint and check time, problem text, disconnect; when not connected the three `CONNECT_STEPS`, a link to the Console and the key field, verified with `claudeKeyVerifier` over native HTTP before saving); how to bring in the Garmin history.
   - *Privacy & data* (`PrivacySettings`): the four consents as switches with their text (each change is a new `consents` row with the device id); what was sent to Claude (count, size, the last 25 with time, size and class); what is stored on this phone (`dataInventory`: live rows per kind with first and last day); backup export and restore.
   - *Debug logs*: `LogsScreen`.
   - *About* (`AboutSettings`): version (`package.json`, through `vite.config.ts`; `scripts/android-harden.mjs` also writes it as the APK's versionName), build time, platform, database schema (`PRAGMA user_version`), chat model, the end of the device id, and where data goes.
@@ -791,7 +785,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 ## 10. Time and ids
 
 - `tzOffsetMinutes(ms, zone)`, `localDayStart(day, zone)`, `localDay(ms, zone)`, `addDays(day, n)` in `src/core/tz.ts`, using `Intl` only. DST is handled: a local day can be 23 or 25 hours long, and `localDayStart` corrects the offset at the start of the day.
-- freddy samples cover a whole local day: `start_ms` = local midnight, `end_ms` = next local midnight, `offset_min` = offset at midnight.
+- Day samples (Garmin sync and export) cover a whole local day: `start_ms` = local midnight, `end_ms` = next local midnight, `offset_min` = offset at midnight. Workouts and weigh-ins use their own time.
 - `uuidv7(now, random)`: RFC 9562 version 7, 48-bit ms timestamp, random rest, so ids sort roughly by creation time and can be generated offline on any device.
 
 ## 11. Error handling summary
@@ -802,7 +796,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 | `migrate` | Rolls back that migration and throws with its name |
 | `upsertSamples` | Rolls back the whole batch and rethrows |
 | `runSync` | Never throws: records the error in `sync_runs` and `sync_state.last_error`, cursor unchanged |
-| `McpHttpCaller` | `McpHttpError` with a message safe to show (no URL, no key) |
+| `GarminApi` / `GarminSource` | `GarminApiError` with a message safe to show (no URL, key or token); 403/404 on one endpoint becomes a sync warning |
 | `exportBackup` / `restoreBackup` | `BackupError` with a message safe to show; restore is all or nothing |
 | Chat | `ConsentRequiredError` (nothing sent); `ChatApiError` (kind, retryable, safe message; history stays valid, retry with `continueConversation`); tool errors go back to Claude as `is_error` results |
 | Agent changes | Invalid input: `is_error`, owner not asked. Declined: logged, `is_error`. Saving failed: logged as `failed`, `is_error`. `undoAgentAction` throws with a safe message (unknown, not applied, table not allowed, shopping line changed since) |
@@ -810,7 +804,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 202 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 226 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -818,21 +812,21 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 20
 | `migrate.test.ts` | parsing, ordering, idempotency, rollback, expected tables, base constraints |
 | `schema.test.ts` | 0002 backfill of `local_day` in the row's zone, the views, `dayValues`, day-note and goal constraints, chat foreign keys |
 | `samples.test.ts` | upsert columns, re-sync in place, text values, rollback, sync state |
-| `catalog.test.ts` | `classifyMetric`, catalog from `list_metrics`, user choices preserved |
-| `freddyText.test.ts`, `freddySource.test.ts` | text formats, window, gap warning, chunking, skipped lines |
-| `mcpHttp.test.ts`, `nativeFetch.test.ts` | handshake, SSE, headers, error messages without secrets, native adapter |
+| `catalog.test.ts` | `classifyMetric` and `DAILY_AGG_OVERRIDES`, two workouts on one day (max training effect, VO2 max and max HR; summed kcal) for both Garmin sources, migration 0010 (old guesses fixed, owner's choices kept, freddy setting gone), overrides and migration in step, user choices preserved |
+| `garminSource.test.ts` | token shapes and reuse, renewal before expiry, 401 retry, errors without the key, endpoint mapping and units, privacy, 28-day chunks, paging, 403 as a warning, time zone from the profile, skipped no-data values, `runSync` end to end and idempotent, export and API overlap in both orders, freddy rows giving way |
+| `nativeFetch.test.ts` | JSON bodies, re-serialised replies, empty 202/204, network errors without the URL, `GarminApi` end to end over the adapter |
 | `runSync.test.ts` | success, failure keeps cursor, shared concurrent run, `lastSync` |
 | `syncReminder.test.ts` | freshness thresholds, next reminder time (due, overdue, never), text and days left, "ago" labels, one reminder moved after each sync, failed runs ignored, cancel when not set up or off, no prompt while off, permission denied, notifier errors swallowed |
 | `capacitorDriver.test.ts` | migrations through the plugin fake, CRLF files, rollback via plugin, iOS column row |
 | `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches |
-| `secrets.test.ts` | freddy credentials and Claude key validation and storage |
+| `secrets.test.ts` | Garmin and Claude key validation and storage, old freddy credentials removed |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
-| `me.test.ts` | Garmin types to sports and labels; workouts grouped per session, freddy winning its days, totals and longest sessions; goal progress for day goals (status, last 7, streak), weeks and months (sum, average, last, on track and over), goals from steps, food, alcohol and manual data, ended and deleted goals hidden, `list_goals` with progress; goal values in the owner's units; sports kept in order; the picture checks |
+| `me.test.ts` | Garmin types to sports and labels; workouts grouped per session, one source per day (sync, then freddy, then the export) with the sync's start times, totals and longest sessions; goal progress for day goals (status, last 7, streak), weeks and months (sum, average, last, on track and over), goals from steps, food, alcohol and manual data, ended and deleted goals hidden, `list_goals` with progress; goal values in the owner's units; sports kept in order; the picture checks |
 | `profile.test.ts` | profile save and read, trimming, range errors (height, age, goal, sex, future birth date), a damaged stored value, estimates against `health.ts` and the missing list, `get_profile` without name or birth date, data inventory against the real schema |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
-| `garminImport.test.ts` | file selection by tail (emails in names), unreadable/empty ZIPs, unit conversions (cm, ms, minutes), per-day offsets, no-data markers dropped, date-time dates, profile weight skipped, VO2 latest wins, privacy (no names, places, coordinates, email), report counts, store with aggregation defaults, re-import idempotent and keeping the owner's choices, day view |
+| `garminImport.test.ts` | file selection by tail (emails in names), unreadable/empty ZIPs, unit conversions (cm, ms, minutes), per-day offsets, no-data markers dropped, date-time dates, profile weight skipped, VO2 latest wins, privacy (no names, places, coordinates, email), report counts, store (aggregation defaults come from `classifyMetric`), activity kcal from kJ, the 0009 kJ fix, re-import idempotent and keeping the owner's choices, day view |
 | `account.test.ts` | ID token claim checks (issuer, audience incl. arrays, expiry with skew, subject), bind with existing data adopted, owner re-sign-in refreshes email, other account refused, sign-out keeps binding, release and re-bind, backup owner guard (refused / fresh phone / same owner), sign-in flow outcomes and safe messages |
 | `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
@@ -858,9 +852,9 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 | Script | Purpose |
 |---|---|
 | `scripts/screens/capture.ts` (`npm run docs:screens`) | Serves the app with an in-memory demo database (`demoDatabase.ts`: sql.js, the real migrations, a month of invented data, a dummy Claude key that is never used) instead of the native one, drives a headless Chrome or Edge (`CHROME_PATH` to choose) through every tab and view in light and dark at 390 × 844, and writes `docs/screens/index.html`, `docs/screens/palette.html` and `docs/screens/img/*.webp`. Fails if the app logs an error |
-| `scripts/freddy-probe.mjs` | One-off checks of the freddy endpoint (auth, SSE, CORS, tool output). Never prints URL or key |
+| `scripts/garmin-probe.ts` | Which Garmin endpoints the key can read, with JSON field names and types. Never prints the key, token or values |
 | `scripts/garmin-import.ts` (`npm run import:garmin`) | Garmin account export ZIP (the one in `imports/garmin/`, or `--zip`) -> real migrations -> encrypted backup in `imports/garmin/garmin-import-<date>.json` to restore on the phone. Password from `GARMIN_BACKUP_PASSWORD` or a hidden prompt. `--db file` also keeps a local SQLite file, `--no-backup` with `--db` only that, `--dry-run` reads and reports only, `--tz` for days without an offset (default: the PC's zone). Prints counts and date ranges only |
-| `scripts/freddy-sync.ts` | Real freddy -> real migrations -> SQLite (memory or `--db file`). Prints counts only |
+| `scripts/garmin-sync.ts` (`npm run sync:garmin`) | Real Garmin Personal API (`GARMIN_API_KEY` from `.env`) -> real migrations -> SQLite (memory or `-- --db file`), then a re-sync to check no rows are added. Prints counts only |
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
 | `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
 | `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain. Idempotent |
@@ -895,5 +889,5 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 - Photos sent in the chat stay in the conversation, so they are in backups and make them larger.
 - Food photos live base64 in SQLite and in the backup file. Fine for a few hundred saved meals (about 100 kB each); a much larger photo library would need files on disk instead.
 - Meal prep reminders only show inside the app: there are no push notifications to defrost yet. Shelf-life defaults (4 days fridge, 90 days freezer, 24 h defrost) are rules of thumb the owner can change per recipe, not food-safety advice.
-- Text parsing of freddy output can break if freddy changes its wording; unknown lines show up as warnings rather than being lost.
+- The Garmin Personal API is new and differs from its own documentation in places (LLD 5.3, architecture.md 4b). A changed field is skipped rather than stored wrong; `scripts/garmin-probe.ts` shows what an endpoint sends now.
 - `last_num` in `daily_metric_values` uses a correlated subquery, fine at personal scale.

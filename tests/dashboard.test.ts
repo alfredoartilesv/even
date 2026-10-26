@@ -13,7 +13,7 @@ const TZ = "Europe/Madrid";
 const TODAY = "2026-10-26"; // a Monday
 const midnight = (day: string) => Date.parse(`${day}T00:00:00Z`) - 60 * 60_000; // CET, after the DST change
 const daily = (metric: string, day: string, valueNum: number): SampleInput => ({
-  source: "freddy",
+  source: "garmin",
   device: "",
   externalId: `${day}#0`,
   metric,
@@ -42,7 +42,7 @@ test("dashboard figures: total, and the average over days with data only", () =>
 
 test("dashboard: steps, burned, eaten with drinks, balance, per day and for the week so far", async () => {
   const { db } = await migratedDb();
-  await upsertCatalog(db, "freddy", [{ metric: "daily_steps" }, { metric: "daily_totalKilocalories" }, { metric: "daily_activeKilocalories" }], 1);
+  await upsertCatalog(db, "garmin", [{ metric: "daily_steps" }, { metric: "daily_totalKilocalories" }, { metric: "daily_activeKilocalories" }], 1);
   await upsertSamples(db, [
     daily("daily_steps", "2026-10-20", 8000),
     daily("daily_steps", "2026-10-21", 12000),
