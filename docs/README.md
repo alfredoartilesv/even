@@ -24,12 +24,13 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Run on the S23 | **Not done yet** |
 | Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
 | Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/features/chat/`, `npm run chat` on a PC); no chat screen yet |
+| Connect Claude (verified API key; there is no "Sign in with Claude" for Android apps, see architecture.md section 5) | Built and tested (`connect.ts`); no screen yet |
 
 ## Quick start
 
 ```bash
 npm install
-npm test                    # 139 tests, no device needed
+npm test                    # 154 tests, no device needed
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
 ```
