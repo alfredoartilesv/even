@@ -98,6 +98,7 @@ flowchart TB
 | App shell | Opens the DB, runs migrations, triggers sync on launch, switches screens | `src/app/App.tsx`, `src/platform/openDatabase.ts` |
 | Today screen | Last sync status, warnings, the latest day's values | `src/features/metrics/TodayScreen.tsx` |
 | Settings screen | *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: freddy, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore | `src/features/settings/` |
+| Me tab | picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/features/me/` |
 | Logs tab | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/features/logs/` |
 | Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/features/sync/runSync.ts` |
 | FreddySource | Decides the date window, discovers metrics, calls tools, parses text into samples | `src/features/sync/freddy.ts`, `src/features/sync/freddyText.ts` |

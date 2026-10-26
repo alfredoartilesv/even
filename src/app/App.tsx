@@ -6,6 +6,7 @@ import { FoodScreen } from "../features/food/ui/FoodScreen";
 import { MealPrepScreen } from "../features/mealprep/ui/MealPrepScreen";
 import { SettingsScreen } from "../features/settings/SettingsScreen";
 import { LogsScreen } from "../features/logs/LogsScreen";
+import { MeScreen } from "../features/me/MeScreen";
 import { TodayScreen } from "../features/metrics/TodayScreen";
 import { loadFreddyCredentials } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
@@ -20,7 +21,7 @@ import { DEFAULT_LOG_LEVEL } from "./logging";
 import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
-type Tab = "today" | "food" | "mealprep" | "logs" | "settings";
+type Tab = "today" | "me" | "food" | "mealprep" | "logs" | "settings";
 
 const log = createLogger("app");
 
@@ -129,6 +130,9 @@ export function App() {
           <button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}>
             Today
           </button>
+          <button className={tab === "me" ? "active" : ""} onClick={() => setTab("me")}>
+            Me
+          </button>
           <button className={tab === "food" ? "active" : ""} onClick={() => setTab("food")}>
             Food
           </button>
@@ -146,6 +150,8 @@ export function App() {
       <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
       {tab === "today" ? (
         <TodayScreen db={dbStatus.db} configured={configured} version={version} />
+      ) : tab === "me" ? (
+        <MeScreen db={dbStatus.db} version={version} onEditProfile={() => setTab("settings")} />
       ) : tab === "food" ? (
         <FoodScreen db={dbStatus.db} />
       ) : tab === "mealprep" ? (

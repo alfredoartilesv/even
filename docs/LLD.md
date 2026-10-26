@@ -50,6 +50,7 @@ src/
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
     settings/                      secrets, log level, profile (owner profile and estimates), data inventory; SettingsScreen with Profile, Connections and Privacy pages
     logs/                          LogsScreen (the Logs tab), report.ts (Markdown report for Claude, pure)
+    me/                            MeScreen (the Me tab); sports, workouts, goals (progress), goal templates (pure logic); ui/ avatar
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
 scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
 docs/                              this documentation
@@ -490,13 +491,20 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 ## 8. UI
 
-`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, logs, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
+`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, me, food, mealprep, logs, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
 - **Header** (every tab): `SyncButton` ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, and the latest day's values with device and "day not over".
 - **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
 - **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
+- **MeScreen** (Me tab): the owner's page.
+  - *Header*: picture (tap to change: cropped to a 256 px square JPEG, EXIF dropped, stored as `profile.photo` in `app_settings`, so it is backed up; remove), name, age, height, latest weight, *Edit profile* (opens Settings > Profile).
+  - *My sports*: the sports the owner picks, in their order (`profile.sports`); they lead the activity totals.
+  - *Tiles*: workouts, active time and distance over 30 days, goals met or on track.
+  - *Goals*: each live goal with a badge (met, on track, not yet, over, no data), the current value against the target in the owner's units (`fmtGoalValue`: hours for seconds, kg for body weight), a meter for at-least goals, and for day goals the last 7 days met and the streak. Delete asks once more (soft delete). *New goal*: a template (steps a day, sleep a night, protein a day, alcohol limit a week, target weight) with one number, or a free-text goal.
+  - *Activities*: range chips (30 days, 1 year, all); totals per sport (sessions, time, distance), the owner's sports first; the longest session per sport; the 8 latest workouts (type, day, time, distance, average HR, kcal).
+  - Logic in `features/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbers each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR), and on a day freddy has sessions the export's copies are left out. `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
 - **LogsScreen** (Logs tab): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
 - **SettingsScreen**: three pages behind sub-tabs. Messages are shown inline; nothing throws to React.
   - *Profile* (`ProfileSettings`): the Google account (sign in, sign out, release ownership after a second confirmation; sign-in only in a native build with `VITE_GOOGLE_WEB_CLIENT_ID`), and the profile: name, birth date, sex, height, activity level, weight goal per week. Below it, live estimates from the form and the latest weight (`latestWeight`: manual or synced): age, BMI and class, BMR, daily energy, calorie target (flagged when held at BMR), protein, the healthy weight range, and which inputs are still missing.
@@ -677,12 +685,12 @@ Rules this keeps:
 | `compare_periods` | aggregate | metric, a_from, a_to, b_from, b_to | Both summaries, change of the average (absolute and %) |
 | `nutrition_summary` | aggregate | from, to | Days logged, average calories and macros per logged day; alcohol drinks, grams total, per drinking day, per calendar day |
 | `manual_summary` | aggregate | kind, from, to | Count, avg/min/max of `value_num` and `value_num2`, unit, first/last day |
-| `list_goals` | aggregate | none | Live goals, including the daily calorie target |
+| `list_goals` | aggregate | none | Live goals (not ended, not deleted), including the daily calorie target, each with `progress` (current, status, period start, last 7 days and streak for day goals) from `goalProgress` |
 | `list_saved_meals` | aggregate | none | Saved meals: id, name, usual meal, macros per serving, has photo, times and last time logged |
 | `list_meal_preps` | aggregate | tag or null | Recipes: id, name, tags, portions, shelf life, macros per portion, ingredients for one batch, notes |
 | `meal_prep_stock` | aggregate | none | Batches with portions left: fridge lots (eat-by, thawed), freezer lots (best-before), eaten, discarded |
 | `shopping_list` | aggregate | none | Items, quantities, units, ticked or not |
-| `get_profile` | aggregate | none | The saved profile without name or birth date: age, sex, height, activity, weekly goal, latest weight (kg, day, source), BMI and class, healthy weight range, BMR, TDEE, calorie target (floored flag), protein target, and `missing` |
+| `get_profile` | aggregate | none | The saved profile without name or birth date: age, sex, height, activity, weekly goal, sports, latest weight (kg, day, source), BMI and class, healthy weight range, BMR, TDEE, calorie target (floored flag), protein target, and `missing` |
 | `energy_needs` | aggregate | sex, age, height, weight, activity, kg per week | BMR, TDEE, calorie target (floored at BMR), protein target, from `health.ts`. Reads nothing from the database |
 | `daily_series` | raw | metric, from, to (max 400 days) | One value per day per source/device |
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
@@ -778,7 +786,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 195 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 202 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -796,6 +804,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 19
 | `secrets.test.ts` | freddy credentials and Claude key validation and storage |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
+| `me.test.ts` | Garmin types to sports and labels; workouts grouped per session, freddy winning its days, totals and longest sessions; goal progress for day goals (status, last 7, streak), weeks and months (sum, average, last, on track and over), goals from steps, food, alcohol and manual data, ended and deleted goals hidden, `list_goals` with progress; goal values in the owner's units; sports kept in order; the picture checks |
 | `profile.test.ts` | profile save and read, trimming, range errors (height, age, goal, sex, future birth date), a damaged stored value, estimates against `health.ts` and the missing list, `get_profile` without name or birth date, data inventory against the real schema |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
