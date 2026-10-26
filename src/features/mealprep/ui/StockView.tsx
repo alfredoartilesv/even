@@ -230,28 +230,34 @@ export function StockView({ db, tag, version }: Props) {
             <button className="secondary" disabled={!s.freezerCount} onClick={() => move(s, "thaw")}>
               Defrost
             </button>
-            <button className="secondary" disabled={!s.fridgeCount} onClick={() => move(s, "discard", "fridge")}>
-              Toss (fridge)
-            </button>
-            <button className="secondary" disabled={!s.freezerCount} onClick={() => move(s, "discard", "freezer")}>
-              Toss (freezer)
-            </button>
             {s.lastMove && (
               <button className="secondary" onClick={() => act(() => undoMove(db, s.lastMove!.id), "Undone.")}>
                 Undo {MOVE_LABEL[s.lastMove.kind]} {s.lastMove.portions}
               </button>
             )}
-            <button
-              className="secondary danger"
-              onClick={() => {
-                if (confirm(`Delete this batch of ${s.batch.name}? Meals logged from it are removed from the food log too.`)) {
-                  void act(() => deleteBatch(db, s.batch.id), "Batch deleted.");
-                }
-              }}
-            >
-              Delete batch
-            </button>
           </div>
+          {/* Rarer moves stay one tap away, so the everyday ones lead. */}
+          <details className="more">
+            <summary className="small muted">More</summary>
+            <div className="actions compact">
+              <button className="secondary" disabled={!s.fridgeCount} onClick={() => move(s, "discard", "fridge")}>
+                Toss (fridge)
+              </button>
+              <button className="secondary" disabled={!s.freezerCount} onClick={() => move(s, "discard", "freezer")}>
+                Toss (freezer)
+              </button>
+              <button
+                className="secondary danger"
+                onClick={() => {
+                  if (confirm(`Delete this batch of ${s.batch.name}? Meals logged from it are removed from the food log too.`)) {
+                    void act(() => deleteBatch(db, s.batch.id), "Batch deleted.");
+                  }
+                }}
+              >
+                Delete batch
+              </button>
+            </div>
+          </details>
         </section>
       ))}
       {!stock.length && <p className="muted">No meal prep in stock{tag ? ` tagged ${tag}` : ""}.</p>}

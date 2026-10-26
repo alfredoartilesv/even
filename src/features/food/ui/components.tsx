@@ -7,6 +7,7 @@ import { MEALS, type Meal } from "../suggest";
 import { failed, numOrNull } from "../../../ui/common";
 import { CalorieMeter as Meter, MacroSplit } from "../../../ui/nutrition";
 import { downscalePhoto, photoInputUrl } from "./photo";
+import { Icon } from "../../../ui/icons";
 
 export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", prep: "Meal prep" };
 export const kcal = (n: number | null) => (n === null ? "–" : Math.round(n).toLocaleString());
@@ -250,7 +251,7 @@ export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: Foo
                       {time(e.eatenAtMs)} · {kcal(e.calories)} kcal{e.proteinG !== null && ` · ${kcal(e.proteinG)} g protein`}
                       {e.notes && ` · ${e.notes}`}
                     </div>
-                    <div className="actions compact">
+                    <div className="entry-actions">
                       <button className="secondary" onClick={() => act.onAgain(e)}>
                         Eat again
                       </button>
@@ -266,8 +267,8 @@ export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: Foo
                       >
                         Edit
                       </button>
-                      <button className="secondary danger" onClick={() => act.onDelete(e)}>
-                        Delete
+                      <button className="icon-button ghost" aria-label={`Delete ${e.name}`} onClick={() => act.onDelete(e)}>
+                        <Icon name="trash" size={18} />
                       </button>
                     </div>
                   </div>
