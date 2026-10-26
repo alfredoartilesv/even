@@ -16,6 +16,7 @@ import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../features/settings/logLevel";
 import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
+import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
 type Tab = "today" | "food" | "mealprep" | "settings";

@@ -33,8 +33,12 @@ src/
     device.ts                      isNative, nativeRequest, deviceFetch, shareText
     notifications.ts               Notifier on @capacitor/local-notifications (no-op in the browser)
     files.ts                       backup file to the share sheet / download
-  ui/
+  ui/                              the UI kit: presentational components, plain props in, callbacks out (section 8b)
     common.tsx                     shared screen helpers: Msg, failed(), dates, TagChips
+    charts/                        LineChart, BarChart, CalendarHeatmap, StatTile, Sparkline, Meter, StackedBar; scale.ts (pure)
+    mealprep/                      StockSummary, DefrostTimeline, StockAlerts, BatchBar; timeline.ts (pure)
+    nutrition.tsx, controls.tsx    CalorieMeter, MacroSplit; RangePicker, Stepper, StatusBadge
+    ui.css                         kit styles and chart color tokens (light and dark)
   features/<name>/                 logic (*.ts), data access and screens (*.tsx or ui/)
     metrics/                       samples, catalog, queries, TodayScreen
     sync/                          runSync, freddyClient, FreddySource, text parsers, MCP client, Source types
@@ -489,12 +493,31 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 - **Header** (every tab): `SyncButton` ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, and the latest day's values with device and "day not over".
-- **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day bar chart of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
+- **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
 - **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
 Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/features/chat/`) exist.
+
+## 8b. UI kit (`src/ui/`)
+
+Presentational components shared by every screen. They take plain props and report through callbacks; they never load data, so they import only `ui/` and `core/` (enforced by `architecture.test.ts`). Where a component draws a feature's data it declares the fields it needs as its own type (`PlanLike` mirrors the defrost `Plan`), so the screen passes its object straight in.
+
+| Component | Use |
+|---|---|
+| `LineChart` | Trend over days, one or more series on one axis. Missing days break the line. One series: accent color, 10% area wash, last value labelled. Several: categorical slots and a legend. Crosshair on hover and arrow keys reads every series at that day. Optional target line; `zero` for amounts |
+| `BarChart` | Magnitude per day from a zero baseline, columns 24 px at most with a rounded end. Optional target; columns over it use the warning color and say "over target" (tooltip, table, legend). `onSelect` makes each column a button |
+| `CalendarHeatmap` | A day grid (weeks by weekday) in five steps of the accent, for consistency over months or years. Missing days stay empty |
+| `StatTile`, `Sparkline` | One number with an optional change against a named period (arrow and words; colored by whether that direction is good) and a small trend |
+| `Meter`, `CalorieMeter` | A value against a limit; past it, the warning color plus the words |
+| `StackedBar`, `MacroSplit`, `BatchBar` | Part-to-whole in one bar with 2 px gaps; the legend prints every value and share |
+| `StockSummary`, `DefrostTimeline`, `StockAlerts` | Meal prep stock tiles, the next days (covered or short, what to defrost, what to eat or freeze), alerts with badges |
+| `RangePicker`, `Stepper`, `StatusBadge` | Date-range presets above the charts they scope; − n + for portions; a state as icon plus words |
+
+Rules every chart keeps: a `ChartFrame` with title, a legend only for two or more series, and a Table toggle showing every value as text; text in text colors, never the series color; color never the only signal; status colors only for state. Series colors are the validated categorical palette in `ui.css` (slots 1-8, fixed per series, checked for color-vision deficiency against both app surfaces); one-series charts use the accent. Charts measure their width and draw in real pixels, so text never scales.
+
+`npm run dev` and open `/?gallery` to see every component with invented data (dev builds only, never in the production bundle).
 
 ## 9. Backup and restore
 
@@ -749,7 +772,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 175 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 184 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -774,6 +797,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 17
 | `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
+| `uiKit.test.ts` | ticks, compact numbers, label spacing, line gaps, column paths; the defrost timeline mapping; rendered charts keep their accessible name, table view, empty state, "over target" in words, legend rules and fixed slots; tile deltas, macro shares, alert badges |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
 | `log.test.ts`, `logging.test.ts` | levels and scope overrides, redaction and summaries, timers, ring buffer, broken sinks; nested transactions; stored log level; no data leaks from real flows into logs |
 | `alcohol.test.ts` | kcal and weight maths; drink types (unique names, estimates, delete keeps history); totals in drinks, grams, kcal, money and per day; latest weight from manual or synced in kg/g/lb; expected weight; currency; 0006 on existing drinks; chat add/fill/refuse types, log by type, undo of each, read tools |
@@ -782,7 +806,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 17
 
 `tests/fakePlugin.ts` copies the Android plugin's behaviour that matters: `execute` splits on `";\n"`, strips comments, runs each piece as one statement, and both `execute` and `run` open their own transaction unless told not to.
 
-Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` and `files.ts` (thin Capacitor wrappers), and anything on a real device.
+Not covered by automated tests: the React screens (the UI kit's components are, rendered to markup), `open.ts`, `secureStore.ts` and `files.ts` (thin Capacitor wrappers), and anything on a real device.
 
 ## 13. Scripts
 
