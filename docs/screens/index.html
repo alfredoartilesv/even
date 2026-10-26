@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health app screens</title>
+<style>
+/*
+ * The app's color palette: every color the app uses, by role, for light and dark. Screens and
+ * the UI kit use these tokens only, never a literal color. Loaded first by main.tsx.
+ *
+ * Neutrals are warm stone, the accent is teal. tests/palette.test.ts checks the contrast of
+ * every text role against both surfaces (WCAG AA, 4.5:1) in both themes, so a change here that
+ * makes text hard to read fails the build. docs/screens/palette.html shows the swatches.
+ *
+ * Roles
+ *   --bg          page background
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar
+ *   --fg          main text
+ *   --muted       secondary text, icons at rest
+ *   --line        borders and dividers
+ *   --accent      primary actions, the selected tab, links
+ *   --on-accent   text and icons on an accent fill
+ *   --accent-soft tinted fill: the owner's chat bubbles, meter tracks, the avatar
+ *   --good        good news (met, within target), as text
+ *   --warning     needs attention (stale sync, over target)
+ *   --error       failures and destructive actions
+ *
+ * Series colors are the validated categorical palette (dataviz reference instance), checked with
+ * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
+ * pass every gate (worst adjacent CVD dE 9.1 light, 8.4 dark). In light mode slots 3, 4 and 5
+ * sit below 3:1 on the surface, so every chart that uses them prints its values (legend values
+ * or the table view). One-series charts use --accent instead.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --fg: #1c1917;
+  --muted: #6b6460;
+  --line: #e7e5e4;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  --good: #006300;
+  --warning: #a16207;
+  --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
+  --error: #b91c1c;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --viz-grid: #e7e5e4;
+  --viz-axis: #c3c2b7;
+
+  /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14110f;
+    --surface: #1e1a17;
+    --fg: #f5f5f4;
+    --muted: #a8a29e;
+    --line: #292524;
+    --accent: #2dd4bf;
+    --on-accent: #14110f;
+    --good: #0ca30c;
+    --warning: #facc15;
+    --error: #f87171;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --viz-grid: #2c2a27;
+    --viz-axis: #44403c;
+  }
+}
+
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+main { max-width: 72rem; margin: 0 auto; padding: 2rem 16px 4rem; }
+h1 { margin: 0 0 0.25rem; } h2 { margin: 2.5rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.muted { color: var(--muted); } a { color: var(--accent); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+nav.toc a, .themes button { border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0.3rem 0.8rem; text-decoration: none; background: var(--surface); color: var(--fg); font: inherit; cursor: pointer; }
+.themes { display: flex; gap: 0.4rem; margin: 0.5rem 0 1rem; } .themes button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1.5rem; align-items: start; }
+figure { margin: 0; } figcaption { margin-top: 0.5rem; font-size: 0.9rem; } figcaption strong { display: block; }
+.shot { display: flex; gap: 0.5rem; } .shot img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+body[data-show="light"] .shot img.dark, body[data-show="dark"] .shot img.light { display: none; }
+body[data-show="both"] .grid { grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr)); }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; } th { color: var(--muted); font-weight: normal; }
+code { font-size: 0.9em; }
+</style>
+</head>
+<body data-show="light">
+<main>
+<h1>Health app screens</h1>
+<p class="muted">Every tab and view at phone size (390 × 844 pt), captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
+<div class="themes" role="group" aria-label="Theme">
+  <button type="button" data-show="light" aria-pressed="true">Light</button>
+  <button type="button" data-show="dark" aria-pressed="false">Dark</button>
+  <button type="button" data-show="both" aria-pressed="false">Side by side</button>
+</div>
+<nav class="toc"><a href="#dashboard">Dashboard</a><a href="#chat">Chat</a><a href="#meal-prep">Meal prep</a><a href="#alcohol">Alcohol</a><a href="#settings">Settings</a><a href="#components">Components</a></nav>
+<p>Five tabs in a bar at the bottom: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. Sync and the profile sit at the top of the Dashboard.</p>
+<h2 id="dashboard">Dashboard</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-dashboard-day.webp" alt="Dashboard: Day (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-day.webp" alt="Dashboard: Day (dark)" loading="lazy"></div>
+  <figcaption><strong>Day</strong><span class="muted">The profile picture (opens the profile) and sync at the top. Steps, calories burned and eaten, the balance, active calories and protein for the day; meal prep portions and stock; workouts; every synced number of the day.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-dashboard-week.webp" alt="Dashboard: Week (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-week.webp" alt="Dashboard: Week (dark)" loading="lazy"></div>
+  <figcaption><strong>Week</strong><span class="muted">Last full week: each tile is the daily average, with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-dashboard-month.webp" alt="Dashboard: Month (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-month.webp" alt="Dashboard: Month (dark)" loading="lazy"></div>
+  <figcaption><strong>Month</strong><span class="muted">The same figures for a calendar month: daily averages and totals, and the charts per day.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-profile.webp" alt="Dashboard: Profile (light)" loading="lazy"><img class="dark" src="img/dark-profile.webp" alt="Dashboard: Profile (dark)" loading="lazy"></div>
+  <figcaption><strong>Profile</strong><span class="muted">Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress, and the past activity imported from the Garmin export or synced: totals per sport, longest sessions, recent workouts.</span></figcaption>
+</figure>
+</div>
+<h2 id="chat">Chat</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-chat.webp" alt="Chat: Conversation (light)" loading="lazy"><img class="dark" src="img/dark-chat.webp" alt="Chat: Conversation (dark)" loading="lazy"></div>
+  <figcaption><strong>Conversation</strong><span class="muted">A conversation with Claude. History lists past chats; New starts one. Permissions and changes Claude wants to save are asked in line, with undo afterwards.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-chat-photo.webp" alt="Chat: New chat, adding a photo (light)" loading="lazy"><img class="dark" src="img/dark-chat-photo.webp" alt="Chat: New chat, adding a photo (dark)" loading="lazy"></div>
+  <figcaption><strong>New chat, adding a photo</strong><span class="muted">Quick prompts to start from. The camera button offers Take a photo (the camera) or Attach an image (the gallery, several at once).</span></figcaption>
+</figure>
+</div>
+<h2 id="meal-prep">Meal prep</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-log.webp" alt="Meal prep: Log food (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-log.webp" alt="Meal prep: Log food (dark)" loading="lazy"></div>
+  <figcaption><strong>Log food</strong><span class="muted">Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-history.webp" alt="Meal prep: History (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-history.webp" alt="Meal prep: History (dark)" loading="lazy"></div>
+  <figcaption><strong>History</strong><span class="muted">Calories per day for the week with the target, the weekly average, and any day's entries.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-saved.webp" alt="Meal prep: Saved meals (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-saved.webp" alt="Meal prep: Saved meals (dark)" loading="lazy"></div>
+  <figcaption><strong>Saved meals</strong><span class="muted">Favourite meals to log again in one tap, with servings.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-stock.webp" alt="Meal prep: Stock (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-stock.webp" alt="Meal prep: Stock (dark)" loading="lazy"></div>
+  <figcaption><strong>Stock</strong><span class="muted">Meal prep portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Recipes (dark)" loading="lazy"></div>
+  <figcaption><strong>Recipes</strong><span class="muted">Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.</span></figcaption>
+</figure>
+</div>
+<h2 id="alcohol">Alcohol</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-alcohol.webp" alt="Alcohol: Alcohol (light)" loading="lazy"><img class="dark" src="img/dark-alcohol.webp" alt="Alcohol: Alcohol (dark)" loading="lazy"></div>
+  <figcaption><strong>Alcohol</strong><span class="muted">Drinks per period with standard drinks, kcal and money; weight without alcohol; one-tap logging from drink types.</span></figcaption>
+</figure>
+</div>
+<h2 id="settings">Settings</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-profile.webp" alt="Settings: Profile (light)" loading="lazy"><img class="dark" src="img/dark-settings-profile.webp" alt="Settings: Profile (dark)" loading="lazy"></div>
+  <figcaption><strong>Profile</strong><span class="muted">Google account, the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-connections.webp" alt="Settings: Connections (light)" loading="lazy"><img class="dark" src="img/dark-settings-connections.webp" alt="Settings: Connections (dark)" loading="lazy"></div>
+  <figcaption><strong>Connections</strong><span class="muted">freddy (sync), the Claude API key, and the Garmin history import.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="Settings: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="Settings: Privacy &amp; data (dark)" loading="lazy"></div>
+  <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-logs.webp" alt="Settings: Debug logs (light)" loading="lazy"><img class="dark" src="img/dark-settings-logs.webp" alt="Settings: Debug logs (dark)" loading="lazy"></div>
+  <figcaption><strong>Debug logs</strong><span class="muted">This run's log records, the level, and an export as a Markdown report to hand to Claude.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-about.webp" alt="Settings: About (light)" loading="lazy"><img class="dark" src="img/dark-settings-about.webp" alt="Settings: About (dark)" loading="lazy"></div>
+  <figcaption><strong>About</strong><span class="muted">App version, build, platform, database schema and chat model.</span></figcaption>
+</figure>
+</div>
+<h2 id="components">Components</h2>
+<p class="muted">Screens are built from the shared UI kit in <code>src/ui/</code>. Tests (<code>tests/uiLayout.test.ts</code>) keep screens from drawing their own titles, tab rows or icons.</p>
+<table><thead><tr><th>Component</th><th>File</th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>PageHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>The title row of every tab: back button or profile picture, title, actions (sync, History, New).</td></tr>
+<tr><td><code>SubTabs</code></td><td><code>src/ui/layout.tsx</code></td><td>The views of a tab: Meal prep (Log food … Shopping) and Settings (Profile … About).</td></tr>
+<tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard.</td></tr>
+<tr><td><code>ChipGroup, RangePicker</code></td><td><code>src/ui/controls.tsx</code></td><td>Periods and filters: Alcohol periods, profile activity ranges, chart ranges.</td></tr>
+<tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar icons, the chat's camera and send buttons.</td></tr>
+<tr><td><code>TabBar</code></td><td><code>src/app/TabBar.tsx</code></td><td>The five tabs at the bottom.</td></tr>
+<tr><td><code>StatTile, Meter, BarChart, LineChart, CalendarHeatmap</code></td><td><code>src/ui/charts/</code></td><td>Numbers and charts: Dashboard tiles and charts, goals, food history.</td></tr>
+<tr><td><code>StatusBadge, Stepper</code></td><td><code>src/ui/controls.tsx</code></td><td>States as icon and words; portion counts.</td></tr>
+<tr><td><code>CalorieMeter, MacroSplit</code></td><td><code>src/ui/nutrition.tsx</code></td><td>Calories against the target, macro shares (Log food).</td></tr>
+<tr><td><code>StockSummary, DefrostTimeline, StockAlerts, BatchBar</code></td><td><code>src/ui/mealprep/</code></td><td>Meal prep stock and the defrost plan.</td></tr>
+</tbody></table>
+</main>
+<script>
+for (const b of document.querySelectorAll(".themes button")) b.addEventListener("click", () => {
+  document.body.dataset.show = b.dataset.show;
+  for (const x of document.querySelectorAll(".themes button")) x.setAttribute("aria-pressed", String(x === b));
+});
+</script>
+</body>
+</html>

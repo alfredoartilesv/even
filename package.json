@@ -13,7 +13,8 @@
     "spike:drizzle": "tsx scripts/drizzle-spike.ts",
     "chat": "node --env-file=.env --import tsx scripts/claude-chat.ts",
     "import:garmin": "tsx scripts/garmin-import.ts",
-    "sync:garmin": "node --env-file=.env --import tsx scripts/garmin-sync.ts"
+    "sync:garmin": "node --env-file=.env --import tsx scripts/garmin-sync.ts",
+    "docs:screens": "tsx scripts/screens/capture.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "drizzle-orm": "^0.45.4",
+    "sql.js": "^1.15.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
