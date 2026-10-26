@@ -3,7 +3,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { SqlDriver } from "../../db/driver";
 import { deleteFood, deleteSavedMeal, getSavedMeal, logFood, logSavedMeal, MAX_PHOTO_BYTES, saveMeal, type PhotoInput } from "../food/food";
-import { dayNoteExists, insertDayNote, insertDrinkEntry, insertGoal, insertMeasurement, type Stamp } from "../journal/journal";
+import { dayNoteExists, insertDayNote, insertGoal, insertMeasurement, type Stamp } from "../journal/journal";
+import { deleteDrinkType, findDrinkType, logDrink, saveDrinkType, servingKcal } from "../alcohol/alcohol";
 import { addMove, deleteBatch, deleteMealPrep, listMealPreps, loadStock, logBatch, saveMealPrep, undoMove } from "../mealprep/mealPrep";
 import { addRecipesToShopping, addShoppingItem } from "../mealprep/shopping";
 import { alcoholGrams } from "../../core/health";
@@ -20,7 +21,8 @@ type BetaTool = Anthropic.Beta.Messages.BetaTool;
 /**
  * Tools that change the owner's data. Security model, enforced here rather than in the prompt:
  * - only the operations below, all additive: new log rows, saved meals, recipes, cooked batches,
- *   portion moves, shopping-list lines (or more of an open line). No edits of existing entries,
+ *   portion moves, shopping-list lines (or more of an open line), drink types (or a missing price
+ *   or kcal on an existing type, never overwriting one). No other edits of existing entries,
  *   no deletes, no settings, consents, keys, sync or backups;
  * - every input is validated with hard limits (dates, portions, counts, text length);
  * - nothing is written until the owner confirms the exact change (ChatDeps.confirmAction);
@@ -38,7 +40,9 @@ export type ActionRow =
   | { op: "move"; table: "meal_prep_moves"; id: string }
   | { op: "insert"; table: "drink_entries" | "manual_measurements" | "day_notes" | "goals"; id: string }
   | { op: "shopping_insert"; table: "shopping_list_items"; id: string }
-  | { op: "shopping_quantity"; table: "shopping_list_items"; id: string; before: number | null; after: number | null };
+  | { op: "shopping_quantity"; table: "shopping_list_items"; id: string; before: number | null; after: number | null }
+  | { op: "drink_type"; table: "drink_types"; id: string }
+  | { op: "drink_type_fill"; table: "drink_types"; id: string; fields: { calories?: number; price?: number } };
 
 /** Tables an action may touch, per operation. Undo refuses anything else, even if the log were edited. */
 const OP_TABLES: Record<ActionRow["op"], readonly string[]> = {
@@ -50,6 +54,8 @@ const OP_TABLES: Record<ActionRow["op"], readonly string[]> = {
   insert: ["drink_entries", "manual_measurements", "day_notes", "goals"],
   shopping_insert: ["shopping_list_items"],
   shopping_quantity: ["shopping_list_items"],
+  drink_type: ["drink_types"],
+  drink_type_fill: ["drink_types"],
 };
 export const AGENT_TABLES = [...new Set(Object.values(OP_TABLES).flat())];
 
@@ -115,7 +121,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const stamp = (ctx: ActionContext): Stamp => ({ deviceId: ctx.deviceId, createdBy: "assistant", now: ctx.now });
 
 /** Rows written through the app's own functions get the assistant's mark afterwards. */
-const MARKABLE = new Set(["food_entries", "saved_meals", "meal_preps", "meal_prep_batches", "shopping_list_items"]);
+const MARKABLE = new Set(["food_entries", "saved_meals", "meal_preps", "meal_prep_batches", "shopping_list_items", "drink_types"]);
 async function markAssistant(db: SqlDriver, table: string, ids: string[]): Promise<void> {
   if (!MARKABLE.has(table)) throw new Error(`Cannot mark rows in ${table}`);
   for (const id of ids) await db.run(`UPDATE ${table} SET created_by = 'assistant' WHERE id = ?`, [id]);
@@ -564,27 +570,133 @@ const addRecipeToShoppingTool: WriteTool = {
 
 // ---- drinks, measurements, notes, goals -----------------------------------------------------
 
-const logDrinkTool: WriteTool = {
-  definition: tool("log_drink", "Add an alcoholic drink to the drink log. The owner confirms first.", {
-    name: { type: "string", description: "e.g. 'Beer', 'Red wine'" },
-    volume_ml: { type: "number", description: "Volume drunk in ml" },
-    abv_percent: { type: "number", description: "Alcohol by volume, % (e.g. 5 for beer, 13 for wine)" },
-    day: { type: "string", description: DATE_DESC },
-    time: nullableString(TIME_DESC),
-    notes: nullableString("Optional note"),
-  }),
+const money = (n: number | null) => (n === null ? "price unknown" : `${round(n)}`);
+
+const addDrinkTypeTool: WriteTool = {
+  definition: tool(
+    "add_drink_type",
+    "Save a kind of alcoholic drink the owner has often, with its serving size, ABV, kcal and price per serving, so log_drink can use it by name. If a type with that name exists, only a missing kcal or price is filled in; values the owner already set are never changed (they can edit them on the Alcohol screen). Prices are in the owner's currency (drink_types tells you which). The owner confirms first.",
+    {
+      name: { type: "string", description: "e.g. 'Mahou 33 cl', 'House red wine'" },
+      volume_ml: { type: "number", description: "One serving in ml" },
+      abv_percent: { type: "number", description: "Alcohol by volume, %" },
+      calories: nullableNumber("kcal per serving from the label, or null to estimate from the alcohol"),
+      price: nullableNumber("Price per serving in the owner's currency, or null if unknown"),
+    },
+  ),
   async prepare(ctx, input) {
-    const p = z.object({ name: text(120), volume_ml: num(1, 3000), abv_percent: num(0, 80), day, time, notes: optText(500) }).parse(input);
+    const p = z
+      .object({ name: text(80), volume_ml: num(1, 3000), abv_percent: num(0, 80), calories: optNum(0, 3000), price: optNum(0, 10_000) })
+      .parse(input);
+    const existing = await findDrinkType(ctx.db, p.name);
+    if (existing) {
+      const fields: { calories?: number; price?: number } = {};
+      if (existing.calories === null && p.calories !== null) fields.calories = p.calories;
+      if (existing.price === null && p.price !== null) fields.price = p.price;
+      if (!Object.keys(fields).length) {
+        throw new Error(
+          `${existing.name} already exists (${existing.volumeMl} ml, ${existing.abvPercent}%, ${kcal(servingKcal(existing))}, ${money(existing.price)}). Nothing to fill in; the owner can change it on the Alcohol screen.`,
+        );
+      }
+      return {
+        tool: "add_drink_type",
+        summary: `Fill in ${Object.keys(fields).join(" and ")} for ${existing.name}`,
+        lines: [
+          `${existing.name}:${fields.calories !== undefined ? ` ${fields.calories} kcal per serving` : ""}${fields.price !== undefined ? ` price ${fields.price}` : ""}`,
+        ],
+        async apply() {
+          await saveDrinkType(ctx.db, { ...existing, ...fields }, { nowMs: ctx.now });
+          return { result: { updated: existing.id, filled: fields }, rows: [{ op: "drink_type_fill", table: "drink_types", id: existing.id, fields }] };
+        },
+      };
+    }
+    const estimate = servingKcal({ volumeMl: p.volume_ml, abvPercent: p.abv_percent, calories: p.calories });
+    return {
+      tool: "add_drink_type",
+      summary: `Save drink type ${p.name}`,
+      lines: [
+        `${p.name}: ${p.volume_ml} ml, ${p.abv_percent}% ABV, ${p.calories === null ? `about ${estimate} kcal (from the alcohol)` : `${p.calories} kcal`}, ${money(p.price)}`,
+      ],
+      async apply() {
+        const id = await saveDrinkType(
+          ctx.db,
+          { name: p.name, volumeMl: p.volume_ml, abvPercent: p.abv_percent, calories: p.calories, price: p.price },
+          { createdBy: "assistant", nowMs: ctx.now },
+        );
+        return { result: { saved: 1, drink_type_id: id, kcal_per_serving: estimate }, rows: [{ op: "drink_type", table: "drink_types", id }] };
+      },
+    };
+  },
+};
+
+const logDrinkTool: WriteTool = {
+  definition: tool(
+    "log_drink",
+    "Add alcoholic drinks to the drink log. Prefer drink_type (a name from drink_types): its size, ABV, kcal and price are used unless given here. Without a type give name, volume_ml and abv_percent. count logs the same drink several times. The owner confirms first.",
+    {
+      drink_type: nullableString("Name of a saved drink type, or null"),
+      name: nullableString("Without a type: e.g. 'Beer', 'Red wine'"),
+      volume_ml: nullableNumber("Volume of one drink in ml (null: the type's)"),
+      abv_percent: nullableNumber("Alcohol by volume, % (null: the type's)"),
+      count: { type: "integer", description: "How many of this drink, 1 to 20" },
+      calories: nullableNumber("kcal per drink if known, else null (the type's, or estimated from the alcohol)"),
+      price: nullableNumber("Price per drink if known, else null (the type's)"),
+      day: { type: "string", description: DATE_DESC },
+      time: nullableString(TIME_DESC),
+      notes: nullableString("Optional note"),
+    },
+  ),
+  async prepare(ctx, input) {
+    const p = z
+      .object({
+        drink_type: optText(80),
+        name: optText(120),
+        volume_ml: optNum(1, 3000),
+        abv_percent: optNum(0, 80),
+        count: int(1, 20),
+        calories: optNum(0, 3000),
+        price: optNum(0, 10_000),
+        day,
+        time,
+        notes: optText(500),
+      })
+      .parse(input);
     logDay(ctx, p.day);
+    const type = p.drink_type ? await findDrinkType(ctx.db, p.drink_type) : null;
+    if (p.drink_type && !type) throw new Error(`No drink type called ${p.drink_type}. Call drink_types, or give name, volume_ml and abv_percent.`);
+    const name = p.name ?? type?.name;
+    const volume = p.volume_ml ?? type?.volumeMl;
+    const abv = p.abv_percent ?? type?.abvPercent;
+    if (!name || volume == null || abv == null) throw new Error("Give drink_type, or name, volume_ml and abv_percent");
+    const calories = p.calories ?? type?.calories ?? null;
+    const price = p.price ?? type?.price ?? null;
     const t = when(ctx, p.day, p.time, null);
-    const grams = Math.round(alcoholGrams(p.volume_ml, p.abv_percent) * 10) / 10;
+    const grams = Math.round(alcoholGrams(volume, abv) * p.count * 10) / 10;
+    const kcalEach = servingKcal({ volumeMl: volume, abvPercent: abv, calories });
     return {
       tool: "log_drink",
-      summary: `Log ${p.name}, ${p.volume_ml} ml at ${p.abv_percent}% (${grams} g alcohol)`,
-      lines: [`${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${p.name}, ${p.volume_ml} ml, ${p.abv_percent}% ABV, ${grams} g alcohol`],
+      summary: `Log ${p.count} x ${name} (${grams} g alcohol, ${kcalEach * p.count} kcal${price === null ? "" : `, ${round(price * p.count)}`})`,
+      lines: [
+        `${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${p.count} x ${name}, ${volume} ml, ${abv}% ABV, ${calories === null ? `about ${kcalEach}` : kcalEach} kcal each${price === null ? "" : `, ${round(price)} each`}`,
+      ],
       async apply() {
-        const id = await insertDrinkEntry(ctx.db, { drunkAtMs: t.ms, offsetMin: t.offsetMin, name: p.name, volumeMl: p.volume_ml, abvPercent: p.abv_percent, notes: p.notes }, stamp(ctx));
-        return { result: { saved: 1, entry_id: id, alcohol_g: grams }, rows: [{ op: "insert", table: "drink_entries", id }] };
+        const ids = await logDrink(ctx.db, {
+          typeId: type?.id ?? null,
+          name,
+          volumeMl: volume,
+          abvPercent: abv,
+          calories,
+          price,
+          count: p.count,
+          notes: p.notes,
+          atMs: t.ms,
+          timeZone: ctx.timeZone,
+          createdBy: "assistant",
+        });
+        return {
+          result: { saved: ids.length, entry_ids: ids, alcohol_g: grams, kcal: kcalEach * p.count, price: price === null ? null : round(price * p.count) },
+          rows: ids.map((id) => ({ op: "insert" as const, table: "drink_entries" as const, id })),
+        };
       },
     };
   },
@@ -739,6 +851,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   prepPortionsTool,
   addShoppingItemsTool,
   addRecipeToShoppingTool,
+  addDrinkTypeTool,
   logDrinkTool,
   logMeasurementTool,
   addDayNoteTool,
@@ -847,6 +960,16 @@ export async function undoAgentAction(db: SqlDriver, actionId: string, now: numb
         break;
       case "shopping_quantity":
         await db.run("UPDATE shopping_list_items SET quantity = ?, updated_at = ? WHERE id = ?", [r.before, now, r.id]);
+        break;
+      case "drink_type":
+        await deleteDrinkType(db, r.id, now);
+        break;
+      case "drink_type_fill":
+        // Only blank a value that is still the one filled in: a later edit by the owner wins.
+        for (const [field, value] of Object.entries(r.fields)) {
+          if (field !== "calories" && field !== "price") continue;
+          await db.run(`UPDATE drink_types SET ${field} = NULL, updated_at = ? WHERE id = ? AND ${field} = ?`, [now, r.id, value]);
+        }
         break;
     }
   }

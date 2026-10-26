@@ -68,7 +68,7 @@ export function PhotoPicker({ value, onChange }: { value: PhotoInput | null; onC
 }
 
 /** Today against the target: a single meter, numbers in text so the color is never the only signal. */
-export function CalorieMeter({ eaten, target, macros }: { eaten: number; target: number | null; macros: Macros }) {
+export function CalorieMeter({ eaten, target, macros, fromDrinks = 0 }: { eaten: number; target: number | null; macros: Macros; fromDrinks?: number }) {
   const over = target !== null && eaten > target;
   const pct = target ? Math.min(100, (eaten / target) * 100) : 0;
   return (
@@ -87,6 +87,7 @@ export function CalorieMeter({ eaten, target, macros }: { eaten: number; target:
           </div>
         </>
       )}
+      {fromDrinks > 0 && <div className="muted small">including {kcal(fromDrinks)} kcal from drinks</div>}
       <div className="macros small">
         <span>Protein {kcal(macros.proteinG)} g</span>
         <span>Carbs {kcal(macros.carbsG)} g</span>

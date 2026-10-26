@@ -16,6 +16,7 @@ import {
   type PhotoInput,
   type SavedMeal,
 } from "../food";
+import { drinkKcalByDay } from "../../alcohol/alcohol";
 import { mealForHour, type Candidate } from "../suggest";
 import { failed, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { CalorieMeter, emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
@@ -34,6 +35,7 @@ const sum = (entries: FoodEntry[], k: "calories" | "proteinG" | "carbsG" | "fatG
 
 export function TodayView({ db, version, onChanged }: Props) {
   const [entries, setEntries] = useState<FoodEntry[]>([]);
+  const [drinks, setDrinks] = useState(0);
   const [target, setTarget] = useState<number | null>(null);
   const [goalInput, setGoalInput] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<Candidate[]>([]);
@@ -48,7 +50,14 @@ export function TodayView({ db, version, onChanged }: Props) {
 
   const load = useCallback(async () => {
     const tz = timeZone();
-    const [e, g, s, sv] = await Promise.all([dayFood(db, today()), getCalorieGoal(db), suggestions(db, { timeZone: tz }), listSavedMeals(db)]);
+    const [e, g, s, sv, dk] = await Promise.all([
+      dayFood(db, today()),
+      getCalorieGoal(db),
+      suggestions(db, { timeZone: tz }),
+      listSavedMeals(db),
+      drinkKcalByDay(db, today(), today()),
+    ]);
+    setDrinks(dk.get(today()) ?? 0);
     setEntries(e);
     setTarget(g?.target ?? null);
     setSuggested(s);
@@ -108,11 +117,12 @@ export function TodayView({ db, version, onChanged }: Props) {
     }
   }
 
-  const eaten = sum(entries, "calories") ?? 0;
+  const food = sum(entries, "calories") ?? 0;
+  const eaten = food + drinks;
 
   return (
     <div>
-      <CalorieMeter eaten={eaten} target={target} macros={{ calories: eaten, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }} />
+      <CalorieMeter eaten={eaten} fromDrinks={drinks} target={target} macros={{ calories: food, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }} />
       {goalInput === null ? (
         <button className="link small muted" onClick={() => setGoalInput(target === null ? "" : String(target))}>
           {target === null ? "Set a daily calorie target" : "Change target"}
