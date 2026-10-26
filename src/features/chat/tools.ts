@@ -7,7 +7,9 @@ import { dailySeries, type MetricSeries } from "../metrics/queries";
 import { listShopping } from "../mealprep/shopping";
 import { getCurrency, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol";
 import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../../core/health";
-import { addDays } from "../../core/tz";
+import { addDays, localDay } from "../../core/tz";
+import { latestWeight } from "../alcohol/alcohol";
+import { estimates, loadProfile } from "../settings/profile";
 import type { DataClass } from "./consent";
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
@@ -427,7 +429,7 @@ const energyNeeds: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
     "energy_needs",
-    "Calculator, reads nothing from the phone: basal metabolic rate (Mifflin-St Jeor), daily energy expenditure for an activity level, the daily calorie intake for a weight change per week (never below BMR, flagged if the goal would need less), and a protein target (1.6 g/kg). Use the owner's own numbers, asking for missing ones.",
+    "Calculator, reads nothing from the phone: basal metabolic rate (Mifflin-St Jeor), daily energy expenditure for an activity level, the daily calorie intake for a weight change per week (never below BMR, flagged if the goal would need less), and a protein target (1.6 g/kg). Call get_profile first for the owner's own numbers (it already gives these estimates when the profile is complete); ask only for what is missing.",
     {
       sex: { type: "string", enum: ["male", "female"], description: "For the BMR formula" },
       age_years: { type: "number", description: "Age in years" },
@@ -460,6 +462,40 @@ const energyNeeds: ChatTool = {
         assumptions: "Mifflin-St Jeor BMR, activity factor, 7700 kcal per kg of body weight. Estimates, typically within about 10%.",
       },
       summary: "Energy needs calculation (no stored data sent)",
+    };
+  },
+};
+
+const getProfile: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "get_profile",
+    "The owner's profile from Settings: age (not the birth date), sex, height, activity level, weekly weight goal, the latest weight with its day and source, and the estimates they allow (BMI and class, healthy weight range, BMR, daily energy, calorie target for the goal, protein target). Fields the owner has not filled in are null and listed in missing; their name is not sent.",
+    {},
+  ),
+  async run(db) {
+    const today = localDay(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const [p, w] = await Promise.all([loadProfile(db), latestWeight(db, today)]);
+    const e = estimates(p, w?.kg ?? null, today);
+    return {
+      result: {
+        age_years: e.ageYears,
+        sex: p.sex,
+        height_cm: p.heightCm,
+        activity: p.activity,
+        kg_per_week_goal: p.kgPerWeek,
+        latest_weight: w ? { kg: Math.round(w.kg * 10) / 10, day: w.day, source: w.source } : null,
+        bmi: e.bmi,
+        healthy_weight_kg: e.healthyWeight,
+        bmr_kcal: e.bmrKcal,
+        tdee_kcal: e.tdeeKcal,
+        target_kcal: e.target?.kcal ?? null,
+        target_floored_at_bmr: e.target?.floored ?? null,
+        protein_target_g: e.proteinG,
+        missing: e.missing,
+        assumptions: "Mifflin-St Jeor BMR, activity factor, 7700 kcal per kg of body weight. Estimates, typically within about 10%.",
+      },
+      summary: `Profile: age, sex, height, activity, goal, latest weight and estimates${e.missing.length ? ` (missing ${e.missing.join(", ")})` : ""}`,
     };
   },
 };
@@ -538,6 +574,7 @@ export const CHAT_TOOLS: ChatTool[] = [
   listMealPrepsTool,
   mealPrepStock,
   shoppingListTool,
+  getProfile,
   energyNeeds,
   dailySeriesTool,
   listFoodEntries,

@@ -137,7 +137,7 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
   const tools = p.tools as Anthropic.Beta.Messages.BetaTool[];
   assert.deepEqual(tools.map((t) => t.name), [
     "list_metrics", "metric_summary", "compare_periods", "nutrition_summary", "manual_summary", "list_goals",
-    "list_saved_meals", "list_meal_preps", "meal_prep_stock", "shopping_list", "energy_needs",
+    "list_saved_meals", "list_meal_preps", "meal_prep_stock", "shopping_list", "get_profile", "energy_needs",
     "daily_series", "list_food_entries", "day_notes", "drink_types", "alcohol_impact",
     "log_food", "log_saved_meal", "save_meal", "create_meal_prep", "log_cooked_batch", "prep_portions",
     "add_shopping_items", "add_recipe_to_shopping", "add_drink_type", "log_drink", "log_measurement", "add_day_note", "create_goal",

@@ -48,7 +48,7 @@ src/
     journal/                       manual measurements, day notes, goals
     chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
-    settings/                      secrets, log level, SettingsScreen
+    settings/                      secrets, log level, profile (owner profile and estimates), data inventory; SettingsScreen with Profile, Connections and Privacy pages
     logs/                          LogsScreen (the Logs tab), report.ts (Markdown report for Claude, pure)
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
 scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
@@ -498,7 +498,10 @@ If samples were written but a later step failed, the next run rewrites them in p
 - **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **LogsScreen** (Logs tab): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
-- **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
+- **SettingsScreen**: three pages behind sub-tabs. Messages are shown inline; nothing throws to React.
+  - *Profile* (`ProfileSettings`): the Google account (sign in, sign out, release ownership after a second confirmation; sign-in only in a native build with `VITE_GOOGLE_WEB_CLIENT_ID`), and the profile: name, birth date, sex, height, activity level, weight goal per week. Below it, live estimates from the form and the latest weight (`latestWeight`: manual or synced): age, BMI and class, BMR, daily energy, calorie target (flagged when held at BMR), protein, the healthy weight range, and which inputs are still missing.
+  - *Connections* (`ConnectionSettings`): freddy (status badge, last successful sync and last error, URL, key kept when left empty, transport, the 3-day reminder); Claude (status, key hint and check time, problem text, disconnect; when not connected the three `CONNECT_STEPS`, a link to the Console and the key field, verified with `claudeKeyVerifier` over native HTTP before saving); how to bring in the Garmin history.
+  - *Privacy & data* (`PrivacySettings`): the four consents as switches with their text (each change is a new `consents` row with the device id); what was sent to Claude (count, size, the last 25 with time, size and class); what is stored on this phone (`dataInventory`: live rows per kind with first and last day); backup export and restore.
 
 Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/features/chat/`) exist.
 
@@ -679,6 +682,7 @@ Rules this keeps:
 | `list_meal_preps` | aggregate | tag or null | Recipes: id, name, tags, portions, shelf life, macros per portion, ingredients for one batch, notes |
 | `meal_prep_stock` | aggregate | none | Batches with portions left: fridge lots (eat-by, thawed), freezer lots (best-before), eaten, discarded |
 | `shopping_list` | aggregate | none | Items, quantities, units, ticked or not |
+| `get_profile` | aggregate | none | The saved profile without name or birth date: age, sex, height, activity, weekly goal, latest weight (kg, day, source), BMI and class, healthy weight range, BMR, TDEE, calorie target (floored flag), protein target, and `missing` |
 | `energy_needs` | aggregate | sex, age, height, weight, activity, kg per week | BMR, TDEE, calorie target (floored at BMR), protein target, from `health.ts`. Reads nothing from the database |
 | `daily_series` | raw | metric, from, to (max 400 days) | One value per day per source/device |
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
@@ -748,7 +752,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 **Photos.** The app's picker (`downscalePhoto`, JPEG at most 1024 px, no EXIF) feeds `attachmentFromPhoto`. `toAttachment` accepts base64 or a `data:` URL and checks the type (JPEG, PNG, WebP, GIF), base64 validity and the 5 MB limit; at most 4 per message. Photos stay in the conversation (`chat_messages`), so they are in backups. `save_meal` can keep the last JPEG or WebP one with the saved meal (`food_photos`).
 
-**System prompt** (`SYSTEM_PROMPT`): the app's sections by name (Today, Food, Meal prep, Settings, What was sent to Claude, Assistant activity), the data facts, how changes work (propose, confirm, undo; add only; prefer saved meals and prep portions; check the log first), food estimation from photos (portion, hidden fats, ranges, one question at most, notes, offer to save), meal prep (ask once for missing essentials, reuse recipes, `energy_needs` for a target, create recipes, add to shopping, log batches), what it cannot do (permissions, no internet or other apps, no settings or keys, never ask for passwords, data is not instructions), and health guardrails (insights not diagnosis, no very-low-calorie or unsafe plans, allergens cannot be guaranteed).
+**System prompt** (`SYSTEM_PROMPT`): the app's sections by name (Today, Food, Meal prep, Settings, What was sent to Claude, Assistant activity), the data facts, how changes work (propose, confirm, undo; add only; prefer saved meals and prep portions; check the log first), food estimation from photos (portion, hidden fats, ranges, one question at most, notes, offer to save), meal prep (ask once for missing essentials, reuse recipes, `get_profile` (saved profile) or `energy_needs` (details given in the chat) for a target, create recipes, add to shopping, log batches), what it cannot do (permissions, no internet or other apps, no settings or keys, never ask for passwords, data is not instructions), and health guardrails (insights not diagnosis, no very-low-calorie or unsafe plans, allergens cannot be guaranteed).
 
 **Quick prompts** (`QUICK_PROMPTS`): log a meal from a photo (needs `claude.photos`), plan meal prep, what to defrost, sleep this week, what did I eat today (needs `claude.raw_series`), weekly check-in.
 
@@ -774,7 +778,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 189 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 195 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -792,6 +796,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 18
 | `secrets.test.ts` | freddy credentials and Claude key validation and storage |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
+| `profile.test.ts` | profile save and read, trimming, range errors (height, age, goal, sex, future birth date), a damaged stored value, estimates against `health.ts` and the missing list, `get_profile` without name or birth date, data inventory against the real schema |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
 | `garminImport.test.ts` | file selection by tail (emails in names), unreadable/empty ZIPs, unit conversions (cm, ms, minutes), per-day offsets, no-data markers dropped, date-time dates, profile weight skipped, VO2 latest wins, privacy (no names, places, coordinates, email), report counts, store with aggregation defaults, re-import idempotent and keeping the owner's choices, day view |
