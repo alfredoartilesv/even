@@ -8,7 +8,7 @@ import {
   memorySecretStore,
   saveClaudeKey,
   saveFreddyCredentials,
-} from "../src/settings/secrets";
+} from "../src/features/settings/secrets";
 
 test("freddy credentials: validate, trim, store, and clear", async () => {
   const store = memorySecretStore();

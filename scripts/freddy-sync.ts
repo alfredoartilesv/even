@@ -12,9 +12,13 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { SqlDriver, SqlValue } from "../src/db/driver";
 import { migrate, parseMigrations } from "../src/db/migrate";
-import { loadCursor, saveSyncState, upsertSamples } from "../src/db/samples";
-import { FreddySource } from "../src/sources/freddy";
-import { McpHttpCaller } from "../src/sources/mcpHttp";
+import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
+import { FreddySource } from "../src/features/sync/freddy";
+import { McpHttpCaller } from "../src/features/sync/mcpHttp";
+import { setLogLevel } from "../src/core/log";
+
+// Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
+setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
 
 function openDb(path: string): SqlDriver {
   const raw = new DatabaseSync(path);

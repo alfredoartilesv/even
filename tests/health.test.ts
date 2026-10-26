@@ -20,7 +20,7 @@ import {
   smoothed,
   standardDrinks,
   tdee,
-} from "../src/lib/health";
+} from "../src/core/health";
 
 const him = { sex: "male" as const, weightKg: 80, heightCm: 180, ageYears: 30 };
 const her = { sex: "female" as const, weightKg: 60, heightCm: 165, ageYears: 30 };

@@ -4,71 +4,62 @@ Status as of 25 Oct 2026, phase 1, schema version 5. This document describes the
 
 ## 1. Repository layout
 
+The tree follows the three layers in [HLD section 3](HLD.md#3-components): UI, core logic and platform adapters. Logic is grouped by feature; anything shared sits in a layer below.
+
 ```
 src/
-  App.tsx, main.tsx, styles.css   App shell (DB open, auto sync, tabs)
-  screens/                        TodayScreen, FoodScreen, MealPrepScreen, SettingsScreen
-    food/                         Calories, History and Saved views of the food tab, photo downscaling
-    mealprep/                     Stock, Recipes and Shopping views of the meal prep tab
-  db/
-    driver.ts                     SqlDriver interface
-    capacitorDriver.ts            SqlDriver on @capacitor-community/sqlite
-    open.ts                       openDatabase(): encryption, connection, migrate
-    migrate.ts                    parseMigrations(), migrate()
-    migrations.ts                 Vite import of migrations/*.sql
-    migrations/0001_init.sql      base tables
-    migrations/0002_daily_data.sql
-    migrations/0003_meal_prep.sql recipes, tags, batches, portion moves, shopping list
-    migrations/0004_food_log.sql  saved meals, food photos, food_entries.saved_meal_id
-    migrations/0005_agent.sql     agent_actions, created_by on agent-writable tables, photo disclosures
-    samples.ts                    upsertSamples, sync_state cursor
-    catalog.ts                    metric_catalog upsert, classifyMetric
-    settings.ts                   app_settings get/set, deviceId
-    queries.ts                    read models for screens
-    mealPrep.ts                   recipes, tags, batches, portion moves, stock loading
-    shopping.ts                   shopping list, unit folding
-    food.ts                       food log, calorie goal, saved meals and photos, suggestions
-    logs.ts                       inserts for drinks, manual measurements, day notes, goals
-  meals/
-    suggest.ts                    pure: meal slot by hour, suggestion ranking
-  mealprep/
-    stock.ts                      pure: foldBatch, stockAlerts, planDefrost
-  sources/
-    types.ts                      Source, SampleInput, SyncResult, CatalogEntry
-    freddy.ts                     FreddySource, ToolCaller, metric filter
-    freddyText.ts                 parsers for freddy's text output
-    mcpHttp.ts                    McpHttpCaller (MCP over HTTP + SSE)
-    nativeFetch.ts                fetch look-alike over CapacitorHttp
-  sync/
-    runSync.ts                    runSync, lastSync
-    freddyClient.ts               builds a FreddySource from settings
-  backup/
-    backup.ts                     exportBackup, restoreBackup, BACKUP_TABLES
-    files.ts                      share sheet / download
-  chat/
-    engine.ts                     startConversation, askClaude, continueConversation (tool-use loop)
-    tools.ts                      the 14 read tools and their data classes
-    actions.ts                    the 12 write tools, agent_actions log, undo
-    images.ts                     photo attachment checks
-    consent.ts                    per-class consent (GDPR)
-    store.ts                      conversations, messages, disclosures
-    prompt.ts                     system prompt, clock line, quick prompts
-    client.ts                     Anthropic SDK client (custom fetch)
-    service.ts                    phone wiring: key, native HTTP, device id, effort
-  settings/
-    secrets.ts                    SecretStore, freddy credentials
-    secureStore.ts                Keystore-backed SecretStore
-  lib/
-    health.ts                     health maths: BMR/TDEE, calorie target, BMI, macros, alcohol, HR zones, series stats
-    tz.ts                         timezone helpers (Intl, no library)
-    uuidv7.ts                     UUIDv7 generator
-tests/                            node:test suites, fixtures, fakes
-scripts/                          probe, PC sync, Drizzle spike, Android hardening
-docs/                             this documentation
-capacitor.config.json             app id, SQLite encryption settings
+  main.tsx                         entry: initLogging(), render <App />
+  app/                             UI shell (the composition root)
+    App.tsx                        DB open, stored log level, auto sync, tabs
+    logging.ts                     default level (debug in dev, info built), uncaught-error hooks
+    styles.css
+  core/                            pure helpers, no app or platform imports
+    log.ts                         createLogger, levels, sinks, redaction, recentLogs ring buffer
+    health.ts                      health maths (BMR/TDEE, BMI, macros, alcohol, HR zones, series stats)
+    tz.ts, uuidv7.ts               timezone helpers (Intl), UUIDv7
+    secretStore.ts                 SecretStore interface + memory store
+  db/                              storage plumbing, no feature logic
+    driver.ts                      SqlDriver interface
+    tx.ts                          withTransaction (nests by joining the outer transaction)
+    migrate.ts, migrations.ts      runner and the Vite import of migrations/*.sql
+    migrations/0001..0005_*.sql    schema (section 4)
+    settings.ts                    app_settings get/set, deviceId
+  platform/                        the only code that imports Capacitor plugins at runtime
+    openDatabase.ts                encryption secret, connection, migrate
+    sqlite.ts                      SqlDriver on @capacitor-community/sqlite
+    secureStore.ts                 Keystore/Keychain SecretStore
+    nativeFetch.ts                 fetch look-alike over CapacitorHttp (request injected)
+    device.ts                      isNative, nativeRequest, deviceFetch, shareText
+    files.ts                       backup file to the share sheet / download
+  ui/
+    common.tsx                     shared screen helpers: Msg, failed(), dates, TagChips
+  features/<name>/                 logic (*.ts), data access and screens (*.tsx or ui/)
+    metrics/                       samples, catalog, queries, TodayScreen
+    sync/                          runSync, freddyClient, FreddySource, text parsers, MCP client, Source types
+    food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ Calories, History, Saved
+    mealprep/                      recipes, batches, stock fold and defrost plan, shopping list; ui/ Stock, Recipes, Shopping
+    journal/                       drinks, manual measurements, day notes, goals
+    chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service
+    backup/                        exportBackup, restoreBackup, BACKUP_TABLES
+    settings/                      secrets, log level, SettingsScreen, LogsPanel
+tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
+scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
+docs/                              this documentation
+capacitor.config.json              app id, SQLite encryption settings
 ```
 
-Dependency rule: nothing under `db/` (except `open.ts`), `mealprep/`, `meals/`, `sources/`, `sync/` (except the types it imports), `backup/backup.ts`, `settings/secrets.ts` or `lib/` imports Capacitor at runtime. Those modules run in Node.
+Dependency rules, enforced by `tests/architecture.test.ts`:
+
+| Layer | May import |
+|---|---|
+| `core/` | `core/` |
+| `db/` | `db/`, `core/` |
+| `platform/` | `platform/`, `db/`, `core/`, Capacitor plugins |
+| `ui/` | `ui/`, `core/` |
+| `features/` | other features, `ui/`, `platform/`, `db/`, `core/` |
+| `app/` | everything |
+
+On top of that, feature logic (`*.ts` outside a `ui/` folder) never imports a screen and never reaches a Capacitor plugin at runtime, not even through another module (the test follows the import graph; `import type` is allowed). That is what keeps all logic runnable in Node tests and PC scripts. Platform pieces reach the logic as parameters: `freddySource(creds, transport, nativeRequest)`, `chatDeps(db, { secrets, fetch })`.
 
 ## 2. Core interfaces
 
@@ -81,7 +72,7 @@ interface SqlDriver {
   all<T>(sql: string, params?: SqlValue[]): Promise<T[]>;             // rows as objects keyed by column name
 }
 
-// src/sources/types.ts
+// src/features/sync/types.ts
 interface Source {
   readonly id: string;                                                 // "freddy"
   fetchSince(cursor: string | null): Promise<SyncResult>;
@@ -98,10 +89,10 @@ interface SampleInput {
   valueNum?: number; valueText?: string; unit?: string; raw?: unknown;
 }
 
-// src/sources/freddy.ts
+// src/features/sync/freddy.ts
 interface ToolCaller { callTool(name: string, args: Record<string, unknown>): Promise<string>; }
 
-// src/settings/secrets.ts
+// src/features/settings/secrets.ts
 interface SecretStore {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
@@ -119,7 +110,7 @@ Implementations:
 
 ## 3. Database access
 
-### 3.1 Opening (`src/db/open.ts`)
+### 3.1 Opening (`src/platform/openDatabase.ts`)
 
 1. Refuse on non-native platforms (`Capacitor.isNativePlatform()`), with the message the shell shows.
 2. If `isSecretStored()` is false, `setEncryptionSecret(hex of 32 random bytes)`. The plugin keeps it in its secure store.
@@ -133,7 +124,7 @@ The plugin's own version system is not used: with `version=1` and no `addUpgrade
 
 Config (`capacitor.config.json`): `androidIsEncryption: true`, `iosIsEncryption: true`, `iosKeychainPrefix: "app.health.personal"`, biometrics off.
 
-### 3.2 Capacitor driver (`src/db/capacitorDriver.ts`)
+### 3.2 Capacitor driver (`src/platform/sqlite.ts`)
 
 It depends only on `PluginConnection = Pick<SQLiteDBConnection, "execute" | "run" | "query" | "beginTransaction" | "commitTransaction" | "rollbackTransaction">`.
 
@@ -165,12 +156,45 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 `classifyMetric(name)` rules, first match wins: `sleep_*` -> sleep/last; `dailyBodyBattery_*` or contains `hrv` -> recovery/last; `stress_*` or contains `stress` -> stress/avg; contains `heartrate` or `pulseOx_*` -> heart/avg; `body_*`, `userMetrics_*` -> body/last; `nutrition_*`, `food_*`, `drink_*` -> nutrition/sum; `daily_*`, `activity_*`, contains `steps` -> activity/sum; otherwise other/avg.
 
-### 3.5 Read helpers (`src/db/queries.ts`)
+### 3.5 Read helpers (`src/features/metrics/queries.ts`)
 
 - `latestSampleDay(db)`: `MAX(local_day)` of `health_samples`.
 - `dayValues(db, day)`: `daily_metric_values` left-joined with `metric_catalog`, ordered by pinned, `sort_order`, category, metric. Picks `avg_num` / `sum_num` / `min_num` / `max_num` / `last_num` according to `daily_agg` (default `avg`). Returns label (catalog label or metric name), device, unit, readings and the partial flag.
 
-### 3.6 Health calculations (`src/lib/health.ts`)
+### 3.6 Logging (`src/core/log.ts`)
+
+`createLogger(scope)` returns `debug / info / warn / error`, `time(msg, level?)` (logs `ms` when the returned function is called) and `child(sub)` (scope `parent.sub`). Levels: `debug < info < warn < error < silent`. `setLogLevel(level)` sets the global threshold and `setLogLevel(level, scope)` overrides it for a scope and its children (`sync` covers `sync.freddy`).
+
+Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that Settings > Logs shows. Nothing is written to disk. A sink that throws is ignored.
+
+Fields are sanitised before any sink sees them: keys matching key, token, secret, password, passphrase, authorization, cookie or url become `[redacted]`; errors become `{ name, message }` (validation errors as `path: message` per issue); strings are cut at 200 characters, arrays over 20 items and objects deeper than 2 levels are summarised.
+
+Level in force: `app/logging.ts` sets `debug` in `npm run dev` and `info` in the built app before React renders; once the DB is open, `applyStoredLogLevel` applies `app_settings` key `log.level` if set (changed in Settings, `saveLogLevel`). Tests run with `silent` (`tests/setup.ts`, `LOG_LEVEL=debug npm test` to see them); scripts use `LOG_LEVEL` or `info`.
+
+What is logged, by scope:
+
+| Scope | Events |
+|---|---|
+| `app` | start (level, native), database unavailable, uncaught errors and rejections, sync skipped |
+| `db.open`, `db.migrate`, `db` | open time, first-launch secret, connection reuse; each migration applied (version, name, ms), failure; transaction rollback (debug) |
+| `http.native` | each native request (method, status, ms; debug), failures (warn) |
+| `sync`, `sync.freddy`, `sync.mcp` | start (cursor), finish (samples, catalog, warnings, cursor, ms), each warning, failure; window and chunks (debug); tool calls (tool, chars, ms; debug), HTTP errors and tool errors (warn) |
+| `metrics` | samples upserted (count, ms), catalog refreshed (debug) |
+| `backup` | export (tables, rows, bytes, ms), restore (rows, ms), every refusal and rollback |
+| `chat`, `chat.actions`, `chat.store`, `chat.consent` | each request and reply (model, stop reason, tokens, tool uses, ms), fallback, refusal, request errors; each tool (name, data class, bytes, ms) and each blocked or failed tool; proposals (approved or not), recorded and undone agent actions; consents |
+| `food`, `mealprep`, `mealprep.shopping`, `journal` | every write and delete, by id and kind (meal slot, move kind, portions, has photo), refusals at debug |
+| `settings`, `settings.secrets` | log level changes; credentials saved or removed (never the values) |
+| `ui.<feature>` | actions a screen reported as failed (info: usually input the core refused) |
+
+Pure modules (`core/health.ts`, `tz.ts`, `stock.ts`, `suggest.ts`, the freddy text parsers) do not log: they have no side effects worth recording, and their callers log the outcome.
+
+Privacy rule (architecture.md section 3): log what happened, not the data. Ids, counts, kinds, durations and statuses only; never health values, food or recipe names, notes, chat text, URLs or keys. `tests/logging.test.ts` runs real flows with recognisable values and fails if any reaches a record.
+
+### 3.7 Transactions (`src/db/tx.ts`)
+
+`withTransaction(db, fn)` wraps `fn` in `BEGIN` / `COMMIT` and rolls back on error. A call made inside another `withTransaction` on the same driver joins the outer transaction (SQLite cannot nest `BEGIN`), so for example a chat write tool can call `saveMealPrep` inside its own transaction and one failure undoes both. `migrate()` and `restoreBackup()` keep their own `BEGIN` because they wrap errors in their own messages.
+
+### 3.8 Health calculations (`src/core/health.ts`)
 
 Pure functions, no dependencies, shared by screens and (later) the chat tools. Inputs are validated: bad values throw `RangeError` with the field name.
 
@@ -184,7 +208,7 @@ Pure functions, no dependencies, shared by screens and (later) the chat tools. I
 | Heart rate | `maxHeartRate`, `heartRateZones` | Tanaka 208 - 0.7 x age; five zones 50 to 100 % in 10 % steps, of the heart rate reserve (Karvonen) when a resting rate is given |
 | Series | `mean`, `slopePerDay`, `rollingAverage`, `smoothed` | least squares over calendar days; trailing window by calendar days, gaps not counted as zero; exponential smoothing (alpha 0.1 default) |
 
-The food log form uses `kcalFromMacros` to estimate kcal when only macros are typed, and History uses `mean`. `src/chat/tools.ts` still has its own `slopePerDay`, to be replaced by this one.
+The food log form uses `kcalFromMacros` to estimate kcal when only macros are typed, and History uses `mean`. The chat tools use `slopePerDay`, `alcoholGrams` and the energy functions from here.
 
 ## 4. Schema
 
@@ -327,7 +351,7 @@ nextCursor = today - 1      (yesterday may have been incomplete)
 
 `defaultMetricFilter` keeps names matching `^daily_`, `^dailyBodyBattery_`, `^sleep_`, `^pulseOx_`, `^stress_`, `^body_`, `^userMetrics_`, `^activity_`, and drops `^epoch_`, `^respiration_`, `^moveIQ_`, `_samples$` (high-volume or raw-only).
 
-### 5.2 Text formats (`src/sources/freddyText.ts`)
+### 5.2 Text formats (`src/features/sync/freddyText.ts`)
 
 `list_metrics` lines:
 ```
@@ -345,7 +369,7 @@ Note: ...                             -> collected in notes
 
 A value that is `<number>` optionally followed by a unit made of letters, `_`, `%`, `/` becomes `value_num` + `unit`; anything else (for example `very stressful`, or `5 bpm at 07:30+01:00`) is kept whole in `value_text`. Indented lines that do not match are returned in `skipped`, and the source turns them into a warning. The fixtures in `tests/fixtures.ts` pin the formats seen on 25 Oct 2026.
 
-### 5.3 MCP HTTP client (`src/sources/mcpHttp.ts`)
+### 5.3 MCP HTTP client (`src/features/sync/mcpHttp.ts`)
 
 - First call: `initialize` (`protocolVersion: "2025-03-26"`, client info) then the `notifications/initialized` notification. The handshake promise is cached; on failure it is cleared so the next call retries.
 - Each call: `POST url` with JSON-RPC 2.0, headers `content-type: application/json`, `accept: application/json, text/event-stream`, `authorization: Bearer <key>` if set, `mcp-session-id` if the server sent one. No other headers (freddy's CORS allows only these).
@@ -353,7 +377,7 @@ A value that is `<number>` optionally followed by a unit made of letters, `_`, `
 - `tools/call` result: `content[]` text blocks joined with newlines; `isError` -> `McpHttpError("freddy tool ... failed: <first 300 chars>")`.
 - Errors (`McpHttpError`, with `status`): 401/403 -> "freddy rejected the credentials"; other non-2xx -> "freddy answered HTTP n"; network -> "Network error contacting freddy (<code>)"; unreadable or missing reply. No message ever contains the URL or the key.
 
-### 5.4 Native HTTP adapter (`src/sources/nativeFetch.ts`)
+### 5.4 Native HTTP adapter (`src/platform/nativeFetch.ts`)
 
 `makeNativeFetch(request)` returns a `typeof fetch`:
 - Headers are normalised through `Headers` (lower-case keys).
@@ -362,9 +386,9 @@ A value that is `<number>` optionally followed by a unit made of letters, `_`, `
 - Returns a real `Response` (null body for 204, 205, 304).
 - A rejected request becomes `TypeError("Native HTTP request failed", { cause })`, the same shape as a failed `fetch`.
 
-`freddySource(creds, transport, nativeRequest)` (`src/sync/freddyClient.ts`) wires `McpHttpCaller` with the native adapter when the transport is `native`, otherwise with the WebView's `fetch`. `loadTransport` reads `freddy.transport`, defaulting to `native` on the phone and `fetch` in the browser.
+`freddySource(creds, transport, nativeRequest)` (`src/features/sync/freddyClient.ts`) wires `McpHttpCaller` with the native adapter when the transport is `native`, otherwise with the WebView's `fetch`. `loadTransport` reads `freddy.transport`, defaulting to `native` on the phone and `fetch` in the browser.
 
-## 6. Sync orchestrator (`src/sync/runSync.ts`)
+## 6. Sync orchestrator (`src/features/sync/runSync.ts`)
 
 ```
 runSync(db, source, now):
@@ -399,7 +423,7 @@ If samples were written but a later step failed, the next run rewrites them in p
 | SQLCipher passphrase | SQLite plugin secure store | `openDatabase()` on first launch |
 | `device_id`, `freddy.transport` | `app_settings` | `deviceId()`, Settings |
 
-`secretStore` (`src/settings/secureStore.ts`) uses `SecureStorage.getItem/setItem/removeItem` on native platforms and `memorySecretStore()` in the browser, so secrets typed into the dev build are never written to `localStorage`.
+`secretStore` (`src/platform/secureStore.ts`) uses `SecureStorage.getItem/setItem/removeItem` on native platforms and `memorySecretStore()` in the browser, so secrets typed into the dev build are never written to `localStorage`.
 
 ## 8. UI
 
@@ -410,7 +434,7 @@ If samples were written but a later step failed, the next run rewrites them in p
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
-Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/chat/`) exist.
+Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/features/chat/`) exist.
 
 ## 9. Backup and restore
 
@@ -445,7 +469,7 @@ All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWe
 
 - Password at least 8 characters, otherwise `BackupError`.
 - For each table in `BACKUP_TABLES` that exists in this schema: columns from `PRAGMA table_info`, rows read in pages of 2000 ordered by `rowid`, stored as arrays in column order.
-- Returns the file text and row counts per table. `src/backup/files.ts` writes it to the app cache and opens the share sheet (or downloads it in the browser). The file name is `health-backup-YYYY-MM-DD.json`.
+- Returns the file text and row counts per table. `src/platform/files.ts` writes it to the app cache and opens the share sheet (or downloads it in the browser). The file name is `health-backup-YYYY-MM-DD.json`.
 
 ### 9.3 Restore (`restoreBackup(db, text, password)`)
 
@@ -476,7 +500,7 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
 
-Files: `src/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK), `service.ts` (phone wiring). No chat screen yet.
+Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK), `service.ts` (phone wiring). No chat screen yet.
 
 ### 9b.1 Entry points
 
@@ -568,7 +592,7 @@ Rules this keeps:
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
 | `day_notes` | note | from, to (max 92 days) | Day, mood, energy, note text |
 
-A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/db/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
+A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/features/metrics/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
 
 ### 9b.5 Consent and disclosures
 
@@ -635,7 +659,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 10. Time and ids
 
-- `tzOffsetMinutes(ms, zone)`, `localDayStart(day, zone)`, `localDay(ms, zone)`, `addDays(day, n)` in `src/lib/tz.ts`, using `Intl` only. DST is handled: a local day can be 23 or 25 hours long, and `localDayStart` corrects the offset at the start of the day.
+- `tzOffsetMinutes(ms, zone)`, `localDayStart(day, zone)`, `localDay(ms, zone)`, `addDays(day, n)` in `src/core/tz.ts`, using `Intl` only. DST is handled: a local day can be 23 or 25 hours long, and `localDayStart` corrects the offset at the start of the day.
 - freddy samples cover a whole local day: `start_ms` = local midnight, `end_ms` = next local midnight, `offset_min` = offset at midnight.
 - `uuidv7(now, random)`: RFC 9562 version 7, 48-bit ms timestamp, random rest, so ids sort roughly by creation time and can be generated offline on any device.
 
@@ -655,7 +679,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --test tests/*.test.ts`), 139 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 150 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -676,6 +700,8 @@ Run with `npm test` (`tsx --test tests/*.test.ts`), 139 tests, no device needed.
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
+| `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
+| `log.test.ts`, `logging.test.ts` | levels and scope overrides, redaction and summaries, timers, ring buffer, broken sinks; nested transactions; stored log level; no data leaks from real flows into logs |
 | `food.test.ts` | slot by hour and ranking, log/edit/relog/delete in the owner's zone, range with empty days, history paging, calorie goal history, saved meals from entries with linked history and photo replace/delete, servings, photo validation, suggestions by time of day without prep, deleting a prep entry restores stock, backup round trip with photos |
 | `mealPrep.test.ts` | recipes with tags and ingredients, edit in place, moves and limits, food log rows, undo rules, tag filter, deleted recipes and batches, portions-a-day setting, unit folding, shopping list merge and clear |
 
@@ -706,9 +732,11 @@ Not covered by automated tests: the React screens, `open.ts`, `secureStore.ts` a
 2. Use a new `source` id; samples, catalog and sync state are already keyed by it.
 3. Call `runSync(db, newSource)` from the shell.
 
-**Add a screen**
-1. Put the SQL in `src/db/queries.ts` (or a new file next to it) with typed rows, and test it against `migratedDb()`.
-2. Keep the screen a thin React component that takes `db` as a prop.
+**Add a feature**
+1. Create `src/features/<name>/` with the logic and SQL in `*.ts` (typed rows, writes in `withTransaction`) and tests against `migratedDb()`.
+2. Give it a logger, `createLogger("<name>")`, and log each write and refusal by id, kind and count (section 3.6). Never log the values.
+3. Put screens in `src/features/<name>/ui/` (or `*.tsx` next to the logic). Keep them thin, take `db` as a prop, and report errors with `failed(err, "<name>")`.
+4. Anything that needs the phone goes in `src/platform/` and reaches the logic as a parameter. `npm test` runs the architecture checks.
 
 ## 15. Known limitations
 
