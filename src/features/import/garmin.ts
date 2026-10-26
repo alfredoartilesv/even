@@ -18,8 +18,10 @@ import type { CatalogEntry, SampleInput } from "../sync/types";
  * files, routes and locations, social, profile images, workouts, gear, personal records.
  *
  * Privacy: activity names, locations and coordinates are not imported.
- * Metric names follow the Garmin Health API style that freddy uses (daily_steps, sleep_..., ...),
- * under their own source, so freddy data and the export never overwrite each other.
+ * Metric names are the ones freddy uses for the same Garmin values (checked against freddy's list,
+ * 26 Oct 2026), so the history and freddy's recent days form one series per metric. They are stored
+ * under their own source, so neither overwrites the other; where both have a metric on the same day,
+ * daily_metric_values shows freddy's only (migration 0008).
  */
 
 export const GARMIN_EXPORT_SOURCE = "garmin_export";
@@ -70,7 +72,7 @@ export const GARMIN_DAILY_AGG: Record<string, "avg" | "sum" | "min" | "max" | "l
   daily_minHeartRateInBeatsPerMinute: "min",
   daily_maxHeartRateInBeatsPerMinute: "max",
   daily_maxStressLevel: "max",
-  pulseOx_lowestSpO2: "min",
+  pulseOx_minSpo2InPercent: "min",
 };
 
 type Obj = Record<string, unknown>;
@@ -166,12 +168,13 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       n += add("daily_totalKilocalories", inRange(num(r.totalKilocalories), 0, 20_000), "kcal", at, id);
       n += add("daily_activeKilocalories", inRange(num(r.activeKilocalories), 0, 20_000), "kcal", at, id);
       n += add("daily_bmrKilocalories", inRange(num(r.bmrKilocalories), 0, 10_000), "kcal", at, id);
-      n += add("daily_restingHeartRateInBeatsPerMinute", inRange(num(r.restingHeartRate), 20, 200), "bpm", at, id);
+      // restingHeartRate is Garmin's 7-day average; freddy's daily value is this one.
+      n += add("daily_restingHeartRateInBeatsPerMinute", inRange(num(r.currentDayRestingHeartRate), 20, 200), "bpm", at, id);
       n += add("daily_minHeartRateInBeatsPerMinute", inRange(num(r.minHeartRate), 20, 250), "bpm", at, id);
       n += add("daily_maxHeartRateInBeatsPerMinute", inRange(num(r.maxHeartRate), 20, 250), "bpm", at, id);
       n += add("daily_moderateIntensityDurationInSeconds", minutes(r.moderateIntensityMinutes), "seconds", at, id);
       n += add("daily_vigorousIntensityDurationInSeconds", minutes(r.vigorousIntensityMinutes), "seconds", at, id);
-      n += add("daily_activeDurationInSeconds", inRange(num(r.activeSeconds), 0, 86_400), "seconds", at, id);
+      n += add("daily_activeTimeInSeconds",inRange(num(r.activeSeconds), 0, 86_400), "seconds", at, id);
       n += add("daily_highlyActiveDurationInSeconds", inRange(num(r.highlyActiveSeconds), 0, 86_400), "seconds", at, id);
       n += add("daily_averageStressLevel", inRange(num(stress?.averageStressLevel), 0, 100), null, at, id);
       n += add("daily_maxStressLevel", inRange(num(stress?.maxStressLevel), 0, 100), null, at, id);
@@ -181,8 +184,8 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       n += add("dailyBodyBattery_lowestValue", bbStat("LOWEST"), null, at, id);
       n += add("dailyBodyBattery_chargedValue", inRange(num(bb?.chargedValue), 0, 200), null, at, id);
       n += add("dailyBodyBattery_drainedValue", inRange(num(bb?.drainedValue), 0, 200), null, at, id);
-      n += add("pulseOx_averageSpO2", inRange(num(r.averageSpo2Value), 50, 100), "%", at, id);
-      n += add("pulseOx_lowestSpO2", inRange(num(r.lowestSpo2Value), 50, 100), "%", at, id);
+      n += add("pulseOx_avgSpo2InPercent", inRange(num(r.averageSpo2Value), 50, 100), "%", at, id);
+      n += add("pulseOx_minSpo2InPercent", inRange(num(r.lowestSpo2Value), 50, 100), "%", at, id);
       n += add("respiration_avgWakingBreathsPerMinute", inRange(num(resp?.avgWakingRespirationValue), 3, 60), "brpm", at, id);
       if (n > 0) {
         report.daily.imported++;
@@ -210,9 +213,9 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       const spo2 = isObj(r.spo2SleepSummary) ? r.spo2SleepSummary : null;
       let n = 0;
       n += add("sleep_durationInSeconds", total && total > 0 ? total : null, "seconds", at, id);
-      n += add("sleep_deepDurationInSeconds", deep, "seconds", at, id);
-      n += add("sleep_lightDurationInSeconds", light, "seconds", at, id);
-      n += add("sleep_remDurationInSeconds", rem, "seconds", at, id);
+      n += add("sleep_deepSleepDurationInSeconds", deep, "seconds", at, id);
+      n += add("sleep_lightSleepDurationInSeconds", light, "seconds", at, id);
+      n += add("sleep_remSleepInSeconds", rem, "seconds", at, id);
       n += add("sleep_awakeDurationInSeconds", sec(r.awakeSleepSeconds), "seconds", at, id);
       n += add("sleep_averageSpO2", inRange(num(spo2?.averageSPO2), 50, 100), "%", at, id);
       n += add("sleep_averageHeartRateInBeatsPerMinute", inRange(num(spo2?.averageHR), 20, 200), "bpm", at, id);
@@ -310,7 +313,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
         return n === null ? null : Math.round(n) / 100;
       };
       if (typeof a.activityType === "string" && a.activityType) {
-        samples.push({ source: GARMIN_EXPORT_SOURCE, device: DEVICE, externalId: ext, metric: "activity_type", startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueText: a.activityType });
+        samples.push({ source: GARMIN_EXPORT_SOURCE, device: DEVICE, externalId: ext, metric: "activity_activityType",startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueText: a.activityType });
       }
       add("activity_durationInSeconds", durationMs === null ? null : Math.round(durationMs / 1000), "seconds", at, ext);
       add("activity_movingDurationInSeconds", (() => {
@@ -318,7 +321,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
         return m === null ? null : Math.round(m / 1000);
       })(), "seconds", at, ext);
       add("activity_distanceInMeters", cm(a.distance, 1_000_000), "meters", at, ext);
-      add("activity_elevationGainInMeters", cm(a.elevationGain, 20_000), "meters", at, ext);
+      add("activity_totalElevationGainInMeters",cm(a.elevationGain, 20_000), "meters", at, ext);
       add("activity_activeKilocalories", inRange(num(a.calories), 0, 20_000), "kcal", at, ext);
       add("activity_averageHeartRateInBeatsPerMinute", inRange(num(a.avgHr), 20, 250), "bpm", at, ext);
       add("activity_maxHeartRateInBeatsPerMinute", inRange(num(a.maxHr), 20, 250), "bpm", at, ext);
