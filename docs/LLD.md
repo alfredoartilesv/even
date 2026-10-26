@@ -1,6 +1,6 @@
 # Health App: Low-Level Design (LLD)
 
-Status as of 25 Oct 2026, phase 1, schema version 5. This document describes the code: modules, interfaces, the full schema, the algorithms and file formats, error handling and tests. It assumes you have read [HLD.md](HLD.md). Reasons for decisions are in [architecture.md](architecture.md).
+Status as of 26 Oct 2026, phase 1, schema version 7. This document describes the code: modules, interfaces, the full schema, the algorithms and file formats, error handling and tests. It assumes you have read [HLD.md](HLD.md). Reasons for decisions are in [architecture.md](architecture.md).
 
 ## 1. Repository layout
 
@@ -214,7 +214,7 @@ The food log form uses `kcalFromMacros` to estimate kcal when only macros are ty
 
 ## 4. Schema
 
-Version 6 (`0001_init.sql` to `0006_alcohol.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
+Version 7 (`0001_init.sql` to `0007_account.sql`). Conventions: ids are UUIDv7 text; `*_ms` are UTC epoch ms; `offset_min` is minutes east of UTC; `local_day` is `YYYY-MM-DD`. "Std" below means the user-table columns `created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER, origin_device_id TEXT NOT NULL`.
 
 ```mermaid
 erDiagram
@@ -331,6 +331,24 @@ Prices are in the currency in `app_settings` key `currency` (ISO code, default E
 | `ai_disclosures` | `id`, `conversation_id` FK, `message_id` FK, `sent_at_ms`, `tool_name`, `data_class`, `summary`, `payload_json`, `bytes` | `data_class` in aggregate, raw, note, photo (photo added in 0005 by rebuilding the table; rows kept). Index on `sent_at_ms` |
 | `consents` | `id`, `scope`, `granted` (0/1), `decided_at_ms`, `policy_version` | Index (scope, decided_at_ms). Newest row per scope is in force |
 | `agent_actions` (0005) | `id`, `conversation_id` FK, `tool_name`, `summary`, `input_json`, `status`, `rows_json`, `error`, `decided_at_ms` | `status` in applied, declined, failed, undone. `rows_json` = the effects to reverse (`{op, table, id}`, plus `before`/`after` for a shopping-list merge). Index (conversation_id, decided_at_ms) |
+
+### 4.3b Account (0007)
+
+**`account`**: at most one live row, `id = 'owner'` (CHECK). `provider` (`google`), `subject` (Google `sub`, non-empty), `email`, `email_verified` (0/1), `name`, `bound_at_ms`, `last_sign_in_ms`, `signed_in` (0/1, the local session) + Std. No token columns.
+
+Code: `src/features/account/account.ts` (pure) and `service.ts`, platform wrapper `src/platform/googleSignIn.ts`.
+
+| Function | Does |
+|---|---|
+| `parseGoogleIdToken(token, { webClientId, now })` | Decodes the JWT payload and checks `iss` (accounts.google.com), `aud` (= Web client id, string or array), `exp` (5 min skew) and `sub`. Signature not checked on the phone (architecture.md 5b). Messages safe to show |
+| `applySignIn(db, identity, deviceId, now)` | No owner: insert (or re-bind a released row) -> `bound`; same `sub`: refresh email and name, `signed_in = 1` -> `signed_in`; other `sub`: no change -> `other_owner` with the owner's email |
+| `signOut(db)` | `signed_in = 0`; binding kept |
+| `releaseOwnership(db)` | Soft-deletes the row; the next sign-in binds. UI confirms first |
+| `assertSameOwner(current, backupSubject, backupEmail)` | Used by `restoreBackup` before merging anything |
+| `signInWithGoogle(db, { signIn, webClientId })` | Platform sign-in -> token -> checks -> `applySignIn`; also `cancelled` and `error` (plugin details are logged, not shown) |
+| `signOutOfGoogle(db, { signOut })` | Local sign-out first, then the device's Google state (a plugin failure is only logged) |
+
+`googleSignIn()` initializes `SocialLogin` once with `{ google: { webClientId, mode: "online" } }`, logs in with scopes `email`, `profile`, returns the ID token, or `null` on `USER_CANCELLED`. `googleSignInAvailable` is true only in the native app with `VITE_GOOGLE_WEB_CLIENT_ID` set at build time.
 
 ### 4.4 Settings
 
@@ -490,6 +508,7 @@ All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWe
 1. Parse and validate the envelope with Zod, else "This is not a Health backup file".
 2. Derive the key, decrypt, gunzip, validate the payload. Any failure -> "Wrong password, or the file is damaged".
 3. If the backup's schema version is newer than the database's -> refuse ("Update the app first"). Older backups are fine.
+3b. If this phone has an owner and the backup's live `account` row names a different `subject` -> refuse ("This backup belongs to another Google account (email)"). A phone without an owner takes the backup's owner with the data.
 4. `BEGIN`. For each table in `BACKUP_TABLES` order (parents before children), when present in the file:
    - keep only the columns that exist in this schema. This also means a column name from the file never reaches SQL unchecked. Table names come from `BACKUP_TABLES` only;
    - require the conflict-key columns;
@@ -702,7 +721,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 163 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 168 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -721,6 +740,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 16
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
+| `account.test.ts` | ID token claim checks (issuer, audience incl. arrays, expiry with skew, subject), bind with existing data adopted, owner re-sign-in refreshes email, other account refused, sign-out keeps binding, release and re-bind, backup owner guard (refused / fresh phone / same owner), sign-in flow outcomes and safe messages |
 | `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |

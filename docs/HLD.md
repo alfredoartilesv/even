@@ -235,6 +235,7 @@ Full columns and constraints: [LLD.md section 4](LLD.md#4-schema).
 | Logs and errors | Network errors never include the URL or key. Scripts print counts, not health values |
 | Data sent to Claude | Explicit consent per data class (summaries, detailed records, notes, photos) with a policy version; tools without consent are not run; every payload and photo logged in `ai_disclosures` |
 | Changes made by the agent | Additive only, through the app's own functions; validated; confirmed by the owner line by line; logged in `agent_actions`; undo per action with the app's own undo. Injected instructions (in photos or notes) can at most propose a change the owner must confirm |
+| Who owns the data | Optional Google sign-in binds the phone's data to one account (its stable id, no token stored); another account cannot see or restore into it. Not a lock: SQLCipher protects the data either way |
 
 Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hands while the app is open, and a weak backup password chosen by the owner (minimum length 8 is enforced).
 
@@ -255,7 +256,7 @@ Native projects are generated and git-ignored; the repo holds only the web code,
 |---|---|
 | Offline first | Everything except sync and chat works without network |
 | Data durability | Idempotent upserts; one transaction per migration, per sync batch and per restore; encrypted backups |
-| Testability | Core depends on interfaces; 154 Node tests, including a fake of the Android plugin's statement splitting and transactions |
+| Testability | Core depends on interfaces; 168 Node tests, including a fake of the Android plugin's statement splitting and transactions |
 | Replaceable source | `Source` and `ToolCaller` interfaces; MCP today, REST later, others possible |
 | Phase 2 readiness | UUIDv7 keys, `updated_at` / `deleted_at` / `origin_device_id` on user tables, append-only samples |
 | Performance | Personal scale. Indexed by (metric, local_day). Restore inserts in multi-row batches to limit bridge calls |
