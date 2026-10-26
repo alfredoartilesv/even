@@ -5,8 +5,8 @@ import { getSetting, setSetting } from "../../db/settings";
 import { lastSync } from "./runSync";
 
 /**
- * "freddy has not synced for 3 days" reminders. The free plan only keeps 7 days, so after 3 days
- * without a sync there are 4 left before data is lost for good (docs/architecture.md risk 6).
+ * "Garmin has not synced for 3 days" reminders. Garmin keeps the history, so nothing is lost, but
+ * three days without a sync usually means the personal API key expired or was revoked.
  */
 
 const log = createLogger("sync.reminder");
@@ -19,8 +19,6 @@ export const STALE_AFTER_MS = 3 * DAY;
 export const REMIND_AGAIN_MS = DAY;
 /** When the app comes back to the front, sync again if the last success is older than this. */
 export const RESYNC_ON_RESUME_MS = HOUR;
-/** History freddy keeps on the free plan. */
-export const FREE_WINDOW_DAYS = 7;
 
 export const SYNC_REMINDER_ID = 1001;
 export const REMINDER_KEY = "sync.reminder";
@@ -44,16 +42,11 @@ const days = (ms: number) => Math.floor(ms / DAY);
 /** Notification text for a reminder firing at atMs. */
 export function reminderText(lastOkMs: number | null, atMs: number): { title: string; body: string } {
   if (lastOkMs === null) {
-    return { title: "freddy has not synced yet", body: "Open the app to sync. freddy keeps only the last 7 days on the free plan." };
+    return { title: "Garmin has not synced yet", body: "Open the app to bring in your Garmin data." };
   }
-  const ago = days(atMs - lastOkMs);
-  const left = FREE_WINDOW_DAYS - ago;
   return {
-    title: `No freddy sync for ${ago} days`,
-    body:
-      left > 0
-        ? `Open the app to sync. freddy keeps 7 days, so data older than ${left} more day${left === 1 ? "" : "s"} will be lost.`
-        : "Open the app to sync. Some days are already past freddy's 7-day window.",
+    title: `No Garmin sync for ${days(atMs - lastOkMs)} days`,
+    body: "Open the app to sync. If it keeps failing, the Garmin key may have expired: make a new one in Garmin Connect.",
   };
 }
 
@@ -77,7 +70,7 @@ export async function setReminderEnabled(db: SqlDriver, on: boolean, nowMs: numb
 
 /**
  * Bring the scheduled reminder in line with the sync state: one pending notification, due 3 days
- * after the last success (or tomorrow when already overdue). Cancelled when freddy is not set up,
+ * after the last success (or tomorrow when already overdue). Cancelled when Garmin is not set up,
  * the owner turned reminders off, or notifications are not allowed. Call after every sync attempt,
  * at start and when the setting changes. Never throws.
  */
@@ -97,7 +90,7 @@ export async function refreshSyncReminder(
       log.info("reminder not scheduled: notifications not allowed");
       return "cancelled";
     }
-    const last = await lastSync(db, opts.source ?? "freddy");
+    const last = await lastSync(db, opts.source ?? "garmin");
     const lastOk = last?.lastOkMs ?? null;
     const at = nextReminderAt(lastOk, now);
     await notifier.schedule({ id: SYNC_REMINDER_ID, atMs: at, ...reminderText(lastOk, at) });

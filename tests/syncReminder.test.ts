@@ -32,7 +32,7 @@ function fakeNotifier(allowed = true) {
 
 async function withRun(db: Awaited<ReturnType<typeof migratedDb>>["db"], finishedMs: number, status: "ok" | "error" = "ok") {
   await db.run(
-    "INSERT INTO sync_runs (id, source, started_ms, finished_ms, status) VALUES (?, 'freddy', ?, ?, ?)",
+    "INSERT INTO sync_runs (id, source, started_ms, finished_ms, status) VALUES (?, 'garmin', ?, ?, ?)",
     [`r${finishedMs}${status}`, finishedMs - 1000, finishedMs, status],
   );
 }
@@ -44,17 +44,15 @@ test("freshness: fresh under 3 days, stale from 3 days, never without a success"
   assert.equal(freshness(NOW + 5000, NOW).state, "fresh", "a clock skew is not negative age");
 });
 
-test("next reminder: 3 days after the last success, else tomorrow; text counts the days left", () => {
+test("next reminder: 3 days after the last success, else tomorrow; text counts the days and points at the key", () => {
   assert.equal(nextReminderAt(NOW - D, NOW), NOW + 2 * D);
   assert.equal(nextReminderAt(NOW - 5 * D, NOW), NOW + D);
   assert.equal(nextReminderAt(null, NOW), NOW + 3 * D);
   assert.deepEqual(reminderText(NOW - 3 * D, NOW), {
-    title: "No freddy sync for 3 days",
-    body: "Open the app to sync. freddy keeps 7 days, so data older than 4 more days will be lost.",
+    title: "No Garmin sync for 3 days",
+    body: "Open the app to sync. If it keeps failing, the Garmin key may have expired: make a new one in Garmin Connect.",
   });
-  assert.match(reminderText(NOW - 6 * D, NOW).body, /1 more day will/);
-  assert.match(reminderText(NOW - 8 * D, NOW).body, /already past/);
-  assert.equal(reminderText(null, NOW).title, "freddy has not synced yet");
+  assert.equal(reminderText(null, NOW).title, "Garmin has not synced yet");
   assert.deepEqual([0, 5 * 60_000, 3 * H, D, 4 * D].map(ago), ["just now", "5 min ago", "3 h ago", "1 day ago", "4 days ago"]);
 });
 
@@ -78,7 +76,7 @@ test("refresh: overdue repeats tomorrow; cancelled when not set up, switched off
   const f = fakeNotifier();
   await refreshSyncReminder(db, f.n, { configured: true, nowMs: NOW });
   assert.equal(f.scheduled[0].atMs, NOW + D);
-  assert.equal(f.scheduled[0].title, "No freddy sync for 5 days");
+  assert.equal(f.scheduled[0].title, "No Garmin sync for 5 days");
 
   assert.equal(await refreshSyncReminder(db, f.n, { configured: false, nowMs: NOW }), "cancelled");
   assert.deepEqual(f.cancelled, [SYNC_REMINDER_ID]);

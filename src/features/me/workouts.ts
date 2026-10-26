@@ -40,7 +40,9 @@ export async function listWorkouts(db: SqlDriver, from: string, to: string): Pro
      FROM health_samples h
      WHERE h.metric IN (${Object.keys(METRICS).map(() => "?").join(", ")}) AND h.local_day BETWEEN ? AND ?
        AND NOT (h.source = 'garmin_export' AND EXISTS (
-         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source <> 'garmin_export'))`,
+         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source <> 'garmin_export'))
+       AND NOT (h.source = 'freddy' AND EXISTS (
+         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source = 'garmin'))`,
     [...Object.keys(METRICS), from, to],
   );
   const by = new Map<string, Workout>();

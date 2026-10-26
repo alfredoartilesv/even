@@ -75,12 +75,12 @@ async function seed(db: SqlDriver) {
   await insertGoal(db, { title: "10,000 steps a day", targetKind: "sample", metric: "daily_steps", comparator: ">=", targetNum: 10000, unit: "steps", period: "day", startDay: addDays(today, -30) }, stamp);
 
   // Synced days: steps, energy, resting heart rate, sleep; workouts every few days.
-  await upsertCatalog(db, "freddy", ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories", "daily_restingHeartRateInBeatsPerMinute", "sleep_durationInSeconds", "activity_activityType", "activity_durationInSeconds", "activity_distanceInMeters", "activity_activeKilocalories"].map((metric) => ({ metric })), now);
+  await upsertCatalog(db, "garmin", ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories", "daily_restingHeartRateInBeatsPerMinute", "sleep_durationInSeconds", "activity_activityType", "activity_durationInSeconds", "activity_distanceInMeters", "activity_activeKilocalories"].map((metric) => ({ metric })), now);
   const samples = [];
   for (let i = 0; i < 45; i++) {
     const d = addDays(today, -i);
     const s = dayStart(d);
-    const day = (metric: string, valueNum: number) => ({ source: "freddy", device: "Garmin Forerunner", externalId: `${d}#0`, metric, valueNum, startMs: s, endMs: s + 86_400_000, offsetMin: 0 });
+    const day = (metric: string, valueNum: number) => ({ source: "garmin", device: "Garmin Forerunner", externalId: `${d}#0`, metric, valueNum, startMs: s, endMs: s + 86_400_000, offsetMin: 0 });
     const active = Math.round(350 + r() * 600);
     samples.push(day("daily_steps", Math.round(5500 + r() * 9000)), day("daily_activeKilocalories", active), day("daily_totalKilocalories", 1750 + active), day("daily_restingHeartRateInBeatsPerMinute", Math.round(49 + r() * 6)), day("sleep_durationInSeconds", Math.round((6.3 + r() * 1.8) * 3600)));
     if (i % 3 === 1 || i % 7 === 5) {
