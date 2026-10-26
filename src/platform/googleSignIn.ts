@@ -12,7 +12,7 @@ import { isNative } from "./device";
  */
 
 /** The Web OAuth client id from the build environment, or null when Google sign-in is not set up. */
-export const googleWebClientId: string | null = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim() || null;
+export const googleWebClientId: string | null = (import.meta.env?.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim() || null;
 
 let ready: Promise<void> | null = null;
 
