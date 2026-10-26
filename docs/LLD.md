@@ -48,7 +48,8 @@ src/
     journal/                       manual measurements, day notes, goals
     chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
-    settings/                      secrets, log level, SettingsScreen, LogsPanel
+    settings/                      secrets, log level, SettingsScreen
+    logs/                          LogsScreen (the Logs tab), report.ts (Markdown report for Claude, pure)
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
 scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
 docs/                              this documentation
@@ -172,7 +173,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 `createLogger(scope)` returns `debug / info / warn / error`, `time(msg, level?)` (logs `ms` when the returned function is called) and `child(sub)` (scope `parent.sub`). Levels: `debug < info < warn < error < silent`. `setLogLevel(level)` sets the global threshold and `setLogLevel(level, scope)` overrides it for a scope and its children (`sync` covers `sync.freddy`).
 
-Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that Settings > Logs shows. Nothing is written to disk. A sink that throws is ignored.
+Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that the Logs tab shows. Nothing is written to disk; records leave the phone only when the owner exports or shares them from the Logs tab. A sink that throws is ignored.
 
 Fields are sanitised before any sink sees them: keys matching key, token, secret, password, passphrase, authorization, cookie or url become `[redacted]`; errors become `{ name, message }` (validation errors as `path: message` per issue); strings are cut at 200 characters, arrays over 20 items and objects deeper than 2 levels are summarised.
 
@@ -489,13 +490,14 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 ## 8. UI
 
-`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
+`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, logs, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
 - **Header** (every tab): `SyncButton` ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
 - **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, and the latest day's values with device and "day not over".
 - **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
 - **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
 - **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
+- **LogsScreen** (Logs tab): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
 - **SettingsScreen**: freddy URL, key (password field) and transport; backup export (password twice, minimum 8) and restore (file input + password). Messages are shown inline; nothing throws to React.
 
 Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/features/chat/`) exist.
@@ -772,7 +774,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 184 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 189 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -799,6 +801,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 18
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
 | `uiKit.test.ts` | ticks, compact numbers, label spacing, line gaps, column paths; the defrost timeline mapping; rendered charts keep their accessible name, table view, empty state, "over target" in words, legend rules and fixed slots; tile deltas, macro shares, alert badges |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
+| `logReport.test.ts` | the report's brief, context and counts, problems section, oldest-first order, empty buffer, backtick-safe fences, local-time file name, redaction carried through from the logger |
 | `log.test.ts`, `logging.test.ts` | levels and scope overrides, redaction and summaries, timers, ring buffer, broken sinks; nested transactions; stored log level; no data leaks from real flows into logs |
 | `alcohol.test.ts` | kcal and weight maths; drink types (unique names, estimates, delete keeps history); totals in drinks, grams, kcal, money and per day; latest weight from manual or synced in kg/g/lb; expected weight; currency; 0006 on existing drinks; chat add/fill/refuse types, log by type, undo of each, read tools |
 | `food.test.ts` | slot by hour and ranking, log/edit/relog/delete in the owner's zone, range with empty days, history paging, calorie goal history, saved meals from entries with linked history and photo replace/delete, servings, photo validation, suggestions by time of day without prep, deleting a prep entry restores stock, backup round trip with photos |
