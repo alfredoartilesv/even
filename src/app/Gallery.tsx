@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { addDays } from "../core/tz";
-import { BarChart, CalendarHeatmap, LineChart, StatTile } from "../ui/charts";
+import { BarChart, CalendarHeatmap, LineChart, Ring, StatTile } from "../ui/charts";
 import { fmtDay, today } from "../ui/common";
 import { ChipGroup, RangePicker, StatusBadge, Stepper } from "../ui/controls";
 import { Icon, ICON_NAMES } from "../ui/icons";
-import { PageHeader, Segmented, SubTabs } from "../ui/layout";
+import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../ui/layout";
 import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
 import "../ui/palette.css";
@@ -125,6 +125,26 @@ export default function Gallery() {
       <SubTabs items={[{ id: "log", label: "Log food" }, { id: "stock", label: "Stock" }, { id: "recipes", label: "Recipes" }, { id: "shopping", label: "Shopping" }]} value={view} onChange={setView} label="Views" />
       <Segmented items={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onChange={setSpan} label="Period" />
       <ChipGroup options={[{ id: "today", label: "Today" }, { id: "week", label: "7 days" }, { id: "month", label: "30 days" }]} value={chip} onChange={setChip} label="Period" />
+
+      <SectionHeader title="Section header" action="Open" onAction={() => {}} />
+      <QuickActions
+        actions={[
+          { id: "food", label: "Log food", icon: "food", onClick: () => {} },
+          { id: "drink", label: "Log a drink", icon: "alcohol", onClick: () => {} },
+          { id: "chat", label: "Ask Claude", icon: "sparkle", onClick: () => {} },
+          { id: "prep", label: "Meal prep", icon: "box", onClick: () => {} },
+        ]}
+      />
+      <div className="card rings">
+        <Ring label="Eaten" value={2420} target={2300} kind="limit" unit="kcal" format={(v) => Math.round(v).toLocaleString()} />
+        <Ring label="Steps" value={7480} target={10000} format={(v) => Math.round(v).toLocaleString()} />
+      </div>
+      <MenuList
+        groups={[
+          { title: "Group", items: [{ id: "a", label: "A page", description: "What is inside it", icon: "user" }, { id: "b", label: "Another", description: "And this one", icon: "info" }] },
+        ]}
+        onOpen={() => {}}
+      />
 
       <h2>Icons</h2>
       <div className="row" style={{ justifyContent: "flex-start" }}>

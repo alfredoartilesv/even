@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { BarChart, LineChart, StatTile } from "../../ui/charts";
+import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
 import { fmtDay, plural, today } from "../../ui/common";
-import { PageHeader, Segmented, type Choice } from "../../ui/layout";
-import { getCalorieGoal } from "../food/food";
+import { PageHeader, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
+import { loadProfile } from "../settings/profile";
 import { loadDashboard, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
+import { greeting } from "./greeting";
+
+/** Where the Dashboard's buttons go; the app shell switches tab. */
+export interface DashboardLinks {
+  logFood: () => void;
+  logDrink: () => void;
+  askClaude: () => void;
+  mealPrep: () => void;
+  profile: () => void;
+}
 
 interface Props {
   db: SqlDriver;
@@ -18,7 +28,7 @@ interface Props {
   /** The top bar's left (profile) and right (sync) pieces, owned by the app shell. */
   profile: ReactNode;
   sync: ReactNode;
-  onLogFood: () => void;
+  go: DashboardLinks;
 }
 
 const SPANS: Choice<Span>[] = [
@@ -42,21 +52,22 @@ function spanTitle(span: Span, anchor: string): string {
 }
 
 /**
- * The first tab: how the day, week or month went. Steps, calories burned and eaten (with the
- * balance), workouts and meal prep, each as the period's daily average and total, then charts per
- * day. A day also lists every synced number.
+ * The first tab: how the day, week or month went. A greeting and the date; the things done most
+ * (log food or a drink, ask Claude, meal prep); rings for calories eaten against the target and
+ * steps against the goal; then energy, workouts and meal prep, each as the period's daily
+ * average and total, with charts per day. A day also lists every synced number.
  */
-export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, onLogFood }: Props) {
+export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
   const [span, setSpan] = useState<Span>("day");
   const [anchor, setAnchor] = useState(today());
   const [data, setData] = useState<Dashboard | null>(null);
   const [metrics, setMetrics] = useState<DayValue[]>([]);
-  const [calorieTarget, setCalorieTarget] = useState<number | null>(null);
+  const [name, setName] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [d, goal] = await Promise.all([loadDashboard(db, span, anchor, today()), getCalorieGoal(db)]);
+    const [d, p] = await Promise.all([loadDashboard(db, span, anchor, today()), loadProfile(db)]);
     setData(d);
-    setCalorieTarget(goal?.target ?? null);
+    setName(p.name);
     setMetrics(span === "day" ? await dayValues(db, anchor) : []);
   }, [db, span, anchor]);
 
@@ -76,6 +87,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     if (!many) return { value: fmt(f.total) };
     return { value: fmt(f.avg!), note: `a day · ${fmt(f.total)} total${f.daysWithData < (data?.days.length ?? 0) ? ` · ${plural(f.daysWithData, "day")}` : ""}` };
   };
+  /** For the rings and the hero line: the day's number, or the daily average. */
+  const headline = (f: Figure | undefined) => (f && f.total !== null ? (many ? f.avg : f.total) : null);
 
   const d = data;
   const x = d?.days.map((r) => r.day) ?? [];
@@ -85,10 +98,28 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     setAnchor(day);
   };
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0 || d.prep.total !== null);
+  const dateLine = utc(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const balance = headline(d?.balance);
 
   return (
     <section>
-      <PageHeader title="Dashboard" leading={profile} actions={sync} />
+      <PageHeader title={greeting(new Date().getHours(), name)} subtitle={dateLine} leading={profile} actions={sync} />
+
+      {syncWarnings.map((w) => (
+        <p key={w} className="warning small">
+          {w}
+        </p>
+      ))}
+      {!configured && !hasAny && <p className="muted small">Add your Garmin key in Settings to bring in steps and calories burned, or import your Garmin export.</p>}
+
+      <QuickActions
+        actions={[
+          { id: "food", label: "Log food", icon: "food", onClick: go.logFood },
+          { id: "drink", label: "Log a drink", icon: "alcohol", onClick: go.logDrink },
+          { id: "chat", label: "Ask Claude", icon: "sparkle", onClick: go.askClaude },
+          { id: "prep", label: "Meal prep", icon: "box", onClick: go.mealPrep },
+        ]}
+      />
 
       <Segmented
         items={SPANS}
@@ -101,7 +132,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       />
 
       <div className="period-nav">
-        <button type="button" className="secondary" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
+        <button type="button" className="secondary icon-button" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
           ‹
         </button>
         <div className="grow center">
@@ -112,35 +143,47 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             </button>
           )}
         </div>
-        <button type="button" className="secondary" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
+        <button type="button" className="secondary icon-button" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
           ›
         </button>
       </div>
 
-      {syncWarnings.map((w) => (
-        <p key={w} className="warning small">
-          {w}
-        </p>
-      ))}
-      {!configured && !hasAny && <p className="muted small">Add your Garmin key in Settings to bring in steps and calories burned, or import your Garmin export.</p>}
-
-      <div className="viz-tiles pairs">
-        <StatTile label="Steps" {...tile(d?.steps)} />
-        <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
-        <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />
-        <StatTile label="Balance" unit="kcal" {...tile(d?.balance, signed)} />
-        <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
-        <StatTile label="Protein" unit="g" {...tile(d?.protein)} />
+      {/* Keyed by period so the card animates in when the period changes. */}
+      <div key={`${span}|${anchor}`} className="card hero-card fade-in">
+        <div className="rings">
+          <Ring label={many ? "Eaten, a day" : "Eaten"} value={headline(d?.eaten)} target={d?.targets.kcal ?? null} kind="limit" unit="kcal" format={int} />
+          <Ring label={many ? "Steps, a day" : "Steps"} value={headline(d?.steps)} target={d?.targets.steps ?? null} kind="goal" format={int} />
+        </div>
+        <dl className="hero-stats">
+          <div>
+            <dt className="muted small">Burned</dt>
+            <dd>{headline(d?.burned) !== null ? `${int(headline(d?.burned)!)} kcal` : "–"}</dd>
+          </div>
+          <div>
+            <dt className="muted small">Balance</dt>
+            <dd>{balance !== null ? `${signed(balance)} kcal` : "–"}</dd>
+          </div>
+          <div>
+            <dt className="muted small">Protein</dt>
+            <dd>{headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}</dd>
+          </div>
+        </dl>
+        {d && d.balance.total !== null && (
+          <p className="muted small hero-note">
+            Balance is eaten minus burned{many ? `, a day, on the ${plural(d.balance.daysWithData, "day")} with both` : ""}: below zero is a deficit.
+            {d.drinks.total ? ` Eaten includes ${int(d.drinks.total)} kcal from drinks.` : ""}
+          </p>
+        )}
       </div>
-      {d && d.balance.total !== null && (
-        <p className="muted small">
-          Balance is eaten minus burned{many ? `, on the ${plural(d.balance.daysWithData, "day")} that have both` : ""}: below zero is a deficit.
-          {d.drinks.total ? ` Eaten includes ${int(d.drinks.total)} kcal from drinks.` : ""}
-        </p>
-      )}
-      <button type="button" className="secondary wide-button" onClick={onLogFood}>
-        Log food
-      </button>
+
+      <SectionHeader title="Energy" />
+      <div className="viz-tiles pairs">
+        <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
+        <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
+        {/* A day's eaten and steps are in the rings; a week or month adds their totals here. */}
+        {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
+        {many && <StatTile label="Steps" {...tile(d?.steps)} />}
+      </div>
 
       {many && d && (
         <>
@@ -156,19 +199,13 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             formatXLong={(day) => fmtDay(day)}
             formatValue={int}
             unit="kcal"
-            target={calorieTarget}
+            target={d.targets.kcal}
             zero
           />
         </>
       )}
 
-      <h2>Meal prep</h2>
-      <div className="viz-tiles pairs">
-        <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
-        <StatTile label="In stock now" value={d ? String(d.stock.portions) : null} note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined} />
-      </div>
-
-      <h2>Workouts</h2>
+      <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
       {d && d.workouts.count > 0 ? (
         <div className="viz-tiles pairs">
           <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
@@ -177,6 +214,12 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       ) : (
         <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
       )}
+
+      <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
+      <div className="viz-tiles pairs">
+        <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
+        <StatTile label="In stock now" value={d ? String(d.stock.portions) : null} note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined} />
+      </div>
 
       {span === "day" && metrics.length > 0 && (
         <details className="card">
