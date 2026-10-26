@@ -141,7 +141,7 @@ The browser build (`npm run dev`) stops at the first step: the local database ex
 
 ```mermaid
 sequenceDiagram
-  participant UI as App / Sync now
+  participant UI as App (launch, resume, sync button)
   participant S as runSync
   participant F as FreddySource
   participant H as McpHttpCaller

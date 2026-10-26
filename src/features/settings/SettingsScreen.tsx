@@ -7,6 +7,7 @@ import { setSetting } from "../../db/settings";
 import { clearFreddyCredentials, loadFreddyCredentials, saveFreddyCredentials, type SecretStore } from "./secrets";
 import { loadTransport, TRANSPORT_KEY, type Transport } from "../sync/freddyClient";
 import { LogsPanel } from "./LogsPanel";
+import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
 
 interface Props {
   db: SqlDriver;
@@ -24,6 +25,7 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
   const [hasKey, setHasKey] = useState(false);
   const [transport, setTransport] = useState<Transport>("native");
   const [freddyMsg, setFreddyMsg] = useState<Msg>(null);
+  const [remind, setRemind] = useState(true);
 
   const [exportPw, setExportPw] = useState("");
   const [exportPw2, setExportPw2] = useState("");
@@ -38,6 +40,7 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
       setUrl(creds?.url ?? "");
       setHasKey(Boolean(creds?.apiKey));
       setTransport(await loadTransport(db, isNative));
+      setRemind(await reminderEnabled(db));
     })();
   }, [db, secrets, isNative]);
 
@@ -133,6 +136,23 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
         {!isNative && <p className="muted small">Browser build: the URL and key are kept in memory only and forgotten on reload.</p>}
         {freddyMsg && <p className={freddyMsg.kind === "ok" ? "muted small" : "error small"}>{freddyMsg.text}</p>}
       </form>
+      <label className="inline">
+        <input
+          type="checkbox"
+          checked={remind}
+          onChange={async (e) => {
+            const on = e.target.checked;
+            await setReminderEnabled(db, on);
+            setRemind(on);
+            onChanged(); // reschedules or cancels the notification
+          }}
+        />
+        Notify me when freddy has not synced for 3 days
+      </label>
+      <p className="muted small">
+        The app syncs when it opens, when you come back to it, and with the sync button at the top. On the free plan freddy keeps only 7
+        days, so a reminder comes 3 days after the last successful sync{isNative ? "" : " (on the phone only)"}.
+      </p>
 
       <h2>Backup</h2>
       <p className="muted small">
