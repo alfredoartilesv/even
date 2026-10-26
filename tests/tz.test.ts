@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDays, localDay, localDayStart, tzOffsetMinutes } from "../src/lib/tz";
+import { addDays, localDateTimeToMs, localDay, localDayStart, tzOffsetMinutes } from "../src/lib/tz";
 
 const MAD = "Europe/Madrid";
 
@@ -32,6 +32,20 @@ test("DST start day (2026-03-29) is 23 hours", () => {
 
 test("UTC zone has offset 0", () => {
   assert.equal(localDayStart("2026-01-01", "UTC").offsetMin, 0);
+});
+
+test("local date + time to UTC, including both DST transitions", () => {
+  const iso = (day: string, time: string) => {
+    const r = localDateTimeToMs(day, time, MAD);
+    return `${new Date(r.ms).toISOString()} ${r.offsetMin}`;
+  };
+  assert.equal(iso("2026-10-24", "13:30"), "2026-10-24T11:30:00.000Z 120");
+  assert.equal(iso("2026-01-15", "08:00"), "2026-01-15T07:00:00.000Z 60");
+  assert.equal(iso("2026-10-25", "02:30"), "2026-10-25T00:30:00.000Z 120"); // ambiguous hour: summer time
+  assert.equal(iso("2026-10-25", "20:00"), "2026-10-25T19:00:00.000Z 60"); // after fall-back
+  assert.equal(iso("2026-03-29", "02:30"), "2026-03-29T01:30:00.000Z 120"); // skipped hour -> 03:30 local
+  assert.equal(iso("2026-03-29", "12:00"), "2026-03-29T10:00:00.000Z 120");
+  assert.throws(() => localDateTimeToMs("2026-10-24", "25:00", MAD), /Bad time/);
 });
 
 test("localDay and addDays", () => {

@@ -35,6 +35,27 @@ export function localDay(ms: number, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 }
 
+/**
+ * A local wall-clock time (YYYY-MM-DD + HH:MM) in a zone, as UTC ms plus the offset in force then.
+ * On the DST fall-back hour the earlier (summer-time) instant wins; a time skipped by spring-forward
+ * resolves to the instant one hour later, as clocks do.
+ */
+export function localDateTimeToMs(day: string, time: string, timeZone: string): { ms: number; offsetMin: number } {
+  const [y, mo, d] = parseDay(day);
+  const t = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  if (!t) throw new Error(`Bad time (expected HH:MM): ${time}`);
+  const wall = Date.UTC(y, mo - 1, d, Number(t[1]), Number(t[2]));
+  // Try the offsets in force just before and after: the first that maps back to this wall time wins.
+  for (const probe of [wall - 12 * 3_600_000, wall + 12 * 3_600_000]) {
+    const offsetMin = tzOffsetMinutes(probe, timeZone);
+    const ms = wall - offsetMin * 60_000;
+    if (tzOffsetMinutes(ms, timeZone) === offsetMin) return { ms, offsetMin };
+  }
+  // Skipped hour: read it with the offset from before the jump, which lands after the gap.
+  const ms = wall - tzOffsetMinutes(wall - 12 * 3_600_000, timeZone) * 60_000;
+  return { ms, offsetMin: tzOffsetMinutes(ms, timeZone) };
+}
+
 /** Add whole calendar days to a YYYY-MM-DD string. */
 export function addDays(day: string, n: number): string {
   const [y, mo, d] = parseDay(day);
