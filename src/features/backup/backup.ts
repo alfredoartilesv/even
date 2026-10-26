@@ -32,6 +32,7 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "food_photos", key: ["id"], lastWriteWins: true },
   { name: "saved_meals", key: ["id"], lastWriteWins: true },
   { name: "food_entries", key: ["id"], lastWriteWins: true },
+  { name: "drink_types", key: ["id"], lastWriteWins: true },
   { name: "drink_entries", key: ["id"], lastWriteWins: true },
   { name: "manual_measurements", key: ["id"], lastWriteWins: true },
   { name: "day_notes", key: ["id"], lastWriteWins: true },

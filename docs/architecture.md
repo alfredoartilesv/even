@@ -121,6 +121,8 @@ Core built 25 Oct 2026 (`src/features/chat/`); the chat screen is not built yet.
 - **Prompt injection** (text in photos, notes, food names) is contained by the rules above: the worst an injected instruction can do is propose a change the owner sees and must confirm.
 - **Health guardrails** in the prompt: no very-low-calorie or unsafe plans, allergens cannot be guaranteed, estimates come with their assumptions.
 
+The one edit allowed (26 Oct 2026): filling a missing kcal or price on a drink type, because the owner usually learns those from the chat ("a Mahou costs 1.20"); it never overwrites a value and undo blanks it again.
+
 Why additive-only with confirmation rather than full editing: wrong numbers in a health log are worse than a missing entry, and an undo per action keeps every mistake one tap from fixed. Editing and deleting stay on the app's own screens.
 
 ## 6. Phase 2 parking lot (noted, not built)

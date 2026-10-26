@@ -168,6 +168,24 @@ export function standardDrinks(grams: number, country: keyof typeof STANDARD_DRI
   return grams / STANDARD_DRINK_G[country];
 }
 
+/**
+ * kcal from the alcohol alone (7 kcal/g). Beer, cider and cocktails also carry sugar, so this
+ * underestimates them: a real label value is better when there is one.
+ */
+export function alcoholKcal(volumeMl: number, abvPercent: number): number {
+  return alcoholGrams(volumeMl, abvPercent) * KCAL_PER_G.alcohol;
+}
+
+/**
+ * The weight implied by not having eaten or drunk `kcal` extra, assuming they were not made up
+ * for elsewhere (7700 kcal per kg). An upper bound on the effect, not a prediction.
+ */
+export function weightWithoutKcal(currentKg: number, kcal: number): number {
+  positive(currentKg, "Weight");
+  if (!(kcal >= 0)) throw new RangeError("kcal must be 0 or more");
+  return currentKg - kcal / KCAL_PER_KG_BODY;
+}
+
 // ---- Heart rate ----
 
 /** Estimated maximum heart rate, Tanaka (2001): 208 - 0.7 x age. */

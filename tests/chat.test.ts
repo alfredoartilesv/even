@@ -138,9 +138,9 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
   assert.deepEqual(tools.map((t) => t.name), [
     "list_metrics", "metric_summary", "compare_periods", "nutrition_summary", "manual_summary", "list_goals",
     "list_saved_meals", "list_meal_preps", "meal_prep_stock", "shopping_list", "energy_needs",
-    "daily_series", "list_food_entries", "day_notes",
+    "daily_series", "list_food_entries", "day_notes", "drink_types", "alcohol_impact",
     "log_food", "log_saved_meal", "save_meal", "create_meal_prep", "log_cooked_batch", "prep_portions",
-    "add_shopping_items", "add_recipe_to_shopping", "log_drink", "log_measurement", "add_day_note", "create_goal",
+    "add_shopping_items", "add_recipe_to_shopping", "add_drink_type", "log_drink", "log_measurement", "add_day_note", "create_goal",
   ]);
   for (const t of tools) {
     assert.equal(t.strict, true);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SqlDriver } from "../../../db/driver";
+import { drinkKcalByDay } from "../../alcohol/alcohol";
 import { dayFood, getCalorieGoal, loggedDaysBefore, nutritionRange, type DayTotals, type FoodEntry } from "../food";
 import { mean } from "../../../core/health";
 import { addDays } from "../../../core/tz";
@@ -17,6 +18,7 @@ export function HistoryView({ db, version, onChanged }: Props) {
   const [day, setDay] = useState(today());
   const [weekEnd, setWeekEnd] = useState(today());
   const [week, setWeek] = useState<DayTotals[]>([]);
+  const [drinkKcal, setDrinkKcal] = useState<Map<string, number>>(new Map());
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [target, setTarget] = useState<number | null>(null);
   const [earlier, setEarlier] = useState<string | null>(null);
@@ -24,13 +26,16 @@ export function HistoryView({ db, version, onChanged }: Props) {
 
   const load = useCallback(async () => {
     const days = weekEnding(weekEnd);
-    const [w, e, g, prev] = await Promise.all([
+    const [w, e, g, prev, dk] = await Promise.all([
       nutritionRange(db, days[0], days[6]),
       dayFood(db, day),
       getCalorieGoal(db),
       loggedDaysBefore(db, day, 1),
+      drinkKcalByDay(db, days[0], days[6]),
     ]);
-    setWeek(w);
+    // Bars and averages count food and drinks together; the list below is food only.
+    setWeek(w.map((d) => (dk.has(d.day) ? { ...d, calories: (d.calories ?? 0) + dk.get(d.day)! } : d)));
+    setDrinkKcal(dk);
     setEntries(e);
     setTarget(g?.target ?? null);
     setEarlier(prev[0] ?? null);
@@ -84,6 +89,7 @@ export function HistoryView({ db, version, onChanged }: Props) {
         <span className="muted small">
           {selected?.calories != null && `${kcal(selected.calories)} kcal`}
           {selected?.proteinG != null && ` · ${kcal(selected.proteinG)} g protein`}
+          {drinkKcal.has(day) && ` · incl. ${kcal(drinkKcal.get(day)!)} kcal from drinks`}
         </span>
       </div>
       <div className="actions">
