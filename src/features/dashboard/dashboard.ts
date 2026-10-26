@@ -1,7 +1,7 @@
 import { addDays } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { drinkKcalByDay } from "../alcohol/alcohol";
-import { nutritionRange } from "../food/food";
+import { getCalorieGoal, nutritionRange } from "../food/food";
 import { loadStock } from "../mealprep/mealPrep";
 import { listWorkouts } from "../me/workouts";
 import { metricDays } from "../metrics/queries";
@@ -63,6 +63,8 @@ export interface Dashboard {
   workouts: { count: number; durationS: number };
   /** Meal prep portions in the fridge and freezer now (not per span). */
   stock: { portions: number; batches: number };
+  /** The live daily targets: calories (at most) and steps (at least); null when none is set. */
+  targets: { kcal: number | null; steps: number | null };
 }
 
 /** Monday of the week, first of the month, or the day itself. */
@@ -99,7 +101,7 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
   const range = spanRange(span, anchor);
   const from = range.from;
   const to = range.to > today ? today : range.to;
-  const [steps, burned, active, food, drinks, prep, workouts, stock] = await Promise.all([
+  const [steps, burned, active, food, drinks, prep, workouts, stock, kcalGoal, stepGoal] = await Promise.all([
     metricDays(db, DASH_METRICS.steps, from, to),
     metricDays(db, DASH_METRICS.burned, from, to),
     metricDays(db, DASH_METRICS.active, from, to),
@@ -108,6 +110,8 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     prepPortionsByDay(db, from, to),
     listWorkouts(db, from, to),
     loadStock(db),
+    getCalorieGoal(db),
+    dailyStepGoal(db, today),
   ]);
   const foodBy = new Map(food.map((f) => [f.day, f]));
 
@@ -147,7 +151,20 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     prep: figure(col("prepPortions")),
     workouts: { count: workouts.length, durationS: workouts.reduce((s, w) => s + (w.durationS ?? 0), 0) },
     stock: { portions: stock.reduce((s, b) => s + b.left, 0), batches: stock.length },
+    targets: { kcal: kcalGoal?.target ?? null, steps: stepGoal },
   };
+}
+
+/** The newest live "steps a day" goal (at least N), or null. */
+async function dailyStepGoal(db: SqlDriver, today: string): Promise<number | null> {
+  const [g] = await db.all<{ target_num: number }>(
+    `SELECT target_num FROM goals
+     WHERE deleted_at IS NULL AND target_kind = 'sample' AND metric = ? AND period = 'day' AND comparator = '>='
+       AND target_num IS NOT NULL AND start_day <= ? AND (end_day IS NULL OR end_day >= ?)
+     ORDER BY start_day DESC, created_at DESC LIMIT 1`,
+    [DASH_METRICS.steps, today, today],
+  );
+  return g?.target_num ?? null;
 }
 
 /** Meal prep portions eaten per local day. */
