@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseListMetrics, parseQueryMetrics } from "../src/sources/freddyText";
+import { parseListMetrics, parseQueryMetrics } from "../src/features/sync/freddyText";
 import { LIST_METRICS, QUERY_METRICS } from "./fixtures";
 
 test("parseListMetrics reads name, count, range, unit and device", () => {

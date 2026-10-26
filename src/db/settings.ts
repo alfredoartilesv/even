@@ -1,4 +1,4 @@
-import { uuidv7 } from "../lib/uuidv7";
+import { uuidv7 } from "../core/uuidv7";
 import type { SqlDriver } from "./driver";
 
 /**

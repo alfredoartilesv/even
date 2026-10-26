@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCursor, saveSyncState, upsertSamples } from "../src/db/samples";
-import { parseQueryMetrics } from "../src/sources/freddyText";
+import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
+import { parseQueryMetrics } from "../src/features/sync/freddyText";
 import { QUERY_METRICS } from "./fixtures";
 import { migratedDb } from "./helpers";
 

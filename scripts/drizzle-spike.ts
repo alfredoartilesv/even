@@ -13,7 +13,7 @@
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { eq } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { capacitorDriver } from "../src/db/capacitorDriver";
+import { capacitorDriver } from "../src/platform/sqlite";
 import type { SqlValue } from "../src/db/driver";
 import { migrate } from "../src/db/migrate";
 import { fakePlugin } from "../tests/fakePlugin";

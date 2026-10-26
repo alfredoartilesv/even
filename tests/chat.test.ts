@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { CONSENT_POLICY_VERSION, recordConsent } from "../src/chat/consent";
+import { CONSENT_POLICY_VERSION, recordConsent } from "../src/features/chat/consent";
 import {
   askClaude,
   CHAT_MODEL,
@@ -11,11 +11,11 @@ import {
   startConversation,
   type ChatDeps,
   type ClaudeCreate,
-} from "../src/chat/engine";
-import { SYSTEM_PROMPT } from "../src/chat/prompt";
-import { deleteConversation, listConversations, listDisclosures, loadMessages } from "../src/chat/store";
-import { upsertSamples } from "../src/db/samples";
-import { localDayStart } from "../src/lib/tz";
+} from "../src/features/chat/engine";
+import { SYSTEM_PROMPT } from "../src/features/chat/prompt";
+import { deleteConversation, listConversations, listDisclosures, loadMessages } from "../src/features/chat/store";
+import { upsertSamples } from "../src/features/metrics/samples";
+import { localDayStart } from "../src/core/tz";
 import { migratedDb } from "./helpers";
 
 type BetaMessage = Anthropic.Beta.Messages.BetaMessage;

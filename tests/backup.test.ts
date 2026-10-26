@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BACKUP_TABLES, BackupError, exportBackup, restoreBackup } from "../src/backup/backup";
+import { BACKUP_TABLES, BackupError, exportBackup, restoreBackup } from "../src/features/backup/backup";
 import { deviceId, getSetting, setSetting } from "../src/db/settings";
-import { upsertSamples } from "../src/db/samples";
+import { upsertSamples } from "../src/features/metrics/samples";
 import { migrate } from "../src/db/migrate";
-import { capacitorDriver } from "../src/db/capacitorDriver";
+import { capacitorDriver } from "../src/platform/sqlite";
 import { fakePlugin } from "./fakePlugin";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 

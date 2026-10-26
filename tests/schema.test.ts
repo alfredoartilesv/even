@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { migrate } from "../src/db/migrate";
-import { dayValues, latestSampleDay } from "../src/db/queries";
-import { sampleLocalDay, upsertSamples } from "../src/db/samples";
-import type { SampleInput } from "../src/sources/types";
+import { dayValues, latestSampleDay } from "../src/features/metrics/queries";
+import { sampleLocalDay, upsertSamples } from "../src/features/metrics/samples";
+import type { SampleInput } from "../src/features/sync/types";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 
 const NOW = 1_800_000_000_000;

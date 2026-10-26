@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { McpHttpCaller, McpHttpError, parseRpcBody } from "../src/sources/mcpHttp";
+import { McpHttpCaller, McpHttpError, parseRpcBody } from "../src/features/sync/mcpHttp";
 
 const URL_SECRET = "https://example.test/mcp/abc123secret";
 const KEY_SECRET = "key-xyz-789";

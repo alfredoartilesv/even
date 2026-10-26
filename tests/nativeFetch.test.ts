@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
-import { McpHttpCaller } from "../src/sources/mcpHttp";
-import { makeNativeFetch } from "../src/sources/nativeFetch";
+import { McpHttpCaller } from "../src/features/sync/mcpHttp";
+import { makeNativeFetch } from "../src/platform/nativeFetch";
 
 const URL_ = "https://example.test/mcp/secret-path";
 
