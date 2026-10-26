@@ -129,3 +129,22 @@ export async function dayValues(db: SqlDriver, day: string): Promise<DayValue[]>
     };
   });
 }
+
+/**
+ * One number per day for a synced metric, picked as metric_catalog.daily_agg says. Several
+ * devices on one day: the one with most readings. summed: the metric is an amount (steps, kcal).
+ */
+export async function metricDays(db: SqlDriver, metric: string, from: string, to: string): Promise<{ values: Map<string, number>; summed: boolean }> {
+  const rows = await db.all<{ day: string; v: number; agg: string | null; readings: number }>(
+    `SELECT d.local_day AS day, d.readings,
+            CASE COALESCE(c.daily_agg, 'avg') WHEN 'sum' THEN d.sum_num WHEN 'min' THEN d.min_num WHEN 'max' THEN d.max_num
+                 WHEN 'last' THEN d.last_num ELSE d.avg_num END AS v, c.daily_agg AS agg
+     FROM daily_metric_values d LEFT JOIN metric_catalog c ON c.source = d.source AND c.metric = d.metric
+     WHERE d.metric = ? AND d.local_day BETWEEN ? AND ?
+     ORDER BY d.local_day, d.readings DESC`,
+    [metric, from, to],
+  );
+  const values = new Map<string, number>();
+  for (const r of rows) if (!values.has(r.day)) values.set(r.day, r.v);
+  return { values, summed: rows.some((r) => r.agg === "sum") };
+}

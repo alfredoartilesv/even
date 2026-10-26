@@ -11,7 +11,7 @@ import { format, type Level, type LogRecord, type Threshold } from "../../core/l
 export interface ReportContext {
   /** "android", "ios" or "web". */
   platform: string;
-  /** "development" or "production". */
+  /** Version and kind, "0.1.0, production". */
   build: string;
   timeZone: string;
   level: Threshold;

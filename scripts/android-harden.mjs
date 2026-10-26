@@ -9,6 +9,7 @@
  * - allowBackup="false" and fullBackupContent="false": no Google Drive backup, no adb backup.
  * - dataExtractionRules (Android 12+): allowBackup alone no longer stops device-to-device
  *   transfer, so exclude every domain from both cloud backup and device transfer.
+ * - versionName from package.json, the version Settings > About shows.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -54,3 +55,11 @@ manifest = manifest.replace(app[0], tag);
 writeFileSync(manifestPath, manifest);
 
 console.log("Android backup disabled: allowBackup=false, fullBackupContent=false, data_extraction_rules excludes everything.");
+
+// The app version: package.json is the one source (Settings > About shows it), so the APK's
+// versionName follows it on every sync.
+const gradlePath = join(import.meta.dirname, "../android/app/build.gradle");
+const { version } = JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8"));
+const gradle = readFileSync(gradlePath, "utf8");
+writeFileSync(gradlePath, gradle.replace(/versionName\s+\S+/, `versionName "${version}"`));
+console.log(`Android versionName set to ${version}.`);

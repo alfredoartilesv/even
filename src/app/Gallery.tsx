@@ -2,9 +2,12 @@ import { useState } from "react";
 import { addDays } from "../core/tz";
 import { BarChart, CalendarHeatmap, LineChart, StatTile } from "../ui/charts";
 import { fmtDay, today } from "../ui/common";
-import { RangePicker, StatusBadge, Stepper } from "../ui/controls";
+import { ChipGroup, RangePicker, StatusBadge, Stepper } from "../ui/controls";
+import { Icon, ICON_NAMES } from "../ui/icons";
+import { PageHeader, Segmented, SubTabs } from "../ui/layout";
 import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
+import "../ui/palette.css";
 import "./styles.css";
 import "../ui/ui.css";
 
@@ -48,6 +51,9 @@ export default function Gallery() {
   const [range, setRange] = useState(30);
   const [sel, setSel] = useState(end);
   const [perDay, setPerDay] = useState(2);
+  const [view, setView] = useState("stock");
+  const [span, setSpan] = useState("week");
+  const [chip, setChip] = useState("week");
   return (
     <main className="shell">
       <h1>UI kit</h1>
@@ -112,6 +118,22 @@ export default function Gallery() {
         <StatusBadge status="info">defrosting</StatusBadge>
         <StatusBadge status="warning">eat soon</StatusBadge>
         <StatusBadge status="critical">past eat-by</StatusBadge>
+      </div>
+
+      <h2>Layout</h2>
+      <PageHeader title="Page title" onBack={() => {}} backLabel="Dashboard" actions={<button className="secondary small-button">Action</button>} />
+      <SubTabs items={[{ id: "log", label: "Log food" }, { id: "stock", label: "Stock" }, { id: "recipes", label: "Recipes" }, { id: "shopping", label: "Shopping" }]} value={view} onChange={setView} label="Views" />
+      <Segmented items={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onChange={setSpan} label="Period" />
+      <ChipGroup options={[{ id: "today", label: "Today" }, { id: "week", label: "7 days" }, { id: "month", label: "30 days" }]} value={chip} onChange={setChip} label="Period" />
+
+      <h2>Icons</h2>
+      <div className="row" style={{ justifyContent: "flex-start" }}>
+        {ICON_NAMES.map((n) => (
+          <span key={n} className="muted small" style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <Icon name={n} />
+            {n}
+          </span>
+        ))}
       </div>
     </main>
   );

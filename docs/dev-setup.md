@@ -52,7 +52,7 @@ Tasks (Terminal > Run Task, `.vscode/tasks.json`):
 | Android: logcat (app only) | `adb logcat` filtered to the app's process |
 | Test, Typecheck | `npm test`, `npm run typecheck` |
 
-Debugging the WebView: with the app running on the emulator or a USB phone, open `chrome://inspect` in Chrome or Edge and click *inspect* under `app.health.personal`. The Logs tab in the app shows the app's own log records.
+Debugging the WebView: with the app running on the emulator or a USB phone, open `chrome://inspect` in Chrome or Edge and click *inspect* under `app.health.personal`. Settings > Debug logs in the app shows the app's own log records.
 
 A phone instead of the emulator: enable Developer options > USB debugging, plug it in, accept the prompt, and `adb devices` lists it. The run task then offers it.
 

@@ -57,7 +57,8 @@ flowchart LR
 flowchart TB
   subgraph ui[UI layer - React]
     appShell[App shell<br/>App.tsx]
-    today[Today screen]
+    dash[Dashboard]
+    chatUi[Chat screen]
     settings[Settings screen]
   end
   subgraph core[Core - plain TypeScript, no Capacitor imports]
@@ -77,9 +78,10 @@ flowchart TB
     files[Filesystem + Share]
   end
 
-  appShell --> today & settings
+  appShell --> dash & chatUi & settings
   appShell --> sync
-  today --> repo
+  dash --> repo
+  chatUi --> chat
   settings --> backup & secretsApi & repo
   sync --> source --> mcp --> nativeHttp
   sync --> repo
@@ -95,11 +97,15 @@ flowchart TB
 
 | Component | Responsibility | Main files |
 |---|---|---|
-| App shell | Opens the DB, runs migrations, triggers sync on launch, switches screens | `src/app/App.tsx`, `src/platform/openDatabase.ts` |
-| Today screen | Last sync status, warnings, the latest day's values | `src/features/metrics/TodayScreen.tsx` |
-| Settings screen | *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: freddy, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore | `src/features/settings/` |
-| Me tab | picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/features/me/` |
-| Logs tab | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/features/logs/` |
+| App shell | Opens the DB, runs migrations, triggers sync on launch, the five tabs in a bottom bar (Dashboard, Chat, Meal prep, Alcohol, Settings) | `src/app/App.tsx`, `src/app/TabBar.tsx`, `src/platform/openDatabase.ts` |
+| Dashboard tab | Profile picture (opens the profile) and sync at the top; Day / Week / Month with steps, calories burned and eaten, balance, protein, meal prep portions and stock, workouts: the day's numbers, or the daily average and total; charts per day; every synced number of a day; opens food logging in the Meal prep tab | `src/features/dashboard/` |
+| Chat tab | Conversations with Claude: camera or gallery photos, quick prompts, consent and change confirmation in line, changes with undo, history | `src/features/chat/ui/ChatScreen.tsx` |
+| Meal prep tab | Logging what you eat (today, history, saved meals), then the meal prep: stock and defrost plan, recipes, shopping list | `src/features/mealprep/ui/`, `src/features/food/ui/` |
+| UI kit and palette | Shared components (charts, figures, controls, `PageHeader`, `SubTabs`, `Segmented`, `Icon`) and the one color palette (`palette.css`), checked by tests. Screens: `docs/screens/index.html` | `src/ui/` |
+| Alcohol tab | Drinks, their kcal and cost, weight without alcohol | `src/features/alcohol/ui/` |
+| Settings tab | *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: freddy, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/features/settings/` |
+| Profile (from the Dashboard) | past activity imported and synced, picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/features/me/` |
+| Debug logs (Settings) | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/features/logs/` |
 | Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/features/sync/runSync.ts` |
 | FreddySource | Decides the date window, discovers metrics, calls tools, parses text into samples | `src/features/sync/freddy.ts`, `src/features/sync/freddyText.ts` |
 | MCP HTTP client | JSON-RPC over HTTP with SSE replies, only CORS-safe headers, no secrets in errors | `src/features/sync/mcpHttp.ts` |
@@ -181,13 +187,13 @@ flowchart LR
   end
 ```
 
-### 4.4 Claude agent (core built, no chat screen yet)
+### 4.4 Claude agent
 
 Example: the owner sends a photo of lunch and asks to log it.
 
 ```mermaid
 sequenceDiagram
-  participant UI as Chat screen (to build)
+  participant UI as Chat screen
   participant E as Agent engine
   participant DB as SQLite
   participant C as Claude API
@@ -219,7 +225,7 @@ One local SQLite database (`health`), encrypted with SQLCipher. Main groups:
 |---|---|---|
 | Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync |
 | Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals` | UI (screens not built yet) |
-| Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `agent_actions` | Agent engine (chat screen not built yet) |
+| Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `agent_actions` | Agent engine (Chat tab) |
 | Settings | `app_settings` (non-secret) | UI |
 | Read models | Views `daily_metric_values`, `daily_nutrition`, `daily_alcohol` | Derived |
 
