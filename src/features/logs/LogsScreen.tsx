@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createLogger, format, getLogLevel, LEVELS, recentLogs, setLogLevel, type Level, type LogRecord, type Threshold } from "../../core/log";
 import type { SqlDriver } from "../../db/driver";
 import { isNative, platformName, shareText } from "../../platform/device";
+import { APP_VERSION } from "../../platform/buildInfo";
 import { saveTextFile } from "../../platform/files";
 import { failed, MsgLine, plural, timeZone, type Msg } from "../../ui/common";
 import { StatusBadge } from "../../ui/controls";
@@ -37,7 +38,7 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
   const shown = all.filter((r) => RANK[r.level] >= RANK[show]).reverse();
   const errors = all.filter((r) => r.level === "error").length;
   const warnings = all.filter((r) => r.level === "warn").length;
-  const report = () => logReport(recentLogs.records(), { platform: platformName, build: import.meta.env.DEV ? "development" : "production", timeZone: timeZone(), level, nowMs: Date.now() });
+  const report = () => logReport(recentLogs.records(), { platform: platformName, build: `${APP_VERSION}, ${import.meta.env.DEV ? "development" : "production"}`, timeZone: timeZone(), level, nowMs: Date.now() });
 
   async function exportFile() {
     try {

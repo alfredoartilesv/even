@@ -39,7 +39,7 @@ const fromDraft = (d: Draft) => ({
 });
 
 function liveEstimates(draft: Draft, saved: Profile, weightKg: number | null) {
-  const parsed = profileSchema.safeParse(fromDraft(draft));
+  const parsed = profileSchema.safeParse({ ...saved, ...fromDraft(draft) });
   try {
     return estimates(parsed.success ? parsed.data : saved, weightKg, today());
   } catch {
@@ -73,7 +73,8 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
   async function save(e: FormEvent) {
     e.preventDefault();
     try {
-      setSaved(await saveProfile(db, fromDraft(draft), today()));
+      // Merge into the saved profile: fields set elsewhere (sports, on the Me tab) are kept.
+      setSaved(await saveProfile(db, { ...saved, ...fromDraft(draft) }, today()));
       setMsg({ kind: "ok", text: "Profile saved." });
       onChanged();
     } catch (err) {

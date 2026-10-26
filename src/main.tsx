@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import { initLogging } from "./app/logging";
+import "./ui/palette.css";
 import "./app/styles.css";
 
 initLogging();

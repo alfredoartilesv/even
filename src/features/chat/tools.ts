@@ -10,6 +10,7 @@ import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee,
 import { addDays, localDay } from "../../core/tz";
 import { latestWeight } from "../alcohol/alcohol";
 import { estimates, loadProfile } from "../settings/profile";
+import { goalProgress, listGoals as listGoalRows } from "../me/goals";
 import type { DataClass } from "./consent";
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
@@ -228,15 +229,30 @@ const listGoals: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
     "list_goals",
-    "List the owner's active goals, including the daily calorie target (target_kind food, metric calories): title, what is measured (target_kind and metric), comparator, target, unit, period and dates.",
+    "List the owner's active goals, including the daily calorie target (target_kind food, metric calories): title, what is measured (target_kind and metric), comparator, target, unit, period and dates, and how each is going: progress.current (today for day goals, the week or month so far otherwise: amounts summed, levels averaged), progress.status (met, on_track, behind, missed, no_data), and for day goals last7 (days met of those with data) and streak.",
     {},
   ),
   async run(db) {
-    const goals = await db.all(
-      `SELECT title, target_kind, metric, comparator, target_num, unit, period, start_day, end_day
-       FROM goals WHERE deleted_at IS NULL ORDER BY start_day`,
+    const today = localDay(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const goals = await listGoalRows(db, today);
+    const out = await Promise.all(
+      goals.map(async (g) => {
+        const p = await goalProgress(db, g, today);
+        return {
+          title: g.title,
+          target_kind: g.targetKind,
+          metric: g.metric,
+          comparator: g.comparator,
+          target_num: g.targetNum,
+          unit: g.unit,
+          period: g.period,
+          start_day: g.startDay,
+          end_day: g.endDay,
+          progress: p && { current: p.current === null ? null : Math.round(p.current * 10) / 10, status: p.status, period_from: p.periodFrom, last7: p.last7, streak: p.streak },
+        };
+      }),
     );
-    return { result: { goals }, summary: `Goal list (${goals.length})` };
+    return { result: { goals: out }, summary: `Goal list with progress (${out.length})` };
   },
 };
 
@@ -470,7 +486,7 @@ const getProfile: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
     "get_profile",
-    "The owner's profile from Settings: age (not the birth date), sex, height, activity level, weekly weight goal, the latest weight with its day and source, and the estimates they allow (BMI and class, healthy weight range, BMR, daily energy, calorie target for the goal, protein target). Fields the owner has not filled in are null and listed in missing; their name is not sent.",
+    "The owner's profile from Settings: age (not the birth date), sex, height, activity level, weekly weight goal, the sports they call theirs, the latest weight with its day and source, and the estimates they allow (BMI and class, healthy weight range, BMR, daily energy, calorie target for the goal, protein target). Fields the owner has not filled in are null and listed in missing; their name is not sent.",
     {},
   ),
   async run(db) {
@@ -484,6 +500,7 @@ const getProfile: ChatTool = {
         height_cm: p.heightCm,
         activity: p.activity,
         kg_per_week_goal: p.kgPerWeek,
+        sports: p.sports,
         latest_weight: w ? { kg: Math.round(w.kg * 10) / 10, day: w.day, source: w.source } : null,
         bmi: e.bmi,
         healthy_weight_kg: e.healthyWeight,

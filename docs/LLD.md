@@ -10,7 +10,8 @@ The tree follows the three layers in [HLD section 3](HLD.md#3-components): UI, c
 src/
   main.tsx                         entry: initLogging(), render <App />
   app/                             UI shell (the composition root)
-    App.tsx                        DB open, stored log level, auto sync, tabs
+    App.tsx                        DB open, stored log level, auto sync, tabs and the pages over the Dashboard
+    TabBar.tsx                     the bottom tab bar (five tabs, icons and labels)
     logging.ts                     default level (debug in dev, info built), uncaught-error hooks
     styles.css
   core/                            pure helpers, no app or platform imports
@@ -33,23 +34,29 @@ src/
     device.ts                      isNative, nativeRequest, deviceFetch, shareText
     notifications.ts               Notifier on @capacitor/local-notifications (no-op in the browser)
     files.ts                       backup file to the share sheet / download
+    buildInfo.ts                   APP_VERSION and BUILD_TIME (defined by vite.config.ts from package.json)
   ui/                              the UI kit: presentational components, plain props in, callbacks out (section 8b)
     common.tsx                     shared screen helpers: Msg, failed(), dates, TagChips
     charts/                        LineChart, BarChart, CalendarHeatmap, StatTile, Sparkline, Meter, StackedBar; scale.ts (pure)
     mealprep/                      StockSummary, DefrostTimeline, StockAlerts, BatchBar; timeline.ts (pure)
     nutrition.tsx, controls.tsx    CalorieMeter, MacroSplit; RangePicker, Stepper, StatusBadge
-    ui.css                         kit styles and chart color tokens (light and dark)
+    palette.css                    every color by role (light and dark), chart series, radii: the only place colors are defined
+    layout.tsx                     PageHeader, SubTabs, Segmented: the frame every screen uses
+    icons.tsx                      Icon: the app's line icons
+    ui.css                         kit styles
   features/<name>/                 logic (*.ts), data access and screens (*.tsx or ui/)
-    metrics/                       samples, catalog, queries, TodayScreen
+    metrics/                       samples, catalog, queries
+    dashboard/                     dashboard.ts (spans, per-day figures, totals and averages); DashboardScreen, ProfileButton
     sync/                          runSync, freddyClient, FreddySource, text parsers, MCP client, Source types
-    food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ Calories, History, Saved
+    food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ TodayView, HistoryView, SavedView (shown in the Meal prep tab)
     mealprep/                      recipes, batches, stock fold and defrost plan, shopping list; ui/ Stock, Recipes, Shopping
-    alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; ui/ Alcohol view
+    alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; ui/ AlcoholScreen (the Alcohol tab), AlcoholView
     journal/                       manual measurements, day notes, goals
-    chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service
+    chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service, bubbles (what a stored message shows); ui/ ChatScreen
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
-    settings/                      secrets, log level, profile (owner profile and estimates), data inventory; SettingsScreen with Profile, Connections and Privacy pages
-    logs/                          LogsScreen (the Logs tab), report.ts (Markdown report for Claude, pure)
+    settings/                      secrets, log level, profile (owner profile and estimates), data inventory; SettingsScreen with Profile, Connections, Privacy, Debug logs and About pages
+    logs/                          LogsScreen (Settings > Debug logs), report.ts (Markdown report for Claude, pure)
+    me/                            MeScreen (the profile, opened from the Dashboard); sports, workouts, goals (progress), goal templates (pure logic); ui/ avatar
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
 scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
 docs/                              this documentation
@@ -173,7 +180,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 `createLogger(scope)` returns `debug / info / warn / error`, `time(msg, level?)` (logs `ms` when the returned function is called) and `child(sub)` (scope `parent.sub`). Levels: `debug < info < warn < error < silent`. `setLogLevel(level)` sets the global threshold and `setLogLevel(level, scope)` overrides it for a scope and its children (`sync` covers `sync.freddy`).
 
-Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that the Logs tab shows. Nothing is written to disk; records leave the phone only when the owner exports or shares them from the Logs tab. A sink that throws is ignored.
+Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSink` (one line: `12:00:01.234 INFO  sync: sync finished {"samples":10,"ms":812}`) and to `recentLogs`, a 500-record ring buffer in memory that Settings > Debug logs shows. Nothing is written to disk; records leave the phone only when the owner exports or shares them from that page. A sink that throws is ignored.
 
 Fields are sanitised before any sink sees them: keys matching key, token, secret, password, passphrase, authorization, cookie or url become `[redacted]`; errors become `{ name, message }` (validation errors as `path: message` per issue); strings are cut at 200 characters, arrays over 20 items and objects deeper than 2 levels are summarised.
 
@@ -490,20 +497,31 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 ## 8. UI
 
-`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (today, food, mealprep, logs, settings), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
+`App.tsx` state: `dbStatus` (opening, ready with `db`, error with message), `tab` (dashboard, chat, mealprep, alcohol, settings), `dashPage` (main, profile, food: pages over the Dashboard with a back button; tapping Dashboard returns to main), `settingsPage` (so Edit profile and Connect Claude open the right page), `configured`, `syncing`, `version` (incremented after each sync or settings change; screens reload on change), `autoSynced` ref (one automatic sync per launch).
 
-- **Header** (every tab): `SyncButton` ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
-- **TodayScreen**: `lastSync` + `latestSampleDay` + `dayValues`. Shows the last successful sync time, and the latest day's values with device and "day not over".
-- **FoodScreen**: four views (the fourth, *Alcohol*, is described after this list). *Calories*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
-- **AlcoholView** (Food > Alcohol): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
-- **MealPrepScreen**: tag filter chips shared by three views. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
-- **LogsScreen** (Logs tab): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
-- **SettingsScreen**: three pages behind sub-tabs. Messages are shown inline; nothing throws to React.
+- **Tab bar** (`TabBar`): fixed to the bottom, above the gesture area (`env(safe-area-inset-bottom)`), icon and label per tab, `aria-current` on the open one.
+- **Sync**: `SyncButton` at the top of the Dashboard ("Synced 5 min ago", "Syncing…" with a spinner, amber when stale or failed; disabled until freddy is set up) and `SyncBanner` above every tab (3+ days without a sync, or the last attempt failed, with its error and a Sync now button).
+- **DashboardScreen**: top bar with the profile picture (`ProfileButton`, opens the profile), the title and the sync button; the last sync's warnings. Day / Week / Month (segmented) and ‹ › to move between periods, with a way back to the current one; the next arrow stops at today. Tiles: steps, calories burned (`daily_totalKilocalories`), calories eaten (food plus drinks), balance (eaten minus burned on days with both), active calories, protein. For a day the tile is the day's number; for a week or month it is the daily average with the total (and the number of days with data) under it. Averages divide by days with data, and the current week or month stops at today (`loadDashboard`). Week and month add a steps `BarChart` (tap a day to open it) and a calories in and out `LineChart` with the calorie target. Meal prep: portions eaten (same figures) and portions in stock now. Workouts: sessions and time. A day also lists every synced number (`dayValues`, with device and "day not over"). *Log food* opens the Meal prep tab on *Log food*.
+- **MealPrepScreen** (Meal prep tab): six views behind `SubTabs`, food logging first; `App` owns the open view so the Dashboard can open *Log food*. *Log food*: meter for today against the target (numbers in text, warning color plus the words "over target" when over), macros, set or change the target, "Eat again" suggestions (one tap logs, with Undo), "Log a meal" (name with saved-meal completion that fills the macros, slot chips defaulting to the hour, macros, notes, camera photo, save to favourites), and today's entries by slot. *History*: 7-day `BarChart` of calories with the target as a dashed line (tap a bar to open the day, the selected bar shows its value), weekly average and days over target, the day's entries, jump to the previous logged day. Entries everywhere have Eat again, ☆ Save, Edit and Delete. *Saved meals*: grid of saved meals with photo, kcal, slot, times eaten and last time; log with servings; edit (photo, name, slot, macros, notes) or remove.
+- **AlcoholScreen** (Alcohol tab, `AlcoholView`): period chips (today, 7 days, 30 days, year); tiles for drinks (and standard drinks), kcal (flagged when some are estimated) and money (flagged when some drinks have no price); "Weight without alcohol" (expected weight, the difference, where the weight came from, and the caveat); one-tap logging from drink types (with Undo) and "Other…" (name, ml, ABV, kcal with an estimate placeholder, price, how many, save as a type); the period's drinks with delete; drink types with edit/remove; the currency. Drink kcal are also added to the Calories meter ("including N kcal from drinks") and to the History bars and averages.
+  Then the meal prep, with tag filter chips on Stock and Recipes. *Stock*: totals (meals left, in the fridge, frozen), the defrost plan with a portions-a-day field, alerts, one card per batch with fridge and freezer lots and Eat / Freeze / Defrost / Toss / Undo / Delete for N portions, and "Log a cook" (portions made, straight to the freezer). *Recipes*: list with a batches count per recipe and "Add to shopping list"; editor for name, portions, shelf life, per-portion macros, tags (suggested breakfast, lunch, dinner, snack, or free text) and ingredients. *Shopping*: add item, tick, remove, clear ticked or all, share (phone) or copy (browser) the open items as text.
+- **MeScreen** (the profile, from the Dashboard's picture): the owner's page and their past activity, imported (Garmin export) or synced.
+  - *Header*: picture (tap to change: cropped to a 256 px square JPEG, EXIF dropped, stored as `profile.photo` in `app_settings`, so it is backed up; remove), name, age, height, latest weight, *Edit profile* (opens Settings > Profile).
+  - *My sports*: the sports the owner picks, in their order (`profile.sports`); they lead the activity totals.
+  - *Tiles*: workouts, active time and distance over 30 days, goals met or on track.
+  - *Goals*: each live goal with a badge (met, on track, not yet, over, no data), the current value against the target in the owner's units (`fmtGoalValue`: hours for seconds, kg for body weight), a meter for at-least goals, and for day goals the last 7 days met and the streak. Delete asks once more (soft delete). *New goal*: a template (steps a day, sleep a night, protein a day, alcohol limit a week, target weight) with one number, or a free-text goal.
+  - *Activities*: range chips (30 days, 1 year, all); totals per sport (sessions, time, distance), the owner's sports first; the longest session per sport; the 8 latest workouts (type, day, time, distance, average HR, kcal).
+  - Logic in `features/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbers each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR), and on a day freddy has sessions the export's copies are left out. `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
+- **LogsScreen** (Settings > Debug logs): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
+- **ChatScreen** (Chat tab): not connected shows a card that opens Settings > Connections. Otherwise History (conversations, newest first, delete) and New; the conversation as bubbles (text and photos; tool calls, thinking and the `[App]` clock line are hidden); quick prompts when empty. The composer: a camera button that offers *Take a photo* (`capture="environment"`) or *Attach an image* (gallery, several), up to `MAX_IMAGES_PER_MESSAGE`, each through `downscalePhoto` with a preview and remove; Enter sends, Shift+Enter breaks the line. `askConsent` and `confirmAction` show an inline card and wait for the tap. Retryable API errors offer *Try again* (`continueConversation`); a send that failed before anything was stored (permission declined) puts the text and photos back. *Changes in this chat* lists `listAgentActions` with Undo for applied ones.
+- **SettingsScreen**: five pages behind sub-tabs, the page owned by `App`. Messages are shown inline; nothing throws to React.
   - *Profile* (`ProfileSettings`): the Google account (sign in, sign out, release ownership after a second confirmation; sign-in only in a native build with `VITE_GOOGLE_WEB_CLIENT_ID`), and the profile: name, birth date, sex, height, activity level, weight goal per week. Below it, live estimates from the form and the latest weight (`latestWeight`: manual or synced): age, BMI and class, BMR, daily energy, calorie target (flagged when held at BMR), protein, the healthy weight range, and which inputs are still missing.
   - *Connections* (`ConnectionSettings`): freddy (status badge, last successful sync and last error, URL, key kept when left empty, transport, the 3-day reminder); Claude (status, key hint and check time, problem text, disconnect; when not connected the three `CONNECT_STEPS`, a link to the Console and the key field, verified with `claudeKeyVerifier` over native HTTP before saving); how to bring in the Garmin history.
   - *Privacy & data* (`PrivacySettings`): the four consents as switches with their text (each change is a new `consents` row with the device id); what was sent to Claude (count, size, the last 25 with time, size and class); what is stored on this phone (`dataInventory`: live rows per kind with first and last day); backup export and restore.
+  - *Debug logs*: `LogsScreen`.
+  - *About* (`AboutSettings`): version (`package.json`, through `vite.config.ts`; `scripts/android-harden.mjs` also writes it as the APK's versionName), build time, platform, database schema (`PRAGMA user_version`), chat model, the end of the device id, and where data goes.
 
-Screens for the other logs, goals and chat are not built yet; their tables (and, for chat, the engine in `src/features/chat/`) exist.
+Screens for manual measurements and day notes are not built yet (the chat can log them); goals are on the profile.
 
 ## 8b. UI kit (`src/ui/`)
 
@@ -518,11 +536,19 @@ Presentational components shared by every screen. They take plain props and repo
 | `Meter`, `CalorieMeter` | A value against a limit; past it, the warning color plus the words |
 | `StackedBar`, `MacroSplit`, `BatchBar` | Part-to-whole in one bar with 2 px gaps; the legend prints every value and share |
 | `StockSummary`, `DefrostTimeline`, `StockAlerts` | Meal prep stock tiles, the next days (covered or short, what to defrost, what to eat or freeze), alerts with badges |
-| `RangePicker`, `Stepper`, `StatusBadge` | Date-range presets above the charts they scope; − n + for portions; a state as icon plus words |
+| `RangePicker`, `ChipGroup`, `Stepper`, `StatusBadge` | Date-range presets above the charts they scope; one choice among chips (Alcohol periods); − n + for portions; a state as icon plus words |
+| `PageHeader` | The title row of every tab and page: back button (named for where it goes) or leading element (the profile picture), the one `<h1>`, actions on the right |
+| `SubTabs` | The views of a tab (Meal prep, Settings) as a row that scrolls sideways; the open one is `aria-current` |
+| `Segmented` | One of a few equal options in one bar (Day / Week / Month), a radio group |
+| `Icon` | 24 px line icons in the current color, hidden from screen readers (the button carries the label) |
 
-Rules every chart keeps: a `ChartFrame` with title, a legend only for two or more series, and a Table toggle showing every value as text; text in text colors, never the series color; color never the only signal; status colors only for state. Series colors are the validated categorical palette in `ui.css` (slots 1-8, fixed per series, checked for color-vision deficiency against both app surfaces); one-series charts use the accent. Charts measure their width and draw in real pixels, so text never scales.
+Rules every chart keeps: a `ChartFrame` with title, a legend only for two or more series, and a Table toggle showing every value as text; text in text colors, never the series color; color never the only signal; status colors only for state. Series colors are the validated categorical palette in `palette.css` (slots 1-8, fixed per series, checked for color-vision deficiency against both app surfaces); one-series charts use the accent. Charts measure their width and draw in real pixels, so text never scales.
 
 `npm run dev` and open `/?gallery` to see every component with invented data (dev builds only, never in the production bundle).
+
+**Palette** (`src/ui/palette.css`): every color is a role token (`--bg`, `--surface`, `--fg`, `--muted`, `--line`, `--accent`, `--on-accent`, `--accent-soft`, `--good`, `--warning`, `--warning-soft`, `--error`, `--series-1..8`) with light and dark values, plus the radius scale (`--radius-sm`, `--radius`, `--radius-pill`). Cards, tiles, charts and the tab bar sit on `--surface`. `palette.test.ts` checks every text role at 4.5:1 or more on both surfaces in both themes, fails on a literal color anywhere else in `src/`, and on a `var(--token)` that is not defined. The swatches with their ratios: `docs/screens/palette.html`.
+
+**Consistency rules** (`uiLayout.test.ts`): screens title themselves with `PageHeader` (no `<h1>` of their own), switch views with `SubTabs` or `Segmented` (no hand-made tab rows), and draw icons with `Icon` (no inline SVG).
 
 ## 9. Backup and restore
 
@@ -589,7 +615,7 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
 
-Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring). No chat screen yet.
+Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring), `ui/ChatScreen.tsx` (the Chat tab).
 
 **Connecting.** There is no "Sign in with Claude" for a third-party Android app (architecture.md section 5), so the connect screen follows `CONNECT_STEPS`: open `CLAUDE_KEYS_URL` in the browser, create a personal key with an expiration, paste it. `connectClaude` checks its shape, verifies it with `claudeKeyVerifier` (`GET /v1/models/claude-opus-5-5` over the same native fetch as the chat: free, proves the key works and its workspace can use the model), and only then saves it. 401 → "rejected the API key", 404 → "workspace cannot use claude-opus-5-5", other errors as in 9b.6. `chatDeps` wraps the Messages call in `watchConnection`, so a 401/403 during chat sets `claude.problem` (status `needs_attention`, the screen asks to reconnect) and the next successful reply clears it.
 
@@ -677,12 +703,12 @@ Rules this keeps:
 | `compare_periods` | aggregate | metric, a_from, a_to, b_from, b_to | Both summaries, change of the average (absolute and %) |
 | `nutrition_summary` | aggregate | from, to | Days logged, average calories and macros per logged day; alcohol drinks, grams total, per drinking day, per calendar day |
 | `manual_summary` | aggregate | kind, from, to | Count, avg/min/max of `value_num` and `value_num2`, unit, first/last day |
-| `list_goals` | aggregate | none | Live goals, including the daily calorie target |
+| `list_goals` | aggregate | none | Live goals (not ended, not deleted), including the daily calorie target, each with `progress` (current, status, period start, last 7 days and streak for day goals) from `goalProgress` |
 | `list_saved_meals` | aggregate | none | Saved meals: id, name, usual meal, macros per serving, has photo, times and last time logged |
 | `list_meal_preps` | aggregate | tag or null | Recipes: id, name, tags, portions, shelf life, macros per portion, ingredients for one batch, notes |
 | `meal_prep_stock` | aggregate | none | Batches with portions left: fridge lots (eat-by, thawed), freezer lots (best-before), eaten, discarded |
 | `shopping_list` | aggregate | none | Items, quantities, units, ticked or not |
-| `get_profile` | aggregate | none | The saved profile without name or birth date: age, sex, height, activity, weekly goal, latest weight (kg, day, source), BMI and class, healthy weight range, BMR, TDEE, calorie target (floored flag), protein target, and `missing` |
+| `get_profile` | aggregate | none | The saved profile without name or birth date: age, sex, height, activity, weekly goal, sports, latest weight (kg, day, source), BMI and class, healthy weight range, BMR, TDEE, calorie target (floored flag), protein target, and `missing` |
 | `energy_needs` | aggregate | sex, age, height, weight, activity, kg per week | BMR, TDEE, calorie target (floored at BMR), protein target, from `health.ts`. Reads nothing from the database |
 | `daily_series` | raw | metric, from, to (max 400 days) | One value per day per source/device |
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
@@ -778,7 +804,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 195 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 202 tests, no device needed.
 
 | File | Covers |
 |---|---|
@@ -796,6 +822,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 19
 | `secrets.test.ts` | freddy credentials and Claude key validation and storage |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
+| `me.test.ts` | Garmin types to sports and labels; workouts grouped per session, freddy winning its days, totals and longest sessions; goal progress for day goals (status, last 7, streak), weeks and months (sum, average, last, on track and over), goals from steps, food, alcohol and manual data, ended and deleted goals hidden, `list_goals` with progress; goal values in the owner's units; sports kept in order; the picture checks |
 | `profile.test.ts` | profile save and read, trimming, range errors (height, age, goal, sex, future birth date), a damaged stored value, estimates against `health.ts` and the missing list, `get_profile` without name or birth date, data inventory against the real schema |
 | `agent.test.ts` | photo meal logging end to end, confirm and decline, input limits, photo consent, meal prep end to end (recipe, shopping merge, batch, eaten portion) and undo of each step, shopping undo refused after a change, saved meal with the chat photo and scaled logging, undo table guard, drinks/measurements/notes/goals, `energy_needs`, attachments, the 0005 table rebuild, writes through the plugin fake |
 | `claudeClient.test.ts` | the real SDK over `makeNativeFetch` with a fake `CapacitorHttp`: endpoint, auth and beta headers, body sent as an object, 401 mapping |
@@ -804,6 +831,10 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 19
 | `connect.test.ts` | key verified over native HTTP before saving (GET models, bearer), rejected keys never saved (401, 404, 529, malformed) with safe messages, key never in SQLite, connection marked and cleared by `watchConnection`, other errors ignored, disconnect |
 | `mealPrepStock.test.ts` | stock fold (lots, eat-by, defrost readiness, overdraw), alerts, defrost plan (advice days, late, short days, waste, eaten today) |
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
+| `palette.test.ts` | every palette role defined in both themes; text roles at WCAG AA on `--bg` and `--surface` (and `--on-accent` on the accent); the contrast maths against reference values; no literal colors outside the palette; no undefined tokens |
+| `uiLayout.test.ts` | `PageHeader`, `SubTabs`, `Segmented`, `ChipGroup`/`RangePicker`, every `Icon`, the tab bar's five tabs and current one, the Meal prep views in order; screens use the shared header, tab rows and icons |
+| `dashboard.test.ts` | spans (Monday weeks, months incl. leap February, moving between them), totals and averages over days with data, a seeded week: steps, burned, eaten with drinks, balance, protein, the current week stopping at today, a single day |
+| `chatBubbles.test.ts` | what a stored chat message shows: text and photos, without the clock line, tool calls, tool results or thinking |
 | `uiKit.test.ts` | ticks, compact numbers, label spacing, line gaps, column paths; the defrost timeline mapping; rendered charts keep their accessible name, table view, empty state, "over target" in words, legend rules and fixed slots; tile deltas, macro shares, alert badges |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
 | `logReport.test.ts` | the report's brief, context and counts, problems section, oldest-first order, empty buffer, backtick-safe fences, local-time file name, redaction carried through from the logger |
@@ -814,12 +845,13 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 19
 
 `tests/fakePlugin.ts` copies the Android plugin's behaviour that matters: `execute` splits on `";\n"`, strips comments, runs each piece as one statement, and both `execute` and `run` open their own transaction unless told not to.
 
-Not covered by automated tests: the React screens (the UI kit's components are, rendered to markup), `open.ts`, `secureStore.ts` and `files.ts` (thin Capacitor wrappers), and anything on a real device.
+Not covered by automated tests: the React screens (the UI kit's components are, rendered to markup; `npm run docs:screens` drives every screen in a headless Chrome and fails on any error the app logs), `open.ts`, `secureStore.ts` and `files.ts` (thin Capacitor wrappers), and anything on a real device.
 
 ## 13. Scripts
 
 | Script | Purpose |
 |---|---|
+| `scripts/screens/capture.ts` (`npm run docs:screens`) | Serves the app with an in-memory demo database (`demoDatabase.ts`: sql.js, the real migrations, a month of invented data, a dummy Claude key that is never used) instead of the native one, drives a headless Chrome or Edge (`CHROME_PATH` to choose) through every tab and view in light and dark at 390 × 844, and writes `docs/screens/index.html`, `docs/screens/palette.html` and `docs/screens/img/*.webp`. Fails if the app logs an error |
 | `scripts/freddy-probe.mjs` | One-off checks of the freddy endpoint (auth, SSE, CORS, tool output). Never prints URL or key |
 | `scripts/garmin-import.ts` (`npm run import:garmin`) | Garmin account export ZIP (the one in `imports/garmin/`, or `--zip`) -> real migrations -> encrypted backup in `imports/garmin/garmin-import-<date>.json` to restore on the phone. Password from `GARMIN_BACKUP_PASSWORD` or a hidden prompt. `--db file` also keeps a local SQLite file, `--no-backup` with `--db` only that, `--dry-run` reads and reports only, `--tz` for days without an offset (default: the PC's zone). Prints counts and date ranges only |
 | `scripts/freddy-sync.ts` | Real freddy -> real migrations -> SQLite (memory or `--db file`). Prints counts only |
