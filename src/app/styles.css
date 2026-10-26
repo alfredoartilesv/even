@@ -91,3 +91,5 @@ header h1 { margin-right: auto; }
 .banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; border: 1px solid var(--warning); color: var(--warning); border-radius: 12px; padding: 0.6rem 0.75rem; margin: 0.5rem 0 0.75rem; }
 .banner strong { font-weight: 600; }
 .banner .small { color: var(--muted); }
+a.file-button { color: var(--fg); text-decoration: none; justify-content: center; }
+fieldset .chips { margin-bottom: 0.25rem; }
