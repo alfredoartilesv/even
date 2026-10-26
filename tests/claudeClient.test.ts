@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
-import { claudeCreate } from "../src/chat/client";
-import { CHAT_MODEL, ChatApiError, startConversation } from "../src/chat/engine";
-import { recordConsent } from "../src/chat/consent";
-import { makeNativeFetch } from "../src/sources/nativeFetch";
+import { claudeCreate } from "../src/features/chat/client";
+import { CHAT_MODEL, ChatApiError, startConversation } from "../src/features/chat/engine";
+import { recordConsent } from "../src/features/chat/consent";
+import { makeNativeFetch } from "../src/platform/nativeFetch";
 import { migratedDb } from "./helpers";
 
 const KEY = "sk-ant-api03-test-key-not-real-0000000000";

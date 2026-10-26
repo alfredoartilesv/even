@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FreddySource, defaultMetricFilter, type ToolCaller } from "../src/sources/freddy";
-import { parseListMetrics } from "../src/sources/freddyText";
+import { FreddySource, defaultMetricFilter, type ToolCaller } from "../src/features/sync/freddy";
+import { parseListMetrics } from "../src/features/sync/freddyText";
 import { LIST_METRICS, QUERY_METRICS } from "./fixtures";
 
 // 25 Oct 2026, 19:00 in Madrid (18:00 UTC)

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportBackup, restoreBackup } from "../src/backup/backup";
+import { exportBackup, restoreBackup } from "../src/features/backup/backup";
 import {
   dayFood,
   deleteFood,
@@ -19,9 +19,9 @@ import {
   suggestions,
   updateFood,
   type PhotoInput,
-} from "../src/db/food";
-import { addMove, DEFAULT_MEAL_PREP, loadStock, logBatch, saveMealPrep } from "../src/db/mealPrep";
-import { mealForHour, rankSuggestions, usualMeal, type Candidate } from "../src/meals/suggest";
+} from "../src/features/food/food";
+import { addMove, DEFAULT_MEAL_PREP, loadStock, logBatch, saveMealPrep } from "../src/features/mealprep/mealPrep";
+import { mealForHour, rankSuggestions, usualMeal, type Candidate } from "../src/features/food/suggest";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

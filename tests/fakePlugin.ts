@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import type { PluginConnection } from "../src/db/capacitorDriver";
+import type { PluginConnection } from "../src/platform/sqlite";
 import type { SqlValue } from "../src/db/driver";
 
 /**

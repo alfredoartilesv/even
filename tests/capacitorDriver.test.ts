@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { DatabaseSync } from "node:sqlite";
-import { capacitorDriver } from "../src/db/capacitorDriver";
+import { capacitorDriver } from "../src/platform/sqlite";
 import { migrate } from "../src/db/migrate";
-import { loadCursor, saveSyncState, upsertSamples } from "../src/db/samples";
+import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
 import { fakePlugin } from "./fakePlugin";
 import { realMigrations } from "./helpers";
 

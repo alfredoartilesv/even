@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { uuidv7 } from "../src/lib/uuidv7";
+import { uuidv7 } from "../src/core/uuidv7";
 
 test("format, version and variant", () => {
   const id = uuidv7();

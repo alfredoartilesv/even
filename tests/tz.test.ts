@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDays, localDateTimeToMs, localDay, localDayStart, tzOffsetMinutes } from "../src/lib/tz";
+import { addDays, localDateTimeToMs, localDay, localDayStart, tzOffsetMinutes } from "../src/core/tz";
 
 const MAD = "Europe/Madrid";
 

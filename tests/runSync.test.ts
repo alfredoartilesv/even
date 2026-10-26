@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCursor } from "../src/db/samples";
-import { lastSync, runSync } from "../src/sync/runSync";
-import { FreddySource, type ToolCaller } from "../src/sources/freddy";
-import type { Source, SyncResult } from "../src/sources/types";
+import { loadCursor } from "../src/features/metrics/samples";
+import { lastSync, runSync } from "../src/features/sync/runSync";
+import { FreddySource, type ToolCaller } from "../src/features/sync/freddy";
+import type { Source, SyncResult } from "../src/features/sync/types";
 import { LIST_METRICS, QUERY_METRICS } from "./fixtures";
 import { migratedDb } from "./helpers";
 
