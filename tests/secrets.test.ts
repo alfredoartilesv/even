@@ -3,12 +3,29 @@ import assert from "node:assert/strict";
 import {
   clearClaudeKey,
   clearFreddyCredentials,
+  clearGarminKey,
   loadClaudeKey,
   loadFreddyCredentials,
+  loadGarminKey,
   memorySecretStore,
   saveClaudeKey,
   saveFreddyCredentials,
+  saveGarminKey,
+  SECRET_KEYS,
 } from "../src/features/settings/secrets";
+
+test("Garmin personal API key: shape check, trim, store, clear", async () => {
+  const store = memorySecretStore();
+  assert.equal(await loadGarminKey(store), null);
+  await assert.rejects(saveGarminKey(store, "   "), /Paste the personal API key/);
+  await assert.rejects(saveGarminKey(store, "short"), /does not look like/);
+  await assert.rejects(saveGarminKey(store, "has a space in the middle of it"), /does not look like/);
+  await saveGarminKey(store, "  gpk_abcdefghijklmnopqrstuvwxyz  ");
+  assert.equal(await loadGarminKey(store), "gpk_abcdefghijklmnopqrstuvwxyz");
+  assert.equal(await store.get(SECRET_KEYS.garminKey), "gpk_abcdefghijklmnopqrstuvwxyz", "in secure storage, under its own name");
+  await clearGarminKey(store);
+  assert.equal(await loadGarminKey(store), null);
+});
 
 test("freddy credentials: validate, trim, store, and clear", async () => {
   const store = memorySecretStore();

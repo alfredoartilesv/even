@@ -94,7 +94,7 @@ function exportZip() {
             distance: 600_000, // cm = 6 km
             elevationGain: 4_500, // cm = 45 m
             avgSpeed: 0.333, // (m/s)/10, not used
-            calories: 420,
+            calories: 1757, // kJ = 420 kcal
             avgHr: 150,
             maxHr: 175,
             steps: 5200,
@@ -153,6 +153,7 @@ test("units are converted and the day's offset comes from the export", () => {
 
   const act = (metric: string) => get(metric, "activity:777")!;
   assert.equal(act("activity_distanceInMeters").valueNum, 6000); // cm -> m
+  assert.equal(act("activity_activeKilocalories").valueNum, 420); // kJ -> kcal
   assert.equal(act("activity_durationInSeconds").valueNum, 1800); // ms -> s
   assert.equal(act("activity_totalElevationGainInMeters").valueNum, 45); // cm -> m
   assert.equal(act("activity_activityType").valueText, "running");
@@ -235,4 +236,19 @@ test("migration 0008 renames metrics an earlier import stored under the old name
   ], "only the import's rows");
   const cat = await db.all<{ metric: string }>("SELECT metric FROM metric_catalog WHERE source = 'garmin_export'");
   assert.deepEqual(cat.map((c) => c.metric), ["pulseOx_minSpo2InPercent"]);
+});
+
+test("migration 0009 turns activity calories an earlier import stored in kJ into kcal, and nothing else", async () => {
+  const { db } = memoryDriver();
+  const all = realMigrations();
+  await migrate(db, all.filter((m) => m.version < 9));
+  await db.run(
+    `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, end_ms, offset_min, value_num, local_day, created_at, updated_at)
+     VALUES ('a', 'garmin_export', 'Garmin', 'activity:1', 'activity_activeKilocalories', 0, 1, 0, 1757, '2026-10-24', 0, 0),
+            ('b', 'freddy', '', '2026-10-24#0', 'activity_activeKilocalories', 0, 1, 0, 420, '2026-10-24', 0, 0),
+            ('c', 'garmin_export', 'Garmin', '2026-10-24#0', 'daily_activeKilocalories', 0, 1, 0, 600, '2026-10-24', 0, 0)`,
+  );
+  await migrate(db, all);
+  const rows = await db.all<{ id: string; value_num: number }>("SELECT id, value_num FROM health_samples ORDER BY id");
+  assert.deepEqual(rows, [{ id: "a", value_num: 420 }, { id: "b", value_num: 420 }, { id: "c", value_num: 600 }]);
 });

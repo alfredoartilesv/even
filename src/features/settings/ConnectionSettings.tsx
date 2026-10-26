@@ -1,35 +1,32 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { setSetting } from "../../db/settings";
 import { deviceFetch } from "../../platform/device";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { StatusBadge } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
-import { loadTransport, TRANSPORT_KEY, type Transport } from "../sync/freddyClient";
+import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
 import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
 import { lastSync, type LastSync } from "../sync/runSync";
-import { clearFreddyCredentials, loadFreddyCredentials, saveFreddyCredentials, type SecretStore } from "./secrets";
+import { clearGarminKey, loadGarminKey, saveGarminKey, type SecretStore } from "./secrets";
 
 interface Props {
   db: SqlDriver;
   secrets: SecretStore;
   isNative: boolean;
-  /** Called after credentials or transport change. */
+  /** Called after the Garmin key or the reminder setting change. */
   onChanged: () => void;
 }
 
 const when = (ms: number | null) => (ms ? new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
 
-/** Where the data comes from (freddy, the Garmin export) and where questions go (Claude). */
+/** Where the data comes from (Garmin, the Garmin export) and where questions go (Claude). */
 export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) {
-  const [url, setUrl] = useState("");
   const [key, setKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
-  const [transport, setTransport] = useState<Transport>("native");
   const [remind, setRemind] = useState(true);
   const [sync, setSync] = useState<LastSync | null>(null);
-  const [freddyMsg, setFreddyMsg] = useState<Msg>(null);
+  const [garminMsg, setGarminMsg] = useState<Msg>(null);
 
   const [claude, setClaude] = useState<ClaudeConnection | null>(null);
   const [claudeKey, setClaudeKey] = useState("");
@@ -37,40 +34,33 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
   const [checking, setChecking] = useState(false);
 
   const load = useCallback(async () => {
-    const creds = await loadFreddyCredentials(secrets);
-    setUrl(creds?.url ?? "");
-    setHasKey(Boolean(creds?.apiKey));
-    setTransport(await loadTransport(db, isNative));
+    setHasKey(Boolean(await loadGarminKey(secrets)));
     setRemind(await reminderEnabled(db));
-    setSync(await lastSync(db, "freddy"));
+    setSync(await lastSync(db, GARMIN_SOURCE));
     setClaude(await claudeConnection(db, secrets));
-  }, [db, secrets, isNative]);
+  }, [db, secrets]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function saveFreddy(e: FormEvent) {
+  async function saveGarmin(e: FormEvent) {
     e.preventDefault();
     try {
-      // An empty key field keeps the stored key, so it never has to be shown again.
-      const stored = await loadFreddyCredentials(secrets);
-      await saveFreddyCredentials(secrets, url, key || (stored?.apiKey ?? ""));
-      await setSetting(db, TRANSPORT_KEY, transport);
+      await saveGarminKey(secrets, key);
       setKey("");
-      setHasKey(Boolean(key || stored?.apiKey));
-      setFreddyMsg({ kind: "ok", text: "Saved. Use the sync button at the top to test it." });
+      setHasKey(true);
+      setGarminMsg({ kind: "ok", text: "Saved. Use the sync button at the top to test it." });
       onChanged();
     } catch (err) {
-      setFreddyMsg(failed(err, "settings"));
+      setGarminMsg(failed(err, "settings"));
     }
   }
 
-  async function forgetFreddy() {
-    await clearFreddyCredentials(secrets);
-    setUrl("");
+  async function forgetGarmin() {
+    await clearGarminKey(secrets);
     setHasKey(false);
-    setFreddyMsg({ kind: "ok", text: "freddy URL and key removed from this phone." });
+    setGarminMsg({ kind: "ok", text: "Garmin key removed from this phone. Data already synced stays." });
     onChanged();
   }
 
@@ -90,7 +80,7 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
     }
   }
 
-  const freddyState = !hasKey ? (
+  const garminState = !hasKey ? (
     <StatusBadge status="info">not set up</StatusBadge>
   ) : sync?.status === "error" ? (
     <StatusBadge status="warning">last sync failed</StatusBadge>
@@ -103,39 +93,36 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
   return (
     <div>
       <div className="row">
-        <h2>freddy</h2>
-        {freddyState}
+        <h2>Garmin</h2>
+        {garminState}
       </div>
       <p className="muted small">
-        Your wearable data (Garmin and others) arrives through freddy. Last successful sync: {when(sync?.lastOkMs ?? null)}
+        Your watch data comes straight from Garmin Connect with your personal API key (read-only). Last successful sync:{" "}
+        {when(sync?.lastOkMs ?? null)}
         {sync?.status === "error" && sync.error ? `. Last attempt: ${sync.error}` : ""}.
       </p>
-      <form onSubmit={saveFreddy} className="stack">
+      <form onSubmit={saveGarmin} className="stack">
         <label>
-          MCP URL
-          <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" autoComplete="off" required />
-        </label>
-        <label>
-          MCP key {hasKey && <span className="muted small">(stored, leave empty to keep it)</span>}
-          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" />
-        </label>
-        <label>
-          Connection
-          <select value={transport} onChange={(e) => setTransport(e.target.value as Transport)}>
-            <option value="native" disabled={!isNative}>
-              Native HTTP (recommended on the phone)
-            </option>
-            <option value="fetch">WebView fetch (needs freddy CORS)</option>
-          </select>
+          Personal API key {hasKey && <span className="muted small">(stored; paste a new one to replace it)</span>}
+          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" required />
         </label>
         <div className="actions">
-          <button type="submit">Save</button>
-          <button type="button" className="secondary" onClick={forgetFreddy} disabled={!hasKey && !url}>
+          <button type="submit" disabled={!key.trim()}>
+            Save
+          </button>
+          <button type="button" className="secondary" onClick={forgetGarmin} disabled={!hasKey}>
             Forget
           </button>
         </div>
-        {!isNative && <p className="muted small">Browser build: the URL and key are kept in memory only and forgotten on reload.</p>}
-        <MsgLine msg={freddyMsg} />
+        <p className="muted small">
+          Make the key in Garmin Connect on the web: Settings → Personal API Key. It is shown once and expires on the date you pick; then
+          make a new one and paste it here.{" "}
+          <a href={GARMIN_KEY_PAGE} target="_blank" rel="noopener noreferrer">
+            Open Garmin Connect
+          </a>
+        </p>
+        {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
+        <MsgLine msg={garminMsg} />
       </form>
       <label className="inline">
         <input
@@ -148,11 +135,11 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
             onChanged(); // reschedules or cancels the notification
           }}
         />
-        Notify me when freddy has not synced for 3 days
+        Notify me when Garmin has not synced for 3 days
       </label>
       <p className="muted small">
-        The app syncs when it opens, when you come back to it, and with the sync button at the top. On the free plan freddy keeps only 7
-        days, so a reminder comes 3 days after the last successful sync{isNative ? "" : " (on the phone only)"}.
+        The app syncs when it opens, when you come back to it, and with the sync button at the top. A reminder comes 3 days after the last
+        successful sync{isNative ? "" : " (on the phone only)"}, usually a sign the key has expired.
       </p>
 
       <div className="row">
@@ -216,9 +203,9 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
 
       <h2>Garmin history</h2>
       <p className="muted small">
-        freddy's free plan reaches back 7 days. For your full Garmin history, request your data export in Garmin Connect (Account → Data
+        The first Garmin sync reads the last 30 days. For your full history, request your data export in Garmin Connect (Account → Data
         Management → Export Your Data), run <code>npm run import:garmin</code> on the PC, and restore the encrypted file it writes under
-        Privacy → Restore. Days freddy also has are shown once, from freddy.
+        Privacy → Restore. Days the sync also has are shown once, from the sync.
       </p>
     </div>
   );

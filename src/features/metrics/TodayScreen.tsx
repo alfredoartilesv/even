@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { dayValues, latestSampleDay, type DayValue } from "./queries";
+import { GARMIN_SOURCE } from "../sync/garmin";
 import { lastSync, type LastSync } from "../sync/runSync";
 
 interface Props {
@@ -19,7 +20,7 @@ export function TodayScreen({ db, configured, version }: Props) {
   const [values, setValues] = useState<DayValue[]>([]);
 
   const load = useCallback(async () => {
-    setSync(await lastSync(db, "freddy"));
+    setSync(await lastSync(db, GARMIN_SOURCE));
     const d = await latestSampleDay(db);
     setDay(d);
     setValues(d ? await dayValues(db, d) : []);
@@ -33,7 +34,7 @@ export function TodayScreen({ db, configured, version }: Props) {
     <section>
       {/* Syncing is the header button; failures and staleness show in the banner above every tab. */}
       {configured && <div className="muted small">Last successful sync: {fmtTime(sync?.lastOkMs ?? null)}</div>}
-      {!configured && <p className="muted">Add your freddy MCP URL and key in Settings to start syncing.</p>}
+      {!configured && <p className="muted">Add your Garmin personal API key in Settings to start syncing.</p>}
       {sync?.warnings.map((w) => (
         <p key={w} className="warning small">
           {w}

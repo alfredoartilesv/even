@@ -13,7 +13,8 @@ import type { CatalogEntry, SampleInput } from "../sync/types";
  *   profile weight, not a weigh-in, so it is skipped. Height is a profile value: skipped.
  * - DI-Connect-Metrics/MetricsMaxMetData_*.json: VO2 max per sport and fitness age.
  * - DI-Connect-Fitness/*_summarizedActivities.json: activities. distance in CENTIMETRES, duration
- *   in MILLISECONDS, elevation in CENTIMETRES; avgSpeed is (m/s)/10 and is not used.
+ *   in MILLISECONDS, elevation in CENTIMETRES, calories in KILOJOULES (exactly 4.184x the Personal
+ *   API kcal for the same activities, checked 26 Oct 2026); avgSpeed is (m/s)/10 and is not used.
  * Not read: hydration (only activity sweat estimates), nutrition (only calorie goals), uploaded FIT
  * files, routes and locations, social, profile images, workouts, gear, personal records.
  *
@@ -21,7 +22,7 @@ import type { CatalogEntry, SampleInput } from "../sync/types";
  * Metric names are the ones freddy uses for the same Garmin values (checked against freddy's list,
  * 26 Oct 2026), so the history and freddy's recent days form one series per metric. They are stored
  * under their own source, so neither overwrites the other; where both have a metric on the same day,
- * daily_metric_values shows freddy's only (migration 0008).
+ * daily_metric_values shows the live source only (migrations 0008 and 0009: the Personal API, then freddy, then the export).
  */
 
 export const GARMIN_EXPORT_SOURCE = "garmin_export";
@@ -322,7 +323,10 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       })(), "seconds", at, ext);
       add("activity_distanceInMeters", cm(a.distance, 1_000_000), "meters", at, ext);
       add("activity_totalElevationGainInMeters",cm(a.elevationGain, 20_000), "meters", at, ext);
-      add("activity_activeKilocalories", inRange(num(a.calories), 0, 20_000), "kcal", at, ext);
+      add("activity_activeKilocalories", (() => {
+        const kj = inRange(num(a.calories), 0, 80_000);
+        return kj === null ? null : Math.round(kj / 4.184);
+      })(), "kcal", at, ext);
       add("activity_averageHeartRateInBeatsPerMinute", inRange(num(a.avgHr), 20, 250), "bpm", at, ext);
       add("activity_maxHeartRateInBeatsPerMinute", inRange(num(a.maxHr), 20, 250), "bpm", at, ext);
       add("activity_steps", inRange(num(a.steps), 0, 200_000), null, at, ext);
@@ -338,7 +342,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
 }
 
 /** Catalog rows for what was imported: unit, first and last day, number of readings. */
-function catalogFor(samples: SampleInput[]): CatalogEntry[] {
+export function catalogFor(samples: SampleInput[]): CatalogEntry[] {
   const by = new Map<string, CatalogEntry>();
   for (const s of samples) {
     const day = new Date(s.startMs + s.offsetMin * 60_000).toISOString().slice(0, 10);
