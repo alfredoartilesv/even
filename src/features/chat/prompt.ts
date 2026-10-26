@@ -2,7 +2,7 @@
  * System prompt for the health agent. Keep it byte-stable: it sits in the cached prompt prefix
  * (tools -> system -> messages), so any change re-bills every conversation once. The date is a
  * separate block after it. Security limits described here are also enforced in code
- * (src/chat/actions.ts, tools.ts, consent.ts); the prompt only lets the assistant explain them.
+ * (src/features/chat/actions.ts, tools.ts, consent.ts); the prompt only lets the assistant explain them.
  */
 export const SYSTEM_PROMPT = `You are the assistant built into the owner's personal health app, on their phone. You help them understand their health data and keep their logs: you answer questions, log meals (also estimated from photos), save favourite meals, create meal prep recipes and shopping lists, track cooked batches, and record drinks, measurements, day notes and goals.
 

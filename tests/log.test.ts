@@ -62,3 +62,8 @@ test("child scopes, timers and the ring buffer", () => {
   ring.clear();
   assert.deepEqual(ring.records(), []);
 });
+
+test("validation errors are summarised as path: message", () => {
+  const err = Object.assign(new Error('[{"code":"too_big", ...}]'), { name: "ZodError", issues: [{ path: ["entries", 0, "calories"], message: "Too big" }, { path: [], message: "Required" }] });
+  assert.deepEqual(sanitize({ err }).err, { name: "ZodError", message: "entries.0.calories: Too big; input: Required" });
+});

@@ -1,4 +1,7 @@
 import type { ToolCaller } from "./freddy";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("sync.mcp");
 
 /**
  * Tiny MCP-over-HTTP client, just enough to call tools on freddy's endpoint.
@@ -65,13 +68,18 @@ export class McpHttpCaller implements ToolCaller {
 
   async callTool(name: string, args: Record<string, unknown>): Promise<string> {
     await this.initialize();
+    const done = log.time("tool call");
     const reply = await this.rpc("tools/call", { name, arguments: args });
     const result = reply.result as { content?: Array<{ type: string; text?: string }>; isError?: boolean } | undefined;
     const text = (result?.content ?? [])
       .filter((c) => c.type === "text" && typeof c.text === "string")
       .map((c) => c.text as string)
       .join("\n");
-    if (result?.isError) throw new McpHttpError(`freddy tool "${name}" failed: ${text.slice(0, 300)}`);
+    if (result?.isError) {
+      log.warn("tool returned an error", { tool: name });
+      throw new McpHttpError(`freddy tool "${name}" failed: ${text.slice(0, 300)}`);
+    }
+    done({ tool: name, chars: text.length });
     return text;
   }
 
@@ -83,7 +91,9 @@ export class McpHttpCaller implements ToolCaller {
         clientInfo: { name: this.opts.clientName ?? "health-app", version: "0.1.0" },
       });
       await this.post({ jsonrpc: "2.0", method: "notifications/initialized" });
+      log.debug("session initialised", { session: Boolean(this.sessionId) });
     })().catch((e) => {
+      log.warn("initialise failed", { err: e });
       this.ready = null; // allow a retry on the next call
       throw e;
     });
@@ -123,6 +133,7 @@ export class McpHttpCaller implements ToolCaller {
     }
     const sid = res.headers.get("mcp-session-id");
     if (sid) this.sessionId = sid;
+    if (!res.ok) log.warn("HTTP error from freddy", { status: res.status });
     if (res.status === 401 || res.status === 403) {
       throw new McpHttpError(`freddy rejected the credentials (HTTP ${res.status}). Check the MCP key.`, res.status);
     }

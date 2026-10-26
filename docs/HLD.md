@@ -95,19 +95,22 @@ flowchart TB
 
 | Component | Responsibility | Main files |
 |---|---|---|
-| App shell | Opens the DB, runs migrations, triggers sync on launch, switches screens | `src/App.tsx`, `src/db/open.ts` |
-| Today screen | Last sync status, warnings, the latest day's values | `src/screens/TodayScreen.tsx` |
-| Settings screen | freddy credentials and transport, backup export and restore | `src/screens/SettingsScreen.tsx` |
-| Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/sync/runSync.ts` |
-| FreddySource | Decides the date window, discovers metrics, calls tools, parses text into samples | `src/sources/freddy.ts`, `src/sources/freddyText.ts` |
-| MCP HTTP client | JSON-RPC over HTTP with SSE replies, only CORS-safe headers, no secrets in errors | `src/sources/mcpHttp.ts` |
-| Native HTTP adapter | `fetch` look-alike over `CapacitorHttp` | `src/sources/nativeFetch.ts` |
-| Data access | Upserts, catalog, settings, day queries | `src/db/*.ts` |
+| App shell | Opens the DB, runs migrations, triggers sync on launch, switches screens | `src/app/App.tsx`, `src/platform/openDatabase.ts` |
+| Today screen | Last sync status, warnings, the latest day's values | `src/features/metrics/TodayScreen.tsx` |
+| Settings screen | freddy credentials and transport, backup export and restore, log level and recent logs | `src/features/settings/SettingsScreen.tsx`, `LogsPanel.tsx` |
+| Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/features/sync/runSync.ts` |
+| FreddySource | Decides the date window, discovers metrics, calls tools, parses text into samples | `src/features/sync/freddy.ts`, `src/features/sync/freddyText.ts` |
+| MCP HTTP client | JSON-RPC over HTTP with SSE replies, only CORS-safe headers, no secrets in errors | `src/features/sync/mcpHttp.ts` |
+| Native HTTP adapter | `fetch` look-alike over `CapacitorHttp` | `src/platform/nativeFetch.ts` |
+| Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, journal. Shared: settings, transactions | `src/features/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
 | Migration runner | Applies numbered SQL files, versioned in `PRAGMA user_version` | `src/db/migrate.ts`, `src/db/migrations/` |
-| SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/db/capacitorDriver.ts` |
-| Backup | Export every table to an encrypted file; restore by merging | `src/backup/` |
-| Secrets | freddy URL and key, Claude API key | `src/settings/` |
-| Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/chat/` |
+| Logging | Scoped, levelled logger; console and an in-memory buffer; secrets redacted; level stored in settings | `src/core/log.ts`, `src/app/logging.ts`, `src/features/settings/logLevel.ts` |
+| SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/platform/sqlite.ts` |
+| Backup | Export every table to an encrypted file; restore by merging | `src/features/backup/` |
+| Secrets | freddy URL and key, Claude API key | `src/features/settings/` |
+| Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/features/chat/` |
+
+**Code layout:** `app/` (shell), `features/<name>/` (logic, data access and screens per feature), `ui/`, `platform/` (every Capacitor adapter), `db/`, `core/` (pure helpers). See [LLD section 1](LLD.md#1-repository-layout) and the rules in [architecture.md section 3](architecture.md#3-rules-the-code-must-keep).
 
 **Design principle:** everything in "Core" depends only on interfaces (`SqlDriver`, `Source`, `ToolCaller`, `SecretStore`, a `fetch` function). Only the platform adapters import Capacitor. That is why the whole core runs in Node tests and in PC scripts (`scripts/freddy-sync.ts`) without a phone.
 

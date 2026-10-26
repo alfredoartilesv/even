@@ -3,6 +3,9 @@ import type { SqlDriver } from "../../db/driver";
 import { loadCursor, saveSyncState, upsertSamples } from "../metrics/samples";
 import { uuidv7 } from "../../core/uuidv7";
 import type { Source } from "./types";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("sync");
 
 export interface SyncOutcome {
   status: "ok" | "error";
@@ -23,7 +26,10 @@ const inFlight = new Map<string, Promise<SyncOutcome>>();
  */
 export function runSync(db: SqlDriver, source: Source, now: () => number = Date.now): Promise<SyncOutcome> {
   const running = inFlight.get(source.id);
-  if (running) return running;
+  if (running) {
+    log.debug("joining the sync already running", { source: source.id });
+    return running;
+  }
   const p = doSync(db, source, now).finally(() => inFlight.delete(source.id));
   inFlight.set(source.id, p);
   return p;
@@ -32,6 +38,8 @@ export function runSync(db: SqlDriver, source: Source, now: () => number = Date.
 async function doSync(db: SqlDriver, source: Source, now: () => number): Promise<SyncOutcome> {
   const runId = uuidv7(now());
   const cursorBefore = await loadCursor(db, source.id);
+  const started = now();
+  log.info("sync started", { source: source.id, cursorBefore });
   await db.run(
     "INSERT INTO sync_runs (id, source, started_ms, status, cursor_before) VALUES (?, ?, ?, 'running', ?)",
     [runId, source.id, now(), cursorBefore],
@@ -45,9 +53,12 @@ async function doSync(db: SqlDriver, source: Source, now: () => number): Promise
     await saveSyncState(db, source.id, res.nextCursor, t);
     const warnings = res.warnings ?? [];
     await finish(db, runId, now(), "ok", { cursorAfter: res.nextCursor, written, warnings });
+    log.info("sync finished", { source: source.id, samples: written, catalog: res.catalog?.length ?? 0, warnings: warnings.length, cursorAfter: res.nextCursor, ms: now() - started });
+    for (const w of warnings) log.warn("sync warning", { source: source.id, warning: w });
     return { status: "ok", samplesWritten: written, warnings, cursorBefore, cursorAfter: res.nextCursor };
   } catch (err) {
     const message = (err as Error).message || String(err);
+    log.error("sync failed, cursor kept", { source: source.id, err, ms: now() - started });
     await saveSyncState(db, source.id, cursorBefore, now(), message);
     await finish(db, runId, now(), "error", { cursorAfter: cursorBefore, written: 0, warnings: [], error: message });
     return { status: "error", samplesWritten: 0, warnings: [], error: message, cursorBefore, cursorAfter: cursorBefore };

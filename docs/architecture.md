@@ -48,11 +48,21 @@ Schema (so phase 2 is cheap):
 - Health samples carry `source`, `device`, `external_id`, unique on (source, device, metric, external_id), so re-syncs are idempotent.
 - Migrations are numbered SQL files (`src/db/migrations/0001_name.sql`), applied at startup in order, tracked in `PRAGMA user_version`, one transaction each.
 - No semicolons inside SQL comments in migration files: the Android plugin splits scripts on `";\n"`. `*.sql` files are pinned to LF line endings (`.gitattributes`) for the same reason.
-- Every new table must be added to `BACKUP_TABLES` (`src/backup/backup.ts`). A test fails otherwise.
+- Every new table must be added to `BACKUP_TABLES` (`src/features/backup/backup.ts`). A test fails otherwise.
 
 Data:
 - For daily totals from Apple Health / Health Connect, prefer freddy's `<metric>_total` "Merged" metrics. They are already de-duplicated across apps. Never add per-app rows together.
 - Keep the source label (for example "Garmin Forerunner 245") when showing Garmin data (Garmin's attribution rule, via freddy's terms).
+
+Code structure (26 Oct 2026):
+- Layers: `app/` (shell) -> `features/<name>/` -> `ui/`, `platform/`, `db/` -> `core/`. Only `platform/` imports Capacitor plugins at runtime, and no feature logic reaches one even indirectly. Platform pieces are passed in as parameters. `tests/architecture.test.ts` enforces this. Details: [LLD section 1](LLD.md#1-repository-layout).
+- One feature, one folder: its logic, SQL and screens live together; shared code moves down a layer, never sideways into another feature's internals.
+- Writes that touch several rows go through `withTransaction` (`src/db/tx.ts`).
+
+Logging (26 Oct 2026):
+- Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in Settings > Logs and stored in `app_settings` (`log.level`).
+- Log what happened, not the data: ids, counts, kinds, durations, statuses. Never health values, food or recipe names, notes, chat text, URLs or keys. The logger redacts secret-looking fields as a backstop and `tests/logging.test.ts` checks real flows.
+- Logs stay on the phone in memory (500 records) and are only shared when the owner copies them.
 
 Privacy and security:
 - Secrets only in the Keystore/Keychain. Never in SQLite, logs, error messages or the repo.
@@ -79,18 +89,18 @@ Privacy and security:
 ## 4b. Decision 25 Oct 2026: stay on the FREE plan and read freddy through MCP
 
 The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP endpoint (the personal URL plus a key).
-- The MCP tools return **text**, not JSON. `src/sources/freddyText.ts` parses it; unknown lines are reported as warnings, never dropped silently. The formats seen so far are pinned by tests (`tests/fixtures.ts`).
+- The MCP tools return **text**, not JSON. `src/features/sync/freddyText.ts` parses it; unknown lines are reported as warnings, never dropped silently. The formats seen so far are pinned by tests (`tests/fixtures.ts`).
 - `FreddySource` talks to a small `ToolCaller` interface, so the transport can change (MCP now, REST later) without touching the sync logic.
 - Free-plan limits apply: 7-day window, 1 source (Garmin). A cursor older than the window produces a "Gap" warning.
 - The MCP URL and key are secrets: stored on the device (Keystore), never in the repo. Rotate them if they are ever pasted anywhere.
 - Terms: freddy forbids sharing the MCP endpoint with third parties for data collection. An app on the owner's own phone, using the owner's own endpoint, is not a third party, but it is not what the endpoint is documented for. Revisit before any public release.
-- **Probe result (25 Oct 2026, real endpoint):** URL alone returns 401; the URL plus `Authorization: Bearer <key>` works. Replies are `text/event-stream` (SSE), stateless (no session id), server `freddy 0.2.0`, 9 tools, 81 metrics. CORS preflight allows origin `*` and headers `content-type, authorization, mcp-session-id` only. The official MCP SDK also sends `mcp-protocol-version`, which a WebView would block, so `src/sources/mcpHttp.ts` is a minimal client that sends only the allowed headers.
+- **Probe result (25 Oct 2026, real endpoint):** URL alone returns 401; the URL plus `Authorization: Bearer <key>` works. Replies are `text/event-stream` (SSE), stateless (no session id), server `freddy 0.2.0`, 9 tools, 81 metrics. CORS preflight allows origin `*` and headers `content-type, authorization, mcp-session-id` only. The official MCP SDK also sends `mcp-protocol-version`, which a WebView would block, so `src/features/sync/mcpHttp.ts` is a minimal client that sends only the allowed headers.
 - **Real sync from a PC (25 Oct 2026):** 260 samples, 38 metrics, 7 local days; a second sync adds no rows.
 - Native HTTP is the default on the phone, so CORS does not apply there. Still unverified: whether WebView `fetch` would also work (selectable in Settings to test once).
 
 ## 5. Claude integration (phase 1)
 
-Core built 25 Oct 2026 (`src/chat/`); the chat screen is not built yet. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
+Core built 25 Oct 2026 (`src/features/chat/`); the chat screen is not built yet. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
 
 - The app calls the Anthropic API directly with the owner's own key, kept in the Keystore (acceptable for personal use; not for a public release).
 - **Model:** `claude-opus-5-5`, effort set explicitly to `medium` (its default; set so an upstream change does not move cost silently), thinking at the model default (always on). Server-side refusal fallback on (`fallbacks: "default"`), so a false-positive safety decline is re-run on the recommended fallback model instead of failing.
@@ -144,6 +154,6 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once.
 2. Answer the open question in section 8, then build those screens on the existing schema.
-3. Chat screen on top of `src/chat/` (owner is building the UI): key field in Settings, consent dialog, confirmation sheet for changes, photo button (`downscalePhoto` + `attachmentFromPhoto`), conversation list, "What was sent to Claude" and "Assistant activity" (with undo). Try the agent first from the PC with `npm run chat`.
+3. Chat screen on top of `src/features/chat/` (owner is building the UI): key field in Settings, consent dialog, confirmation sheet for changes, photo button (`downscalePhoto` + `attachmentFromPhoto`), conversation list, "What was sent to Claude" and "Assistant activity" (with undo). Try the agent first from the PC with `npm run chat`.
 4. Garmin export importer, once the owner's export arrives.
 5. Decide on freddy FREE vs Pro (risk 6).

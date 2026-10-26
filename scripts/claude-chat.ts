@@ -26,6 +26,10 @@ import { listDisclosures } from "../src/features/chat/store";
 import type { SqlDriver, SqlValue } from "../src/db/driver";
 import { migrate, parseMigrations } from "../src/db/migrate";
 import { deviceId } from "../src/db/settings";
+import { setLogLevel } from "../src/core/log";
+
+// Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
+setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
 
 function openDb(path: string): SqlDriver {
   const raw = new DatabaseSync(path);

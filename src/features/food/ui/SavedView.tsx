@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { deleteSavedMeal, listSavedMeals, localHour, logSavedMeal, saveMeal, type PhotoInput, type SavedMeal } from "../food";
 import { mealForHour } from "../suggest";
-import { fmtDay, MsgLine, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, MsgLine, timeZone, today, type Msg } from "../../../ui/common";
 import { draftFrom, emptyDraft, kcal, MEAL_LABEL, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
 
 interface Props {
@@ -38,7 +38,7 @@ export function SavedView({ db, version, onChanged }: Props) {
       onChanged();
       return true;
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "food"));
       return false;
     }
   }

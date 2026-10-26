@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { isNative, nativeRequest } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
 import { FoodScreen } from "../features/food/ui/FoodScreen";
@@ -10,11 +10,14 @@ import { loadFreddyCredentials } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { freddySource, loadTransport } from "../features/sync/freddyClient";
 import { runSync } from "../features/sync/runSync";
+import { applyStoredLogLevel } from "../features/settings/logLevel";
+import { createLogger } from "../core/log";
+import { DEFAULT_LOG_LEVEL } from "./logging";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
 type Tab = "today" | "food" | "mealprep" | "settings";
 
-const isNative = Capacitor.isNativePlatform();
+const log = createLogger("app");
 
 export function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>({ state: "opening" });
@@ -26,8 +29,14 @@ export function App() {
 
   useEffect(() => {
     openDatabase().then(
-      ({ db }) => setDbStatus({ state: "ready", db }),
-      (err: Error) => setDbStatus({ state: "error", message: err.message }),
+      async ({ db }) => {
+        await applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
+        setDbStatus({ state: "ready", db });
+      },
+      (err: Error) => {
+        log.error("database unavailable", { err });
+        setDbStatus({ state: "error", message: err.message });
+      },
     );
   }, []);
 
@@ -37,10 +46,10 @@ export function App() {
     if (!db) return;
     const creds = await loadFreddyCredentials(secretStore);
     setConfigured(Boolean(creds));
-    if (!creds) return;
+    if (!creds) return log.info("sync skipped: freddy not configured");
     setSyncing(true);
     try {
-      const source = freddySource(creds, await loadTransport(db, isNative), (o) => CapacitorHttp.request(o));
+      const source = freddySource(creds, await loadTransport(db, isNative), nativeRequest);
       await runSync(db, source); // never throws; the outcome is in sync_runs
     } finally {
       setSyncing(false);

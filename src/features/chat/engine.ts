@@ -7,6 +7,9 @@ import { imageBytes, validateAttachments, type ImageAttachment } from "./images"
 import { dateContext, SYSTEM_PROMPT } from "./prompt";
 import { appendMessage, createConversation, loadApiMessages, loadMessages, renameConversation } from "./store";
 import { CHAT_TOOLS, TOOLS_BY_NAME } from "./tools";
+import { createLogger } from "../../core/log";
+
+const chatLog = createLogger("chat");
 
 type BetaMessage = Anthropic.Beta.Messages.BetaMessage;
 type CreateParams = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
@@ -191,6 +194,7 @@ async function consentFor(deps: ChatDeps, scope: ConsentScope): Promise<boolean>
   if (!deps.askConsent) return false;
   const granted = await deps.askConsent(scope, CONSENT_TEXT[scope]);
   await recordConsent(deps.db, scope, granted, deps.deviceId, (deps.now ?? Date.now)());
+  chatLog.info("consent decided", { scope, granted });
   return granted;
 }
 
@@ -223,11 +227,25 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
     };
 
     let res: BetaMessage;
+    const started = now();
+    chatLog.debug("request", { conversationId, round: toolRounds + 1, messages: messages.length, toolChoice: params.tool_choice?.type });
     try {
       res = await deps.create(params);
     } catch (err) {
-      throw toChatError(err);
+      const e = toChatError(err);
+      chatLog.error("request failed", { conversationId, kind: e.kind, err: e, ms: now() - started });
+      throw e;
     }
+    chatLog.info("reply", {
+      conversationId,
+      model: res.model,
+      stop: res.stop_reason,
+      ms: now() - started,
+      inputTokens: res.usage.input_tokens,
+      outputTokens: res.usage.output_tokens,
+      cacheRead: res.usage.cache_read_input_tokens ?? 0,
+      toolUses: res.content.filter((b) => b.type === "tool_use").length,
+    });
 
     usage.requests += 1;
     usage.inputTokens += res.usage.input_tokens;
@@ -235,6 +253,7 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
     usage.cacheReadTokens += res.usage.cache_read_input_tokens ?? 0;
     usage.cacheWriteTokens += res.usage.cache_creation_input_tokens ?? 0;
     if (res.content.some((b) => b.type === "fallback") || (res.usage.iterations ?? []).some((i) => i.type === "fallback_message")) {
+      if (!fallbackUsed) chatLog.warn("served by the fallback model", { conversationId, model: res.model });
       fallbackUsed = true;
     }
 
@@ -281,7 +300,9 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
       .join("\n")
       .trim();
     const base = { conversationId, text, servedBy: res.model, fallbackUsed, toolCalls, actions, usage };
+    chatLog.info("turn finished", { conversationId, status: res.stop_reason, requests: usage.requests, toolCalls: toolCalls.length, actions: actions.length });
     if (res.stop_reason === "refusal") {
+      chatLog.warn("refusal", { conversationId, category: res.stop_details?.category ?? null });
       return {
         ...base,
         status: "refusal",
@@ -316,12 +337,14 @@ async function answerToolCalls(
         prepared = await writer.prepare({ db: deps.db, deviceId: deps.deviceId, now: now(), timeZone, conversationId }, call.input);
       } catch (err) {
         const message = errorText(err);
+        chatLog.warn("write tool input rejected", { tool: call.name, err });
         results.push(error(call.id, message));
         report.push({ name: call.name, dataClass: null, allowed: true, error: message });
         continue;
       }
       const proposal: ActionProposal = { tool: prepared.tool, summary: prepared.summary, lines: prepared.lines };
       const approved = deps.confirmAction ? await deps.confirmAction(proposal) : false;
+      chatLog.info("change proposed", { tool: call.name, approved });
       const log = { conversationId, tool: call.name, summary: prepared.summary, input: call.input, deviceId: deps.deviceId };
       if (!approved) {
         const id = await logAgentAction(deps.db, { ...log, status: "declined", now: now() });
@@ -338,6 +361,7 @@ async function answerToolCalls(
         report.push({ name: call.name, dataClass: null, allowed: true });
       } catch (err) {
         const message = errorText(err);
+        chatLog.error("change failed, nothing saved", { tool: call.name, err });
         const id = await logAgentAction(deps.db, { ...log, status: "failed", error: message, now: now() });
         actions.push({ id, tool: call.name, summary: prepared.summary, status: "failed", error: message });
         results.push(error(call.id, `Saving failed, nothing was saved: ${message}`));
@@ -348,25 +372,30 @@ async function answerToolCalls(
 
     const tool = TOOLS_BY_NAME.get(call.name);
     if (!tool) {
+      chatLog.warn("unknown tool requested", { tool: call.name });
       results.push(error(call.id, `Unknown tool ${call.name}`));
       report.push({ name: call.name, dataClass: null, allowed: false, error: "unknown tool" });
       continue;
     }
     const scope = SCOPE_FOR[tool.dataClass];
     if (!(await consentFor(deps, scope))) {
+      chatLog.info("tool blocked: no consent", { tool: call.name, scope });
       results.push(error(call.id, `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`));
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: false });
       continue;
     }
     try {
+      const ranAt = now();
       const out = await tool.run(deps.db, call.input);
       const payload = JSON.stringify(out.result);
+      chatLog.debug("tool ran", { tool: call.name, dataClass: tool.dataClass, bytes: utf8Bytes(payload), ms: now() - ranAt });
       results.push({ type: "tool_result", tool_use_id: call.id, content: payload });
       disclosures.push({ toolName: call.name, dataClass: tool.dataClass, summary: out.summary, payload });
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: true });
     } catch (err) {
       // Validation and query errors carry no health data; let Claude correct its arguments.
       const message = errorText(err);
+      chatLog.warn("tool failed", { tool: call.name, err });
       results.push(error(call.id, message));
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: true, error: message });
     }

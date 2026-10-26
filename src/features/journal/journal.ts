@@ -1,5 +1,8 @@
 import { uuidv7 } from "../../core/uuidv7";
 import type { SqlDriver } from "../../db/driver";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("journal");
 
 /**
  * Inserts for the logs that have no module of their own yet: drinks, manual measurements,
@@ -37,6 +40,7 @@ export async function insertDrinkEntry(db: SqlDriver, d: DrinkInput, s: Stamp): 
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, d.drunkAtMs, d.offsetMin, localDayOf(d.drunkAtMs, d.offsetMin), d.name, d.volumeMl, d.abvPercent, d.notes ?? null, s.createdBy, now, now, s.deviceId],
   );
+  log.info("drink logged", { id, by: s.createdBy });
   return id;
 }
 
@@ -76,6 +80,7 @@ export async function insertMeasurement(db: SqlDriver, m: MeasurementInput, s: S
       s.deviceId,
     ],
   );
+  log.info("measurement logged", { id, kind: m.kind, by: s.createdBy });
   return id;
 }
 
@@ -95,6 +100,7 @@ export async function insertDayNote(db: SqlDriver, n: DayNoteInput, s: Stamp): P
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, n.localDay, n.mood ?? null, n.energy ?? null, n.body, s.createdBy, now, now, s.deviceId],
   );
+  log.info("day note added", { id, by: s.createdBy });
   return id;
 }
 
@@ -142,5 +148,6 @@ export async function insertGoal(db: SqlDriver, g: GoalInput, s: Stamp): Promise
       s.deviceId,
     ],
   );
+  log.info("goal created", { id, kind: g.targetKind, by: s.createdBy });
   return id;
 }

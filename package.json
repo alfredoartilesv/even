@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --import ./tests/setup.ts --test tests/*.test.ts",
     "preview": "vite preview",
     "android:sync": "npm run build && npx cap sync android && node scripts/android-harden.mjs",
     "spike:drizzle": "tsx scripts/drizzle-spike.ts",

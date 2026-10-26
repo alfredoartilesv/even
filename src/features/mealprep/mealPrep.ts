@@ -1,10 +1,14 @@
+import { withTransaction } from "../../db/tx";
 import { localDay, tzOffsetMinutes } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
 import { available, foldBatch, type BatchInfo, type BatchStock, type Location, type Move, type MoveKind } from "./stock";
 import type { SqlDriver, SqlValue } from "../../db/driver";
 import { deviceId, getSetting, setSetting } from "../../db/settings";
+import { createLogger } from "../../core/log";
 
-/** Meal prep recipes, batches and portion moves (schema 0003). Stock maths is in src/mealprep/stock.ts. */
+const log = createLogger("mealprep");
+
+/** Meal prep recipes, batches and portion moves (schema 0003). Stock maths is in ./stock.ts. */
 
 export interface Ingredient {
   /** Present for rows already saved; editing keeps the id. */
@@ -57,17 +61,6 @@ const posInt = (n: number, what: string, min = 1) => {
   return n;
 };
 
-async function inTransaction<T>(db: SqlDriver, fn: () => Promise<T>): Promise<T> {
-  await db.exec("BEGIN");
-  try {
-    const out = await fn();
-    await db.exec("COMMIT");
-    return out;
-  } catch (err) {
-    await db.exec("ROLLBACK");
-    throw err;
-  }
-}
 
 function validate(input: MealPrepInput): void {
   if (!input.name.trim()) throw new Error("Give the meal prep a name");
@@ -88,7 +81,7 @@ export async function saveMealPrep(db: SqlDriver, input: MealPrepInput, nowMs: n
   const id = input.id ?? uuidv7(nowMs);
   const tags = [...new Set(input.tags.map(normalizeTag).filter(Boolean))];
 
-  return inTransaction(db, async () => {
+  return withTransaction(db, async () => {
     const cols: SqlValue[] = [
       input.name.trim(),
       input.portions,
@@ -161,18 +154,20 @@ export async function saveMealPrep(db: SqlDriver, input: MealPrepInput, nowMs: n
         );
       }
     }
+    log.info(input.id ? "recipe updated" : "recipe created", { id, tags: tags.length, ingredients: input.ingredients.length });
     return id;
   });
 }
 
 /** Soft-delete a recipe and its tags and ingredients. Batches already cooked stay in stock. */
 export async function deleteMealPrep(db: SqlDriver, id: string, nowMs: number = Date.now()): Promise<void> {
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     for (const table of ["meal_prep_tags", "meal_prep_ingredients"]) {
       await db.run(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE meal_prep_id = ? AND deleted_at IS NULL`, [nowMs, nowMs, id]);
     }
     await db.run("UPDATE meal_preps SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [nowMs, nowMs, id]);
   });
+  log.info("recipe deleted", { id });
 }
 
 interface PrepRow {
@@ -275,7 +270,7 @@ export async function logBatch(db: SqlDriver, input: LogBatchInput): Promise<str
   const offset = tzOffsetMinutes(at, input.timeZone);
   const day = localDay(at, input.timeZone);
   const id = uuidv7(at);
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     await db.run(
       `INSERT INTO meal_prep_batches (id, meal_prep_id, cooked_at_ms, offset_min, local_day, portions, notes, created_at, updated_at, origin_device_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -289,12 +284,13 @@ export async function logBatch(db: SqlDriver, input: LogBatchInput): Promise<str
       );
     }
   });
+  log.info("batch logged", { id, mealPrepId: input.mealPrepId, portions, frozen });
   return id;
 }
 
 /** Soft-delete a batch logged by mistake, with its moves and the food log rows they made. */
 export async function deleteBatch(db: SqlDriver, batchId: string, nowMs: number = Date.now()): Promise<void> {
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     await db.run(
       `UPDATE food_entries SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL
          AND id IN (SELECT food_entry_id FROM meal_prep_moves WHERE batch_id = ? AND deleted_at IS NULL)`,
@@ -303,6 +299,7 @@ export async function deleteBatch(db: SqlDriver, batchId: string, nowMs: number 
     await db.run("UPDATE meal_prep_moves SET deleted_at = ?, updated_at = ? WHERE batch_id = ? AND deleted_at IS NULL", [nowMs, nowMs, batchId]);
     await db.run("UPDATE meal_prep_batches SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [nowMs, nowMs, batchId]);
   });
+  log.info("batch deleted", { id: batchId });
 }
 
 interface BatchRow {
@@ -411,6 +408,7 @@ export async function addMove(db: SqlDriver, input: MoveInput): Promise<string> 
   if (!stock) throw new Error("That batch no longer exists");
   const max = available(stock, input.kind, fromLoc);
   if (portions > max) {
+    log.debug("move refused: not enough portions", { batchId: input.batchId, kind: input.kind, fromLoc, portions, available: max });
     throw new Error(`Only ${max} portion${max === 1 ? "" : "s"} in the ${fromLoc}`);
   }
 
@@ -418,7 +416,7 @@ export async function addMove(db: SqlDriver, input: MoveInput): Promise<string> 
   const offset = tzOffsetMinutes(at, input.timeZone);
   const day = localDay(at, input.timeZone);
   const id = uuidv7(at);
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     let foodId: string | null = null;
     if (input.kind === "eat") {
       const [p] = await db.all<{ name: string; calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }>(
@@ -455,6 +453,7 @@ export async function addMove(db: SqlDriver, input: MoveInput): Promise<string> 
       [id, input.batchId, at, offset, day, input.kind, fromLoc, portions, foodId, at, at, dev],
     );
   });
+  log.info("portions moved", { id, batchId: input.batchId, kind: input.kind, fromLoc, portions, foodLogged: input.kind === "eat" });
   return id;
 }
 
@@ -476,14 +475,16 @@ export async function undoMove(db: SqlDriver, moveId: string, nowMs: number = Da
     )
   ).map(toMove);
   if (stock && foldBatch(stock.batch, rest).overdrawn > 0) {
+    log.debug("undo refused: later moves depend on it", { moveId });
     throw new Error("Later changes to this batch depend on it. Undo those first.");
   }
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     await db.run("UPDATE meal_prep_moves SET deleted_at = ?, updated_at = ? WHERE id = ?", [nowMs, nowMs, moveId]);
     if (row.food_entry_id) {
       await db.run("UPDATE food_entries SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [nowMs, nowMs, row.food_entry_id]);
     }
   });
+  log.info("move undone", { id: moveId, foodEntry: row.food_entry_id });
 }
 
 /** Prep portions eaten on a local day, optionally only recipes with a tag. */
@@ -510,4 +511,5 @@ export async function getPortionsPerDay(db: SqlDriver, tag?: string | null): Pro
 
 export async function setPortionsPerDay(db: SqlDriver, n: number, tag?: string | null, nowMs: number = Date.now()): Promise<void> {
   await setSetting(db, perDayKey(tag), String(posInt(n, "Portions per day", 0)), nowMs);
+  log.debug("portions per day set", { tag: tag ?? null, n });
 }

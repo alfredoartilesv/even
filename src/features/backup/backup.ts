@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { SqlDriver, SqlValue } from "../../db/driver";
 import { DEVICE_ID_KEY } from "../../db/settings";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("backup");
 
 /**
  * Encrypted manual backup (docs/architecture.md: the phone holds the only copy of
@@ -87,6 +90,7 @@ export async function exportBackup(
   opts: { now?: number; iterations?: number } = {},
 ): Promise<{ text: string; rows: Record<string, number> }> {
   if (password.length < 8) throw new BackupError("Use a backup password of at least 8 characters");
+  const done = log.time("backup exported", "info");
   const payload: Payload = {
     format: PAYLOAD_FORMAT,
     schemaVersion: await schemaVersion(db),
@@ -122,7 +126,9 @@ export async function exportBackup(
   const key = await deriveKey(password, salt, iterations);
   const plain = await gzip(new TextEncoder().encode(JSON.stringify(payload)));
   const sealed = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad(header) }, key, plain);
-  return { text: JSON.stringify({ ...header, data: toB64(new Uint8Array(sealed)) }), rows: counts };
+  const text = JSON.stringify({ ...header, data: toB64(new Uint8Array(sealed)) });
+  done({ tables: Object.keys(counts).length, rows: Object.values(counts).reduce((a, b) => a + b, 0), bytes: text.length, iterations });
+  return { text, rows: counts };
 }
 
 export interface RestoreReport {
@@ -138,6 +144,7 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
   try {
     envelope = envelopeSchema.parse(JSON.parse(fileText));
   } catch {
+    log.warn("restore refused: not a backup file");
     throw new BackupError("This is not a Health backup file");
   }
   const { data, ...header } = envelope;
@@ -152,15 +159,18 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
     );
     payload = payloadSchema.parse(JSON.parse(new TextDecoder().decode(await gunzip(new Uint8Array(plain)))));
   } catch {
+    log.warn("restore refused: wrong password or damaged file");
     throw new BackupError("Wrong password, or the file is damaged");
   }
 
   const current = await schemaVersion(db);
   if (payload.schemaVersion > current) {
+    log.warn("restore refused: backup from a newer schema", { backup: payload.schemaVersion, current });
     throw new BackupError(`This backup comes from a newer app (schema ${payload.schemaVersion}, this app has ${current}). Update the app first.`);
   }
 
   const counts: Record<string, number> = {};
+  const done = log.time("backup restored", "info");
   await db.exec("BEGIN");
   try {
     for (const t of BACKUP_TABLES) {
@@ -171,8 +181,10 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
     await db.exec("COMMIT");
   } catch (err) {
     await db.exec("ROLLBACK");
+    log.error("restore failed, rolled back", { err });
     throw new BackupError(`Restore failed, nothing was changed: ${(err as Error).message}`);
   }
+  done({ schemaVersion: payload.schemaVersion, tables: Object.keys(counts).length, rows: Object.values(counts).reduce((a, b) => a + b, 0) });
   return { schemaVersion: payload.schemaVersion, exportedAt: payload.exportedAt, rows: counts };
 }
 

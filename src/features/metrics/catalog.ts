@@ -1,5 +1,8 @@
 import type { CatalogEntry } from "../sync/types";
 import type { SqlDriver } from "../../db/driver";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("metrics.catalog");
 
 export type MetricCategory = "sleep" | "recovery" | "activity" | "heart" | "stress" | "body" | "nutrition" | "other";
 export type DailyAgg = "avg" | "sum" | "min" | "max" | "last";
@@ -27,6 +30,7 @@ export async function upsertCatalog(
   entries: CatalogEntry[],
   nowMs: number = Date.now(),
 ): Promise<void> {
+  log.debug("catalog refreshed", { source, entries: entries.length });
   for (const e of entries) {
     const guess = classifyMetric(e.metric);
     await db.run(

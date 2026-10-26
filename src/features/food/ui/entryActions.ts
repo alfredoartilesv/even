@@ -1,6 +1,6 @@
 import type { SqlDriver } from "../../../db/driver";
 import { deleteFood, relogFood, saveEntryAsMeal, updateFood, type FoodEntry } from "../food";
-import { timeZone, type Msg } from "../../../ui/common";
+import { failed, timeZone, type Msg } from "../../../ui/common";
 import { parseDraft, type MealDraft } from "./components";
 
 /** The EntryList handlers, shared by Today and History. */
@@ -12,7 +12,7 @@ export function entryActions(db: SqlDriver, reload: () => void, setMsg: (m: Msg)
       reload();
       return true;
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "food"));
       return false;
     }
   };

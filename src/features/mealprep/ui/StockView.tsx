@@ -14,7 +14,7 @@ import {
   type StockEntry,
 } from "../mealPrep";
 import { planDefrost, stockAlerts, type Alert, type Location, type MoveKind, type Plan } from "../stock";
-import { fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../../ui/common";
 
 interface Props {
   db: SqlDriver;
@@ -72,7 +72,7 @@ export function StockView({ db, tag, version }: Props) {
       setMsg({ kind: "ok", text: ok });
       await load();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "mealprep"));
     }
   }
 
