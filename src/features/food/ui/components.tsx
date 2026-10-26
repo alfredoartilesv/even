@@ -4,7 +4,7 @@ import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedM
 import { kcalFromMacros } from "../../../core/health";
 import { addDays } from "../../../core/tz";
 import { MEALS, type Meal } from "../suggest";
-import { fmtDay, numOrNull } from "../../../ui/common";
+import { failed, fmtDay, numOrNull } from "../../../ui/common";
 import { downscalePhoto, photoInputUrl } from "./photo";
 
 export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", prep: "Meal prep" };
@@ -52,7 +52,7 @@ export function PhotoPicker({ value, onChange }: { value: PhotoInput | null; onC
               setError(null);
               onChange(await downscalePhoto(f));
             } catch (err) {
-              setError((err as Error).message);
+              setError(failed(err, "food.photo")!.text);
             }
           }}
         />

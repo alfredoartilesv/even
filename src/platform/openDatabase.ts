@@ -4,6 +4,9 @@ import { capacitorDriver } from "./sqlite";
 import type { SqlDriver } from "../db/driver";
 import { migrate } from "../db/migrate";
 import { migrations } from "../db/migrations";
+import { createLogger } from "../core/log";
+
+const log = createLogger("db.open");
 
 export const DB_NAME = "health";
 
@@ -28,6 +31,7 @@ let opening: Promise<{ db: SqlDriver; applied: number[] }> | null = null;
 export function openDatabase(): Promise<{ db: SqlDriver; applied: number[] }> {
   opening ??= doOpen().catch((err) => {
     opening = null;
+    log.error("database open failed", { err });
     throw err;
   });
   return opening;
@@ -37,8 +41,10 @@ async function doOpen(): Promise<{ db: SqlDriver; applied: number[] }> {
   if (!Capacitor.isNativePlatform()) {
     throw new Error("Local database is only available in the Android/iOS app");
   }
+  const done = log.time("database open", "info");
   if (!(await sqlite.isSecretStored()).result) {
     await sqlite.setEncryptionSecret(newPassphrase());
+    log.info("first launch: encryption secret created");
   }
 
   // After a WebView reload the native side can still hold the connection.
@@ -49,9 +55,11 @@ async function doOpen(): Promise<{ db: SqlDriver; applied: number[] }> {
     consistent && exists
       ? await sqlite.retrieveConnection(DB_NAME, false)
       : await sqlite.createConnection(DB_NAME, true, "secret", 1, false);
+  log.debug(consistent && exists ? "reusing native connection" : "new native connection");
   if (!(await conn.isDBOpen()).result) await conn.open();
 
   const db = capacitorDriver(conn);
   const applied = await migrate(db, migrations);
+  done({ migrationsApplied: applied });
   return { db, applied };
 }

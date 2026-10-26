@@ -1,9 +1,19 @@
+import { createLogger } from "../core/log";
 import { addDays, localDay } from "../core/tz";
 
 export const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const today = () => localDay(Date.now(), timeZone());
 
 export type Msg = { kind: "ok" | "error"; text: string } | null;
+
+/**
+ * Turn an error from a screen action into the message shown to the owner, and log it.
+ * Info level: most are input the core refused (and the core logs real failures itself).
+ */
+export function failed(err: unknown, scope: string): Msg {
+  createLogger(`ui.${scope}`).info("action failed", { err });
+  return { kind: "error", text: (err as Error)?.message ?? String(err) };
+}
 
 export function MsgLine({ msg }: { msg: Msg }) {
   if (!msg) return null;

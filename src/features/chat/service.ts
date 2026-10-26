@@ -1,9 +1,6 @@
-import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import type { SqlDriver } from "../../db/driver";
 import { deviceId, getSetting, setSetting } from "../../db/settings";
-import { loadClaudeKey } from "../settings/secrets";
-import { secretStore } from "../../platform/secureStore";
-import { makeNativeFetch } from "../../platform/nativeFetch";
+import { loadClaudeKey, type SecretStore } from "../settings/secrets";
 import { claudeCreate } from "./client";
 import type { ChatDeps, Effort } from "./engine";
 import { DEFAULT_EFFORT } from "./engine";
@@ -12,9 +9,13 @@ import type { ConsentScope } from "./consent";
 
 /**
  * Entry point for the UI: everything the chat needs on this device, or null when no
- * Claude API key is stored yet (show the key field in Settings).
+ * Claude API key is stored yet (show the key field in Settings). The platform pieces come in
+ * from the caller (src/app), so this file runs in Node too.
  *
  *   const deps = await chatDeps(db, {
+ *     secrets: secretStore,
+ *     // Native HTTP on the phone (no WebView CORS). Long read timeout: a reply with thinking can take minutes.
+ *     fetch: deviceFetch({ connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 }),
  *     askConsent: (scope, text) => showConsentDialog(text),
  *     confirmAction: (p) => showConfirmSheet(p.summary, p.lines),   // every change the agent wants to save
  *   });
@@ -25,19 +26,18 @@ import type { ConsentScope } from "./consent";
 export async function chatDeps(
   db: SqlDriver,
   opts: {
+    secrets: SecretStore;
+    /** Defaults to the global fetch. */
+    fetch?: typeof fetch;
     askConsent?: (scope: ConsentScope, text: string) => Promise<boolean>;
     confirmAction?: (proposal: ActionProposal) => Promise<boolean>;
-  } = {},
+  },
 ): Promise<ChatDeps | null> {
-  const key = await loadClaudeKey(secretStore);
+  const key = await loadClaudeKey(opts.secrets);
   if (!key) return null;
-  // Native HTTP on the phone (no WebView CORS). Long read timeout: a reply with thinking can take minutes.
-  const fetchImpl = Capacitor.isNativePlatform()
-    ? makeNativeFetch((o) => CapacitorHttp.request(o), { connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 })
-    : undefined;
   return {
     db,
-    create: claudeCreate(key, fetchImpl),
+    create: claudeCreate(key, opts.fetch),
     deviceId: await deviceId(db),
     effort: await loadEffort(db),
     askConsent: opts.askConsent,

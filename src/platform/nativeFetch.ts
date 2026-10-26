@@ -1,4 +1,7 @@
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
+import { createLogger } from "../core/log";
+
+const log = createLogger("http.native");
 
 /**
  * A fetch() look-alike on top of Capacitor's native HTTP (CapacitorHttp.request).
@@ -22,6 +25,7 @@ export function makeNativeFetch(
     }
 
     let res: HttpResponse;
+    const started = Date.now();
     try {
       res = await request({
         url,
@@ -33,10 +37,12 @@ export function makeNativeFetch(
         readTimeout: timeouts.readTimeoutMs,
       });
     } catch (e) {
+      log.warn("native request failed", { method: init?.method ?? "GET", ms: Date.now() - started, err: e });
       // Match fetch: network failures reject with a TypeError (callers already handle that shape).
       throw new TypeError("Native HTTP request failed", { cause: e });
     }
 
+    log.debug("native request", { method: init?.method ?? "GET", status: res.status, ms: Date.now() - started });
     const text = typeof res.data === "string" ? res.data : res.data == null ? "" : JSON.stringify(res.data);
     const nullBody = res.status === 204 || res.status === 205 || res.status === 304;
     return new Response(nullBody ? null : text, { status: res.status, headers: res.headers });

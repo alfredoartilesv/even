@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { failed } from "../../ui/common";
 import { exportBackup, restoreBackup } from "../backup/backup";
 import { backupFileName, saveBackupFile } from "../../platform/files";
 import type { SqlDriver } from "../../db/driver";
 import { setSetting } from "../../db/settings";
 import { clearFreddyCredentials, loadFreddyCredentials, saveFreddyCredentials, type SecretStore } from "./secrets";
 import { loadTransport, TRANSPORT_KEY, type Transport } from "../sync/freddyClient";
+import { LogsPanel } from "./LogsPanel";
 
 interface Props {
   db: SqlDriver;
@@ -51,7 +53,7 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
       setFreddyMsg({ kind: "ok", text: "Saved." });
       onChanged();
     } catch (err) {
-      setFreddyMsg({ kind: "error", text: (err as Error).message });
+      setFreddyMsg(failed(err, "settings"));
     }
   }
 
@@ -75,7 +77,7 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
       setExportPw("");
       setExportPw2("");
     } catch (err) {
-      setBackupMsg({ kind: "error", text: (err as Error).message });
+      setBackupMsg(failed(err, "settings"));
     } finally {
       setBusy(false);
     }
@@ -95,7 +97,7 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
       setRestorePw("");
       onChanged();
     } catch (err) {
-      setBackupMsg({ kind: "error", text: (err as Error).message });
+      setBackupMsg(failed(err, "settings"));
     } finally {
       setBusy(false);
     }
@@ -165,6 +167,9 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
         </button>
       </form>
       {backupMsg && <p className={backupMsg.kind === "ok" ? "muted small" : "error small"}>{backupMsg.text}</p>}
+
+      <h2>Logs</h2>
+      <LogsPanel db={db} />
     </section>
   );
 }

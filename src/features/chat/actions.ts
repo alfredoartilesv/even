@@ -1,3 +1,4 @@
+import { withTransaction } from "../../db/tx";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { SqlDriver } from "../../db/driver";
@@ -10,6 +11,9 @@ import { addDays, localDateTimeToMs, localDay } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
 import { loadMessages } from "./store";
 import { DATE_DESC, day, round, tool } from "./tools";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("chat.actions");
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
 
@@ -117,17 +121,6 @@ async function markAssistant(db: SqlDriver, table: string, ids: string[]): Promi
   for (const id of ids) await db.run(`UPDATE ${table} SET created_by = 'assistant' WHERE id = ?`, [id]);
 }
 
-async function inTransaction<T>(db: SqlDriver, fn: () => Promise<T>): Promise<T> {
-  await db.exec("BEGIN");
-  try {
-    const out = await fn();
-    await db.exec("COMMIT");
-    return out;
-  } catch (err) {
-    await db.exec("ROLLBACK");
-    throw err;
-  }
-}
 
 // ---- food -----------------------------------------------------------------------------------
 
@@ -189,7 +182,7 @@ const logFoodTool: WriteTool = {
           `${e.day} ${hhmm(t.ms, ctx.timeZone)}${e.meal ? ` ${e.meal}` : ""}: ${e.name}${e.portion ? `, ${e.portion}` : ""}, ${kcal(e.calories)}${macros(e.protein_g, e.carbs_g, e.fat_g)}`,
       ),
       async apply() {
-        const ids = await inTransaction(ctx.db, async () => {
+        const ids = await withTransaction(ctx.db, async () => {
           const out: string[] = [];
           for (const { e, t, notes } of rows) {
             out.push(
@@ -519,7 +512,7 @@ const addShoppingItemsTool: WriteTool = {
       summary: `Add ${plural(p.items.length, "item")} to the shopping list`,
       lines: p.items.map((i) => `${i.name}${i.quantity != null ? `: ${i.quantity}${i.unit ? ` ${i.unit}` : ""}` : ""}`),
       async apply() {
-        const rows = await inTransaction(ctx.db, () =>
+        const rows = await withTransaction(ctx.db, () =>
           shoppingChange(ctx.db, async () => {
             for (const i of p.items) await addShoppingItem(ctx.db, { name: i.name, quantity: i.quantity, unit: i.unit }, ctx.now);
           }),
@@ -778,6 +771,7 @@ export async function logAgentAction(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, a.conversationId, a.tool, a.summary, JSON.stringify(a.input), a.status, a.rows ? JSON.stringify(a.rows) : null, a.error ?? null, a.now, a.now, a.now, a.deviceId],
   );
+  log.info("agent action recorded", { id, tool: a.tool, status: a.status, rows: a.rows?.length ?? 0 });
   return id;
 }
 
@@ -857,5 +851,6 @@ export async function undoAgentAction(db: SqlDriver, actionId: string, now: numb
     }
   }
   await db.run("UPDATE agent_actions SET status = 'undone', updated_at = ? WHERE id = ?", [now, actionId]);
+  log.info("agent action undone", { id: actionId, rows: rows.length });
   return rows.length;
 }

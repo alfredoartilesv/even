@@ -1,5 +1,5 @@
 /**
- * Which meals to offer for one-tap logging. Pure: src/db/food.ts gathers the candidates.
+ * Which meals to offer for one-tap logging. Pure: ./food.ts gathers the candidates.
  * Meals eaten often, at this time of day, and bookmarked ones come first.
  */
 

@@ -1,9 +1,13 @@
+import { withTransaction } from "../../db/tx";
 import { addDays, localDay, tzOffsetMinutes } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
 import { mealForHour, rankSuggestions, type Candidate, type Meal } from "./suggest";
 import type { SqlDriver, SqlValue } from "../../db/driver";
 import { undoMove } from "../mealprep/mealPrep";
 import { deviceId } from "../../db/settings";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("food");
 
 /** Food log, saved meals with photos, the daily calorie goal (schema 0004). */
 
@@ -85,17 +89,6 @@ const toEntry = (r: EntryRow): FoodEntry => ({
   fromPrep: r.from_prep === 1,
 });
 
-async function inTransaction<T>(db: SqlDriver, fn: () => Promise<T>): Promise<T> {
-  await db.exec("BEGIN");
-  try {
-    const out = await fn();
-    await db.exec("COMMIT");
-    return out;
-  } catch (err) {
-    await db.exec("ROLLBACK");
-    throw err;
-  }
-}
 
 const MACRO_LABELS: [keyof Macros, string][] = [
   ["calories", "Calories"],
@@ -145,6 +138,7 @@ export async function logFood(db: SqlDriver, f: FoodInput): Promise<string> {
       await deviceId(db, at),
     ],
   );
+  log.info("food logged", { id, meal: f.meal, saved: Boolean(f.savedMealId), hasCalories: f.calories !== null });
   return id;
 }
 
@@ -158,13 +152,18 @@ export async function updateFood(db: SqlDriver, id: string, f: Omit<FoodInput, "
      WHERE id = ? AND deleted_at IS NULL`,
     [name, f.meal, f.calories, f.proteinG, f.carbsG, f.fatG, f.notes?.trim() || null, nowMs, id],
   );
+  log.info("food updated", { id });
 }
 
 /** Delete an entry. One made by eating a meal prep portion undoes that move, so the portion is back in stock. */
 export async function deleteFood(db: SqlDriver, id: string, nowMs: number = Date.now()): Promise<void> {
   const [move] = await db.all<{ id: string }>("SELECT id FROM meal_prep_moves WHERE food_entry_id = ? AND deleted_at IS NULL", [id]);
-  if (move) return undoMove(db, move.id, nowMs);
+  if (move) {
+    log.info("food deleted: meal prep portion returned to stock", { id, move: move.id });
+    return undoMove(db, move.id, nowMs);
+  }
   await db.run("UPDATE food_entries SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [nowMs, nowMs, id]);
+  log.info("food deleted", { id });
 }
 
 /** Log the same thing again, now. */
@@ -252,8 +251,9 @@ export async function setCalorieGoal(db: SqlDriver, target: number | null, today
   if (target !== null && !(Number.isFinite(target) && target > 0)) throw new Error("The calorie target must be more than 0");
   const current = await getCalorieGoal(db);
   if (current && target !== null && current.target === target) return;
+  log.info(target === null ? "calorie target removed" : "calorie target set", { target, replaces: current?.target ?? null });
   const dev = await deviceId(db, nowMs);
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     if (current) {
       // Keep the old target as history unless it only started today.
       if (current.startDay >= today) {
@@ -321,7 +321,7 @@ export async function saveMeal(db: SqlDriver, m: SavedMealInput, nowMs: number =
   if (!name) throw new Error("Give the meal a name");
   checkMacros(m);
   const dev = await deviceId(db, nowMs);
-  return inTransaction(db, async () => {
+  return withTransaction(db, async () => {
     const [existing] = m.id
       ? await db.all<{ photo_id: string | null }>("SELECT photo_id FROM saved_meals WHERE id = ? AND deleted_at IS NULL", [m.id])
       : [];
@@ -330,6 +330,7 @@ export async function saveMeal(db: SqlDriver, m: SavedMealInput, nowMs: number =
     if (m.photo !== undefined) {
       if (photoId) await softDeletePhoto(db, photoId, nowMs);
       photoId = m.photo ? await insertPhoto(db, m.photo, nowMs, dev) : null;
+      log.debug(m.photo ? "photo stored" : "photo removed", { photoId, bytes: m.photo ? photoBytes(m.photo.dataB64) : 0 });
     }
     const cols: SqlValue[] = [name, m.meal, m.calories, m.proteinG, m.carbsG, m.fatG, m.notes?.trim() || null, photoId];
     if (m.id) {
@@ -338,6 +339,7 @@ export async function saveMeal(db: SqlDriver, m: SavedMealInput, nowMs: number =
          WHERE id = ?`,
         [...cols, nowMs, m.id],
       );
+      log.info("saved meal updated", { id: m.id, hasPhoto: Boolean(photoId) });
       return m.id;
     }
     const id = uuidv7(nowMs);
@@ -346,6 +348,7 @@ export async function saveMeal(db: SqlDriver, m: SavedMealInput, nowMs: number =
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, ...cols, nowMs, nowMs, dev],
     );
+    log.info("saved meal created", { id, hasPhoto: Boolean(photoId) });
     return id;
   });
 }
@@ -373,16 +376,18 @@ export async function saveEntryAsMeal(db: SqlDriver, entryId: string, photo?: Ph
        AND (saved_meal_id IS NULL OR saved_meal_id IN (SELECT id FROM saved_meals WHERE deleted_at IS NOT NULL))`,
     [id, nowMs, e.name],
   );
+  log.debug("earlier entries linked to the saved meal", { id });
   return id;
 }
 
 /** Remove a bookmark and its photo. Logged entries stay in the history. */
 export async function deleteSavedMeal(db: SqlDriver, id: string, nowMs: number = Date.now()): Promise<void> {
-  await inTransaction(db, async () => {
+  await withTransaction(db, async () => {
     const [m] = await db.all<{ photo_id: string | null }>("SELECT photo_id FROM saved_meals WHERE id = ? AND deleted_at IS NULL", [id]);
     if (!m) return;
     if (m.photo_id) await softDeletePhoto(db, m.photo_id, nowMs);
     await db.run("UPDATE saved_meals SET deleted_at = ?, updated_at = ? WHERE id = ?", [nowMs, nowMs, id]);
+    log.info("saved meal removed", { id, hadPhoto: Boolean(m.photo_id) });
   });
 }
 
@@ -513,5 +518,6 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     if (e.local_day === today) c.loggedToday = true;
   }
   const pool = [...cands.values()].filter((c) => c.savedMealId || c.uses >= 2);
+  log.debug("suggestions", { candidates: pool.length, slot: mealForHour(hour) });
   return rankSuggestions(pool, mealForHour(hour), now, opts.limit ?? 8);
 }

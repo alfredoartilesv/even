@@ -1,6 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { SqlDriver } from "../../db/driver";
 import { uuidv7 } from "../../core/uuidv7";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("chat.store");
 
 type MessageParam = Anthropic.Beta.Messages.BetaMessageParam;
 type Content = Anthropic.Beta.Messages.BetaMessageContentParam;
@@ -42,6 +45,7 @@ export async function createConversation(
     `INSERT INTO chat_conversations (id, title, model, created_at, updated_at, origin_device_id) VALUES (?, ?, ?, ?, ?, ?)`,
     [id, opts.title ?? null, opts.model ?? null, now, now, deviceId],
   );
+  log.debug("conversation created", { id });
   return id;
 }
 
@@ -134,6 +138,7 @@ export async function renameConversation(db: SqlDriver, id: string, title: strin
 /** Soft delete of the conversation; its messages stay attached but are no longer listed. */
 export async function deleteConversation(db: SqlDriver, id: string, now: number = Date.now()): Promise<void> {
   await db.run("UPDATE chat_conversations SET deleted_at = ?, updated_at = ? WHERE id = ?", [now, now, id]);
+  log.info("conversation deleted", { id });
 }
 
 export interface Disclosure {

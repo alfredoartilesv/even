@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { DEFAULT_MEAL_PREP, deleteMealPrep, listMealPreps, normalizeTag, saveMealPrep, type MealPrep, type MealPrepInput } from "../mealPrep";
 import { addRecipesToShopping, formatQuantity, normalizeUnit } from "../shopping";
-import { MsgLine, numOrNull, plural, type Msg } from "../../../ui/common";
+import { failed, MsgLine, numOrNull, plural, type Msg } from "../../../ui/common";
 
 interface Props {
   db: SqlDriver;
@@ -113,7 +113,7 @@ export function RecipesView({ db, tag, allTags, version, onChanged }: Props) {
       setTagInput("");
       onChanged();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "mealprep"));
     }
   }
 
@@ -136,7 +136,7 @@ export function RecipesView({ db, tag, allTags, version, onChanged }: Props) {
       setMsg({ kind: "ok", text: `Added ${plural(lines, "ingredient")} to the shopping list.` });
       onChanged();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "mealprep"));
     }
   }
 

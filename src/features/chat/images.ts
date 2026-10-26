@@ -32,7 +32,7 @@ export function toAttachment(input: string, mediaType?: string): ImageAttachment
 }
 
 /**
- * A photo from the app's own picker (src/screens/food/photo.ts downscalePhoto: JPEG, at most
+ * A photo from the app's own picker (src/features/food/ui/photo.ts downscalePhoto: JPEG, at most
  * 1024 px, EXIF dropped) as a chat attachment. The same photo can then be kept with a saved meal.
  */
 export function attachmentFromPhoto(p: { mime: "image/jpeg" | "image/webp"; dataB64: string }): ImageAttachment {

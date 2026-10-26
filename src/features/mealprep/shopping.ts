@@ -1,6 +1,10 @@
+import { withTransaction } from "../../db/tx";
 import { uuidv7 } from "../../core/uuidv7";
 import type { SqlDriver } from "../../db/driver";
 import { deviceId } from "../../db/settings";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("mealprep.shopping");
 
 /** The supermarket list (shopping_list_items, schema 0003). */
 
@@ -88,6 +92,7 @@ export async function addShoppingItem(
   if (open) {
     const sum = open.quantity === null ? quantity : quantity === null ? open.quantity : open.quantity + quantity;
     await db.run("UPDATE shopping_list_items SET quantity = ?, updated_at = ? WHERE id = ?", [sum, nowMs, open.id]);
+    log.debug("shopping item merged", { id: open.id });
     return;
   }
   await db.run(
@@ -95,6 +100,7 @@ export async function addShoppingItem(
      VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)`,
     [uuidv7(nowMs), name, quantity, unit, item.mealPrepId ?? null, nowMs, nowMs, await deviceId(db, nowMs)],
   );
+  log.debug("shopping item added", { fromRecipe: Boolean(item.mealPrepId) });
 }
 
 /**
@@ -107,8 +113,7 @@ export async function addRecipesToShopping(
   nowMs: number = Date.now(),
 ): Promise<number> {
   let lines = 0;
-  await db.exec("BEGIN");
-  try {
+  await withTransaction(db, async () => {
     for (const { mealPrepId, batches } of picks) {
       if (!(batches > 0)) continue;
       const rows = await db.all<{ name: string; quantity: number | null; unit: string | null }>(
@@ -122,11 +127,8 @@ export async function addRecipesToShopping(
         lines++;
       }
     }
-    await db.exec("COMMIT");
-  } catch (err) {
-    await db.exec("ROLLBACK");
-    throw err;
-  }
+  });
+  log.info("recipes added to the shopping list", { recipes: picks.filter((p) => p.batches > 0).length, lines });
   return lines;
 }
 
@@ -144,4 +146,5 @@ export async function clearShopping(db: SqlDriver, opts: { all?: boolean } = {},
     `UPDATE shopping_list_items SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL AND (? = 1 OR checked = 1)`,
     [nowMs, nowMs, opts.all ? 1 : 0],
   );
+  log.info(opts.all ? "shopping list emptied" : "ticked items cleared");
 }

@@ -2,7 +2,7 @@ import { addDays, localDay } from "../../core/tz";
 
 /**
  * Meal prep stock, folded from a batch and its portion moves, plus the defrost planner.
- * Pure functions: the database layer (src/db/mealPrep.ts) loads rows and calls these.
+ * Pure functions: the data layer (./mealPrep.ts) loads rows and calls these.
  */
 
 export type MoveKind = "freeze" | "thaw" | "eat" | "discard";

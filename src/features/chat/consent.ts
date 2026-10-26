@@ -1,5 +1,8 @@
 import type { SqlDriver } from "../../db/driver";
 import { uuidv7 } from "../../core/uuidv7";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("chat.consent");
 
 /**
  * GDPR: health data is special-category data, so each kind of data sent to Claude needs
@@ -64,6 +67,7 @@ export async function recordConsent(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [uuidv7(nowMs), scope, granted ? 1 : 0, nowMs, CONSENT_POLICY_VERSION[scope], nowMs, nowMs, deviceId],
   );
+  log.info("consent recorded", { scope, granted, policy: CONSENT_POLICY_VERSION[scope] });
 }
 
 export async function consentStatus(db: SqlDriver): Promise<Record<ConsentScope, boolean>> {

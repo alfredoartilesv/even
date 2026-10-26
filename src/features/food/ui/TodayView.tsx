@@ -17,7 +17,7 @@ import {
   type SavedMeal,
 } from "../food";
 import { mealForHour, type Candidate } from "../suggest";
-import { MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { CalorieMeter, emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
 import { entryActions } from "./entryActions";
 
@@ -74,7 +74,7 @@ export function TodayView({ db, version, onChanged }: Props) {
       setMsg({ kind: "ok", text: `Logged ${c.name}.` });
       reload();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "food"));
     }
   }
 
@@ -92,7 +92,7 @@ export function TodayView({ db, version, onChanged }: Props) {
       setAdding(false);
       reload();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "food"));
     }
   }
 
@@ -104,7 +104,7 @@ export function TodayView({ db, version, onChanged }: Props) {
       setGoalInput(null);
       reload();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "food"));
     }
   }
 

@@ -1,6 +1,9 @@
 import { addDays, localDay } from "../../core/tz";
 import { parseListMetrics, parseQueryMetrics, type MetricInfo } from "./freddyText";
 import type { CatalogEntry, SampleInput, Source, SyncResult } from "./types";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("sync.freddy");
 
 /**
  * Anything that can call a freddy MCP tool and hand back its text output.
@@ -63,6 +66,7 @@ export class FreddySource implements Source {
       }
     }
 
+    log.debug("window", { start, end: today, firstSync: !cursor });
     let names = this.opts.metrics;
     let catalog: CatalogEntry[] | undefined;
     if (!names) {
@@ -77,6 +81,7 @@ export class FreddySource implements Source {
         records: m.records,
       }));
     }
+    log.debug("metrics selected", { metrics: names.length, discovered: catalog?.length ?? null });
     if (names.length === 0) {
       warnings.push("No metrics selected (list_metrics returned nothing usable).");
     }
@@ -88,6 +93,7 @@ export class FreddySource implements Source {
       const parsed = parseQueryMetrics(text, tz, this.id);
       if (parsed.timeZone) tz = parsed.timeZone;
       samples.push(...parsed.samples);
+      log.debug("chunk parsed", { chunk: i / MAX_METRICS_PER_CALL + 1, metrics: chunk.length, samples: parsed.samples.length, skipped: parsed.skipped.length });
       if (parsed.skipped.length > 0) {
         warnings.push(`${parsed.skipped.length} line(s) not understood, e.g. "${parsed.skipped[0]}"`);
       }

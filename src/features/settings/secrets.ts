@@ -1,14 +1,16 @@
+import { createLogger } from "../../core/log";
+import type { SecretStore } from "../../core/secretStore";
+
+export { memorySecretStore, type SecretStore } from "../../core/secretStore";
+
 /**
  * Secrets: the freddy MCP URL and key now, the Claude API key later.
  * On the phone they live in the Android Keystore / iOS Keychain via
- * @aparajita/capacitor-secure-storage (src/settings/secureStore.ts). They are never
+ * @aparajita/capacitor-secure-storage (src/platform/secureStore.ts). They are never
  * written to SQLite, so they are never in a backup file either.
  */
-export interface SecretStore {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
-  remove(key: string): Promise<void>;
-}
+
+const log = createLogger("settings.secrets");
 
 export const SECRET_KEYS = {
   freddyUrl: "freddy.mcp_url",
@@ -25,10 +27,12 @@ export async function saveClaudeKey(store: SecretStore, apiKey: string): Promise
   const k = apiKey.trim();
   if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(k)) throw new Error("That does not look like an Anthropic API key (it starts with sk-ant-)");
   await store.set(SECRET_KEYS.claudeKey, k);
+  log.info("Claude API key saved");
 }
 
 export async function clearClaudeKey(store: SecretStore): Promise<void> {
   await store.remove(SECRET_KEYS.claudeKey);
+  log.info("Claude API key removed");
 }
 
 export interface FreddyCredentials {
@@ -57,25 +61,12 @@ export async function saveFreddyCredentials(store: SecretStore, url: string, api
   const k = apiKey.trim();
   if (k) await store.set(SECRET_KEYS.freddyKey, k);
   else await store.remove(SECRET_KEYS.freddyKey);
+  log.info("freddy credentials saved", { hasKey: Boolean(k) });
 }
 
 export async function clearFreddyCredentials(store: SecretStore): Promise<void> {
   await store.remove(SECRET_KEYS.freddyUrl);
   await store.remove(SECRET_KEYS.freddyKey);
+  log.info("freddy credentials removed");
 }
 
-/** In-memory store for tests and for the browser dev build (nothing persists). */
-export function memorySecretStore(): SecretStore {
-  const m = new Map<string, string>();
-  return {
-    async get(k) {
-      return m.get(k) ?? null;
-    },
-    async set(k, v) {
-      m.set(k, v);
-    },
-    async remove(k) {
-      m.delete(k);
-    },
-  };
-}

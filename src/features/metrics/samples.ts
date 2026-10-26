@@ -1,6 +1,10 @@
+import { withTransaction } from "../../db/tx";
 import type { SampleInput } from "../sync/types";
 import { uuidv7 } from "../../core/uuidv7";
 import type { SqlDriver } from "../../db/driver";
+import { createLogger } from "../../core/log";
+
+const log = createLogger("metrics");
 
 const UPSERT = `
 INSERT INTO health_samples
@@ -31,8 +35,8 @@ export async function upsertSamples(
   newId: () => string = () => uuidv7(nowMs),
 ): Promise<number> {
   if (samples.length === 0) return 0;
-  await db.exec("BEGIN");
-  try {
+  const done = log.time("samples upserted");
+  await withTransaction(db, async () => {
     for (const s of samples) {
       await db.run(UPSERT, [
         newId(),
@@ -52,11 +56,8 @@ export async function upsertSamples(
         nowMs,
       ]);
     }
-    await db.exec("COMMIT");
-  } catch (err) {
-    await db.exec("ROLLBACK");
-    throw err;
-  }
+  });
+  done({ count: samples.length });
   return samples.length;
 }
 

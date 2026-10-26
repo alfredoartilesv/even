@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Capacitor } from "@capacitor/core";
-import { Share } from "@capacitor/share";
+import { isNative, shareText } from "../../../platform/device";
 import type { SqlDriver } from "../../../db/driver";
 import {
   addShoppingItem,
@@ -12,7 +11,7 @@ import {
   setShoppingChecked,
   type ShoppingItem,
 } from "../shopping";
-import { MsgLine, numOrNull, type Msg } from "../../../ui/common";
+import { failed, MsgLine, numOrNull, type Msg } from "../../../ui/common";
 
 interface Props {
   db: SqlDriver;
@@ -43,7 +42,7 @@ export function ShoppingView({ db, version }: Props) {
       setMsg(null);
       await load();
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "mealprep"));
     }
   }
 
@@ -51,13 +50,9 @@ export function ShoppingView({ db, version }: Props) {
     const text = listAsText(items);
     if (!text) return setMsg({ kind: "error", text: "Nothing left to buy." });
     try {
-      if (Capacitor.isNativePlatform()) await Share.share({ title: "Shopping list", text });
-      else {
-        await navigator.clipboard.writeText(text);
-        setMsg({ kind: "ok", text: "Copied to the clipboard." });
-      }
+      if ((await shareText("Shopping list", text)) === "copied") setMsg({ kind: "ok", text: "Copied to the clipboard." });
     } catch (err) {
-      setMsg({ kind: "error", text: (err as Error).message });
+      setMsg(failed(err, "mealprep"));
     }
   }
 
@@ -96,7 +91,7 @@ export function ShoppingView({ db, version }: Props) {
       {items.length > 0 && (
         <div className="actions">
           <button onClick={share} disabled={!open}>
-            {Capacitor.isNativePlatform() ? "Share list" : "Copy list"}
+            {isNative ? "Share list" : "Copy list"}
           </button>
           <button className="secondary" disabled={open === items.length} onClick={() => void clearShopping(db).then(load)}>
             Clear ticked

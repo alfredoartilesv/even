@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { SecureStorage } from "@aparajita/capacitor-secure-storage";
-import { memorySecretStore, type SecretStore } from "../features/settings/secrets";
+import { memorySecretStore, type SecretStore } from "../core/secretStore";
 
 /**
  * Keystore/Keychain-backed store on the phone. In the browser dev build the plugin

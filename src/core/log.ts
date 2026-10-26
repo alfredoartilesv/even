@@ -46,7 +46,12 @@ export function sanitize(fields: Fields): Fields {
 }
 
 function clean(v: unknown, depth: number): unknown {
-  if (v instanceof Error) return { name: v.name, message: v.message.slice(0, MAX_STRING) };
+  if (v instanceof Error) {
+    // Validation errors (zod) carry a JSON dump as message: keep just "path: message" per issue.
+    const issues = (v as { issues?: { path?: (string | number)[]; message?: string }[] }).issues;
+    const message = Array.isArray(issues) ? issues.map((i) => `${i.path?.join(".") || "input"}: ${i.message}`).join("; ") : v.message;
+    return { name: v.name, message: message.slice(0, MAX_STRING) };
+  }
   if (typeof v === "string") return v.length > MAX_STRING ? `${v.slice(0, MAX_STRING)}…` : v;
   if (v === null || typeof v !== "object") return v;
   if (depth >= 2) return Array.isArray(v) ? `[${v.length} items]` : "[object]";
@@ -92,8 +97,11 @@ interface Config {
   now: () => number;
 }
 
-/** Process-wide defaults: warn and above, to the console. The app raises it at start. */
-const config: Config = { threshold: "warn", scopes: {}, sinks: [consoleSink], now: () => Date.now() };
+/** The last records of this run, shown in Settings > Logs. Memory only, gone on restart. */
+export const recentLogs = ringBuffer(500);
+
+/** Process-wide defaults: warn and above, to the console and recentLogs. The app sets the level at start. */
+const config: Config = { threshold: "warn", scopes: {}, sinks: [consoleSink, recentLogs.sink], now: () => Date.now() };
 
 export function configureLogging(c: Partial<Config>): void {
   Object.assign(config, c);
