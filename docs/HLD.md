@@ -254,7 +254,7 @@ Native projects are generated and git-ignored; the repo holds only the web code,
 |---|---|
 | Offline first | Everything except sync and chat works without network |
 | Data durability | Idempotent upserts; one transaction per migration, per sync batch and per restore; encrypted backups |
-| Testability | Core depends on interfaces; 139 Node tests, including a fake of the Android plugin's statement splitting and transactions |
+| Testability | Core depends on interfaces; 154 Node tests, including a fake of the Android plugin's statement splitting and transactions |
 | Replaceable source | `Source` and `ToolCaller` interfaces; MCP today, REST later, others possible |
 | Phase 2 readiness | UUIDv7 keys, `updated_at` / `deleted_at` / `origin_device_id` on user tables, append-only samples |
 | Performance | Personal scale. Indexed by (metric, local_day). Restore inserts in multi-row batches to limit bridge calls |
