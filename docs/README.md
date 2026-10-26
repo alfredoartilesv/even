@@ -9,6 +9,7 @@ A personal health app for Android (then iPhone): wearable data through freddy, k
 | [architecture.md](architecture.md) | **Why** it is built this way | Decisions in force, rules the code must keep, open risks, rejected options, the open question for the owner, next steps |
 | [HLD.md](HLD.md) | **What** the system is and how data moves | Context, components, main flows (start, sync, backup, Claude), data groups, security, deployment, quality attributes |
 | [LLD.md](LLD.md) | **How** a part works in the code | Repo layout, interfaces, database driver and its quirks, the full schema, freddy parsing and MCP client, sync algorithm, backup file format and merge rules, tests, how to extend |
+| [dev-setup.md](dev-setup.md) | **How to build and run** on this PC | JDK 21 and Android SDK install, environment variables, emulator acceleration, VS Code extensions and tasks, debugging the WebView, when Docker helps |
 
 New to the repo: read this page, then the HLD, then the parts of the LLD you need. Before changing a decision, read architecture.md.
 
@@ -35,6 +36,8 @@ npm test                    # 172 tests, no device needed
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
 ```
+
+Android build, emulator and VS Code tasks: [dev-setup.md](dev-setup.md).
 
 Real freddy data on your PC (needs `.env` with `FREDDY_MCP_URL` and `FREDDY_MCP_KEY`, see `.env.example`):
 
