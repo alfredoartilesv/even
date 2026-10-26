@@ -16,3 +16,7 @@ ios/
 # Local databases (contain health data)
 *.sqlite
 *.sqlite-journal
+
+# Data exports to import (Garmin ZIP etc.): health data, never committed. Only the README is.
+imports/*
+!imports/README.md
