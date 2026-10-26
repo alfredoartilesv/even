@@ -135,14 +135,19 @@ interface Screen {
 
 const tab = (p: Page, label: string) => p.click(".tabbar button", label);
 const sub = (p: Page, label: string) => p.click(".tabs.sub button", label);
+/** A Settings page from the menu (back to the menu first when a page is open). */
+const settings = async (p: Page, label: string) => {
+  if (await p.evaluate<boolean>(`!!document.querySelector('[aria-label="Back to Settings"]')`)) await p.click('[aria-label="Back to Settings"]');
+  await p.click(".menu-row", label);
+};
 
 const SCREENS: Screen[] = [
-  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "The profile picture (opens the profile) and sync at the top. Steps, calories burned and eaten, the balance, active calories and protein for the day; meal prep portions and stock; workouts; every synced number of the day.", go: (p) => tab(p, "Dashboard") },
+  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, meal prep. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; then energy, workouts and meal prep, and every synced number of the day.", go: (p) => tab(p, "Dashboard") },
   {
     id: "dashboard-week",
     tab: "Dashboard",
     title: "Week",
-    about: "Last full week: each tile is the daily average, with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
+    about: "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
     go: async (p) => {
       await p.click(".segmented button", "Week");
       await p.click('[aria-label="Previous week"]');
@@ -182,17 +187,18 @@ const SCREENS: Screen[] = [
       await p.click('[aria-label="Add a photo"]');
     },
   },
-  { id: "mealprep-log", tab: "Meal prep", title: "Log food", about: "Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.", go: (p) => tab(p, "Meal prep") },
-  { id: "mealprep-history", tab: "Meal prep", title: "History", about: "Calories per day for the week with the target, the weekly average, and any day's entries.", go: (p) => sub(p, "History") },
-  { id: "mealprep-saved", tab: "Meal prep", title: "Saved meals", about: "Favourite meals to log again in one tap, with servings.", go: (p) => sub(p, "Saved meals") },
-  { id: "mealprep-stock", tab: "Meal prep", title: "Stock", about: "Meal prep portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.", go: (p) => sub(p, "Stock") },
-  { id: "mealprep-recipes", tab: "Meal prep", title: "Recipes", about: "Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.", go: (p) => sub(p, "Recipes") },
-  { id: "alcohol", tab: "Alcohol", title: "Alcohol", about: "Drinks per period with standard drinks, kcal and money; weight without alcohol; one-tap logging from drink types.", go: (p) => tab(p, "Alcohol") },
-  { id: "settings-profile", tab: "Settings", title: "Profile", about: "Google account, the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).", go: (p) => tab(p, "Settings") },
-  { id: "settings-connections", tab: "Settings", title: "Connections", about: "The Garmin personal API key (sync), the Claude API key, and the Garmin history import.", go: (p) => sub(p, "Connections") },
-  { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.", go: (p) => sub(p, "Privacy & data") },
-  { id: "settings-logs", tab: "Settings", title: "Debug logs", about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.", go: (p) => sub(p, "Debug logs") },
-  { id: "settings-about", tab: "Settings", title: "About", about: "App version, build, platform, database schema and chat model.", go: (p) => sub(p, "About") },
+  { id: "mealprep-log", tab: "Meal prep", title: "Food log: Today", about: "Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.", go: (p) => tab(p, "Meal prep") },
+  { id: "mealprep-history", tab: "Meal prep", title: "Food log: History", about: "Calories per day for the week with the target, the weekly average, and any day's entries.", go: (p) => sub(p, "History") },
+  { id: "mealprep-saved", tab: "Meal prep", title: "Food log: Saved meals", about: "Favourite meals to log again in one tap, with servings.", go: (p) => sub(p, "Saved meals") },
+  { id: "mealprep-stock", tab: "Meal prep", title: "Meal prep: Stock", about: "The second group. Portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.", go: (p) => p.click(".segmented button", "Meal prep") },
+  { id: "mealprep-recipes", tab: "Meal prep", title: "Meal prep: Recipes", about: "Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.", go: (p) => sub(p, "Recipes") },
+  { id: "alcohol", tab: "Alcohol", title: "Alcohol", about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.", go: (p) => tab(p, "Alcohol") },
+  { id: "settings-menu", tab: "Settings", title: "Menu", about: "Every page in three groups, each row saying what is inside. Tapping Settings again comes back here.", go: (p) => tab(p, "Settings") },
+  { id: "settings-profile", tab: "Settings", title: "Profile", about: "Google account, the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).", go: (p) => settings(p, "Profile") },
+  { id: "settings-connections", tab: "Settings", title: "Connections", about: "Garmin sync, the Claude API key, and the Garmin history import.", go: (p) => settings(p, "Connections") },
+  { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.", go: (p) => settings(p, "Privacy & data") },
+  { id: "settings-logs", tab: "Settings", title: "Debug logs", about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.", go: (p) => settings(p, "Debug logs") },
+  { id: "settings-about", tab: "Settings", title: "About", about: "App version, build, platform, database schema and chat model.", go: (p) => settings(p, "About") },
 ];
 
 const THEMES = ["light", "dark"] as const;
@@ -258,9 +264,13 @@ function indexHtml(): string {
   const tabs = [...new Set(SCREENS.map((s) => s.tab))];
   const slug = (t: string) => t.toLowerCase().replace(/\W+/g, "-");
   const components = [
-    ["PageHeader", "src/ui/layout.tsx", "The title row of every tab: back button or profile picture, title, actions (sync, History, New)."],
-    ["SubTabs", "src/ui/layout.tsx", "The views of a tab: Meal prep (Log food … Shopping) and Settings (Profile … About)."],
-    ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard."],
+    ["PageHeader", "src/ui/layout.tsx", "The sticky title row of every tab: back button or profile picture, title and subtitle, actions (sync, History, New)."],
+    ["SectionHeader", "src/ui/layout.tsx", "Section headings with a link (Workouts › Your activity, Meal prep › Open)."],
+    ["QuickActions", "src/ui/layout.tsx", "Log food, Log a drink, Ask Claude, Meal prep on the Dashboard."],
+    ["MenuList", "src/ui/layout.tsx", "The Settings menu."],
+    ["SubTabs", "src/ui/layout.tsx", "The views inside a Meal prep group."],
+    ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard; Food log / Meal prep."],
+    ["Ring", "src/ui/charts/figures.tsx", "Calories eaten against the target and steps against the goal."],
     ["ChipGroup, RangePicker", "src/ui/controls.tsx", "Periods and filters: Alcohol periods, profile activity ranges, chart ranges."],
     ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's camera and send buttons."],
     ["TabBar", "src/app/TabBar.tsx", "The five tabs at the bottom."],

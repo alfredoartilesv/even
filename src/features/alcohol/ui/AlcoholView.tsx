@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
 import { failed, fmtDay, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { StatTile } from "../../../ui/charts";
 import { ChipGroup } from "../../../ui/controls";
+import { Icon } from "../../../ui/icons";
+import { SectionHeader } from "../../../ui/layout";
 import {
   deleteDrink,
   deleteDrinkType,
@@ -170,64 +173,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
   const t = impact?.totals;
   return (
     <div>
-      <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
-
-      {t && (
-        <div className="totals">
-          <div>
-            <strong>{t.drinks}</strong>
-            <span className="muted small">
-              drinks · {t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} std
-            </span>
-          </div>
-          <div>
-            <strong>{kcal(t.kcal)}</strong>
-            <span className="muted small">kcal{t.kcalEstimated ? " (some estimated)" : ""}</span>
-          </div>
-          <div>
-            <strong>{fmtMoney(t.money)}</strong>
-            <span className="muted small">{t.priced < t.drinks ? `spent (${t.drinks - t.priced} without price)` : "spent"}</span>
-          </div>
-        </div>
-      )}
-
-      {t && impact && (
-        <section className="card">
-          <h3>Weight without alcohol</h3>
-          {impact.weight && impact.expectedKg !== null ? (
-            <>
-              <p>
-                <strong>{kg(impact.expectedKg)} kg</strong> instead of {kg(impact.weight.kg)} kg
-                <span className="muted"> ({impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)} kg` : "no difference"})</span>
-              </p>
-              <p className="muted small">
-                If the {kcal(t.kcal)} kcal from drinks in the last {PERIODS.find((p) => p.key === period)!.label.toLowerCase()} had not been
-                added on top (7,700 kcal ≈ 1 kg). Weight from {impact.weight.source === "manual" ? "a weigh-in" : "your watch"} on{" "}
-                {fmtDay(impact.weight.day)}. An upper bound, not a prediction.
-              </p>
-            </>
-          ) : (
-            <p className="muted small">Log a weight (or sync one from your watch) to see this.</p>
-          )}
-        </section>
-      )}
-
-      <MsgLine msg={msg} />
-      {lastIds.length > 0 && (
-        <button
-          className="link small"
-          onClick={() =>
-            void run(async () => {
-              for (const id of lastIds) await deleteDrink(db, id);
-              setLastIds([]);
-            }, "Undone.")
-          }
-        >
-          Undo
-        </button>
-      )}
-
-      <h3>Log a drink</h3>
+      <SectionHeader title="Log a drink" />
       <div className="suggest">
         {types.map((d) => (
           <button key={d.id} className="suggestion secondary" onClick={() => quickLog(d)}>
@@ -268,7 +214,55 @@ export function AlcoholView({ db, version, onChanged }: Props) {
         </form>
       )}
 
-      <h3>Drinks</h3>
+      <MsgLine msg={msg} />
+      {lastIds.length > 0 && (
+        <button
+          className="link small"
+          onClick={() =>
+            void run(async () => {
+              for (const id of lastIds) await deleteDrink(db, id);
+              setLastIds([]);
+            }, "Undone.")
+          }
+        >
+          Undo
+        </button>
+      )}
+
+
+      <SectionHeader title="How it adds up" />
+      <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
+
+      {t && (
+        <div className="viz-tiles">
+          <StatTile label="Drinks" value={String(t.drinks)} note={`${t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`} />
+          <StatTile label="Calories" value={kcal(t.kcal)} unit="kcal" note={t.kcalEstimated ? "some estimated" : undefined} />
+          <StatTile label="Spent" value={fmtMoney(t.money)} note={t.priced < t.drinks ? `${t.drinks - t.priced} without price` : undefined} />
+        </div>
+      )}
+
+      {t && impact && (
+        <section className="card">
+          <h3>Weight without alcohol</h3>
+          {impact.weight && impact.expectedKg !== null ? (
+            <>
+              <p>
+                <strong>{kg(impact.expectedKg)} kg</strong> instead of {kg(impact.weight.kg)} kg
+                <span className="muted"> ({impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)} kg` : "no difference"})</span>
+              </p>
+              <p className="muted small">
+                If the {kcal(t.kcal)} kcal from drinks in the last {PERIODS.find((p) => p.key === period)!.label.toLowerCase()} had not been
+                added on top (7,700 kcal ≈ 1 kg). Weight from {impact.weight.source === "manual" ? "a weigh-in" : "your watch"} on{" "}
+                {fmtDay(impact.weight.day)}. An upper bound, not a prediction.
+              </p>
+            </>
+          ) : (
+            <p className="muted small">Log a weight (or sync one from your watch) to see this.</p>
+          )}
+        </section>
+      )}
+
+      <SectionHeader title="Drinks" />
       {drinks.length ? (
         <ul className="entries">
           {drinks.map((d) => (
@@ -280,8 +274,8 @@ export function AlcoholView({ db, version, onChanged }: Props) {
                   {d.price !== null && ` · ${fmtMoney(d.price)}`}
                 </div>
               </div>
-              <button className="secondary danger" aria-label={`Delete ${d.name}`} onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}>
-                ×
+              <button className="icon-button ghost" aria-label={`Delete ${d.name}`} onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}>
+                <Icon name="trash" size={18} />
               </button>
             </li>
           ))}
@@ -290,7 +284,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
         <p className="muted">No drinks in this period.</p>
       )}
 
-      <h3>Your drinks</h3>
+      <SectionHeader title="Your drinks" />
       {editing ? (
         <form className="card stack" onSubmit={saveType}>
           <TypeFields d={editing} set={setEditing} currency={currency} />

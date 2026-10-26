@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { listTags } from "../mealPrep";
 import { TagChips } from "../../../ui/common";
-import { PageHeader, SubTabs, type Choice } from "../../../ui/layout";
+import { PageHeader, Segmented, SubTabs, type Choice } from "../../../ui/layout";
 import { HistoryView } from "../../food/ui/HistoryView";
 import { SavedView } from "../../food/ui/SavedView";
 import { TodayView } from "../../food/ui/TodayView";
@@ -12,14 +12,33 @@ import { StockView } from "./StockView";
 
 export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping";
 
-export const MEAL_PREP_VIEWS: Choice<MealPrepView>[] = [
-  { id: "log", label: "Log food" },
-  { id: "history", label: "History" },
-  { id: "saved", label: "Saved meals" },
-  { id: "stock", label: "Stock" },
-  { id: "recipes", label: "Recipes" },
-  { id: "shopping", label: "Shopping" },
+export type MealPrepGroup = "food" | "prep";
+
+export const MEAL_PREP_GROUPS: (Choice<MealPrepGroup> & { views: Choice<MealPrepView>[] })[] = [
+  {
+    id: "food",
+    label: "Food log",
+    views: [
+      { id: "log", label: "Today" },
+      { id: "history", label: "History" },
+      { id: "saved", label: "Saved meals" },
+    ],
+  },
+  {
+    id: "prep",
+    label: "Meal prep",
+    views: [
+      { id: "stock", label: "Stock" },
+      { id: "recipes", label: "Recipes" },
+      { id: "shopping", label: "Shopping" },
+    ],
+  },
 ];
+
+/** Every view, food log first. */
+export const MEAL_PREP_VIEWS: Choice<MealPrepView>[] = MEAL_PREP_GROUPS.flatMap((g) => g.views);
+
+const groupOf = (v: MealPrepView): MealPrepGroup => MEAL_PREP_GROUPS.find((g) => g.views.some((x) => x.id === v))!.id;
 
 interface Props {
   db: SqlDriver;
@@ -33,8 +52,8 @@ interface Props {
 }
 
 /**
- * The third tab: everything about eating. Log what you eat (today, past days, saved meals), and
- * the meal prep: what is in stock and what to defrost, recipes, and the shopping list.
+ * The third tab: everything about eating, in two groups. Food log: what you eat today, past days,
+ * saved meals. Meal prep: what is in stock and what to defrost, recipes, the shopping list.
  */
 export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) {
   const [tags, setTags] = useState<string[]>([]);
@@ -46,6 +65,11 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
     onChanged();
   };
   const v = version + local;
+  const group = groupOf(view);
+  // Switching group goes back to the view last open in it.
+  const last = useRef<Record<MealPrepGroup, MealPrepView>>({ food: "log", prep: "stock" });
+  last.current[group] = view;
+  const views = MEAL_PREP_GROUPS.find((g) => g.id === group)!.views;
 
   const loadTags = useCallback(async () => {
     const t = (await listTags(db)).map((r) => r.tag);
@@ -60,7 +84,8 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
   return (
     <section>
       <PageHeader title="Meal prep" />
-      <SubTabs items={MEAL_PREP_VIEWS} value={view} onChange={onView} label="Meal prep views" />
+      <Segmented items={MEAL_PREP_GROUPS} value={group} onChange={(g) => onView(last.current[g])} label="Food log or meal prep" />
+      <SubTabs items={views} value={view} onChange={onView} label={group === "food" ? "Food log views" : "Meal prep views"} />
       {(view === "stock" || view === "recipes") && <TagChips tags={tags} value={tag} onChange={setTag} />}
       {view === "log" && <TodayView db={db} version={v} onChanged={changed} />}
       {view === "history" && <HistoryView db={db} version={v} onChanged={changed} />}

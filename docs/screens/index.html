@@ -25,6 +25,7 @@
  *   --good        good news (met, within target), as text
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
+ *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -58,10 +59,17 @@
   --viz-grid: #e7e5e4;
   --viz-axis: #c3c2b7;
 
+  --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
+
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
   --radius: 12px;
   --radius-pill: 999px;
+
+  /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -75,6 +83,7 @@
     --good: #0ca30c;
     --warning: #facc15;
     --error: #f87171;
+    --shadow: none;
 
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -120,11 +129,11 @@ code { font-size: 0.9em; }
 <div class="grid">
 <figure>
   <div class="shot"><img class="light" src="img/light-dashboard-day.webp" alt="Dashboard: Day (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-day.webp" alt="Dashboard: Day (dark)" loading="lazy"></div>
-  <figcaption><strong>Day</strong><span class="muted">The profile picture (opens the profile) and sync at the top. Steps, calories burned and eaten, the balance, active calories and protein for the day; meal prep portions and stock; workouts; every synced number of the day.</span></figcaption>
+  <figcaption><strong>Day</strong><span class="muted">A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, meal prep. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; then energy, workouts and meal prep, and every synced number of the day.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-dashboard-week.webp" alt="Dashboard: Week (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-week.webp" alt="Dashboard: Week (dark)" loading="lazy"></div>
-  <figcaption><strong>Week</strong><span class="muted">Last full week: each tile is the daily average, with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.</span></figcaption>
+  <figcaption><strong>Week</strong><span class="muted">Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-dashboard-month.webp" alt="Dashboard: Month (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-month.webp" alt="Dashboard: Month (dark)" loading="lazy"></div>
@@ -149,42 +158,46 @@ code { font-size: 0.9em; }
 <h2 id="meal-prep">Meal prep</h2>
 <div class="grid">
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-log.webp" alt="Meal prep: Log food (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-log.webp" alt="Meal prep: Log food (dark)" loading="lazy"></div>
-  <figcaption><strong>Log food</strong><span class="muted">Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-log.webp" alt="Meal prep: Food log: Today (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-log.webp" alt="Meal prep: Food log: Today (dark)" loading="lazy"></div>
+  <figcaption><strong>Food log: Today</strong><span class="muted">Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-history.webp" alt="Meal prep: History (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-history.webp" alt="Meal prep: History (dark)" loading="lazy"></div>
-  <figcaption><strong>History</strong><span class="muted">Calories per day for the week with the target, the weekly average, and any day's entries.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-history.webp" alt="Meal prep: Food log: History (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-history.webp" alt="Meal prep: Food log: History (dark)" loading="lazy"></div>
+  <figcaption><strong>Food log: History</strong><span class="muted">Calories per day for the week with the target, the weekly average, and any day's entries.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-saved.webp" alt="Meal prep: Saved meals (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-saved.webp" alt="Meal prep: Saved meals (dark)" loading="lazy"></div>
-  <figcaption><strong>Saved meals</strong><span class="muted">Favourite meals to log again in one tap, with servings.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-saved.webp" alt="Meal prep: Food log: Saved meals (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-saved.webp" alt="Meal prep: Food log: Saved meals (dark)" loading="lazy"></div>
+  <figcaption><strong>Food log: Saved meals</strong><span class="muted">Favourite meals to log again in one tap, with servings.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-stock.webp" alt="Meal prep: Stock (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-stock.webp" alt="Meal prep: Stock (dark)" loading="lazy"></div>
-  <figcaption><strong>Stock</strong><span class="muted">Meal prep portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-stock.webp" alt="Meal prep: Meal prep: Stock (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-stock.webp" alt="Meal prep: Meal prep: Stock (dark)" loading="lazy"></div>
+  <figcaption><strong>Meal prep: Stock</strong><span class="muted">The second group. Portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Recipes (dark)" loading="lazy"></div>
-  <figcaption><strong>Recipes</strong><span class="muted">Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (dark)" loading="lazy"></div>
+  <figcaption><strong>Meal prep: Recipes</strong><span class="muted">Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.</span></figcaption>
 </figure>
 </div>
 <h2 id="alcohol">Alcohol</h2>
 <div class="grid">
 <figure>
   <div class="shot"><img class="light" src="img/light-alcohol.webp" alt="Alcohol: Alcohol (light)" loading="lazy"><img class="dark" src="img/dark-alcohol.webp" alt="Alcohol: Alcohol (dark)" loading="lazy"></div>
-  <figcaption><strong>Alcohol</strong><span class="muted">Drinks per period with standard drinks, kcal and money; weight without alcohol; one-tap logging from drink types.</span></figcaption>
+  <figcaption><strong>Alcohol</strong><span class="muted">One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.</span></figcaption>
 </figure>
 </div>
 <h2 id="settings">Settings</h2>
 <div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-menu.webp" alt="Settings: Menu (light)" loading="lazy"><img class="dark" src="img/dark-settings-menu.webp" alt="Settings: Menu (dark)" loading="lazy"></div>
+  <figcaption><strong>Menu</strong><span class="muted">Every page in three groups, each row saying what is inside. Tapping Settings again comes back here.</span></figcaption>
+</figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-profile.webp" alt="Settings: Profile (light)" loading="lazy"><img class="dark" src="img/dark-settings-profile.webp" alt="Settings: Profile (dark)" loading="lazy"></div>
   <figcaption><strong>Profile</strong><span class="muted">Google account, the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-connections.webp" alt="Settings: Connections (light)" loading="lazy"><img class="dark" src="img/dark-settings-connections.webp" alt="Settings: Connections (dark)" loading="lazy"></div>
-  <figcaption><strong>Connections</strong><span class="muted">freddy (sync), the Claude API key, and the Garmin history import.</span></figcaption>
+  <figcaption><strong>Connections</strong><span class="muted">Garmin sync, the Claude API key, and the Garmin history import.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="Settings: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="Settings: Privacy &amp; data (dark)" loading="lazy"></div>
@@ -202,9 +215,13 @@ code { font-size: 0.9em; }
 <h2 id="components">Components</h2>
 <p class="muted">Screens are built from the shared UI kit in <code>src/ui/</code>. Tests (<code>tests/uiLayout.test.ts</code>) keep screens from drawing their own titles, tab rows or icons.</p>
 <table><thead><tr><th>Component</th><th>File</th><th>Used for</th></tr></thead><tbody>
-<tr><td><code>PageHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>The title row of every tab: back button or profile picture, title, actions (sync, History, New).</td></tr>
-<tr><td><code>SubTabs</code></td><td><code>src/ui/layout.tsx</code></td><td>The views of a tab: Meal prep (Log food … Shopping) and Settings (Profile … About).</td></tr>
-<tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard.</td></tr>
+<tr><td><code>PageHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>The sticky title row of every tab: back button or profile picture, title and subtitle, actions (sync, History, New).</td></tr>
+<tr><td><code>SectionHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>Section headings with a link (Workouts › Your activity, Meal prep › Open).</td></tr>
+<tr><td><code>QuickActions</code></td><td><code>src/ui/layout.tsx</code></td><td>Log food, Log a drink, Ask Claude, Meal prep on the Dashboard.</td></tr>
+<tr><td><code>MenuList</code></td><td><code>src/ui/layout.tsx</code></td><td>The Settings menu.</td></tr>
+<tr><td><code>SubTabs</code></td><td><code>src/ui/layout.tsx</code></td><td>The views inside a Meal prep group.</td></tr>
+<tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard; Food log / Meal prep.</td></tr>
+<tr><td><code>Ring</code></td><td><code>src/ui/charts/figures.tsx</code></td><td>Calories eaten against the target and steps against the goal.</td></tr>
 <tr><td><code>ChipGroup, RangePicker</code></td><td><code>src/ui/controls.tsx</code></td><td>Periods and filters: Alcohol periods, profile activity ranges, chart ranges.</td></tr>
 <tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar icons, the chat's camera and send buttons.</td></tr>
 <tr><td><code>TabBar</code></td><td><code>src/app/TabBar.tsx</code></td><td>The five tabs at the bottom.</td></tr>
