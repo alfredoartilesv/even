@@ -34,7 +34,7 @@ export function App() {
   // The profile opens over the Dashboard, with a way back.
   const [profileOpen, setProfileOpen] = useState(false);
   const [mealPrepView, setMealPrepView] = useState<MealPrepView>("log");
-  const [settingsPage, setSettingsPage] = useState<SettingsPage>("profile");
+  const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
   const [configured, setConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
@@ -132,16 +132,23 @@ export function App() {
 
   const ready = dbStatus.db;
   const changed = () => setVersion((v) => v + 1);
+  const go = (t: Tab) => {
+    setTab(t);
+    window.scrollTo(0, 0);
+  };
   const openSettings = (page: SettingsPage) => {
     setSettingsPage(page);
-    setTab("settings");
+    go("settings");
   };
   const syncButton = <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />;
+  // Changes with every screen, so the new one animates in.
+  const screenKey = tab === "dashboard" ? `dashboard|${profileOpen}` : tab === "settings" ? `settings|${settingsPage}` : tab === "mealprep" ? `mealprep|${mealPrepView}` : tab;
 
   return (
     <>
       <main className="shell with-tabbar">
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
+        <div key={screenKey} className="screen">
         {tab === "dashboard" ? (
           !profileOpen ? (
             <DashboardScreen
@@ -151,9 +158,21 @@ export function App() {
               syncWarnings={status?.warnings ?? []}
               profile={<ProfileButton db={ready} version={version} onOpen={() => setProfileOpen(true)} />}
               sync={syncButton}
-              onLogFood={() => {
-                setMealPrepView("log");
-                setTab("mealprep");
+              go={{
+                logFood: () => {
+                  setMealPrepView("log");
+                  go("mealprep");
+                },
+                logDrink: () => go("alcohol"),
+                askClaude: () => go("chat"),
+                mealPrep: () => {
+                  setMealPrepView("stock");
+                  go("mealprep");
+                },
+                profile: () => {
+                  setProfileOpen(true);
+                  window.scrollTo(0, 0);
+                },
               }}
             />
           ) : (
@@ -181,14 +200,15 @@ export function App() {
             }}
           />
         )}
+        </div>
       </main>
       <TabBar
         tab={tab}
         onTab={(t) => {
-          // Tapping Dashboard again closes the profile.
+          // Tapping a tab goes to its top level: the Dashboard closes the profile, Settings shows its menu.
           if (t === "dashboard") setProfileOpen(false);
-          setTab(t);
-          window.scrollTo(0, 0);
+          if (t === "settings") setSettingsPage(null);
+          go(t);
         }}
       />
     </>

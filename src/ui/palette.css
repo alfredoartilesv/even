@@ -18,6 +18,7 @@
  *   --good        good news (met, within target), as text
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
+ *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -51,10 +52,17 @@
   --viz-grid: #e7e5e4;
   --viz-axis: #c3c2b7;
 
+  --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
+
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
   --radius: 12px;
   --radius-pill: 999px;
+
+  /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -68,6 +76,7 @@
     --good: #0ca30c;
     --warning: #facc15;
     --error: #f87171;
+    --shadow: none;
 
     --series-1: #3987e5;
     --series-2: #d95926;

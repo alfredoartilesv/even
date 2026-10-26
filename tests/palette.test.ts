@@ -80,7 +80,8 @@ test("no literal colors outside the palette", () => {
 });
 
 test("every var(--token) the app uses is defined", () => {
-  const defined = new Set([...Object.keys(light), ...files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/(--[\w-]+):/g)].map((m) => m[1].slice(2)))]);
+  // Defined in CSS ("--x: …") or set inline from a component (style={{ ["--x"]: … }}).
+  const defined = new Set([...Object.keys(light), ...files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/(--[\w-]+):|["'](--[\w-]+)["']/g)].map((m) => (m[1] ?? m[2]).slice(2)))]);
   const used = files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/var\(--([\w-]+)/g)].map((m) => ({ token: m[1], file: f.slice(SRC.length + 1) }))).filter((u) => !u.token.endsWith("-")); // --series-${slot}: checked above
   assert.deepEqual(
     used.filter((u) => !defined.has(u.token)).map((u) => `${u.file}: --${u.token}`),
