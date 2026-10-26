@@ -1,0 +1,83 @@
+/*
+ * The app's color palette: every color the app uses, by role, for light and dark. Screens and
+ * the UI kit use these tokens only, never a literal color. Loaded first by main.tsx.
+ *
+ * Neutrals are warm stone, the accent is teal. tests/palette.test.ts checks the contrast of
+ * every text role against both surfaces (WCAG AA, 4.5:1) in both themes, so a change here that
+ * makes text hard to read fails the build. docs/screens/palette.html shows the swatches.
+ *
+ * Roles
+ *   --bg          page background
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar
+ *   --fg          main text
+ *   --muted       secondary text, icons at rest
+ *   --line        borders and dividers
+ *   --accent      primary actions, the selected tab, links
+ *   --on-accent   text and icons on an accent fill
+ *   --accent-soft tinted fill: the owner's chat bubbles, meter tracks, the avatar
+ *   --good        good news (met, within target), as text
+ *   --warning     needs attention (stale sync, over target)
+ *   --error       failures and destructive actions
+ *
+ * Series colors are the validated categorical palette (dataviz reference instance), checked with
+ * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
+ * pass every gate (worst adjacent CVD dE 9.1 light, 8.4 dark). In light mode slots 3, 4 and 5
+ * sit below 3:1 on the surface, so every chart that uses them prints its values (legend values
+ * or the table view). One-series charts use --accent instead.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --fg: #1c1917;
+  --muted: #6b6460;
+  --line: #e7e5e4;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  --good: #006300;
+  --warning: #a16207;
+  --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
+  --error: #b91c1c;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --viz-grid: #e7e5e4;
+  --viz-axis: #c3c2b7;
+
+  /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14110f;
+    --surface: #1e1a17;
+    --fg: #f5f5f4;
+    --muted: #a8a29e;
+    --line: #292524;
+    --accent: #2dd4bf;
+    --on-accent: #14110f;
+    --good: #0ca30c;
+    --warning: #facc15;
+    --error: #f87171;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --viz-grid: #2c2a27;
+    --viz-axis: #44403c;
+  }
+}

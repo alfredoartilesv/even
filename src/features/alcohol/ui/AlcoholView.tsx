@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
 import { failed, fmtDay, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { ChipGroup } from "../../../ui/controls";
 import {
   deleteDrink,
   deleteDrinkType,
@@ -169,13 +170,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
   const t = impact?.totals;
   return (
     <div>
-      <div className="chips">
-        {PERIODS.map((p) => (
-          <button key={p.key} className={period === p.key ? "chip active" : "chip"} onClick={() => setPeriod(p.key)}>
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
 
       {t && (
         <div className="totals">
