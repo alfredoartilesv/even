@@ -97,7 +97,7 @@ interface Config {
   now: () => number;
 }
 
-/** The last records of this run, shown in Settings > Logs. Memory only, gone on restart. */
+/** The last records of this run, shown in the Logs tab and exported from there. Memory only, gone on restart. */
 export const recentLogs = ringBuffer(500);
 
 /** Process-wide defaults: warn and above, to the console and recentLogs. The app sets the level at start. */

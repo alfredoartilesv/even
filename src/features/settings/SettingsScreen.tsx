@@ -6,7 +6,6 @@ import type { SqlDriver } from "../../db/driver";
 import { setSetting } from "../../db/settings";
 import { clearFreddyCredentials, loadFreddyCredentials, saveFreddyCredentials, type SecretStore } from "./secrets";
 import { loadTransport, TRANSPORT_KEY, type Transport } from "../sync/freddyClient";
-import { LogsPanel } from "./LogsPanel";
 import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
 
 interface Props {
@@ -188,8 +187,6 @@ export function SettingsScreen({ db, secrets, isNative, onChanged }: Props) {
       </form>
       {backupMsg && <p className={backupMsg.kind === "ok" ? "muted small" : "error small"}>{backupMsg.text}</p>}
 
-      <h2>Logs</h2>
-      <LogsPanel db={db} />
     </section>
   );
 }
