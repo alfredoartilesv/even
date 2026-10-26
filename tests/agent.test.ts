@@ -310,7 +310,7 @@ test("drinks, measurements, day notes and goals: proposals read well, limits hol
   await db.run("INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('n0', '2026-10-24', 'mine', ?, ?, 'dev')", [NOW, NOW]);
   const proposals: string[] = [];
   const api = oneRound(
-    call("a", "log_drink", { name: "Beer", volume_ml: 500, abv_percent: 5, day: "2026-10-25", time: "20:00", notes: null }),
+    call("a", "log_drink", { drink_type: null, name: "Beer", volume_ml: 500, abv_percent: 5, count: 1, calories: null, price: null, day: "2026-10-25", time: "20:00", notes: null }),
     call("b", "log_measurement", { kind: "blood_pressure", value_num: 128, value_num2: 82, value_text: null, unit: "mmHg", day: "2026-10-25", time: "08:00", notes: null }),
     call("c", "add_day_note", { day: "2026-10-24", mood: 4, energy: 3, note: "Good run" }),
     call("d", "add_day_note", { day: "2026-10-25", mood: 4, energy: 3, note: "Rest day" }),
@@ -320,7 +320,7 @@ test("drinks, measurements, day notes and goals: proposals read well, limits hol
   );
   await startConversation(deps(db, api.create, { confirmAction: async (p) => (proposals.push(`${p.summary} | ${p.lines.join(" / ")}`), true) }), "Q");
   assert.deepEqual(proposals, [
-    "Log Beer, 500 ml at 5% (19.7 g alcohol) | 2026-10-25 20:00: Beer, 500 ml, 5% ABV, 19.7 g alcohol",
+    "Log 1 x Beer (19.7 g alcohol, 138 kcal) | 2026-10-25 20:00: 1 x Beer, 500 ml, 5% ABV, about 138 kcal each",
     "Log blood_pressure: 128/82 mmHg | 2026-10-25 08:00: blood_pressure 128/82 mmHg",
     "Add the note for 2026-10-25 | 2026-10-25: mood 4, energy 3. Rest day",
     'Create goal "Protein" | Protein (protein_g >= 140 g per day), from 2026-10-26',

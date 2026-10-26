@@ -22,28 +22,6 @@ export function localDayOf(ms: number, offsetMin: number): string {
   return new Date(ms + offsetMin * 60_000).toISOString().slice(0, 10);
 }
 
-export interface DrinkInput {
-  drunkAtMs: number;
-  offsetMin: number;
-  name: string;
-  volumeMl: number;
-  abvPercent: number;
-  notes?: string | null;
-}
-
-export async function insertDrinkEntry(db: SqlDriver, d: DrinkInput, s: Stamp): Promise<string> {
-  const now = s.now ?? Date.now();
-  const id = uuidv7(now);
-  await db.run(
-    `INSERT INTO drink_entries
-       (id, drunk_at_ms, offset_min, local_day, name, volume_ml, abv_percent, notes, created_by, created_at, updated_at, origin_device_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, d.drunkAtMs, d.offsetMin, localDayOf(d.drunkAtMs, d.offsetMin), d.name, d.volumeMl, d.abvPercent, d.notes ?? null, s.createdBy, now, now, s.deviceId],
-  );
-  log.info("drink logged", { id, by: s.createdBy });
-  return id;
-}
-
 export interface MeasurementInput {
   measuredAtMs: number;
   offsetMin: number;

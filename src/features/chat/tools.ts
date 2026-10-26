@@ -5,6 +5,7 @@ import { dayFood, listSavedMeals } from "../food/food";
 import { listMealPreps, loadStock } from "../mealprep/mealPrep";
 import { dailySeries, type MetricSeries } from "../metrics/queries";
 import { listShopping } from "../mealprep/shopping";
+import { getCurrency, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol";
 import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../../core/health";
 import { addDays } from "../../core/tz";
 import type { DataClass } from "./consent";
@@ -463,6 +464,68 @@ const energyNeeds: ChatTool = {
   },
 };
 
+const drinkTypesTool: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "drink_types",
+    "The owner's saved drink types (name, serving ml, ABV, kcal and price per serving, times logged) and the currency prices are in. Use a name from here as drink_type in log_drink.",
+    {},
+  ),
+  async run(db) {
+    const [types, currency] = await Promise.all([listDrinkTypes(db), getCurrency(db)]);
+    return {
+      result: {
+        currency,
+        types: types.map((t) => ({
+          name: t.name,
+          volume_ml: t.volumeMl,
+          abv_percent: t.abvPercent,
+          kcal_per_serving: servingKcal(t),
+          kcal_is_estimate: t.calories === null,
+          price: t.price,
+          times_logged: t.uses,
+        })),
+      },
+      summary: `Drink types (${types.length})`,
+    };
+  },
+};
+
+const alcoholImpact: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "alcohol_impact",
+    "What drinking cost over a date range: drinks, drinking days, grams of alcohol, standard drinks (10 g), kcal (from labels, or 7 kcal per gram of alcohol when unknown, which undercounts sugary drinks), money spent (only drinks with a price) and the expected weight without alcohol: the latest weight minus those kcal / 7700, assuming they were not made up for elsewhere. Present it as an upper bound, not a prediction.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    const [w, currency] = await Promise.all([weightWithoutAlcohol(db, p.from, p.to), getCurrency(db)]);
+    const t = w.totals;
+    return {
+      result: {
+        from: p.from,
+        to: p.to,
+        calendar_days: t.days,
+        drinks: t.drinks,
+        drinking_days: t.drinkingDays,
+        alcohol_g: round(t.alcoholG),
+        standard_drinks: round(t.standardDrinks),
+        kcal: Math.round(t.kcal),
+        drinks_with_estimated_kcal: t.kcalEstimated,
+        kcal_per_calendar_day: round(t.kcal / t.days),
+        money: round(t.money),
+        drinks_with_price: t.priced,
+        currency,
+        weight: w.weight ? { kg: round(w.weight.kg), day: w.weight.day, source: w.weight.source } : null,
+        kg_from_alcohol: round(w.kgFromAlcohol),
+        expected_weight_without_alcohol_kg: w.expectedKg === null ? null : round(w.expectedKg),
+      },
+      summary: `Alcohol impact (kcal, money, weight), ${p.from} to ${p.to}`,
+    };
+  },
+};
+
 /** Fixed order: the tool list is part of the cached prompt prefix, so it must not change between requests. */
 export const CHAT_TOOLS: ChatTool[] = [
   listMetrics,
@@ -479,6 +542,8 @@ export const CHAT_TOOLS: ChatTool[] = [
   dailySeriesTool,
   listFoodEntries,
   dayNotes,
+  drinkTypesTool,
+  alcoholImpact,
 ];
 
 export const TOOLS_BY_NAME = new Map(CHAT_TOOLS.map((t) => [t.definition.name, t]));
