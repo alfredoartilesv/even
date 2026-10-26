@@ -3,6 +3,7 @@ import { ACTIVITY_FACTORS, ageOn, bmi, bmiClass, bmr, calorieTarget, healthyWeig
 import { createLogger } from "../../core/log";
 import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
+import { SPORT_IDS } from "../me/sports";
 
 /**
  * The owner's profile: what the energy and body calculations need (birth date, sex, height,
@@ -35,6 +36,8 @@ export const profileSchema = z.object({
   activity: z.enum(ACTIVITY_LEVELS as [ActivityLevel, ...ActivityLevel[]]).nullable().default(null),
   /** Wanted weight change per week, negative to lose. */
   kgPerWeek: z.number().min(-1, "At most 1 kg a week").max(1, "At most 1 kg a week").default(0),
+  /** Sports the owner calls theirs, in their order; shown first on the Me tab. */
+  sports: z.array(z.enum(SPORT_IDS)).max(SPORT_IDS.length).default([]),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -65,6 +68,23 @@ export async function saveProfile(db: SqlDriver, input: unknown, today: string, 
   await setSetting(db, PROFILE_KEY, JSON.stringify(p), nowMs);
   log.info("profile saved", { fields: Object.entries(p).filter(([, v]) => v !== null).map(([k]) => k) });
   return p;
+}
+
+/** The profile picture: a small JPEG data URL, its own setting so the profile JSON stays small. */
+export const PHOTO_KEY = "profile.photo";
+const MAX_PHOTO_CHARS = 200_000;
+
+export async function loadProfilePhoto(db: SqlDriver): Promise<string | null> {
+  const v = await getSetting(db, PHOTO_KEY);
+  return v && v.startsWith("data:image/jpeg;base64,") ? v : null;
+}
+
+/** Stores a JPEG data URL (the screen downscales it first); empty or null removes the picture. */
+export async function saveProfilePhoto(db: SqlDriver, dataUrl: string | null, nowMs: number = Date.now()): Promise<void> {
+  if (dataUrl && !dataUrl.startsWith("data:image/jpeg;base64,")) throw new Error("The picture must be a JPEG image");
+  if (dataUrl && dataUrl.length > MAX_PHOTO_CHARS) throw new Error("The picture is too large");
+  await setSetting(db, PHOTO_KEY, dataUrl ?? "", nowMs);
+  log.info(dataUrl ? "profile picture saved" : "profile picture removed", { kb: dataUrl ? Math.round(dataUrl.length / 1024) : 0 });
 }
 
 export interface Estimates {
