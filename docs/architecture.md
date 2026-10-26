@@ -99,6 +99,16 @@ The Personal REST API needs freddy Pro. For now the app talks to freddy's MCP en
 - **Real sync from a PC (25 Oct 2026):** 260 samples, 38 metrics, 7 local days; a second sync adds no rows.
 - Native HTTP is the default on the phone, so CORS does not apply there. Still unverified: whether WebView `fetch` would also work (selectable in Settings to test once).
 
+## 4c. Garmin history import (26 Oct 2026)
+
+The FREE plan only gives freddy's last 7 days, so the long history comes from Garmin's own account export (Garmin Connect → Account → Data Management → Export Your Data, a ZIP by email). The owner drops it in `imports/garmin/` (git-ignored) and runs `npm run import:garmin` on the PC. It reads the daily summaries, sleep, weigh-ins, VO2 max and fitness age, and activities, and writes an **encrypted backup file** that the owner restores on the phone (Settings → Restore). Restore merges, so nothing on the phone is lost or duplicated.
+
+- **Own source:** `garmin_export`, with metric names in the same Garmin Health API style as freddy's (`daily_steps`, `sleep_durationInSeconds`, ...). Overlapping days are kept as two labelled series, never summed (the same rule as for freddy's hubs).
+- **Units** were checked against a real export: activity distance and elevation in centimetres, durations in milliseconds, weight in grams. Garmin's "no data" markers (-1, -2, null) are dropped, and the profile weight (`USER_SETTING`) is not taken as a weigh-in.
+- **Privacy:** activity names, places and coordinates, profile images, routes and social data are not imported. The script prints counts and date ranges only.
+- **Why a backup file rather than an import screen:** it reuses the tested restore path, and keeps an 80 MB ZIP off the phone. The parser (`src/features/import/`, `fflate`) also runs in the WebView, so an in-app import can come later.
+- First run (26 Oct 2026): 1,281 days, 1,231 nights, 45 weigh-ins, 690 VO2 max values and 245 activities from 2018 to 2026, 41,650 readings in 48 metrics. The backup is 1.4 MB.
+
 ## 5. Claude integration (phase 1)
 
 Core built 25 Oct 2026 (`src/features/chat/`); the chat screen is not built yet. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
