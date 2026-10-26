@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ClaudeCreate } from "./engine";
+import { CHAT_MODEL, ChatApiError, toChatError, type ClaudeCreate } from "./engine";
 
 /**
  * The real Messages API call, through the official SDK.
@@ -20,4 +20,25 @@ export function claudeCreate(apiKey: string, fetchImpl?: typeof fetch): ClaudeCr
     timeout: 5 * 60_000,
   });
   return (params) => client.beta.messages.create(params);
+}
+
+/** Checks a key before it is saved. Throws a ChatApiError with a message safe to show. */
+export type VerifyClaudeKey = (apiKey: string) => Promise<void>;
+
+/**
+ * Verify a key with GET /v1/models/{CHAT_MODEL}: free (no tokens), proves the key is valid and
+ * that its workspace can use the chat model. Same transport as the chat (pass the native fetch).
+ */
+export function claudeKeyVerifier(fetchImpl?: typeof fetch): VerifyClaudeKey {
+  return async (apiKey) => {
+    const client = new Anthropic({ apiKey, fetch: fetchImpl, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 20_000 });
+    try {
+      await client.models.retrieve(CHAT_MODEL);
+    } catch (err) {
+      if (err instanceof Anthropic.NotFoundError) {
+        throw new ChatApiError("bad_request", `This key works, but its workspace cannot use ${CHAT_MODEL}. Check the workspace's model access in the Claude Console.`, false, 404);
+      }
+      throw toChatError(err);
+    }
+  };
 }

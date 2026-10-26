@@ -22,10 +22,16 @@ export async function loadClaudeKey(store: SecretStore): Promise<string | null> 
   return (await store.get(SECRET_KEYS.claudeKey))?.trim() || null;
 }
 
-/** The user's own Anthropic API key. Shape check only; the API itself is the real check. */
-export async function saveClaudeKey(store: SecretStore, apiKey: string): Promise<void> {
+/** Trimmed key if it has the shape of an Anthropic API key; throws a message safe to show otherwise. */
+export function normalizeClaudeKey(apiKey: string): string {
   const k = apiKey.trim();
   if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(k)) throw new Error("That does not look like an Anthropic API key (it starts with sk-ant-)");
+  return k;
+}
+
+/** The user's own Anthropic API key. Shape check only: connectClaude (features/chat/connect.ts) verifies it first. */
+export async function saveClaudeKey(store: SecretStore, apiKey: string): Promise<void> {
+  const k = normalizeClaudeKey(apiKey);
   await store.set(SECRET_KEYS.claudeKey, k);
   log.info("Claude API key saved");
 }
