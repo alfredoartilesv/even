@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isNative, nativeRequest } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
-import { FoodScreen } from "../features/food/ui/FoodScreen";
-import { MealPrepScreen } from "../features/mealprep/ui/MealPrepScreen";
-import { SettingsScreen } from "../features/settings/SettingsScreen";
+import { AlcoholScreen } from "../features/alcohol/ui/AlcoholScreen";
+import { ChatScreen } from "../features/chat/ui/ChatScreen";
+import { DashboardScreen } from "../features/dashboard/DashboardScreen";
+import { MealPrepScreen, type MealPrepView } from "../features/mealprep/ui/MealPrepScreen";
+import { SettingsScreen, type SettingsPage } from "../features/settings/SettingsScreen";
 import { LogsScreen } from "../features/logs/LogsScreen";
 import { MeScreen } from "../features/me/MeScreen";
-import { TodayScreen } from "../features/metrics/TodayScreen";
+import { ProfileButton } from "../features/dashboard/ProfileButton";
 import { loadFreddyCredentials } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { freddySource, loadTransport } from "../features/sync/freddyClient";
@@ -18,16 +20,21 @@ import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../features/settings/logLevel";
 import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
+import { TabBar, type Tab } from "./TabBar";
+import { PageHeader } from "../ui/layout";
 import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
-type Tab = "today" | "me" | "food" | "mealprep" | "logs" | "settings";
 
 const log = createLogger("app");
 
 export function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>({ state: "opening" });
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>("dashboard");
+  // The profile opens over the Dashboard, with a way back.
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [mealPrepView, setMealPrepView] = useState<MealPrepView>("log");
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>("profile");
   const [configured, setConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
@@ -107,7 +114,7 @@ export function App() {
   if (dbStatus.state !== "ready") {
     return (
       <main className="shell">
-        <h1>Health</h1>
+        <PageHeader title="Health" />
         <p className={dbStatus.state === "error" ? "error" : "muted"}>
           {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
         </p>
@@ -121,54 +128,67 @@ export function App() {
     );
   }
 
+  const ready = dbStatus.db;
+  const changed = () => setVersion((v) => v + 1);
+  const openSettings = (page: SettingsPage) => {
+    setSettingsPage(page);
+    setTab("settings");
+  };
+  const syncButton = <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />;
+
   return (
-    <main className="shell">
-      <header className="row">
-        <h1>Health</h1>
-        <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
-        <nav className="tabs">
-          <button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}>
-            Today
-          </button>
-          <button className={tab === "me" ? "active" : ""} onClick={() => setTab("me")}>
-            Me
-          </button>
-          <button className={tab === "food" ? "active" : ""} onClick={() => setTab("food")}>
-            Food
-          </button>
-          <button className={tab === "mealprep" ? "active" : ""} onClick={() => setTab("mealprep")}>
-            Meal prep
-          </button>
-          <button className={tab === "logs" ? "active" : ""} onClick={() => setTab("logs")}>
-            Logs
-          </button>
-          <button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>
-            Settings
-          </button>
-        </nav>
-      </header>
-      <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
-      {tab === "today" ? (
-        <TodayScreen db={dbStatus.db} configured={configured} version={version} />
-      ) : tab === "me" ? (
-        <MeScreen db={dbStatus.db} version={version} onEditProfile={() => setTab("settings")} />
-      ) : tab === "food" ? (
-        <FoodScreen db={dbStatus.db} />
-      ) : tab === "mealprep" ? (
-        <MealPrepScreen db={dbStatus.db} />
-      ) : tab === "logs" ? (
-        <LogsScreen db={dbStatus.db} />
-      ) : (
-        <SettingsScreen
-          db={dbStatus.db}
-          secrets={secretStore}
-          isNative={isNative}
-          onChanged={() => {
-            void refreshStatus();
-            setVersion((v) => v + 1);
-          }}
-        />
-      )}
-    </main>
+    <>
+      <main className="shell with-tabbar">
+        <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
+        {tab === "dashboard" ? (
+          !profileOpen ? (
+            <DashboardScreen
+              db={ready}
+              version={version}
+              configured={configured}
+              syncWarnings={status?.warnings ?? []}
+              profile={<ProfileButton db={ready} version={version} onOpen={() => setProfileOpen(true)} />}
+              sync={syncButton}
+              onLogFood={() => {
+                setMealPrepView("log");
+                setTab("mealprep");
+              }}
+            />
+          ) : (
+            <section>
+              <PageHeader title="Profile" onBack={() => setProfileOpen(false)} backLabel="Dashboard" />
+              <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} />
+            </section>
+          )
+        ) : tab === "chat" ? (
+          <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
+        ) : tab === "mealprep" ? (
+          <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
+        ) : tab === "alcohol" ? (
+          <AlcoholScreen db={ready} version={version} onChanged={changed} />
+        ) : (
+          <SettingsScreen
+            db={ready}
+            secrets={secretStore}
+            isNative={isNative}
+            page={settingsPage}
+            onPage={setSettingsPage}
+            onChanged={() => {
+              void refreshStatus();
+              changed();
+            }}
+          />
+        )}
+      </main>
+      <TabBar
+        tab={tab}
+        onTab={(t) => {
+          // Tapping Dashboard again closes the profile.
+          if (t === "dashboard") setProfileOpen(false);
+          setTab(t);
+          window.scrollTo(0, 0);
+        }}
+      />
+    </>
   );
 }

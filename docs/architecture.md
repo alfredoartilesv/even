@@ -25,7 +25,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It pulls wear
 | Transport to freddy | Capacitor native HTTP by default (not subject to WebView CORS). WebView `fetch` selectable in Settings | Built 25 Oct 2026 |
 | Apple Health / Health Connect | Handled by freddy's own mobile apps. No native health code in our app. | Decided |
 | Garmin | Via freddy only. No direct Garmin integration. | Decided |
-| Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; no chat screen yet |
+| Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; Chat tab 26 Oct 2026 |
 | Secrets | freddy URL + key (and later the Claude key) in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
 | Backups | Android auto-backup and device transfer disabled (`scripts/android-harden.mjs`). Manual export/restore, encrypted with a password | Built 25 Oct 2026 |
 | Account | Optional Google sign-in (Android Credential Manager via `@capgo/capacitor-social-login`, no Firebase). One owner per install: the first account to sign in owns the phone's data. See section 5b | Built 26 Oct 2026; needs the Google Cloud setup |
@@ -61,7 +61,7 @@ Code structure (26 Oct 2026):
 - Writes that touch several rows go through `withTransaction` (`src/db/tx.ts`).
 
 Logging (26 Oct 2026):
-- Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in the Logs tab and stored in `app_settings` (`log.level`).
+- Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in Settings > Debug logs and stored in `app_settings` (`log.level`).
 - Log what happened, not the data: ids, counts, kinds, durations, statuses. Never health values, food or recipe names, notes, chat text, URLs or keys. The logger redacts secret-looking fields as a backstop and `tests/logging.test.ts` checks real flows.
 - Logs stay on the phone in memory (500 records) and are only shared when the owner copies them.
 
@@ -111,7 +111,7 @@ The FREE plan only gives freddy's last 7 days, so the long history comes from Ga
 
 ## 5. Claude integration (phase 1)
 
-Core built 25 Oct 2026 (`src/features/chat/`); the chat screen is not built yet. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
+Core built 25 Oct 2026 (`src/features/chat/`); the Chat tab (`ui/ChatScreen.tsx`) 26 Oct 2026. Details in [LLD.md section 9b](LLD.md#9b-claude-chat).
 
 - The app calls the Anthropic API directly with the owner's own key, kept in the Keystore (acceptable for personal use; not for a public release).
 - **Decision 26 Oct 2026: connect with a verified API key; no "Sign in with Claude".** The Claude API authenticates with API keys, Workload Identity Federation (servers, CI) or App Attest (registered iOS/macOS apps, 1-hour tokens, no key on the device). There is no OAuth sign-in a third-party Android app can use, and a Claude.ai subscription does not cover API use: usage is billed to a Claude Console workspace. The interactive `ant auth login` OAuth is for development on your own machine, and reusing Anthropic's own client for it inside this app would impersonate their client. So the app's "Connect Claude" flow (`src/features/chat/connect.ts`) opens the Console key page, takes the pasted key, verifies it with a free `GET /v1/models/claude-opus-5-5` before saving it, shows it as connected with its last 4 characters, and flags "needs attention" when a later request is rejected (revoked or expired key). Later: App Attest for the iPhone build (no key at all), and a server with Workload Identity Federation in phase 2.
@@ -183,6 +183,6 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that a native-HTTP sync works, and that backup export/share/restore works. Then try the "WebView fetch" transport once.
 2. Answer the open question in section 8, then build those screens on the existing schema.
-3. Chat screen on top of `src/features/chat/` (owner is building the UI): key field in Settings, consent dialog, confirmation sheet for changes, photo button (`downscalePhoto` + `attachmentFromPhoto`), conversation list, "What was sent to Claude" and "Assistant activity" (with undo). Try the agent first from the PC with `npm run chat`.
+3. Try the Chat tab on the phone (camera, consent, confirmations, undo); the agent can also be tried from the PC with `npm run chat`.
 4. Garmin export importer, once the owner's export arrives.
 5. Decide on freddy FREE vs Pro (risk 6).
