@@ -98,19 +98,35 @@ export class ConsentRequiredError extends Error {
   }
 }
 
-export type ChatErrorKind = "auth" | "rate_limit" | "overloaded" | "network" | "bad_request" | "server" | "unknown";
+export type ChatErrorKind = "auth" | "billing" | "rate_limit" | "overloaded" | "network" | "bad_request" | "server" | "unknown";
 
 /** A failed API call, with a message safe to show. The conversation stays valid: retry with continueConversation(). */
 export class ChatApiError extends Error {
+  /**
+   * The conversation the failed request belonged to. Set by the loop, so a screen that started a
+   * new chat (and so has no id yet) can still offer Try again: the question is already stored.
+   */
+  conversationId?: string;
+
   constructor(
     readonly kind: ChatErrorKind,
     message: string,
     readonly retryable: boolean,
     readonly status?: number,
+    /** The API's own wording and request id, for a "technical details" line. Never the key. */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = "ChatApiError";
   }
+}
+
+/** The API's message ("Your credit balance is too low...") plus the request id, without the JSON wrapping. */
+function apiDetail(err: InstanceType<typeof Anthropic.APIError>): string {
+  const body = err.error as { error?: { message?: unknown } } | undefined;
+  const msg = typeof body?.error?.message === "string" ? body.error.message : err.message;
+  const id = (err as { requestID?: string | null }).requestID ?? (err as { request_id?: string }).request_id;
+  return id ? `${msg} (request ${id})` : msg;
 }
 
 /** Typed SDK errors, most specific first. Never includes the API key (the SDK does not echo it). */
@@ -121,7 +137,13 @@ export function toChatError(err: unknown): ChatApiError {
     return new ChatApiError("auth", "Claude rejected the API key. Check it in Settings.", false, err.status);
   }
   if (err instanceof Anthropic.RateLimitError) return new ChatApiError("rate_limit", "Claude is rate-limiting this key. Wait a moment and try again.", true, 429);
-  if (err instanceof Anthropic.BadRequestError) return new ChatApiError("bad_request", `Claude could not process the request: ${err.message}`, false, 400);
+  if (err instanceof Anthropic.BadRequestError) {
+    const detail = apiDetail(err);
+    if (/credit balance|billing|purchase credits/i.test(detail)) {
+      return new ChatApiError("billing", "Your Anthropic account is out of credits, so Claude can't answer. Add credits in the Anthropic Console, then try again.", true, 400, detail);
+    }
+    return new ChatApiError("bad_request", "Claude couldn't process this message. Try rewording it or starting a new chat.", false, 400, detail);
+  }
   if (err instanceof Anthropic.APIError) {
     const status = err.status;
     if (status === 529) return new ChatApiError("overloaded", "Claude is overloaded right now. Try again shortly.", true, status);
@@ -233,7 +255,10 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
       res = await deps.create(params);
     } catch (err) {
       const e = toChatError(err);
-      chatLog.error("request failed", { conversationId, kind: e.kind, err: e, ms: now() - started });
+      // An empty credit balance or a rejected key is the account's state, not an app fault: warn, not error.
+      const level = e.kind === "billing" || e.kind === "auth" ? "warn" : "error";
+      chatLog[level]("request failed", { conversationId, kind: e.kind, err: e, ms: now() - started });
+      e.conversationId = conversationId;
       throw e;
     }
     chatLog.info("reply", {

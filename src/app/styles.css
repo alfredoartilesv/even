@@ -282,3 +282,23 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
 .secret-input input { width: 100%; padding-right: 92px; }
 .secret-actions { position: absolute; top: 0; right: 2px; bottom: 0; display: flex; align-items: center; }
 .secret-actions .icon-button { width: 44px; height: 44px; min-height: 0; }
+
+/* Labelled numbers in a row (workouts, sport totals). */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr)); gap: 0.25rem 0.75rem; margin: 0.35rem 0 0; }
+.stat-row > div { min-width: 0; }
+.stat-row dt { font-size: 0.75rem; color: var(--muted); }
+.stat-row dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.card.sport-total { margin-bottom: 0; }
+ul.workouts { list-style: none; padding: 0; margin: 0; }
+ul.workouts li { padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
+ul.workouts li:last-child { border-bottom: none; }
+/* Long names wrap instead of pushing the page wider than the screen. */
+.values td:first-child { overflow-wrap: anywhere; padding-right: 0.75rem; }
+.synced summary { cursor: pointer; gap: 0.35rem; } /* flex drops the space before "· N from ..." */
+.synced-head { margin: 0.9rem 0 0.1rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.card.chat-error { border-color: color-mix(in srgb, var(--error) 55%, var(--line)); }
+.card.chat-error strong { color: var(--error); }
+.card.chat-error p { margin: 0.35rem 0 0.6rem; }
+.card.chat-error .mono { font-family: ui-monospace, monospace; font-size: 0.75rem; overflow-wrap: anywhere; margin: 0.3rem 0 0; }
+a.button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 0.9rem; border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); text-decoration: none; }
+.actions.compact a.button { min-height: 36px; padding: 0.25rem 0.7rem; font-size: 0.85rem; }

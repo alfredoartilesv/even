@@ -8,6 +8,7 @@ import { Icon } from "../../ui/icons";
 import { PageHeader, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
+import { CATEGORY_LABEL, CATEGORY_ORDER, displayCategory, metricLabel, metricValue } from "../metrics/display";
 import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
@@ -286,28 +287,47 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         <StatTile label="Groceries" value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null} note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined} />
       </div>
 
-      {span === "day" && metrics.length > 0 && (
-        <details className="card">
-          <summary>All synced numbers ({metrics.length})</summary>
+      {span === "day" && metrics.length > 0 && <SyncedNumbers metrics={metrics} />}
+    </section>
+  );
+}
+
+/**
+ * Every number synced for the day, grouped by kind (activity, heart, sleep...), with plain names
+ * and readable units. The source is named once, and per row only when a metric has several.
+ */
+function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
+  const devices = [...new Set(metrics.map((v) => v.device).filter(Boolean))];
+  const perMetric = new Map<string, number>();
+  for (const v of metrics) perMetric.set(v.metric, (perMetric.get(v.metric) ?? 0) + 1);
+  const groups = CATEGORY_ORDER.map((c) => ({ category: c, rows: metrics.filter((v) => displayCategory(v.metric, v.category) === c) })).filter((g) => g.rows.length);
+  return (
+    <details className="card synced">
+      <summary>
+        All synced numbers <span className="muted small">· {metrics.length}{devices.length === 1 ? ` from ${devices[0]}` : ""}</span>
+      </summary>
+      {groups.map((g) => (
+        <div key={g.category}>
+          <h4 className="synced-head">{CATEGORY_LABEL[g.category]}</h4>
           <table className="values">
             <tbody>
-              {metrics.map((v) => (
+              {g.rows.map((v) => (
                 <tr key={`${v.metric}|${v.device}`}>
                   <td>
-                    {v.label}
-                    <div className="muted small">{v.device}</div>
+                    {v.label === v.metric ? metricLabel(v.metric) : v.label}
+                    {(devices.length > 1 || (perMetric.get(v.metric) ?? 0) > 1) && <div className="muted small">{v.device}</div>}
                   </td>
                   <td className="num">
-                    {v.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {v.unit ?? ""}
-                    {v.partial && <div className="muted small">day not over</div>}
+                    {metricValue(v.metric, v.value, v.unit)}
+                    {v.partial && <div className="muted small">so far today</div>}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </details>
-      )}
-    </section>
+        </div>
+      ))}
+    </details>
   );
 }
 
