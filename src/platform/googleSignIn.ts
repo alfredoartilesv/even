@@ -1,5 +1,5 @@
 import { SocialLogin } from "@capgo/capacitor-social-login";
-import { isNative } from "./device";
+import { platformName } from "./device";
 
 /**
  * Sign in with Google through Android's Credential Manager (@capgo/capacitor-social-login).
@@ -24,8 +24,11 @@ function init(webClientId: string): Promise<void> {
   return ready;
 }
 
-/** True when the button can be shown: native app and a client id in the build. */
-export const googleSignInAvailable = isNative && googleWebClientId !== null;
+/**
+ * True when the button can be shown: the Android app with a client id in the build. Not on iOS yet:
+ * it needs its own iOS OAuth client and URL scheme, so the button stays hidden there.
+ */
+export const googleSignInAvailable = platformName === "android" && googleWebClientId !== null;
 
 /** Open the Google account picker. Resolves with the ID token, or null if the owner cancels. */
 export async function googleSignIn(): Promise<string | null> {
