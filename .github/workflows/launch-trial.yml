@@ -85,4 +85,3 @@ jobs:
           name: release-launch-screenshot
           path: out/shots
           retention-days: 30
-
