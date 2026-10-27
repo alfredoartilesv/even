@@ -141,6 +141,7 @@ details.card > summary { cursor: pointer; min-height: 32px; display: flex; align
 .composer-row { display: flex; align-items: flex-end; gap: 0.4rem; }
 .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 8rem; field-sizing: content; }
 .icon-button { width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.sync-button.icon-button { font-size: 1.3rem; line-height: 1; }
 .composer-photos { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; overflow-x: auto; }
 .composer-photo { position: relative; flex: none; }
 .composer-photo .remove { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; font-size: 0.9rem; line-height: 1; }
