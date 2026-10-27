@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
 import { LineChart, Sparkline } from "../../../ui/charts";
-import { failed, fmtDay, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, MsgLine, MsgWithUndo, NoteField, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { ChipGroup, ScaleRating } from "../../../ui/controls";
 import { Icon } from "../../../ui/icons";
 import { SectionHeader, Segmented, type Choice } from "../../../ui/layout";
@@ -305,21 +305,9 @@ function Measurements({ db, version, onChanged }: { db: SqlDriver; version: numb
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </label>
         </div>
-        <label>
-          <span>
-            Note <span className="muted small">optional</span>
-          </span>
-          <input value={notes} maxLength={200} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        <NoteField value={notes} onChange={setNotes} />
         <button type="submit">Save {p.label.toLowerCase()}</button>
-        <div className="row">
-          <MsgLine msg={msg} />
-          {undo && (
-            <button type="button" className="link small accent" onClick={() => void undoLast()}>
-              Undo
-            </button>
-          )}
-        </div>
+        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
       </form>
 
       <SectionHeader title="Your measurements" />

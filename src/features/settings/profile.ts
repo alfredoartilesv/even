@@ -1,4 +1,5 @@
-import { z } from "zod";
+// zod/mini: the Dashboard loads the profile at start-up, and full zod was a sixth of that code.
+import { z } from "zod/mini";
 import { ACTIVITY_FACTORS, ageOn, bmi, bmiClass, bmr, calorieTarget, healthyWeightRange, proteinTarget, tdee, type ActivityLevel, type BmiClass, type Sex } from "../../core/health";
 import { createLogger } from "../../core/log";
 import type { SqlDriver } from "../../db/driver";
@@ -28,16 +29,17 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Every field optional: the owner fills in what they want, and estimates appear once enough is there. */
+const HEIGHT = "Height must be between 120 and 230 cm";
 export const profileSchema = z.object({
-  name: z.string().trim().max(60).nullable().default(null),
-  birthDate: z.string().regex(DAY, "Birth date must be a date").nullable().default(null),
-  sex: z.enum(["male", "female"]).nullable().default(null),
-  heightCm: z.number().min(120, "Height must be between 120 and 230 cm").max(230, "Height must be between 120 and 230 cm").nullable().default(null),
-  activity: z.enum(ACTIVITY_LEVELS as [ActivityLevel, ...ActivityLevel[]]).nullable().default(null),
+  name: z._default(z.nullable(z.string().check(z.trim(), z.maxLength(60))), null),
+  birthDate: z._default(z.nullable(z.string().check(z.regex(DAY, "Birth date must be a date"))), null),
+  sex: z._default(z.nullable(z.enum(["male", "female"])), null),
+  heightCm: z._default(z.nullable(z.number().check(z.minimum(120, HEIGHT), z.maximum(230, HEIGHT))), null),
+  activity: z._default(z.nullable(z.enum(ACTIVITY_LEVELS as [ActivityLevel, ...ActivityLevel[]])), null),
   /** Wanted weight change per week, negative to lose. */
-  kgPerWeek: z.number().min(-1, "At most 1 kg a week").max(1, "At most 1 kg a week").default(0),
+  kgPerWeek: z._default(z.number().check(z.minimum(-1, "At most 1 kg a week"), z.maximum(1, "At most 1 kg a week")), 0),
   /** Sports the owner calls theirs, in their order; shown first on the Me tab. */
-  sports: z.array(z.enum(SPORT_IDS)).max(SPORT_IDS.length).default([]),
+  sports: z._default(z.array(z.enum(SPORT_IDS)).check(z.maxLength(SPORT_IDS.length)), []),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -77,6 +79,12 @@ const MAX_PHOTO_CHARS = 200_000;
 export async function loadProfilePhoto(db: SqlDriver): Promise<string | null> {
   const v = await getSetting(db, PHOTO_KEY);
   return v && v.startsWith("data:image/jpeg;base64,") ? v : null;
+}
+
+/** What the round picture needs: the photo, or the name for its initials. */
+export async function loadIdentity(db: SqlDriver): Promise<{ photo: string | null; name: string | null }> {
+  const [photo, p] = await Promise.all([loadProfilePhoto(db), loadProfile(db)]);
+  return { photo, name: p.name };
 }
 
 /** Stores a JPEG data URL (the screen downscales it first); empty or null removes the picture. */

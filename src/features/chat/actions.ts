@@ -5,7 +5,7 @@ import type { SqlDriver } from "../../db/driver";
 import { deleteFood, deleteSavedMeal, getSavedMeal, logFood, logSavedMeal, MAX_PHOTO_BYTES, saveMeal, type PhotoInput } from "../food/food";
 import { dayNoteExists, insertDayNote, insertGoal, insertMeasurement, type Stamp } from "../journal/journal";
 import { deleteDrinkType, findDrinkType, logDrink, saveDrinkType, servingKcal } from "../alcohol/alcohol";
-import { addMove, deleteBatch, deleteMealPrep, listMealPreps, loadStock, logBatch, saveMealPrep, undoMove } from "../mealprep/mealPrep";
+import { addMove, deleteBatch, deleteMealPrep, listMealPreps, loadStock, logBatch, prepFromColumns, saveMealPrep, undoMove } from "../mealprep/mealPrep";
 import { addRecipesToShopping, addShoppingItem } from "../mealprep/shopping";
 import { alcoholGrams } from "../../core/health";
 import { addDays, localDateTimeToMs, localDay } from "../../core/tz";
@@ -375,16 +375,7 @@ const createMealPrepTool: WriteTool = {
         const id = await saveMealPrep(
           ctx.db,
           {
-            name: p.name,
-            portions: p.portions,
-            fridgeDays: p.fridge_days,
-            freezerDays: p.freezer_days,
-            thawHours: p.thaw_hours,
-            calories: p.calories,
-            proteinG: p.protein_g,
-            carbsG: p.carbs_g,
-            fatG: p.fat_g,
-            notes: p.notes,
+            ...prepFromColumns(p),
             tags: p.tags,
             ingredients: p.ingredients.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit })),
           },

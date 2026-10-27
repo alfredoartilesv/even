@@ -3,6 +3,7 @@ import type { SqlDriver } from "../../../db/driver";
 import { DEFAULT_MEAL_PREP, deleteMealPrep, listMealPreps, normalizeTag, saveMealPrep, type MealPrep, type MealPrepInput } from "../mealPrep";
 import { addRecipesToShopping, formatQuantity, normalizeUnit } from "../shopping";
 import { failed, MsgLine, numOrNull, plural, type Msg } from "../../../ui/common";
+import { MacroInputs } from "../../../ui/nutrition";
 
 interface Props {
   db: SqlDriver;
@@ -172,24 +173,7 @@ export function RecipesView({ db, tag, allTags, version, onChanged }: Props) {
 
         <fieldset>
           <legend className="small">Per portion (optional, goes to the food log when you eat one)</legend>
-          <div className="grid">
-            <label>
-              kcal
-              <input inputMode="decimal" value={draft.calories} onChange={(e) => set({ calories: e.target.value })} />
-            </label>
-            <label>
-              Protein g
-              <input inputMode="decimal" value={draft.proteinG} onChange={(e) => set({ proteinG: e.target.value })} />
-            </label>
-            <label>
-              Carbs g
-              <input inputMode="decimal" value={draft.carbsG} onChange={(e) => set({ carbsG: e.target.value })} />
-            </label>
-            <label>
-              Fat g
-              <input inputMode="decimal" value={draft.fatG} onChange={(e) => set({ fatG: e.target.value })} />
-            </label>
-          </div>
+          <MacroInputs draft={draft} set={set} />
         </fieldset>
 
         <div>

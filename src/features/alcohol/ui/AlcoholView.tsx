@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
-import { failed, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { StatTile } from "../../../ui/charts";
 import { ChipGroup } from "../../../ui/controls";
 import { Icon } from "../../../ui/icons";
@@ -127,18 +127,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
 
   const money = (n: number) => fmtMoney(n, currency);
 
-  async function run(fn: () => Promise<unknown>, ok: string) {
-    try {
-      await fn();
-      setMsg({ kind: "ok", text: ok });
-      await load();
-      onChanged();
-      return true;
-    } catch (err) {
-      setMsg(failed(err, "alcohol"));
-      return false;
-    }
-  }
+  const run = changeRunner({ setMsg, load, onChanged, scope: "alcohol" });
 
   async function quickLog(t: DrinkType) {
     await run(async () => setLastIds(await logDrink(db, { typeId: t.id, timeZone: timeZone() })), `Logged ${t.name}.`);
@@ -282,25 +271,11 @@ export function AlcoholView({ db, version, onChanged }: Props) {
       {editing ? (
         <form className="card stack" onSubmit={saveType}>
           <TypeFields d={editing} set={setEditing} currency={currency} />
-          <div className="actions">
-            <button type="submit">Save</button>
-            <button type="button" className="secondary" onClick={() => setEditing(null)}>
-              Cancel
-            </button>
-            {editing.id && (
-              <button
-                type="button"
-                className="secondary danger"
-                onClick={() => {
-                  if (confirm(`Remove ${editing.name}? Drinks already logged keep their kcal and price.`)) {
-                    void run(() => deleteDrinkType(db, editing.id!), "Removed.").then((ok) => ok && setEditing(null));
-                  }
-                }}
-              >
-                Remove
-              </button>
-            )}
-          </div>
+          <EditActions
+            onCancel={() => setEditing(null)}
+            onRemove={editing.id ? () => void run(() => deleteDrinkType(db, editing.id!), "Removed.").then((ok) => ok && setEditing(null)) : undefined}
+            confirmRemove={`Remove ${editing.name}? Drinks already logged keep their kcal and price.`}
+          />
         </form>
       ) : (
         <>

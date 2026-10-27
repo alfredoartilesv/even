@@ -15,9 +15,8 @@
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { setLogLevel } from "../src/core/log";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
+import { nodeDb } from "./lib/nodeDb";
 import { migrate, parseMigrations } from "../src/db/migrate";
 import { exportBackup } from "../src/features/backup/backup";
 import { importGarminZip } from "../src/features/import/garminImport";
@@ -30,22 +29,6 @@ const IMPORT_DIR = join(ROOT, "imports", "garmin");
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
   return i > -1 ? process.argv[i + 1] : undefined;
-}
-
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  raw.exec("PRAGMA foreign_keys = ON");
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
 }
 
 function findZip(): string {
@@ -101,7 +84,7 @@ async function main() {
     if (password.length < 8) throw new Error("Use a backup password of at least 8 characters");
   }
 
-  const db = openDb(dbPath ?? ":memory:");
+  const db = nodeDb(dbPath ?? ":memory:", { foreignKeys: true }).db;
   const dir = join(ROOT, "src", "db", "migrations");
   const files: Record<string, string> = {};
   for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");

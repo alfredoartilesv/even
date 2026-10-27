@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { deleteSavedMeal, listSavedMeals, localHour, logSavedMeal, saveMeal, type PhotoInput, type SavedMeal } from "../food";
 import { mealForHour } from "../suggest";
-import { failed, fmtDay, MsgLine, timeZone, today, type Msg } from "../../../ui/common";
+import { changeRunner, EditActions, fmtDay, MsgLine, timeZone, today, type Msg } from "../../../ui/common";
 import { draftFrom, emptyDraft, kcal, MEAL_LABEL, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
 
 interface Props {
@@ -30,18 +30,7 @@ export function SavedView({ db, version, onChanged }: Props) {
     void load();
   }, [load, version]);
 
-  async function run(fn: () => Promise<unknown>, ok: string) {
-    try {
-      await fn();
-      setMsg({ kind: "ok", text: ok });
-      await load();
-      onChanged();
-      return true;
-    } catch (err) {
-      setMsg(failed(err, "food"));
-      return false;
-    }
-  }
+  const run = changeRunner({ setMsg, load, onChanged, scope: "food" });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -61,25 +50,11 @@ export function SavedView({ db, version, onChanged }: Props) {
         />
         <MealFields draft={editing.draft} onChange={(d) => setEditing({ ...editing, draft: d })} />
         <MsgLine msg={msg} />
-        <div className="actions">
-          <button type="submit">Save</button>
-          <button type="button" className="secondary" onClick={() => setEditing(null)}>
-            Cancel
-          </button>
-          {editing.id && (
-            <button
-              type="button"
-              className="secondary danger"
-              onClick={() => {
-                if (confirm("Remove this saved meal and its photo? Meals already logged stay in the history.")) {
-                  void run(() => deleteSavedMeal(db, editing.id!), "Removed.").then((ok) => ok && setEditing(null));
-                }
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </div>
+        <EditActions
+          onCancel={() => setEditing(null)}
+          onRemove={editing.id ? () => void run(() => deleteSavedMeal(db, editing.id!), "Removed.").then((ok) => ok && setEditing(null)) : undefined}
+          confirmRemove="Remove this saved meal and its photo? Meals already logged stay in the history."
+        />
       </form>
     );
   }

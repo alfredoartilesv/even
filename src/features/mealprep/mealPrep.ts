@@ -170,6 +170,25 @@ export async function deleteMealPrep(db: SqlDriver, id: string, nowMs: number = 
   log.info("recipe deleted", { id });
 }
 
+/** A recipe's own fields in their stored, snake_case names: a meal_preps row, or the chat tool's input. */
+export type PrepColumns = Omit<PrepRow, "id">;
+
+/** Those fields in the app's names (MealPrepInput without id, tags and ingredients). */
+export function prepFromColumns(p: PrepColumns) {
+  return {
+    name: p.name,
+    portions: p.portions,
+    fridgeDays: p.fridge_days,
+    freezerDays: p.freezer_days,
+    thawHours: p.thaw_hours,
+    calories: p.calories,
+    proteinG: p.protein_g,
+    carbsG: p.carbs_g,
+    fatG: p.fat_g,
+    notes: p.notes,
+  };
+}
+
 interface PrepRow {
   id: string;
   name: string;
@@ -222,16 +241,7 @@ export async function listMealPreps(db: SqlDriver, tag?: string | null): Promise
   }
   return preps.map((p) => ({
     id: p.id,
-    name: p.name,
-    portions: p.portions,
-    fridgeDays: p.fridge_days,
-    freezerDays: p.freezer_days,
-    thawHours: p.thaw_hours,
-    calories: p.calories,
-    proteinG: p.protein_g,
-    carbsG: p.carbs_g,
-    fatG: p.fat_g,
-    notes: p.notes,
+    ...prepFromColumns(p),
     tags: tags.get(p.id) ?? [],
     ingredients: ingredients.get(p.id) ?? [],
   }));
