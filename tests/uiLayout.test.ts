@@ -133,11 +133,11 @@ test("Ring: progress against a goal or a limit, in words as well as the arc", ()
   assert.doesNotMatch(renderToStaticMarkup(h(Ring, { label: "Steps", value: 5000, target: null })), /ring-fill/, "no arc without a target");
 });
 
-test("greeting: by the hour, with the first name when there is one", () => {
-  assert.equal(greeting(8, "Alex Rivera"), "Good morning, Alex");
-  assert.equal(greeting(14, null), "Good afternoon");
-  assert.equal(greeting(20, "  "), "Good evening");
-  assert.equal(greeting(2, "Sam"), "Good night, Sam");
+test("greeting: Hi with the first name when there is one", () => {
+  assert.equal(greeting("Alex Rivera"), "Hi, Alex");
+  assert.equal(greeting("Sam"), "Hi, Sam");
+  assert.equal(greeting(null), "Hi");
+  assert.equal(greeting("  "), "Hi");
 });
 
 // Consistency rules: screens use the shared frame, not their own copies of it.

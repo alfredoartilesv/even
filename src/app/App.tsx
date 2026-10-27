@@ -147,7 +147,9 @@ export function App() {
     setSettingsPage(page);
     go("settings");
   };
-  const syncButton = <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />;
+  const syncButton = (
+    <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} onSetup={() => openSettings("connections")} />
+  );
   // Changes with every screen, so the new one animates in.
   const screenKey = tab === "dashboard" ? `dashboard|${overlay?.page ?? ""}|${overlay?.page === "journal" ? overlay.view : ""}` : tab === "settings" ? `settings|${settingsPage}` : tab === "mealprep" ? `mealprep|${mealPrepView}` : tab;
 
