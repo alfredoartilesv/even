@@ -246,6 +246,39 @@ async function main() {
     return "tab bar shown";
   });
 
+  await check("the header clears the status bar (edge to edge)", async () => {
+    // Phones with WebView 140+ draw the page under the status bar and report its height; the emulator
+    // image's older WebView pads natively instead. Report a 48 px bar the way Capacitor does and measure.
+    const r = await page.eval<{ title: number; bar: number; strip: string; before: string }>(`(async () => {
+      const root = document.documentElement;
+      const before = root.style.getPropertyValue("--safe-area-inset-top");
+      root.style.setProperty("--safe-area-inset-top", "48px");
+      window.scrollTo(0, 0);
+      await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+      const title = document.querySelector(".topbar h1")?.getBoundingClientRect().top ?? -1;
+      const bar = document.querySelector(".topbar")?.getBoundingClientRect().top ?? -1;
+      const strip = getComputedStyle(document.body, "::before").height;
+      root.style.setProperty("--safe-area-inset-top", before);
+      return { title, bar, strip, before };
+    })()`);
+    if (r.title < 48) throw new Error(`the title starts at ${r.title}px, under a 48px status bar`);
+    if (r.bar < 48) throw new Error(`the top bar starts at ${r.bar}px`);
+    if (r.strip !== "48px") throw new Error(`the status bar strip is ${r.strip}`);
+    return `title at ${Math.round(r.title)}px below a 48px bar`;
+  });
+
+  if (flag("--fresh")) {
+    await check("without a key, the sync button says so and opens Connections", async () => {
+      const label = await page.eval<string>(`(document.querySelector("button.sync-button")?.innerText ?? "").replace(/[^A-Za-z ]+/g, " ").replace(/\\s+/g, " ").trim()`);
+      if (!label.includes("Set up sync")) throw new Error(`the sync button says "${label}"`);
+      await page.eval(`__t.click("button.sync-button")`);
+      await until("the Connections page", () => page.eval<boolean>(`__t.text().includes("Personal API key")`), 10_000);
+      screenshot("setup-sync-connections");
+      await page.eval(`__t.click("nav.tabbar button", "Dashboard")`);
+      return `"${label}" opens Settings > Connections`;
+    });
+  }
+
   await check(`database migrated to schema v${latestSchema}`, async () => {
     await openSettingsPage(page, "About");
     const v = await until("the schema row", () => page.eval<string | null>(`(() => { const m = /Database schema\\s*v(\\d+)/.exec(__t.text()); return m ? m[1] : null; })()`), 15_000);

@@ -86,6 +86,8 @@ Since 27 Oct 2026 the **standard check before a PR and the standard APK build ru
 `npm run test:device` (task *Android: device integration test*) drives the installed debug build through the WebView's DevTools protocol (debug builds expose it) and checks, end to end:
 
 1. the app opens and the encrypted database is ready;
+1. the header clears a reported 48 px status bar (edge to edge, see below);
+1. with `--fresh` (no key yet): the sync button says "Set up sync" and opens Settings > Connections;
 2. the schema is the latest migration (Settings > About);
 3. the database file has no plain SQLite header (SQLCipher);
 4. the Garmin key from `GARMIN_API_KEY` in `.env` saves in Settings > Connections;
@@ -103,6 +105,8 @@ npm run test:device -- --serial emulator-5554 --skip-sync --out shots           
 It prints check names and counts, never the key or health values; screenshots of each step (which do show health values) go to `--out`, default a temp folder. Without `GARMIN_API_KEY` the sync checks are skipped.
 
 **Galaxy S23 emulator.** The AVD `Galaxy_S23_API_36` copies the Pixel 8 AVD with the S23's screen: 1080 x 2340 at density 420 (the S23's 6.1" panel is about 425 ppi), Android 16 (API 36, One UI 8 on the real phone), 4 GB RAM, host GPU. Its `config.ini` sets `hw.device.name=galaxy_s23`, `hw.lcd.width=1080`, `hw.lcd.height=2340`, `hw.lcd.density=420`, `showDeviceFrame=no`. Start it with the task *Android: start emulator* (name `Galaxy_S23_API_36`) or the emulator extension. It is not Samsung's One UI: Samsung-specific behaviour (battery optimisation, Secure Folder, One UI permission screens) still needs the real phone.
+
+**Edge to edge.** Android 15+ draws the app under the status and navigation bars. With WebView 140 or newer (current phones, updated from the Play Store) Capacitor leaves the bars over the page and reports their size as `env(safe-area-inset-*)` and `--safe-area-inset-*`; with an older WebView it pads the app natively and both read 0. The CSS takes the larger (`--safe-top`, `--safe-bottom` in `src/app/styles.css`). The API 36 emulator image ships WebView 133, so it never shows the edge-to-edge case: the device test reports a 48 px bar itself and measures the header. Found on the real S23 on 27 Oct 2026, where the title ran into the clock.
 
 First run (27 Oct 2026, `develop` at the merge of PR #21): 9/9 checks on `Galaxy_S23_API_36`, a real sync of 924 readings. It found that scheduling the 3-day reminder opened Android's *Alarms & reminders* screen after every sync (the notifications plugin asks for exact alarms by default, which Android 14+ does not grant); the reminder now asks for an inexact alarm (`pluginNotification` in `src/core/notifier.ts`) and check 6 guards it.
 

@@ -177,7 +177,7 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 ## 9. Next steps
 
-1. **Run on the real S23**: USB debugging on, then `npm run test:device -- --install android/app/build/outputs/apk/debug/app-debug.apk --fresh` (the same 9 checks as on the emulator), and backup export/share/restore by hand.
+1. **Run on the real S23**: USB debugging on, then `npm run test:device -- --install android/app/build/outputs/apk/debug/app-debug.apk --fresh` (the same 11 checks as on the emulator), and backup export/share/restore by hand.
 2. Answer the open question in section 8, then build those screens on the existing schema.
 3. Try the Chat tab on the phone (camera, consent, confirmations, undo); the agent can also be tried from the PC with `npm run chat`.
 4. Remind the owner before the Garmin key expires (risk 6): ask for the expiry date with the key.
