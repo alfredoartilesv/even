@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { logDrink } from "../src/features/alcohol/alcohol";
-import { figure, loadDashboard, shiftSpan, spanRange } from "../src/features/dashboard/dashboard";
+import { figure, loadDashboard, pinnedAnchor, shiftSpan, spanRange } from "../src/features/dashboard/dashboard";
+import { newestOnly } from "../src/core/newest";
 import { logFood, setCalorieGoal } from "../src/features/food/food";
 import { insertGoal } from "../src/features/journal/journal";
 import { upsertCatalog } from "../src/features/metrics/catalog";
@@ -97,4 +98,29 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.equal(day.days[0].eatenKcal, 300);
   assert.equal(day.days[0].activeKcal, 600);
   assert.equal(day.days[0].proteinG, null);
+});
+
+test("the current period follows today (the app can stay open overnight); a past one stays pinned", () => {
+  const today = "2026-10-27"; // a Tuesday
+  assert.equal(pinnedAnchor("day", today, today), null);
+  assert.equal(pinnedAnchor("day", "2026-10-26", today), "2026-10-26");
+  assert.equal(pinnedAnchor("week", "2026-10-26", today), null, "Monday of this week is this week");
+  assert.equal(pinnedAnchor("week", "2026-10-25", today), "2026-10-25", "Sunday is last week");
+  assert.equal(pinnedAnchor("month", "2026-10-01", today), null);
+  assert.equal(pinnedAnchor("month", "2026-09-30", today), "2026-09-30");
+});
+
+test("overlapping loads: only the newest answer is applied, whatever order they finish in", async () => {
+  const begin = newestOnly();
+  const shown: string[] = [];
+  const load = async (label: string, ms: number) => {
+    const isNewest = begin();
+    await new Promise((r) => setTimeout(r, ms));
+    if (isNewest()) shown.push(label);
+  };
+  // A slow month load, then a quick day load: the month answer arrives last and must be dropped.
+  await Promise.all([load("month", 30), load("day", 5)]);
+  assert.deepEqual(shown, ["day"]);
+  await load("week", 1);
+  assert.deepEqual(shown, ["day", "week"]);
 });
