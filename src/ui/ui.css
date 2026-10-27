@@ -49,7 +49,7 @@ g[role="button"]:focus-visible .viz-hit { stroke: var(--accent); stroke-width: 2
 .viz-key { display: inline-block; flex: none; }
 .viz-key.rect { width: 10px; height: 10px; border-radius: 2px; }
 .viz-key.line { width: 14px; height: 2px; border-radius: 1px; }
-.viz-tip { position: absolute; top: 0; z-index: 2; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.35rem 0.55rem; box-shadow: 0 2px 8px rgb(0 0 0 / 0.12); min-width: 7rem; }
+.viz-tip { position: absolute; top: 0; z-index: 2; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0.35rem 0.55rem; box-shadow: var(--shadow-pop); min-width: 7rem; }
 .viz-tip-row { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
 .viz-tip-row strong { font-variant-numeric: tabular-nums; }
 

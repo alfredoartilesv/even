@@ -13,10 +13,13 @@
  *   (scripts/android-gradle.mjs).
  * - The Even launcher icon (resources/android/res, copied over the generated res/) and the
  *   launcher label from capacitor.config.json's appName (`cap sync` does not update it).
+ * - The palette (src/ui/palette.css, through scripts/palette.mjs): res/values{,-night}/colors.xml,
+ *   the window background and the Android 12+ splash screen; Capacitor's white splash.png is removed.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { patchGradle, versionCode } from "./android-gradle.mjs";
+import { ANDROID_STYLES_XML, androidColorsXml, readPalette } from "./palette.mjs";
 
 const main = join(import.meta.dirname, "../android/app/src/main");
 const manifestPath = join(main, "AndroidManifest.xml");
@@ -79,3 +82,14 @@ writeFileSync(
   readFileSync(stringsPath, "utf8").replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, `$1${label}$2`),
 );
 console.log(`Launcher icon and label set: ${appName}.`);
+
+// The palette on the native side: light and night colors, the window behind the WebView and the
+// splash screen. Every res/drawable*/splash.png goes, so nothing can show Capacitor's white splash.
+const { light, dark } = readPalette();
+for (const [dir, theme] of [["values", light], ["values-night", dark]]) {
+  mkdirSync(join(main, `res/${dir}`), { recursive: true });
+  writeFileSync(join(main, `res/${dir}/colors.xml`), androidColorsXml(theme));
+}
+writeFileSync(join(main, "res/values/styles.xml"), ANDROID_STYLES_XML);
+for (const dir of readdirSync(join(main, "res"))) if (dir.startsWith("drawable")) rmSync(join(main, `res/${dir}/splash.png`), { force: true });
+console.log(`Palette applied to Android: window and splash ${light.bg} / ${dark.bg} (night), brand ${light.brand}.`);

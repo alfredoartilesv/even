@@ -19,12 +19,20 @@
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
  *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
+ *   --shadow-pop  the lift under things that float over the page: chart tooltips
+ *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
+ *   --brand-ring  the logo's ring track
+ *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
  * pass every gate (worst adjacent CVD dE 9.1 light, 8.4 dark). In light mode slots 3, 4 and 5
  * sit below 3:1 on the surface, so every chart that uses them prints its values (legend values
  * or the table view). One-series charts use --accent instead.
+ *
+ * Outside CSS: scripts/palette.mjs reads this file for Android (colors.xml, window, splash), and
+ * the palette test checks that resources/logo.svg, public/favicon.svg, the Android icon and the
+ * theme-color in index.html use these values.
  */
 :root {
   color-scheme: light dark;
@@ -53,6 +61,12 @@
   --viz-axis: #c3c2b7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
+
+  /* The logo: one brand color for both themes (the light accent). */
+  --brand: #0f766e;
+  --brand-ring: #7fd1c6;
+  --on-brand: #ffffff;
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
@@ -77,6 +91,7 @@
     --warning: #facc15;
     --error: #f87171;
     --shadow: none;
+    --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
 
     --series-1: #3987e5;
     --series-2: #d95926;
