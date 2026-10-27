@@ -133,6 +133,11 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     void load();
   }, [load, version]);
 
+  // Once per app run: when the first numbers are on screen (read by scripts/perf-device.mjs).
+  useEffect(() => {
+    if (data && performance.getEntriesByName("even:dashboard-ready").length === 0) performance.mark("even:dashboard-ready");
+  }, [data]);
+
   const current = spanRange(span, anchor);
   const isCurrent = current.from <= now && now <= current.to;
   const next = shiftSpan(span, anchor, 1);
