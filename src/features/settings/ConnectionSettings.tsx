@@ -242,6 +242,8 @@ interface ImportJob {
   msg: Msg;
 }
 let job: ImportJob = { busy: null, result: null, msg: null };
+/** The last count, shown at once when the screen opens again while a fresh one loads. */
+let lastCoverage: ExportCoverage | null = null;
 const jobListeners = new Set<() => void>();
 function setJob(patch: Partial<ImportJob>) {
   job = { ...job, ...patch };
@@ -253,12 +255,12 @@ function subscribeJob(l: () => void) {
 }
 
 function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
-  const [coverage, setCoverage] = useState<ExportCoverage | null>(null);
+  const [coverage, setCoverage] = useState<ExportCoverage | null>(lastCoverage);
   const [file, setFile] = useState<File | null>(null);
   const { busy, result, msg } = useSyncExternalStore(subscribeJob, () => job);
   const setBusy = (b: string | null) => setJob({ busy: b });
 
-  const load = useCallback(async () => setCoverage(await garminExportCoverage(db)), [db]);
+  const load = useCallback(async () => setCoverage((lastCoverage = await garminExportCoverage(db))), [db]);
   // Also when an import ends, even one started before this screen was opened again.
   useEffect(() => {
     if (!busy) void load();
