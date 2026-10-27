@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { MenuList, PageHeader, type MenuItem } from "../../ui/layout";
 import { LogsScreen } from "../logs/LogsScreen";
+import { Avatar } from "../me/ui/avatar";
 import { AboutSettings } from "./AboutSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { PrivacySettings } from "./PrivacySettings";
+import { loadProfile, loadProfilePhoto } from "./profile";
 import { ProfileSettings } from "./ProfileSettings";
 import type { SecretStore } from "./secrets";
 
@@ -13,6 +16,8 @@ interface Props {
   db: SqlDriver;
   secrets: SecretStore;
   isNative: boolean;
+  /** Bumped when data changes, so the menu shows a new profile picture. */
+  version: number;
   /** The open page, or null for the menu. Owned by the app shell, so other tabs can open a page (Edit profile, Connect Claude). */
   page: SettingsPage | null;
   onPage: (page: SettingsPage | null) => void;
@@ -21,7 +26,7 @@ interface Props {
 }
 
 export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[] = [
-  { title: "You", items: [{ id: "profile", label: "Profile", description: "Name, body, activity and weight goal, and the estimates they give", icon: "user" }] },
+  { title: "You", items: [{ id: "profile", label: "Profile", description: "Picture, name, body, activity and weight goal, and the estimates they give", icon: "user" }] },
   {
     title: "Data",
     items: [
@@ -41,12 +46,21 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
 const LABEL = Object.fromEntries(SETTINGS_MENU.flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
 
 /** A menu of pages: who you are, where data comes from and goes, what is kept and shared, the debug logs, and the app version. */
-export function SettingsScreen({ db, secrets, isNative, page, onPage, onChanged }: Props) {
+export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged }: Props) {
+  const [who, setWho] = useState<{ photo: string | null; name: string | null } | null>(null);
+  useEffect(() => {
+    if (page === null) void Promise.all([loadProfilePhoto(db), loadProfile(db)]).then(([photo, p]) => setWho({ photo, name: p.name }));
+  }, [db, page, version]);
+
   if (page === null) {
+    // The Profile row shows the picture (or initials) once there is either.
+    const groups = who && (who.photo || who.name)
+      ? SETTINGS_MENU.map((g) => ({ ...g, items: g.items.map((i) => (i.id === "profile" ? { ...i, picture: <Avatar photo={who.photo} name={who.name} size={36} /> } : i)) }))
+      : SETTINGS_MENU;
     return (
       <section>
         <PageHeader title="Settings" />
-        <MenuList groups={SETTINGS_MENU} onOpen={onPage} />
+        <MenuList groups={groups} onOpen={onPage} />
       </section>
     );
   }

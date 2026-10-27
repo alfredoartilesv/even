@@ -114,6 +114,8 @@ export interface MenuItem<T extends string> {
   label: string;
   description?: string;
   icon: IconName;
+  /** Shown in place of the icon, e.g. the profile picture. */
+  picture?: ReactNode;
 }
 
 /** Rows that open a page: icon, title, a line on what is inside, and a chevron. Groups get a small heading. */
@@ -127,9 +129,11 @@ export function MenuList<T extends string>({ groups, onOpen }: { groups: { title
             {g.items.map((it) => (
               <li key={it.id}>
                 <button type="button" className="menu-row" onClick={() => onOpen(it.id)}>
-                  <span className="menu-icon">
-                    <Icon name={it.icon} size={20} />
-                  </span>
+                  {it.picture ?? (
+                    <span className="menu-icon">
+                      <Icon name={it.icon} size={20} />
+                    </span>
+                  )}
                   <span className="grow">
                     <span className="menu-label">{it.label}</span>
                     {it.description && <span className="menu-desc muted small">{it.description}</span>}

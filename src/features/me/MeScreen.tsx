@@ -33,7 +33,7 @@ const RANGES = [
  * The owner's own page: picture, name and body numbers, their sports, goals with progress,
  * and their workouts (totals per sport, personal bests, recent sessions).
  */
-export function MeScreen({ db, version, onEditProfile }: { db: SqlDriver; version: number; onEditProfile: () => void }) {
+export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDriver; version: number; onEditProfile: () => void; onChanged: () => void }) {
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [photo, setPhoto] = useState<string | null>(null);
   const [weight, setWeight] = useState<Weight | null>(null);
@@ -71,6 +71,7 @@ export function MeScreen({ db, version, onEditProfile }: { db: SqlDriver; versio
       await saveProfilePhoto(db, url);
       setPhoto(url);
       setMsg(null);
+      onChanged();
     } catch (err) {
       setMsg(failed(err, "me.photo"));
     }
@@ -129,7 +130,7 @@ export function MeScreen({ db, version, onEditProfile }: { db: SqlDriver; versio
       <div className="me-head">
         <label className="avatar-pick" title="Change picture">
           <Avatar photo={photo} name={profile.name} />
-          <input type="file" accept="image/*" capture="user" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
+          <input type="file" accept="image/*" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
         </label>
         <div className="grow">
           <h2>{profile.name ?? "You"}</h2>
@@ -144,6 +145,7 @@ export function MeScreen({ db, version, onEditProfile }: { db: SqlDriver; versio
                 onClick={async () => {
                   await saveProfilePhoto(db, null);
                   setPhoto(null);
+                  onChanged();
                 }}
               >
                 Remove picture

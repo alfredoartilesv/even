@@ -184,3 +184,18 @@ test("Switch: a labelled checkbox with role switch, the whole row the tap target
   assert.match(on, /<input type="checkbox" role="switch" class="switch" checked=""/);
   assert.doesNotMatch(renderToStaticMarkup(h(Switch, { checked: false, onChange: noop, label: "Photos" })), /checked=""/);
 });
+
+test("menu rows show a picture in place of the icon when given one", () => {
+  const items = [{ id: "profile", label: "Profile", icon: "user" as const, picture: h("img", { alt: "me" }) }];
+  const html = renderToStaticMarkup(h(MenuList, { groups: [{ items }], onOpen: noop }));
+  assert.match(html, /<img alt="me"\/>/);
+  assert.doesNotMatch(html, /menu-icon/);
+});
+
+test("profile pictures come from the phone's picker: no input forces the camera", () => {
+  for (const f of ["src/features/me/MeScreen.tsx", "src/features/me/ui/avatar.tsx"]) {
+    const src = readFileSync(resolve(import.meta.dirname, "..", f), "utf8");
+    assert.match(src, /type="file" accept="image\/\*"/, f);
+    assert.doesNotMatch(src, /capture=/, `${f}: with capture Android opens only the camera`);
+  }
+});
