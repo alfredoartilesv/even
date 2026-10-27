@@ -41,6 +41,14 @@ export function checkLog(text, { firstLaunch }) {
   return fail;
 }
 
+/** The built app's signed entitlements and Info.plist: without both, iOS stops the app when it asks for Health data. */
+export function checkBundle(entitlementsXml, healthUsage) {
+  const fail = [];
+  if (!/<key>com\.apple\.developer\.healthkit<\/key>\s*<true\/>/.test(entitlementsXml)) fail.push("the app is not signed with the HealthKit entitlement");
+  if (!healthUsage.trim()) fail.push("Info.plist has no NSHealthShareUsageDescription");
+  return fail;
+}
+
 async function main() {
   const arg = (k, d) => {
     const i = process.argv.indexOf(`--${k}`);
@@ -51,6 +59,19 @@ async function main() {
   const out = resolve(arg("out", "ios-sim-out"));
   mkdirSync(out, { recursive: true });
   const sim = (...a) => execFileSync("xcrun", ["simctl", ...a], { encoding: "utf8" });
+
+  const quiet = (cmd, args) => {
+    try {
+      return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      return "";
+    }
+  };
+  const bundle = checkBundle(
+    quiet("codesign", ["-d", "--entitlements", "-", "--xml", resolve(appPath)]),
+    quiet("plutil", ["-extract", "NSHealthShareUsageDescription", "raw", join(resolve(appPath), "Info.plist")]),
+  );
+  console.log(`${bundle.length ? "FAIL" : "PASS"} HealthKit entitlement and request text in the built app`);
 
   const device = pickDevice(JSON.parse(sim("list", "devices", "available", "-j")), arg("device"));
   console.log(`simulator: ${device.name} (iOS ${device.ios}) ${device.udid}`);
@@ -63,7 +84,7 @@ async function main() {
   }
   sim("install", device.udid, resolve(appPath));
 
-  const failures = [];
+  const failures = [...bundle];
   for (const [i, mode] of ["light", "dark"].entries()) {
     sim("ui", device.udid, "appearance", mode);
     const since = new Date(Date.now() - 1000).toISOString().replace("T", " ").slice(0, 19);

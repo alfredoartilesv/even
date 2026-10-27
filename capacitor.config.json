@@ -5,10 +5,24 @@
   "plugins": {
     "CapacitorSQLite": {
       "androidIsEncryption": true,
-      "androidBiometric": { "biometricAuth": false },
+      "androidBiometric": {
+        "biometricAuth": false
+      },
       "iosIsEncryption": true,
       "iosKeychainPrefix": "app.health.personal",
-      "iosBiometric": { "biometricAuth": false }
+      "iosBiometric": {
+        "biometricAuth": false
+      }
     }
+  },
+  "android": {
+    "includePlugins": [
+      "@aparajita/capacitor-secure-storage",
+      "@capacitor-community/sqlite",
+      "@capacitor/filesystem",
+      "@capacitor/local-notifications",
+      "@capacitor/share",
+      "@capgo/capacitor-social-login"
+    ]
   }
 }
