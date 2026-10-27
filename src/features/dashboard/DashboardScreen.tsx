@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
-import { fmtDay, plural, today } from "../../ui/common";
+import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { PageHeader, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../me/workouts";
@@ -228,6 +228,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <div className="viz-tiles pairs">
         <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
         <StatTile label="In stock now" value={d ? String(d.stock.portions) : null} note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined} />
+        <StatTile label="Groceries" value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null} note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined} />
       </div>
 
       {span === "day" && metrics.length > 0 && (

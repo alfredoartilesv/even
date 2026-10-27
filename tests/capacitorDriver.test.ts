@@ -19,9 +19,9 @@ test("real migrations apply through the plugin driver, using plugin transactions
   const { conn, raw, calls } = fakePlugin();
   const db = capacitorDriver(conn);
   const applied = await migrate(db, realMigrations());
-  assert.deepEqual(applied, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.deepEqual(tables(raw), ["account", "agent_actions", "ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "drink_types", "food_entries", "food_photos", "goals", "health_samples", "manual_measurements", "meal_prep_batches", "meal_prep_ingredients", "meal_prep_moves", "meal_prep_tags", "meal_preps", "metric_catalog", "saved_meals", "shopping_list_items", "sync_runs", "sync_state"]);
-  assert.deepEqual(calls, Array(10).fill(["begin", "execute:false", "execute:false", "commit"]).flat());
+  assert.deepEqual(applied, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.deepEqual(tables(raw), ["account", "agent_actions", "ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "drink_types", "food_entries", "food_photos", "goals", "health_samples", "manual_measurements", "meal_prep_batches", "meal_prep_ingredients", "meal_prep_moves", "meal_prep_tags", "meal_preps", "metric_catalog", "saved_meals", "shopping_list_items", "shopping_trips", "sync_runs", "sync_state"]);
+  assert.deepEqual(calls, Array(11).fill(["begin", "execute:false", "execute:false", "commit"]).flat());
   assert.deepEqual(await migrate(db, realMigrations()), []);
 });
 
@@ -29,7 +29,7 @@ test("CRLF migration files still create every table", async () => {
   const { conn, raw } = fakePlugin();
   const crlf = realMigrations().map((m) => ({ ...m, sql: m.sql.replace(/\n/g, "\r\n") }));
   await migrate(capacitorDriver(conn), crlf);
-  assert.equal(tables(raw).length, 25);
+  assert.equal(tables(raw).length, 26);
 });
 
 test("a failing migration rolls back via the plugin", async () => {

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 
 /**
@@ -51,8 +51,19 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 
 /** The views of one tab, as a row that scrolls sideways when it does not fit. The open view is aria-current. */
 export function SubTabs<T extends string>({ items, value, onChange, label }: { items: Choice<T>[]; value: T; onChange: (id: T) => void; label: string }) {
+  // On a narrow phone the row scrolls: keep the open view in sight, not cut off at the edge.
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = ref.current;
+    const on = nav?.querySelector<HTMLElement>("button.active");
+    if (!nav || !on) return;
+    const n = nav.getBoundingClientRect();
+    const b = on.getBoundingClientRect();
+    if (b.left < n.left) nav.scrollLeft -= n.left - b.left + 8;
+    else if (b.right > n.right) nav.scrollLeft += b.right - n.right + 8;
+  }, [value]);
   return (
-    <nav className="tabs sub" aria-label={label}>
+    <nav ref={ref} className="tabs sub" aria-label={label}>
       {items.map((it) => (
         <button key={it.id} type="button" className={value === it.id ? "active" : ""} aria-current={value === it.id ? "page" : undefined} onClick={() => onChange(it.id)}>
           {it.label}
