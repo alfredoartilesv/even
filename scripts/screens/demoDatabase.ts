@@ -14,7 +14,10 @@ import { upsertSamples } from "../../src/features/metrics/samples";
 import { logFood, saveMeal, setCalorieGoal } from "../../src/features/food/food";
 import { logDrink, saveDrinkType } from "../../src/features/alcohol/alcohol";
 import { addMove, logBatch, saveMealPrep, DEFAULT_MEAL_PREP } from "../../src/features/mealprep/mealPrep";
+import { addShoppingItem, listShopping, setShoppingChecked } from "../../src/features/mealprep/shopping";
+import { addTrip } from "../../src/features/mealprep/spending";
 import { insertGoal } from "../../src/features/journal/journal";
+import { addMeasurement, saveDayNote } from "../../src/features/journal/entries";
 import { saveProfile } from "../../src/features/settings/profile";
 import { appendMessage, createConversation } from "../../src/features/chat/store";
 import { recordConsent } from "../../src/features/chat/consent";
@@ -123,6 +126,26 @@ async function seed(db: SqlDriver) {
   await logDrink(db, { typeId: beer, count: 2, atMs: now - 2 * 86_400_000, timeZone: tz });
   await logDrink(db, { typeId: wine, count: 1, atMs: now - 5 * 86_400_000, timeZone: tz });
   await logDrink(db, { typeId: beer, count: 3, atMs: now - 6 * 86_400_000, timeZone: tz });
+
+  // Journal: check-ins most days, a weigh-in most mornings, blood pressure now and then.
+  const notes = ["Slept well, easy run.", "Busy day, skipped the gym.", "Long run, legs heavy after.", "", "Late dinner, slept badly.", "Rest day.", "Felt strong at strength training."];
+  for (let i = 1; i < 21; i++) {
+    const d = addDays(today, -i);
+    if (i % 6 !== 3) await saveDayNote(db, { day: d, mood: 2 + Math.round(r() * 3), energy: 2 + Math.round(r() * 3), body: notes[i % notes.length] }, today, now);
+    if (i % 4 !== 2) await addMeasurement(db, { kind: "weight", value: Math.round((81.9 - i * 0.03 + r() * 0.6) * 10) / 10, atMs: dayStart(d) + 7 * H, timeZone: tz }, "user", now);
+    if (i % 5 === 0) await addMeasurement(db, { kind: "blood_pressure", value: Math.round(118 + r() * 10), value2: Math.round(74 + r() * 8), atMs: dayStart(d) + 8 * H, timeZone: tz }, "user", now);
+  }
+  await addMeasurement(db, { kind: "supplement", text: "Vitamin D 2000 IU", atMs: now - 2 * H, timeZone: tz }, "user", now);
+
+  // Supermarket: a big shop most weeks and a top-up now and then, for about five months; a list half done.
+  for (let i = 1; i < 150; i += 3 + Math.floor(r() * 4)) {
+    const big = i % 2 === 1;
+    await addTrip(db, { shop: big ? "Mercadona" : r() < 0.5 ? "Lidl" : "Fruteria Ana", amount: Math.round((big ? 55 + r() * 40 : 9 + r() * 18) * 100) / 100, day: addDays(today, -i), timeZone: tz }, "user", now);
+  }
+  for (const [name, quantity, unit] of [["Chicken breast", 1500, "g"], ["Rice", 2000, "g"], ["Broccoli", 3, null], ["Greek yogurt", 4, null], ["Olive oil", 1, "l"]] as const) {
+    await addShoppingItem(db, { name, quantity, unit }, now);
+  }
+  for (const i of (await listShopping(db)).slice(0, 2)) await setShoppingChecked(db, i.id, true, now);
 
   // Claude: a dummy key (in the browser's memory store, never sent: the capture sends no message) and one conversation.
   await secretStore.set("anthropic.api_key", "sk-ant-demo-screens-not-a-real-key");

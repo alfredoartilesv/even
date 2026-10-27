@@ -14,7 +14,7 @@ Done and tested (`npm test`, all against Node's SQLite and a fake that copies th
 
 - Claude agent (`src/features/chat/`): answers questions about your data, estimates and logs meals from photos, logs saved meals and meal prep portions, saves favourites, creates meal prep recipes and shopping lists, records cooked batches, and logs drinks, measurements, notes and goals. Every change is confirmed by you, logged and undoable; what it can read depends on your permissions. Try it on a PC: `npm run chat -- --db health.sqlite --photo lunch.jpg "Log this lunch"`.
 
-- Five tabs in a bottom bar: **Dashboard** (steps, calories burned and eaten, balance, meal prep and workouts by day, week or month, with daily averages and totals; sync and the profile with past activity at the top), **Chat** (Claude, with camera and image attach), **Meal prep** (log what you eat, stock, recipes, shopping), **Alcohol**, **Settings** (profile, connections, privacy and data, debug logs, about with the version).
+- Five tabs in a bottom bar: **Dashboard** (steps, calories burned and eaten, balance, meal prep and workouts by day, week or month, with daily averages and totals; sync and the profile with past activity at the top; the journal: daily check-in and manual measurements), **Chat** (Claude, with camera and image attach), **Meal prep** (log what you eat, stock, recipes, shopping, and what the supermarket cost), **Alcohol**, **Settings** (profile, connections, privacy and data, debug logs, about with the version).
 - See every screen in light and dark: [docs/screens/index.html](docs/screens/index.html) (regenerate with `npm run docs:screens`); colors in [docs/screens/palette.html](docs/screens/palette.html).
 
 **Run on an emulator, not yet on the phone.** The debug build passes the device integration test on a Galaxy S23-shaped Android 16 emulator (`npm run test:device`: encrypted database, migrations, a real Garmin sync, restart). Tests and the APK build also run in Docker (`npm run docker:test`, `npm run docker:apk`), the same as CI.
@@ -47,4 +47,3 @@ Emulator, VS Code tasks and Docker: [docs/dev-setup.md](docs/dev-setup.md).
 ## Next steps
 
 1. Run it on the real S23 (`npm run test:device` with the phone plugged in), then check backup export/share/restore by hand (docs/architecture.md risk 7).
-2. Screens for manual measurements and day notes (the chat can already log them).

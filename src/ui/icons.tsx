@@ -91,6 +91,18 @@ const PATHS = {
       <path d="M12 11v6M12 7.5v.5" />
     </>
   ),
+  note: (
+    <>
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M14 3v5h5M9 13h7M9 17h5" />
+    </>
+  ),
+  scale: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M8 9a5 5 0 0 1 8 0l-3 3" />
+    </>
+  ),
   trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   box: (
     <>

@@ -63,3 +63,25 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
     </span>
   );
 }
+
+/**
+ * A 1-5 rating (mood, energy): five round steps, the chosen word under them. Tapping the chosen
+ * step again clears it. Each step is a radio named with its word, so it is never a bare number.
+ */
+export function ScaleRating({ value, onChange, label, words }: { value: number | null; onChange: (v: number | null) => void; label: string; words: readonly string[] }) {
+  return (
+    <div className="scale">
+      <div className="scale-head">
+        <span>{label}</span>
+        <span className="muted small">{value === null ? "not set" : words[value - 1]}</span>
+      </div>
+      <div className="scale-steps" role="radiogroup" aria-label={label}>
+        {words.map((w, i) => (
+          <button key={w} type="button" role="radio" aria-checked={value === i + 1} aria-label={`${i + 1}: ${w}`} className={value !== null && i + 1 <= value ? "on" : ""} onClick={() => onChange(value === i + 1 ? null : i + 1)}>
+            {i + 1}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
