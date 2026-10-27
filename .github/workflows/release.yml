@@ -80,6 +80,8 @@ jobs:
     name: Install and launch on an emulator
     runs-on: ubuntu-latest
     needs: build
+    # A stuck emulator must not hold the release for the runner's 6 h default.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -94,13 +96,17 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # API 34: the API 35 image never came up on the hosted runner (adb found no device for the
+      # whole wait, first release run, 27 Oct 2026). The app's min SDK is 24, so 34 still checks it.
       - name: Release check on the emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
           disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: node scripts/release-check.mjs --apk out/app-release.apk --device --build-tools "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)" --out out/shots
       - uses: actions/upload-artifact@v4
         if: always()
