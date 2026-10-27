@@ -1,7 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { nodeDb } from "../scripts/lib/nodeDb";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { diskMigrations, nodeDb } from "../scripts/lib/nodeDb";
+import { migrate, type Migration } from "../src/db/migrate";
 
 /** In-memory SQLite behind the same SqlDriver interface the app uses. */
 export function memoryDriver() {
@@ -9,17 +7,10 @@ export function memoryDriver() {
 }
 
 /** The real migration files from src/db/migrations. */
-let cached: ReturnType<typeof parseMigrations> | null = null;
-export function realMigrations() {
+let cached: Migration[] | null = null;
+export function realMigrations(): Migration[] {
   // Read once per test process: most tests build a fresh migrated database.
-  if (!cached) {
-    const dir = join(import.meta.dirname, "../src/db/migrations");
-    const files: Record<string, string> = {};
-    for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) {
-      files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-    }
-    cached = parseMigrations(files);
-  }
+  cached ??= diskMigrations();
   // Copies, so a test that edits one (CRLF, a failing migration) cannot change the next test's.
   return cached.map((m) => ({ ...m }));
 }

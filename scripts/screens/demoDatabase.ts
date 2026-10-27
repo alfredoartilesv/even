@@ -34,8 +34,8 @@ export function openDatabase(): Promise<{ db: SqlDriver; applied: number[] }> {
 }
 
 /** Deterministic noise, so the screens look the same on every capture. */
-function noise(seed: number) {
-  let s = seed;
+function noise(start: number) {
+  let s = start;
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 

@@ -52,7 +52,10 @@ test("real migrations apply through the plugin driver, using plugin transactions
     "sync_runs",
     "sync_state",
   ]);
-  assert.deepEqual(calls, Array(all.length).fill(["begin", "execute:false", "execute:false", "commit"]).flat());
+  assert.deepEqual(
+    calls,
+    all.flatMap(() => ["begin", "execute:false", "execute:false", "commit"]),
+  );
   assert.deepEqual(await migrate(db, realMigrations()), []);
 });
 

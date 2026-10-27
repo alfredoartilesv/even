@@ -13,8 +13,8 @@
  * Needs ANTHROPIC_API_KEY in .env. Prints the answer, tools, changes and what data was sent;
  * never prints the key.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { extname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { listAgentActions, type ActionProposal } from "../src/features/chat/actions";
 import { claudeCreate } from "../src/features/chat/client";
@@ -22,8 +22,7 @@ import { hasConsent, recordConsent, type ConsentScope } from "../src/features/ch
 import { askClaude, startConversation, type ChatDeps } from "../src/features/chat/engine";
 import { toAttachment, type ImageAttachment } from "../src/features/chat/images";
 import { listDisclosures } from "../src/features/chat/store";
-import { nodeDb } from "./lib/nodeDb";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { migratedNodeDb } from "./lib/nodeDb";
 import { deviceId } from "../src/db/settings";
 import { setLogLevel } from "../src/core/log";
 
@@ -54,11 +53,7 @@ async function main() {
   if (photo) images.push(toAttachment(readFileSync(photo).toString("base64"), TYPES[extname(photo).toLowerCase()]));
   if (!question && images.length === 0) throw new Error('Pass a question, e.g. "How did I sleep this week?"');
 
-  const db = nodeDb(dbPath, { foreignKeys: true }).db;
-  const dir = join(import.meta.dirname, "../src/db/migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  await migrate(db, parseMigrations(files));
+  const { db } = await migratedNodeDb(dbPath, { foreignKeys: true });
 
   const dev = await deviceId(db);
   // Running this script is the consent for summaries; the rest only with --allow (photos also with --photo).

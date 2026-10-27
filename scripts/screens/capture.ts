@@ -499,7 +499,7 @@ function paletteHtml(): string {
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   };
   const ratio = (a: string, b: string) => {
-    if (!/^#/.test(a) || !/^#/.test(b)) return "";
+    if (!a.startsWith("#") || !b.startsWith("#")) return "";
     const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
     return `${((x + 0.05) / (y + 0.05)).toFixed(1)}:1`;
   };

@@ -40,7 +40,7 @@ export function App() {
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
   const [status, setStatus] = useState<LastSync | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const autoSynced = useRef(false);
 
   useEffect(() => {

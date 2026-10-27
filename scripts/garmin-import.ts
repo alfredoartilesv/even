@@ -16,8 +16,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setLogLevel } from "../src/core/log";
-import { nodeDb } from "./lib/nodeDb";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { migratedNodeDb } from "./lib/nodeDb";
 import { exportBackup } from "../src/features/backup/backup";
 import { importGarminZip } from "../src/features/import/garminImport";
 
@@ -84,11 +83,7 @@ async function main() {
     if (password.length < 8) throw new Error("Use a backup password of at least 8 characters");
   }
 
-  const db = nodeDb(dbPath ?? ":memory:", { foreignKeys: true }).db;
-  const dir = join(ROOT, "src", "db", "migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  await migrate(db, parseMigrations(files));
+  const { db } = await migratedNodeDb(dbPath ?? ":memory:", { foreignKeys: true });
 
   console.log(`Reading ${zipPath.replace(ROOT, ".")} (days without an offset use ${timeZone})...`);
   const { written, parsed } = await importGarminZip(db, new Uint8Array(readFileSync(zipPath)), { timeZone });

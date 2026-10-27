@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "react-hooks", "import", "unicorn", "oxc"],
+  "categories": { "correctness": "error", "suspicious": "warn" },
+  "env": { "browser": true, "node": true, "es2024": true },
+  "rules": {
+    "no-unused-vars": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+
+    // Off, with reasons. The new JSX transform needs no React in scope. Screens reload on a `version`
+    // prop and set state after an await, which the React Compiler rules below read as extra
+    // dependencies and cascading renders. z._default is zod's API. CSS imports are side-effect
+    // imports on purpose. sort() on a fresh array is fine; the rest are style preferences.
+    "react/react-in-jsx-scope": "off",
+    "react/set-state-in-effect": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/memo-dependencies": "off",
+    "no-underscore-dangle": "off",
+    "import/no-unassigned-import": "off",
+    "import/no-named-as-default-member": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/prefer-add-event-listener": "off",
+    "unicorn/require-post-message-target-origin": "off"
+  },
+  "ignorePatterns": ["dist/**", "android/**", "ios/**", "out/**", "docs/**", "node_modules/**"]
+}

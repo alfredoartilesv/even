@@ -146,7 +146,7 @@ test("invalid proposals never reach the owner: future days, absurd values, too m
   const api = oneRound(
     call("a", "log_food", { entries: [{ ...lunch, day: "2026-10-26" }] }),
     call("b", "log_food", { entries: [{ ...lunch, calories: 9000 }] }),
-    call("c", "log_food", { entries: Array(21).fill(lunch) }),
+    call("c", "log_food", { entries: Array.from({ length: 21 }, () => lunch) }),
     call("d", "log_food", { entries: [{ ...lunch, day: "2026-07-01" }] }),
     call("e", "prep_portions", { batch_id: "nope", action: "eat", portions: 1, from: null, day: "2026-10-25", time: null }),
   );
