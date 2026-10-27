@@ -43,7 +43,7 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
   async function exportFile() {
     try {
       const name = reportFileName(Date.now(), timeZone());
-      await saveTextFile(name, report(), { title: "Health app logs", mimeType: "text/markdown" });
+      await saveTextFile(name, report(), { title: "Even logs", mimeType: "text/markdown" });
       log.info("logs exported as a file", { records: all.length });
       setMsg({ kind: "ok", text: isNative ? `Shared ${name}. Pick the Claude app to attach it.` : `Downloaded ${name}. Attach it in a Claude chat.` });
     } catch (err) {
@@ -53,7 +53,7 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
 
   async function shareReport() {
     try {
-      const how = await shareText("Health app logs", report());
+      const how = await shareText("Even logs", report());
       log.info("logs shared as text", { records: all.length, how });
       setMsg({ kind: "ok", text: how === "copied" ? "Copied. Paste it into a Claude chat." : "Shared. Pick the Claude app to send it." });
     } catch (err) {

@@ -11,8 +11,10 @@
  *   transfer, so exclude every domain from both cloud backup and device transfer.
  * - versionName and versionCode from package.json, and the release signing config
  *   (scripts/android-gradle.mjs).
+ * - The Even launcher icon (resources/android/res, copied over the generated res/) and the
+ *   launcher label from capacitor.config.json's appName (`cap sync` does not update it).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { patchGradle, versionCode } from "./android-gradle.mjs";
 
@@ -64,3 +66,16 @@ const gradlePath = join(import.meta.dirname, "../android/app/build.gradle");
 const { version } = JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8"));
 writeFileSync(gradlePath, patchGradle(readFileSync(gradlePath, "utf8"), version));
 console.log(`Android version set to ${version} (versionCode ${versionCode(version)}); release signing reads HEALTH_KEYSTORE* from the environment.`);
+
+// The launcher icon and label. Capacitor's default foreground PNGs are removed so the adaptive
+// icon can only use the Even vector (resources/logo.svg is the source of every size).
+for (const dir of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) rmSync(join(main, `res/mipmap-${dir}/ic_launcher_foreground.png`), { force: true });
+cpSync(join(import.meta.dirname, "../resources/android/res"), join(main, "res"), { recursive: true });
+const { appName } = JSON.parse(readFileSync(join(import.meta.dirname, "../capacitor.config.json"), "utf8"));
+const stringsPath = join(main, "res/values/strings.xml");
+const label = appName.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+writeFileSync(
+  stringsPath,
+  readFileSync(stringsPath, "utf8").replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, `$1${label}$2`),
+);
+console.log(`Launcher icon and label set: ${appName}.`);

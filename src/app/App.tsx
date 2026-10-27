@@ -119,7 +119,7 @@ export function App() {
   if (dbStatus.state !== "ready") {
     return (
       <main className="shell">
-        <PageHeader title="Health" />
+        <PageHeader title="Even" />
         <p className={dbStatus.state === "error" ? "error" : "muted"}>
           {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
         </p>

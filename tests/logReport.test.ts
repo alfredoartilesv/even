@@ -15,7 +15,7 @@ test("the report gives Claude the brief, the context, problems first, then every
     ],
     ctx,
   );
-  assert.match(md, /^# Health app logs\n/);
+  assert.match(md, /^# Even logs\n/);
   assert.match(md, /Please find the cause of any errors or warnings/);
   assert.match(md, /- Platform: android, production build/);
   assert.match(md, /- Time zone: Europe\/Madrid/);

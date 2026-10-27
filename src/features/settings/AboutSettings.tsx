@@ -4,6 +4,7 @@ import { deviceId } from "../../db/settings";
 import { APP_VERSION, BUILD_TIME } from "../../platform/buildInfo";
 import { platformName } from "../../platform/device";
 import { CHAT_MODEL } from "../chat/engine";
+import { Logo } from "../../ui/logo";
 
 const PLATFORM: Record<string, string> = { android: "Android", ios: "iOS", web: "Browser" };
 
@@ -29,11 +30,9 @@ export function AboutSettings({ db }: { db: SqlDriver }) {
   return (
     <section>
       <div className="about-head">
-        <div className="about-mark" aria-hidden>
-          ♥
-        </div>
+        <Logo size={48} decorative />
         <div>
-          <h2>Health</h2>
+          <h2>Even</h2>
           <div className="muted small">Version {APP_VERSION}</div>
         </div>
       </div>
