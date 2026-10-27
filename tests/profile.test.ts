@@ -66,7 +66,9 @@ test("get_profile gives Claude age and estimates, never the name or birth date",
   const today = localDay(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
   await saveProfile(db, full, today);
   const t = Date.now() - 86_400_000;
-  await upsertSamples(db, [{ source: "garmin", device: "", externalId: "w1", metric: "body_weightInGrams", startMs: t, endMs: t, offsetMin: 0, valueNum: 80_000, unit: "grams" }]);
+  await upsertSamples(db, [
+    { source: "garmin", device: "", externalId: "w1", metric: "body_weightInGrams", startMs: t, endMs: t, offsetMin: 0, valueNum: 80_000, unit: "grams" },
+  ]);
   const tool = TOOLS_BY_NAME.get("get_profile")!;
   assert.equal(tool.dataClass, "aggregate");
   const out = await tool.run(db, {});

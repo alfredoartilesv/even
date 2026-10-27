@@ -186,7 +186,12 @@ export async function measurementKinds(db: SqlDriver): Promise<KindSummary[]> {
 }
 
 /** One point per day (the day's last entry) for a numeric kind, from..to inclusive, nulls where nothing was logged. */
-export async function measurementSeries(db: SqlDriver, kind: string, from: string, to: string): Promise<{ days: string[]; values: (number | null)[]; values2: (number | null)[] }> {
+export async function measurementSeries(
+  db: SqlDriver,
+  kind: string,
+  from: string,
+  to: string,
+): Promise<{ days: string[]; values: (number | null)[]; values2: (number | null)[] }> {
   const rows = (await listMeasurements(db, from, to, kind)).filter((m) => m.value !== null);
   const last = new Map<string, Measurement>();
   for (const m of rows) if (!last.has(m.day)) last.set(m.day, m); // rows are newest first
@@ -238,10 +243,21 @@ interface NoteRow {
   updated_at: number;
 }
 
-const toNote = (r: NoteRow): DayNote => ({ id: r.id, day: r.local_day, mood: r.mood, energy: r.energy, body: r.body, createdBy: r.created_by, updatedAtMs: r.updated_at });
+const toNote = (r: NoteRow): DayNote => ({
+  id: r.id,
+  day: r.local_day,
+  mood: r.mood,
+  energy: r.energy,
+  body: r.body,
+  createdBy: r.created_by,
+  updatedAtMs: r.updated_at,
+});
 
 export async function getDayNote(db: SqlDriver, day: string): Promise<DayNote | null> {
-  const [r] = await db.all<NoteRow>("SELECT id, local_day, mood, energy, body, created_by, updated_at FROM day_notes WHERE local_day = ? AND deleted_at IS NULL", [day]);
+  const [r] = await db.all<NoteRow>(
+    "SELECT id, local_day, mood, energy, body, created_by, updated_at FROM day_notes WHERE local_day = ? AND deleted_at IS NULL",
+    [day],
+  );
   return r ? toNote(r) : null;
 }
 
@@ -258,7 +274,12 @@ export async function listDayNotes(db: SqlDriver, from: string, to: string): Pro
  * Creates the day's note or updates it (one live note per day). Saving one with nothing in it
  * (no ratings, empty text) deletes it instead. Days in the future are refused.
  */
-export async function saveDayNote(db: SqlDriver, input: { day: string; mood: number | null; energy: number | null; body: string }, today: string, nowMs: number = Date.now()): Promise<DayNote | null> {
+export async function saveDayNote(
+  db: SqlDriver,
+  input: { day: string; mood: number | null; energy: number | null; body: string },
+  today: string,
+  nowMs: number = Date.now(),
+): Promise<DayNote | null> {
   const n = noteSchema.parse({ ...input, body: input.body.trim() });
   if (n.day > today) throw new Error("That day has not happened yet");
   const existing = await getDayNote(db, n.day);

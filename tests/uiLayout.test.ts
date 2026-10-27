@@ -20,7 +20,10 @@ test("PageHeader: one h1, optional subtitle, optional back button named for wher
   assert.equal((plain.match(/<h1/g) ?? []).length, 1);
   assert.match(plain, /<h1>Alcohol<\/h1>/);
   assert.doesNotMatch(plain, /<button/);
-  assert.match(renderToStaticMarkup(h(PageHeader, { title: "Hi", subtitle: "Monday 26 October" })), /<h1>Hi<\/h1><div class="muted small">Monday 26 October<\/div>/);
+  assert.match(
+    renderToStaticMarkup(h(PageHeader, { title: "Hi", subtitle: "Monday 26 October" })),
+    /<h1>Hi<\/h1><div class="muted small">Monday 26 October<\/div>/,
+  );
 
   const back = renderToStaticMarkup(h(PageHeader, { title: "Profile", onBack: noop, backLabel: "Dashboard" }));
   assert.match(back, /class="back-button" aria-label="Back to Dashboard"><svg[^]*?<span>Dashboard<\/span><\/button>/);
@@ -30,7 +33,17 @@ test("PageHeader: one h1, optional subtitle, optional back button named for wher
 });
 
 test("SubTabs: a labelled nav, the open view marked aria-current", () => {
-  const html = renderToStaticMarkup(h(SubTabs<"a" | "b">, { items: [{ id: "a", label: "Stock" }, { id: "b", label: "Recipes" }], value: "b", onChange: noop, label: "Views" }));
+  const html = renderToStaticMarkup(
+    h(SubTabs<"a" | "b">, {
+      items: [
+        { id: "a", label: "Stock" },
+        { id: "b", label: "Recipes" },
+      ],
+      value: "b",
+      onChange: noop,
+      label: "Views",
+    }),
+  );
   assert.match(html, /^<nav class="tabs sub" aria-label="Views">/);
   assert.match(html, /<button type="button" class="">Stock<\/button>/);
   assert.match(html, /class="active" aria-current="page">Recipes/);
@@ -38,12 +51,32 @@ test("SubTabs: a labelled nav, the open view marked aria-current", () => {
 });
 
 test("Segmented and ChipGroup: radio groups with exactly one checked option", () => {
-  const seg = renderToStaticMarkup(h(Segmented<"day" | "week">, { items: [{ id: "day", label: "Day" }, { id: "week", label: "Week" }], value: "week", onChange: noop, label: "Period" }));
+  const seg = renderToStaticMarkup(
+    h(Segmented<"day" | "week">, {
+      items: [
+        { id: "day", label: "Day" },
+        { id: "week", label: "Week" },
+      ],
+      value: "week",
+      onChange: noop,
+      label: "Period",
+    }),
+  );
   assert.match(seg, /role="radiogroup" aria-label="Period"/);
   assert.equal((seg.match(/aria-checked="true"/g) ?? []).length, 1);
   assert.match(seg, /aria-checked="true" class="active">Week/);
 
-  const chips = renderToStaticMarkup(h(ChipGroup<string>, { options: [{ id: "today", label: "Today" }, { id: "week", label: "7 days" }], value: "today", onChange: noop, label: "Period" }));
+  const chips = renderToStaticMarkup(
+    h(ChipGroup<string>, {
+      options: [
+        { id: "today", label: "Today" },
+        { id: "week", label: "7 days" },
+      ],
+      value: "today",
+      onChange: noop,
+      label: "Period",
+    }),
+  );
   assert.match(chips, /class="chip active">Today/);
   assert.match(chips, /aria-checked="false" class="chip">7 days/);
 
@@ -101,7 +134,10 @@ test("settings menu: every page once, each with an icon and a description", () =
 
 test("SectionHeader and QuickActions: headings with an optional link, actions as labelled icon buttons", () => {
   assert.equal(renderToStaticMarkup(h(SectionHeader, { title: "Energy" })), '<div class="section-head"><h2>Energy</h2></div>');
-  assert.match(renderToStaticMarkup(h(SectionHeader, { title: "Workouts", action: "Your activity", onAction: noop })), /<button type="button" class="link accent small">Your activity ›<\/button>/);
+  assert.match(
+    renderToStaticMarkup(h(SectionHeader, { title: "Workouts", action: "Your activity", onAction: noop })),
+    /<button type="button" class="link accent small">Your activity ›<\/button>/,
+  );
   const qa = renderToStaticMarkup(
     h(QuickActions, {
       actions: [
@@ -151,7 +187,11 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 const screens = walk(SRC).filter((f) => !f.endsWith("Gallery.tsx") && !f.includes(join("src", "ui")));
-const rel = (f: string) => f.slice(SRC.length + 1).split("\\").join("/");
+const rel = (f: string) =>
+  f
+    .slice(SRC.length + 1)
+    .split("\\")
+    .join("/");
 
 test("screens title themselves with PageHeader, never their own <h1>", () => {
   assert.deepEqual(screens.filter((f) => /<h1[\s>]/.test(readFileSync(f, "utf8"))).map(rel), []);
@@ -177,7 +217,9 @@ test("ScaleRating: five named steps, the chosen word shown, steps up to the choi
 });
 
 test("Switch: a labelled checkbox with role switch, the whole row the tap target", () => {
-  const on = renderToStaticMarkup(h(Switch, { checked: true, onChange: noop, label: "Photos", description: "Send the photos you attach", note: "needed for any chat" }));
+  const on = renderToStaticMarkup(
+    h(Switch, { checked: true, onChange: noop, label: "Photos", description: "Send the photos you attach", note: "needed for any chat" }),
+  );
   assert.match(on, /^<label class="switch-row">/);
   assert.match(on, /<span class="switch-label">Photos<span class="muted small"> needed for any chat<\/span><\/span>/);
   assert.match(on, /Send the photos you attach/);

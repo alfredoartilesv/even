@@ -38,7 +38,20 @@ const PAD = { top: 12, right: 12, bottom: 24, left: 40 };
  * a soft area wash and its last value labelled; several get a legend. Hover or arrow keys move a
  * crosshair that reads out every series at that x.
  */
-export function LineChart({ title, subtitle, x, series, formatX = (s) => s, formatXLong, formatValue = fmtValue, unit, target = null, zero = false, height = 180, dim }: LineChartProps) {
+export function LineChart({
+  title,
+  subtitle,
+  x,
+  series,
+  formatX = (s) => s,
+  formatXLong,
+  formatValue = fmtValue,
+  unit,
+  target = null,
+  zero = false,
+  height = 180,
+  dim,
+}: LineChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const long = formatXLong ?? formatX;
@@ -100,7 +113,13 @@ export function LineChart({ title, subtitle, x, series, formatX = (s) => s, form
             </g>
           ))}
           {labelIndexes(x.length, plotW).map((i) => (
-            <text key={i} className="viz-tick" x={sx(i)} y={baseline + 16} textAnchor={i === 0 && x.length > 1 ? "start" : i === x.length - 1 && x.length > 1 ? "end" : "middle"}>
+            <text
+              key={i}
+              className="viz-tick"
+              x={sx(i)}
+              y={baseline + 16}
+              textAnchor={i === 0 && x.length > 1 ? "start" : i === x.length - 1 && x.length > 1 ? "end" : "middle"}
+            >
               {formatX(x[i])}
             </text>
           ))}
@@ -118,9 +137,7 @@ export function LineChart({ title, subtitle, x, series, formatX = (s) => s, form
               const pts = seg.values.map((v, k) => [sx(seg.start + k), sy(v)] as [number, number]);
               return (
                 <g key={`${s.id}-${seg.start}`}>
-                  {single && pts.length > 1 && (
-                    <path className="viz-area" d={`${linePath(pts)} V${baseline} H${pts[0][0]} Z`} style={{ fill: color(s, i) }} />
-                  )}
+                  {single && pts.length > 1 && <path className="viz-area" d={`${linePath(pts)} V${baseline} H${pts[0][0]} Z`} style={{ fill: color(s, i) }} />}
                   {pts.length > 1 ? (
                     <path className="viz-line" d={linePath(pts)} style={{ stroke: color(s, i) }} />
                   ) : (
@@ -150,7 +167,9 @@ export function LineChart({ title, subtitle, x, series, formatX = (s) => s, form
             <g>
               <line className="viz-crosshair" x1={sx(hover)} x2={sx(hover)} y1={PAD.top} y2={baseline} />
               {series.map((s, i) =>
-                s.values[hover] === null ? null : <circle key={s.id} className="viz-dot" cx={sx(hover)} cy={sy(s.values[hover]!)} r={4} style={{ fill: color(s, i) }} />,
+                s.values[hover] === null ? null : (
+                  <circle key={s.id} className="viz-dot" cx={sx(hover)} cy={sy(s.values[hover]!)} r={4} style={{ fill: color(s, i) }} />
+                ),
               )}
             </g>
           )}

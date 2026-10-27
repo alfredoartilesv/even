@@ -28,7 +28,10 @@ interface Props {
 }
 
 export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[] = [
-  { title: "You", items: [{ id: "profile", label: "Profile", description: "Picture, name, body, activity and weight goal, and the estimates they give", icon: "user" }] },
+  {
+    title: "You",
+    items: [{ id: "profile", label: "Profile", description: "Picture, name, body, activity and weight goal, and the estimates they give", icon: "user" }],
+  },
   {
     title: "Data",
     items: [
@@ -56,9 +59,13 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
 
   if (page === null) {
     // The Profile row shows the picture (or initials) once there is either.
-    const groups = who && (who.photo || who.name)
-      ? SETTINGS_MENU.map((g) => ({ ...g, items: g.items.map((i) => (i.id === "profile" ? { ...i, picture: <Avatar photo={who.photo} name={who.name} size={36} /> } : i)) }))
-      : SETTINGS_MENU;
+    const groups =
+      who && (who.photo || who.name)
+        ? SETTINGS_MENU.map((g) => ({
+            ...g,
+            items: g.items.map((i) => (i.id === "profile" ? { ...i, picture: <Avatar photo={who.photo} name={who.name} size={36} /> } : i)),
+          }))
+        : SETTINGS_MENU;
     return (
       <section>
         <PageHeader title="Settings" />

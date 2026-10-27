@@ -39,10 +39,30 @@ export type HealthStore = Pick<HealthPlugin, "queryAggregated" | "readSamples" |
 type Aggregation = AggregationType;
 
 /** What the source asks HealthKit to read (the permission sheet lists these). */
-export const APPLE_HEALTH_READ: HealthDataType[] = ["steps", "distance", "calories", "basalCalories", "heartRate", "restingHeartRate", "heartRateVariability", "oxygenSaturation", "sleep", "weight", "workouts"];
+export const APPLE_HEALTH_READ: HealthDataType[] = [
+  "steps",
+  "distance",
+  "calories",
+  "basalCalories",
+  "heartRate",
+  "restingHeartRate",
+  "heartRateVariability",
+  "oxygenSaturation",
+  "sleep",
+  "weight",
+  "workouts",
+];
 
 /** One daily HealthKit statistic -> one Garmin-named metric. */
-const DAILY: { dataType: HealthDataType; aggregation: Aggregation; metric: string; unit: string | null; min: number; max: number; scale?: (v: number) => number }[] = [
+const DAILY: {
+  dataType: HealthDataType;
+  aggregation: Aggregation;
+  metric: string;
+  unit: string | null;
+  min: number;
+  max: number;
+  scale?: (v: number) => number;
+}[] = [
   { dataType: "steps", aggregation: "sum", metric: "daily_steps", unit: null, min: 0, max: 200_000, scale: Math.round },
   { dataType: "distance", aggregation: "sum", metric: "daily_distanceInMeters", unit: "meters", min: 0, max: 500_000, scale: Math.round },
   { dataType: "calories", aggregation: "sum", metric: "daily_activeKilocalories", unit: "kcal", min: 0, max: 20_000, scale: Math.round },
@@ -52,8 +72,24 @@ const DAILY: { dataType: HealthDataType; aggregation: Aggregation; metric: strin
   { dataType: "heartRate", aggregation: "max", metric: "daily_maxHeartRateInBeatsPerMinute", unit: "bpm", min: 20, max: 250, scale: Math.round },
   { dataType: "heartRateVariability", aggregation: "average", metric: "hrv_sdnnAvg", unit: "ms", min: 1, max: 300, scale: Math.round },
   // HealthKit percent is a fraction (0.97); some readers already give 97.
-  { dataType: "oxygenSaturation", aggregation: "average", metric: "pulseOx_avgSpo2InPercent", unit: "%", min: 50, max: 100, scale: (v) => Math.round(v <= 1.5 ? v * 100 : v) },
-  { dataType: "oxygenSaturation", aggregation: "min", metric: "pulseOx_minSpo2InPercent", unit: "%", min: 50, max: 100, scale: (v) => Math.round(v <= 1.5 ? v * 100 : v) },
+  {
+    dataType: "oxygenSaturation",
+    aggregation: "average",
+    metric: "pulseOx_avgSpo2InPercent",
+    unit: "%",
+    min: 50,
+    max: 100,
+    scale: (v) => Math.round(v <= 1.5 ? v * 100 : v),
+  },
+  {
+    dataType: "oxygenSaturation",
+    aggregation: "min",
+    metric: "pulseOx_minSpo2InPercent",
+    unit: "%",
+    min: 50,
+    max: 100,
+    scale: (v) => Math.round(v <= 1.5 ? v * 100 : v),
+  },
 ];
 
 const SLEEP_METRIC: Partial<Record<SleepState, string>> = {
@@ -116,7 +152,9 @@ export class AppleHealthSource implements Source {
     const byType = new Map<HealthDataType, typeof DAILY>();
     for (const d of DAILY) byType.set(d.dataType, [...(byType.get(d.dataType) ?? []), d]);
     for (const [dataType, defs] of byType) {
-      const res = await tryRead(dataType, () => store.queryAggregated({ dataType, startDate: from, endDate: to, bucket: "day", aggregation: [...new Set(defs.map((d) => d.aggregation))] }));
+      const res = await tryRead(dataType, () =>
+        store.queryAggregated({ dataType, startDate: from, endDate: to, bucket: "day", aggregation: [...new Set(defs.map((d) => d.aggregation))] }),
+      );
       for (const b of res?.samples ?? []) {
         const day = localDay(ms(b.startDate), tz);
         if (day < start || day > today) continue;
@@ -134,11 +172,22 @@ export class AppleHealthSource implements Source {
     const basal = perDay("daily_bmrKilocalories");
     for (const [id, a] of perDay("daily_activeKilocalories")) {
       const b = basal.get(id);
-      if (b) push({ externalId: id, metric: "daily_totalKilocalories", startMs: a.startMs, endMs: a.endMs, offsetMin: a.offsetMin, valueNum: (a.valueNum ?? 0) + (b.valueNum ?? 0), unit: "kcal" });
+      if (b)
+        push({
+          externalId: id,
+          metric: "daily_totalKilocalories",
+          startMs: a.startMs,
+          endMs: a.endMs,
+          offsetMin: a.offsetMin,
+          valueNum: (a.valueNum ?? 0) + (b.valueNum ?? 0),
+          unit: "kcal",
+        });
     }
 
     // Sleep: from noon the day before the window, so the first night is whole.
-    const sleep = await tryRead("sleep", () => store.readSamples({ dataType: "sleep", startDate: new Date(ms(from) - 12 * 3_600_000).toISOString(), endDate: to, limit: READ_LIMIT, ascending: true }));
+    const sleep = await tryRead("sleep", () =>
+      store.readSamples({ dataType: "sleep", startDate: new Date(ms(from) - 12 * 3_600_000).toISOString(), endDate: to, limit: READ_LIMIT, ascending: true }),
+    );
     this.addSleep(sleep?.samples ?? [], start, today, dayAt, push);
 
     const weights = await tryRead("weight", () => store.readSamples({ dataType: "weight", startDate: from, endDate: to, limit: READ_LIMIT, ascending: true }));
@@ -146,12 +195,22 @@ export class AppleHealthSource implements Source {
       const t = ms(w.startDate);
       const grams = inRange(Math.round(w.value * 1000), 20_000, 400_000);
       if (grams === null || !Number.isFinite(t)) continue;
-      push({ externalId: `weight:${w.platformId ?? t}`, metric: "body_weightInGrams", startMs: t, endMs: t, offsetMin: offsetAt(t), valueNum: grams, unit: "grams" });
+      push({
+        externalId: `weight:${w.platformId ?? t}`,
+        metric: "body_weightInGrams",
+        startMs: t,
+        endMs: t,
+        offsetMin: offsetAt(t),
+        valueNum: grams,
+        unit: "grams",
+      });
     }
 
     let anchor: string | undefined;
     for (let page = 0; page < 50; page++) {
-      const res = await tryRead("workouts", () => store.queryWorkouts({ startDate: from, endDate: to, limit: WORKOUT_PAGE, ascending: true, ...(anchor ? { anchor } : {}) }));
+      const res = await tryRead("workouts", () =>
+        store.queryWorkouts({ startDate: from, endDate: to, limit: WORKOUT_PAGE, ascending: true, ...(anchor ? { anchor } : {}) }),
+      );
       for (const w of res?.workouts ?? []) this.addWorkout(w, offsetAt, push);
       anchor = res?.anchor || undefined;
       if (!res || !anchor || res.workouts.length === 0) break;

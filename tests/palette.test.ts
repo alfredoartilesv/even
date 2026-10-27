@@ -31,7 +31,25 @@ function contrast(a: string, b: string): number {
   return (x + 0.05) / (y + 0.05);
 }
 
-const ROLES = ["bg", "surface", "fg", "muted", "line", "accent", "on-accent", "accent-soft", "good", "warning", "warning-soft", "error", "shadow", "shadow-pop", "brand", "brand-ring", "on-brand"];
+const ROLES = [
+  "bg",
+  "surface",
+  "fg",
+  "muted",
+  "line",
+  "accent",
+  "on-accent",
+  "accent-soft",
+  "good",
+  "warning",
+  "warning-soft",
+  "error",
+  "shadow",
+  "shadow-pop",
+  "brand",
+  "brand-ring",
+  "on-brand",
+];
 const SOLID = ["bg", "surface", "fg", "muted", "line", "accent", "on-accent", "good", "warning", "error", "brand", "brand-ring", "on-brand"];
 
 test("palette: every role is defined, with hex values for the solid ones", () => {
@@ -43,7 +61,10 @@ test("palette: every role is defined, with hex values for the solid ones", () =>
   for (let i = 1; i <= 8; i++) assert.ok(light[`series-${i}`] && dark[`series-${i}`], `series-${i}`);
 });
 
-for (const [name, t] of [["light", light], ["dark", dark]] as const) {
+for (const [name, t] of [
+  ["light", light],
+  ["dark", dark],
+] as const) {
   test(`palette (${name}): text roles reach WCAG AA on both surfaces`, () => {
     for (const role of ["fg", "muted", "accent", "good", "warning", "error"]) {
       for (const surface of ["bg", "surface"]) {
@@ -84,7 +105,8 @@ function code(text: string): string[] {
 // A hex color (#abc, #aabbcc, with or without alpha), an rgb()/hsl()/… color, or a CSS color name
 // given as a color. Shadows go through --shadow and --shadow-pop.
 const LITERAL = /(?<![\w&/])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b(?![\w-])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/;
-const NAMED = /(?:color|background|fill|stroke|border|outline|shadow|stopColor)[\w-]*\s*[:=]\s*\{?\s*["'`]?\s*(?:[^;"'`]*\s)?(?:white|black|red|green|blue|orange|gray|grey|yellow|purple|pink|brown|navy|teal|silver)\b/i;
+const NAMED =
+  /(?:color|background|fill|stroke|border|outline|shadow|stopColor)[\w-]*\s*[:=]\s*\{?\s*["'`]?\s*(?:[^;"'`]*\s)?(?:white|black|red|green|blue|orange|gray|grey|yellow|purple|pink|brown|navy|teal|silver)\b/i;
 const isLiteral = (line: string) => LITERAL.test(line) || NAMED.test(line);
 
 test("no literal colors outside the palette", () => {
@@ -98,10 +120,28 @@ test("no literal colors outside the palette", () => {
 });
 
 test("the literal-color check catches what it should and nothing else", () => {
-  for (const l of ['fill="#fff"', "color: #0f766e;", 'style={{ color: "#123456" }}', "box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);", "background: white;", 'stroke="black"', "const c = '#aabbccdd';", "border: 1px solid gray;"]) {
+  for (const l of [
+    'fill="#fff"',
+    "color: #0f766e;",
+    'style={{ color: "#123456" }}',
+    "box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);",
+    "background: white;",
+    'stroke="black"',
+    "const c = '#aabbccdd';",
+    "border: 1px solid gray;",
+  ]) {
     assert.ok(isLiteral(l), l);
   }
-  for (const l of ["color: var(--fg);", 'fill="currentColor"', "white-space: nowrap;", 'href="#top"', "const id = `#${n}`;", "border-collapse: collapse;", "rgb is not used here", "background: transparent;"]) {
+  for (const l of [
+    "color: var(--fg);",
+    'fill="currentColor"',
+    "white-space: nowrap;",
+    'href="#top"',
+    "const id = `#${n}`;",
+    "border-collapse: collapse;",
+    "rgb is not used here",
+    "background: transparent;",
+  ]) {
     assert.ok(!isLiteral(l), l);
   }
   assert.deepEqual(code("a /* #fff */ b\n// color: red\nc"), [`a${" ".repeat(12)}b`, "", "c"]);
@@ -153,7 +193,11 @@ test("Android: colors.xml and the splash theme come from the palette", async () 
   assert.throws(() => androidColorsXml({ ...light, bg: "color-mix(in srgb, red, blue)" }), /must be a #rrggbb/);
   // The styles name colors only through @color/, and never Capacitor's white splash.png.
   assert.deepEqual(colorsIn(ANDROID_STYLES_XML), []);
-  for (const item of ['"windowSplashScreenBackground">@color/palette_bg', '"windowSplashScreenIconBackgroundColor">@color/brand', '"android:windowBackground">@color/palette_bg']) {
+  for (const item of [
+    '"windowSplashScreenBackground">@color/palette_bg',
+    '"windowSplashScreenIconBackgroundColor">@color/brand',
+    '"android:windowBackground">@color/palette_bg',
+  ]) {
     assert.ok(ANDROID_STYLES_XML.includes(item), item);
   }
   assert.ok(!ANDROID_STYLES_XML.includes("@drawable/splash"), "no splash.png");
@@ -161,8 +205,13 @@ test("Android: colors.xml and the splash theme come from the palette", async () 
 
 test("every var(--token) the app uses is defined", () => {
   // Defined in CSS ("--x: …") or set inline from a component (style={{ ["--x"]: … }}).
-  const defined = new Set([...Object.keys(light), ...files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/(--[\w-]+):|["'](--[\w-]+)["']/g)].map((m) => (m[1] ?? m[2]).slice(2)))]);
-  const used = files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/var\(--([\w-]+)/g)].map((m) => ({ token: m[1], file: f.slice(SRC.length + 1) }))).filter((u) => !u.token.endsWith("-")); // --series-${slot}: checked above
+  const defined = new Set([
+    ...Object.keys(light),
+    ...files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/(--[\w-]+):|["'](--[\w-]+)["']/g)].map((m) => (m[1] ?? m[2]).slice(2))),
+  ]);
+  const used = files
+    .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/var\(--([\w-]+)/g)].map((m) => ({ token: m[1], file: f.slice(SRC.length + 1) })))
+    .filter((u) => !u.token.endsWith("-")); // --series-${slot}: checked above
   assert.deepEqual(
     used.filter((u) => !defined.has(u.token)).map((u) => `${u.file}: --${u.token}`),
     [],

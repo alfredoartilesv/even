@@ -122,7 +122,12 @@ export function TodayView({ db, version, onChanged }: Props) {
 
   return (
     <div>
-      <CalorieMeter eaten={eaten} fromDrinks={drinks} target={target} macros={{ calories: food, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }} />
+      <CalorieMeter
+        eaten={eaten}
+        fromDrinks={drinks}
+        target={target}
+        macros={{ calories: food, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }}
+      />
       {goalInput === null ? (
         <button className="link small muted" onClick={() => setGoalInput(target === null ? "" : String(target))}>
           {target === null ? "Set a daily calorie target" : "Change target"}

@@ -275,8 +275,7 @@ export function RecipesView({ db, tag, allTags, version, onChanged }: Props) {
             </label>
           </div>
           <div className="muted small">
-            {plural(p.portions, "portion")}, fridge {p.fridgeDays} d, freezer {p.freezerDays} d
-            {p.calories !== null && `, ${p.calories} kcal`}
+            {plural(p.portions, "portion")}, fridge {p.fridgeDays} d, freezer {p.freezerDays} d{p.calories !== null && `, ${p.calories} kcal`}
           </div>
           {p.tags.length > 0 && (
             <div className="chips">

@@ -164,71 +164,85 @@ export function App() {
     <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} onSetup={() => openSettings("connections")} />
   );
   // Changes with every screen, so the new one animates in.
-  const screenKey = tab === "dashboard" ? `dashboard|${overlay?.page ?? ""}|${overlay?.page === "journal" ? overlay.view : ""}` : tab === "settings" ? `settings|${settingsPage}` : tab === "mealprep" ? `mealprep|${mealPrepView}` : tab;
+  const screenKey =
+    tab === "dashboard"
+      ? `dashboard|${overlay?.page ?? ""}|${overlay?.page === "journal" ? overlay.view : ""}`
+      : tab === "settings"
+        ? `settings|${settingsPage}`
+        : tab === "mealprep"
+          ? `mealprep|${mealPrepView}`
+          : tab;
 
   return (
     <>
       <main className="shell with-tabbar">
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
-        <Suspense>
-        {tab === "dashboard" ? (
-          !overlay ? (
-            <DashboardScreen
-              db={ready}
-              version={version}
-              configured={configured}
-              syncWarnings={status?.warnings ?? []}
-              profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
-              sync={syncButton}
-              go={{
-                logFood: () => {
-                  setMealPrepView("log");
-                  go("mealprep");
-                },
-                logDrink: () => go("alcohol"),
-                askClaude: () => go("chat"),
-                mealPrep: () => {
-                  setMealPrepView("stock");
-                  go("mealprep");
-                },
-                profile: () => open({ page: "profile" }),
-                checkIn: (day) => open({ page: "journal", view: "checkin", day }),
-                measurements: () => open({ page: "journal", view: "measurements" }),
-              }}
-            />
-          ) : (
-            <section>
-              <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
-              {overlay.page === "profile" ? (
-                <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} onChanged={changed} />
+          <Suspense>
+            {tab === "dashboard" ? (
+              !overlay ? (
+                <DashboardScreen
+                  db={ready}
+                  version={version}
+                  configured={configured}
+                  syncWarnings={status?.warnings ?? []}
+                  profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
+                  sync={syncButton}
+                  go={{
+                    logFood: () => {
+                      setMealPrepView("log");
+                      go("mealprep");
+                    },
+                    logDrink: () => go("alcohol"),
+                    askClaude: () => go("chat"),
+                    mealPrep: () => {
+                      setMealPrepView("stock");
+                      go("mealprep");
+                    },
+                    profile: () => open({ page: "profile" }),
+                    checkIn: (day) => open({ page: "journal", view: "checkin", day }),
+                    measurements: () => open({ page: "journal", view: "measurements" }),
+                  }}
+                />
               ) : (
-                <JournalScreen db={ready} version={version} view={overlay.view} initialDay={overlay.day} onView={(view) => setOverlay({ page: "journal", view })} onChanged={changed} />
-              )}
-            </section>
-          )
-        ) : tab === "chat" ? (
-          <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
-        ) : tab === "mealprep" ? (
-          <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
-        ) : tab === "alcohol" ? (
-          <AlcoholScreen db={ready} version={version} onChanged={changed} />
-        ) : (
-          <SettingsScreen
-            db={ready}
-            secrets={secretStore}
-            isNative={isNative}
-            version={version}
-            page={settingsPage}
-            onPage={setSettingsPage}
-            onChanged={() => {
-              void refreshStatus();
-              changed();
-            }}
-            onSync={() => void sync()}
-          />
-        )}
-        </Suspense>
+                <section>
+                  <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
+                  {overlay.page === "profile" ? (
+                    <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} onChanged={changed} />
+                  ) : (
+                    <JournalScreen
+                      db={ready}
+                      version={version}
+                      view={overlay.view}
+                      initialDay={overlay.day}
+                      onView={(view) => setOverlay({ page: "journal", view })}
+                      onChanged={changed}
+                    />
+                  )}
+                </section>
+              )
+            ) : tab === "chat" ? (
+              <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
+            ) : tab === "mealprep" ? (
+              <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
+            ) : tab === "alcohol" ? (
+              <AlcoholScreen db={ready} version={version} onChanged={changed} />
+            ) : (
+              <SettingsScreen
+                db={ready}
+                secrets={secretStore}
+                isNative={isNative}
+                version={version}
+                page={settingsPage}
+                onPage={setSettingsPage}
+                onChanged={() => {
+                  void refreshStatus();
+                  changed();
+                }}
+                onSync={() => void sync()}
+              />
+            )}
+          </Suspense>
         </div>
       </main>
       <TabBar

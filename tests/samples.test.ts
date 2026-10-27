@@ -31,9 +31,7 @@ test("stores samples with all columns", async () => {
   const samples = SAMPLES();
   const n = await upsertSamples(db, samples, T1);
   assert.equal(n, samples.length);
-  const [row] = await db.all<Record<string, unknown>>(
-    "SELECT * FROM health_samples WHERE metric = 'daily_steps' AND external_id = '2026-10-24#0'",
-  );
+  const [row] = await db.all<Record<string, unknown>>("SELECT * FROM health_samples WHERE metric = 'daily_steps' AND external_id = '2026-10-24#0'");
   assert.equal(row.value_num, 10000);
   assert.equal(row.source, "garmin");
   assert.equal(row.device, "Garmin");
@@ -109,7 +107,10 @@ test("a large import is written in batches, reports progress, and a repeated rea
   const counting = { ...db, run: (sql: string, params?: (string | number | null)[]) => (runs++, db.run(sql, params)) };
   const progress: number[] = [];
 
-  assert.equal(await upsertSamples(counting, samples, T1, undefined, (saved, total) => (assert.equal(total, samples.length), progress.push(saved))), samples.length);
+  assert.equal(
+    await upsertSamples(counting, samples, T1, undefined, (saved, total) => (assert.equal(total, samples.length), progress.push(saved))),
+    samples.length,
+  );
 
   assert.equal(runs, 3, "one call per batch, not one per row");
   assert.deepEqual(progress, [ROWS_PER_INSERT, ROWS_PER_INSERT * 2, samples.length]);

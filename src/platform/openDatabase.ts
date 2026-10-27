@@ -51,10 +51,7 @@ async function doOpen(): Promise<{ db: SqlDriver; applied: number[] }> {
   const consistent = (await sqlite.checkConnectionsConsistency()).result;
   const exists = (await sqlite.isConnection(DB_NAME, false)).result;
   // Version 1 + no addUpgradeStatement: the plugin never touches user_version, migrate() owns it.
-  const conn =
-    consistent && exists
-      ? await sqlite.retrieveConnection(DB_NAME, false)
-      : await sqlite.createConnection(DB_NAME, true, "secret", 1, false);
+  const conn = consistent && exists ? await sqlite.retrieveConnection(DB_NAME, false) : await sqlite.createConnection(DB_NAME, true, "secret", 1, false);
   log.debug(consistent && exists ? "reusing native connection" : "new native connection");
   if (!(await conn.isDBOpen()).result) await conn.open();
 

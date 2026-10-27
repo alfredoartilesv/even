@@ -154,16 +154,16 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
           </div>
           {confirmRelease && (
             <p className="warning small">
-              Releasing unbinds this account. Nothing is deleted, but the next Google account that signs in becomes the owner of all
-              the data here, and backups made under this account will not restore on a phone owned by another.
+              Releasing unbinds this account. Nothing is deleted, but the next Google account that signs in becomes the owner of all the data here, and backups
+              made under this account will not restore on a phone owned by another.
             </p>
           )}
         </div>
       ) : (
         <div className="stack tight">
           <p className="muted small">
-            Optional. Signing in with Google ties this phone's data and backups to your account, so a backup only restores on a
-            phone you own. No Google data is read beyond your name and email.
+            Optional. Signing in with Google ties this phone's data and backups to your account, so a backup only restores on a phone you own. No Google data is
+            read beyond your name and email.
           </p>
           {googleSignInAvailable ? (
             <button onClick={signIn}>Sign in with Google</button>
@@ -176,8 +176,7 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
 
       <h2>About you</h2>
       <p className="muted small">
-        Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every
-        field is optional.
+        Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every field is optional.
       </p>
       <PhotoPicker db={db} name={saved.name} onChanged={onChanged} />
       <form onSubmit={save} className="stack">
@@ -199,7 +198,13 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
           <legend className="small">Sex (for the energy formula)</legend>
           <div className="chips">
             {(["female", "male"] as const).map((s) => (
-              <button type="button" key={s} className={draft.sex === s ? "chip active" : "chip"} aria-pressed={draft.sex === s} onClick={() => set({ sex: draft.sex === s ? "" : s })}>
+              <button
+                type="button"
+                key={s}
+                className={draft.sex === s ? "chip active" : "chip"}
+                aria-pressed={draft.sex === s}
+                onClick={() => set({ sex: draft.sex === s ? "" : s })}
+              >
                 {s === "female" ? "Female" : "Male"}
               </button>
             ))}
@@ -242,7 +247,12 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
         <StatTile label="BMI" value={live.bmi ? live.bmi.value.toFixed(1) : null} note={live.bmi ? BMI_WORD[live.bmi.class] : undefined} />
         <StatTile label="Basal (BMR)" value={kcal(live.bmrKcal)} unit="kcal" />
         <StatTile label="Daily energy" value={kcal(live.tdeeKcal)} unit="kcal" />
-        <StatTile label="Calorie target" value={kcal(live.target?.kcal ?? null)} unit="kcal" note={live.target?.floored ? "held at BMR: the goal would need less" : undefined} />
+        <StatTile
+          label="Calorie target"
+          value={kcal(live.target?.kcal ?? null)}
+          unit="kcal"
+          note={live.target?.floored ? "held at BMR: the goal would need less" : undefined}
+        />
         <StatTile label="Protein" value={live.proteinG === null ? null : String(live.proteinG)} unit="g a day" />
       </div>
       {live.healthyWeight && (
@@ -251,8 +261,8 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
         </p>
       )}
       <p className="muted small">
-        Estimates (Mifflin-St Jeor, activity factor, 7,700 kcal per kg), usually within about 10%. Not medical advice. Set the calorie
-        target you want to follow in Food.
+        Estimates (Mifflin-St Jeor, activity factor, 7,700 kcal per kg), usually within about 10%. Not medical advice. Set the calorie target you want to follow
+        in Food.
       </p>
     </div>
   );

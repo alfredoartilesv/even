@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import { toBubble } from "../src/features/chat/bubbles";
 import type { StoredMessage } from "../src/features/chat/store";
 
-const msg = (role: StoredMessage["role"], content: unknown): StoredMessage => ({ id: "m1", seq: 0, role, content: content as StoredMessage["content"], model: null, stopReason: null, createdAt: 0 });
+const msg = (role: StoredMessage["role"], content: unknown): StoredMessage => ({
+  id: "m1",
+  seq: 0,
+  role,
+  content: content as StoredMessage["content"],
+  model: null,
+  stopReason: null,
+  createdAt: 0,
+});
 
 test("chat bubbles: the owner's text and photos, without the app's clock line", () => {
   const b = toBubble(

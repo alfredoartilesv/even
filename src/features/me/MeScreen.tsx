@@ -52,7 +52,13 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
 
   const load = useCallback(async () => {
     const day = today();
-    const [p, ph, w, g, ws] = await Promise.all([loadProfile(db), loadProfilePhoto(db), latestWeight(db, day), listGoals(db, day), listWorkouts(db, "1900-01-01", day)]);
+    const [p, ph, w, g, ws] = await Promise.all([
+      loadProfile(db),
+      loadProfilePhoto(db),
+      latestWeight(db, day),
+      listGoals(db, day),
+      listWorkouts(db, "1900-01-01", day),
+    ]);
     setProfile(p);
     setPhoto(ph);
     setWeight(w);
@@ -110,7 +116,9 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
 
   const day = today();
   const age = profile.birthDate ? ageOn(profile.birthDate, day) : null;
-  const facts = [age !== null && `${age} years`, profile.heightCm !== null && `${profile.heightCm} cm`, weight && `${weight.kg.toFixed(1)} kg`].filter(Boolean).join(" · ");
+  const facts = [age !== null && `${age} years`, profile.heightCm !== null && `${profile.heightCm} cm`, weight && `${weight.kg.toFixed(1)} kg`]
+    .filter(Boolean)
+    .join(" · ");
 
   const last30 = workouts.filter((w) => w.day > addDays(day, -30));
   const inRange = range ? workouts.filter((w) => w.day > addDays(day, -range)) : workouts;
@@ -212,8 +220,16 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
       <div className="viz-tiles pairs">
         <StatTile label="Workouts" value={String(last30.length)} note="last 30 days" />
         <StatTile label="Active time" value={last30.length ? fmtDuration(last30.reduce((s, w) => s + (w.durationS ?? 0), 0)) : null} note="last 30 days" />
-        <StatTile label="Distance" value={last30.some((w) => w.distanceM) ? fmtDistance(last30.reduce((s, w) => s + (w.distanceM ?? 0), 0)) : null} note="last 30 days" />
-        <StatTile label="Goals" value={measurable.length ? `${metNow} of ${measurable.length}` : null} note={measurable.length ? "met or on track" : goals.length ? "none with a number" : "none yet"} />
+        <StatTile
+          label="Distance"
+          value={last30.some((w) => w.distanceM) ? fmtDistance(last30.reduce((s, w) => s + (w.distanceM ?? 0), 0)) : null}
+          note="last 30 days"
+        />
+        <StatTile
+          label="Goals"
+          value={measurable.length ? `${metNow} of ${measurable.length}` : null}
+          note={measurable.length ? "met or on track" : goals.length ? "none with a number" : "none yet"}
+        />
       </div>
 
       <h2>Goals</h2>
@@ -241,7 +257,12 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
               )}
             </>
           )}
-          {!p && <div className="muted small">Since {fmtDay(g.startDay)}{g.notes ? ` · ${g.notes}` : ""}</div>}
+          {!p && (
+            <div className="muted small">
+              Since {fmtDay(g.startDay)}
+              {g.notes ? ` · ${g.notes}` : ""}
+            </div>
+          )}
           <div className="actions compact">
             {confirmDelete === g.id ? (
               <>
@@ -306,13 +327,23 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
       <h2>Activities</h2>
       <div className="chips" role="radiogroup" aria-label="Activities range">
         {RANGES.map((r) => (
-          <button key={r.days} type="button" role="radio" aria-checked={range === r.days} className={range === r.days ? "chip active" : "chip"} onClick={() => setRange(r.days)}>
+          <button
+            key={r.days}
+            type="button"
+            role="radio"
+            aria-checked={range === r.days}
+            className={range === r.days ? "chip active" : "chip"}
+            onClick={() => setRange(r.days)}
+          >
             {r.label}
           </button>
         ))}
       </div>
       {totals.length === 0 ? (
-        <p className="muted small">No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch with the Garmin sync, or from the Garmin import.</p>
+        <p className="muted small">
+          No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch with the Garmin sync, or from the
+          Garmin import.
+        </p>
       ) : (
         <div className="stack tight">
           {totals.map((t) => (

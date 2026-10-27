@@ -98,15 +98,15 @@ test("without consent nothing is stored or sent; asking records the decision eit
   assert.equal((await listConversations(db)).length, 0);
 
   const asked: string[] = [];
-  await assert.rejects(
-    startConversation(deps(db, api.create, { askConsent: async (scope) => (asked.push(scope), false) }), "Q"),
-    ConsentRequiredError,
-  );
+  await assert.rejects(startConversation(deps(db, api.create, { askConsent: async (scope) => (asked.push(scope), false) }), "Q"), ConsentRequiredError);
   const res = await startConversation(deps(db, api.create, { askConsent: async (scope) => (asked.push(scope), true) }), "Q");
   assert.equal(res.status, "ok");
   assert.deepEqual(asked, ["claude.aggregates", "claude.aggregates"]);
   const rows = await db.all<{ granted: number; policy_version: string }>("SELECT granted, policy_version FROM consents ORDER BY decided_at_ms, granted");
-  assert.deepEqual(rows.map((r) => r.granted), [0, 1]);
+  assert.deepEqual(
+    rows.map((r) => r.granted),
+    [0, 1],
+  );
   assert.equal(rows[0].policy_version, CONSENT_POLICY_VERSION["claude.aggregates"]);
 });
 
@@ -135,13 +135,41 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
   assert.equal("thinking" in p, false, "thinking stays at the model default (always on for Opus 5.5)");
   assert.deepEqual(p.system, [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }], "system is fixed: no clock in it");
   const tools = p.tools as Anthropic.Beta.Messages.BetaTool[];
-  assert.deepEqual(tools.map((t) => t.name), [
-    "list_metrics", "metric_summary", "compare_periods", "nutrition_summary", "manual_summary", "list_goals",
-    "list_saved_meals", "list_meal_preps", "meal_prep_stock", "shopping_list", "get_profile", "energy_needs",
-    "daily_series", "list_food_entries", "day_notes", "drink_types", "alcohol_impact",
-    "log_food", "log_saved_meal", "save_meal", "create_meal_prep", "log_cooked_batch", "prep_portions",
-    "add_shopping_items", "add_recipe_to_shopping", "add_drink_type", "log_drink", "log_measurement", "add_day_note", "create_goal",
-  ]);
+  assert.deepEqual(
+    tools.map((t) => t.name),
+    [
+      "list_metrics",
+      "metric_summary",
+      "compare_periods",
+      "nutrition_summary",
+      "manual_summary",
+      "list_goals",
+      "list_saved_meals",
+      "list_meal_preps",
+      "meal_prep_stock",
+      "shopping_list",
+      "get_profile",
+      "energy_needs",
+      "daily_series",
+      "list_food_entries",
+      "day_notes",
+      "drink_types",
+      "alcohol_impact",
+      "log_food",
+      "log_saved_meal",
+      "save_meal",
+      "create_meal_prep",
+      "log_cooked_batch",
+      "prep_portions",
+      "add_shopping_items",
+      "add_recipe_to_shopping",
+      "add_drink_type",
+      "log_drink",
+      "log_measurement",
+      "add_day_note",
+      "create_goal",
+    ],
+  );
   for (const t of tools) {
     assert.equal(t.strict, true);
     assert.equal((t.input_schema as { additionalProperties?: boolean }).additionalProperties, false);
@@ -174,13 +202,22 @@ test("tool loop: parallel calls answered in one message, history replayed verbat
   assert.equal(res.usage.requests, 2);
   assert.equal(res.usage.inputTokens, 200);
   assert.equal(res.usage.cacheReadTokens, 160);
-  assert.deepEqual(res.toolCalls.map((c) => [c.name, c.allowed]), [["list_metrics", true], ["metric_summary", true]]);
+  assert.deepEqual(
+    res.toolCalls.map((c) => [c.name, c.allowed]),
+    [
+      ["list_metrics", true],
+      ["metric_summary", true],
+    ],
+  );
 
   const second = api.calls[1].messages;
   assert.equal(second.length, 3);
   assert.deepEqual(second[1], { role: "assistant", content: first }, "assistant turn replayed unchanged, thinking included");
   const results = second[2].content as Anthropic.Beta.Messages.BetaToolResultBlockParam[];
-  assert.deepEqual(results.map((r) => r.tool_use_id), ["tu_1", "tu_2"]);
+  assert.deepEqual(
+    results.map((r) => r.tool_use_id),
+    ["tu_1", "tu_2"],
+  );
   const summary = JSON.parse(results[1].content as string);
   assert.equal(summary.series[0].avg, 10500);
   assert.equal(summary.series[0].days_with_data, 6);
@@ -188,7 +225,10 @@ test("tool loop: parallel calls answered in one message, history replayed verbat
   assert.equal(summary.series[0].device, "Garmin");
 
   const stored = await loadMessages(db, res.conversationId);
-  assert.deepEqual(stored.map((m) => m.role), ["user", "assistant", "user", "assistant"]);
+  assert.deepEqual(
+    stored.map((m) => m.role),
+    ["user", "assistant", "user", "assistant"],
+  );
   assert.equal(stored[1].stopReason, "tool_use");
 
   const disclosures = await listDisclosures(db, res.conversationId);
@@ -211,7 +251,10 @@ test("raw series and notes need their own consent; refused calls send nothing", 
   assert.ok(results.every((r) => r.is_error === true));
   assert.match(String(results[0].content), /claude\.raw_series/);
   assert.ok(!JSON.stringify(results).includes("Long run"));
-  assert.deepEqual(res.toolCalls.map((c) => c.allowed), [false, false]);
+  assert.deepEqual(
+    res.toolCalls.map((c) => c.allowed),
+    [false, false],
+  );
   assert.equal((await listDisclosures(db)).length, 0);
 
   const api2 = scripted(reply(calls, "tool_use"), reply([text("ok")], "end_turn"));
@@ -224,7 +267,10 @@ test("raw series and notes need their own consent; refused calls send nothing", 
   assert.equal(JSON.parse(results2[0].content as string).series[0].points.length, 6);
   assert.equal(results2[1].is_error, true);
   const d = await listDisclosures(db);
-  assert.deepEqual(d.map((x) => x.dataClass), ["raw"]);
+  assert.deepEqual(
+    d.map((x) => x.dataClass),
+    ["raw"],
+  );
 });
 
 test("bad tool arguments come back as errors Claude can fix, and nothing is disclosed", async () => {
@@ -261,9 +307,7 @@ test("fallback and refusal are reported; a cut-off tool call is closed so the hi
   assert.equal(res.fallbackUsed, true);
   assert.equal(res.servedBy, "claude-opus-4-8");
 
-  const api2 = scripted(
-    reply([text("I can't help with that.")], "refusal", { stop_details: { type: "refusal", category: "bio", explanation: "x" } }),
-  );
+  const api2 = scripted(reply([text("I can't help with that.")], "refusal", { stop_details: { type: "refusal", category: "bio", explanation: "x" } }));
   const refused = await askClaude(deps(db, api2.create), res.conversationId, "Q2");
   assert.equal(refused.status, "refusal");
   assert.deepEqual(refused.refusal, { category: "bio", explanation: "x" });
@@ -274,9 +318,15 @@ test("fallback and refusal are reported; a cut-off tool call is closed so the hi
   const stored = await loadMessages(db, res.conversationId);
   const last = stored.at(-1)!;
   assert.equal(last.role, "user");
-  assert.deepEqual((last.content as Anthropic.Beta.Messages.BetaToolResultBlockParam[]).map((b) => [b.tool_use_id, b.is_error]), [["tu_9", true]]);
+  assert.deepEqual(
+    (last.content as Anthropic.Beta.Messages.BetaToolResultBlockParam[]).map((b) => [b.tool_use_id, b.is_error]),
+    [["tu_9", true]],
+  );
   await askClaude(deps(db, api3.create), res.conversationId, "Q4"); // accepted: consecutive user turns merge
-  assert.deepEqual(api3.calls[1].messages.slice(-2).map((m) => m.role), ["user", "user"]);
+  assert.deepEqual(
+    api3.calls[1].messages.slice(-2).map((m) => m.role),
+    ["user", "user"],
+  );
 });
 
 test("API errors become ChatApiError with safe messages, and continueConversation retries", async () => {
@@ -305,8 +355,14 @@ test("conversations list newest first and soft-delete", async () => {
   const db = await consented();
   const a = await startConversation(deps(db, scripted(reply([text("a")], "end_turn")).create, { now: () => NOW }), "First");
   const b = await startConversation(deps(db, scripted(reply([text("b")], "end_turn")).create, { now: () => NOW + 1000 }), "Second ".repeat(20));
-  assert.deepEqual((await listConversations(db)).map((c) => c.id), [b.conversationId, a.conversationId]);
+  assert.deepEqual(
+    (await listConversations(db)).map((c) => c.id),
+    [b.conversationId, a.conversationId],
+  );
   assert.equal((await listConversations(db))[0].title!.length, 60);
   await deleteConversation(db, b.conversationId, NOW + 2000);
-  assert.deepEqual((await listConversations(db)).map((c) => c.id), [a.conversationId]);
+  assert.deepEqual(
+    (await listConversations(db)).map((c) => c.id),
+    [a.conversationId],
+  );
 });

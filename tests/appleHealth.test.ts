@@ -26,7 +26,11 @@ function fakeStore(data: {
   workouts?: Workout[][];
   deny?: string[];
 }) {
-  const calls: { aggregated: QueryAggregatedOptions[]; samples: QueryOptions[]; workouts: QueryWorkoutsOptions[] } = { aggregated: [], samples: [], workouts: [] };
+  const calls: { aggregated: QueryAggregatedOptions[]; samples: QueryOptions[]; workouts: QueryWorkoutsOptions[] } = {
+    aggregated: [],
+    samples: [],
+    workouts: [],
+  };
   const store: HealthStore = {
     async queryAggregated(o) {
       calls.aggregated.push(o);
@@ -318,10 +322,7 @@ test("the HealthKit plugin stays out of Android; every other native plugin is st
     (d) => existsSync(join(root, "node_modules", d, "android")) && !["@capacitor/android", "@capacitor/core", "@capacitor/ios"].includes(d),
   );
   assert.ok(nativePlugins.includes("@capgo/capacitor-health"));
-  assert.deepEqual(
-    [...config.android.includePlugins].sort(),
-    nativePlugins.filter((d) => d !== "@capgo/capacitor-health").sort(),
-  );
+  assert.deepEqual([...config.android.includePlugins].sort(), nativePlugins.filter((d) => d !== "@capgo/capacitor-health").sort());
   assert.equal(config.ios?.includePlugins, undefined, "iOS gets every plugin");
   assert.equal(pkg.dependencies["@capgo/capacitor-health"], "8.11.11", "pinned: it reads health data");
 });

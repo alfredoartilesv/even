@@ -36,7 +36,12 @@ export function claudeKeyVerifier(fetchImpl?: typeof fetch): VerifyClaudeKey {
       await client.models.retrieve(CHAT_MODEL);
     } catch (err) {
       if (err instanceof Anthropic.NotFoundError) {
-        throw new ChatApiError("bad_request", `This key works, but its workspace cannot use ${CHAT_MODEL}. Check the workspace's model access in the Claude Console.`, false, 404);
+        throw new ChatApiError(
+          "bad_request",
+          `This key works, but its workspace cannot use ${CHAT_MODEL}. Check the workspace's model access in the Claude Console.`,
+          false,
+          404,
+        );
       }
       throw toChatError(err);
     }

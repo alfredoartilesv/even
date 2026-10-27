@@ -45,7 +45,9 @@ test("workouts: one row per session; freddy wins the days it has; totals and bes
     return [
       sample({ source: "garmin_export", externalId: `activity:${id}`, metric: "activity_activityType", valueText: type, ...at }, day),
       sample({ source: "garmin_export", externalId: `activity:${id}`, metric: "activity_durationInSeconds", valueNum: dur, ...at }, day),
-      ...(dist === null ? [] : [sample({ source: "garmin_export", externalId: `activity:${id}`, metric: "activity_distanceInMeters", valueNum: dist, ...at }, day)]),
+      ...(dist === null
+        ? []
+        : [sample({ source: "garmin_export", externalId: `activity:${id}`, metric: "activity_distanceInMeters", valueNum: dist, ...at }, day)]),
     ];
   };
   await upsertSamples(db, [
@@ -73,15 +75,21 @@ test("workouts: one row per session; freddy wins the days it has; totals and bes
   assert.equal(ws.find((w) => w.source === "freddy")!.startMs, null, "freddy gives the day only");
 
   const totals = sportTotals(ws);
-  assert.deepEqual(totals.map((t) => [t.sport, t.sessions, t.durationS, t.distanceM]), [
-    ["running", 2, 4810, 16020],
-    ["strength", 1, 2700, 0],
-    ["walking", 1, 1200, 0],
-  ]);
+  assert.deepEqual(
+    totals.map((t) => [t.sport, t.sessions, t.durationS, t.distanceM]),
+    [
+      ["running", 2, 4810, 16020],
+      ["strength", 1, 2700, 0],
+      ["walking", 1, 1200, 0],
+    ],
+  );
   const run = personalBests(ws).find((b) => b.sport === "running")!;
   assert.equal(run.longestDistance!.distanceM, 10000);
   assert.equal(personalBests(ws).find((b) => b.sport === "strength")!.longestDistance, null);
-  assert.deepEqual([fmtDuration(50), fmtDuration(2520), fmtDuration(3900), fmtDistance(850), fmtDistance(10234)], ["50 s", "42 min", "1 h 05 min", "850 m", "10.2 km"]);
+  assert.deepEqual(
+    [fmtDuration(50), fmtDuration(2520), fmtDuration(3900), fmtDistance(850), fmtDistance(10234)],
+    ["50 s", "42 min", "1 h 05 min", "850 m", "10.2 km"],
+  );
 });
 
 test("goal progress: day goals with last 7 days and streak", () => {
@@ -135,20 +143,39 @@ test("goals: added, listed with progress from each source, ended and deleted one
   await insertGoal(db, steps.build(10000, "2026-10-01"), stamp);
   await insertGoal(db, protein.build(120, "2026-10-01"), stamp);
   await insertGoal(db, alcohol.build(70, "2026-10-01"), stamp);
-  await insertGoal(db, { title: "Weigh 80 kg", targetKind: "manual", metric: "weight", comparator: "<=", targetNum: 80, unit: "kg", period: "week", startDay: "2026-10-01" }, stamp);
+  await insertGoal(
+    db,
+    { title: "Weigh 80 kg", targetKind: "manual", metric: "weight", comparator: "<=", targetNum: 80, unit: "kg", period: "week", startDay: "2026-10-01" },
+    stamp,
+  );
   await insertGoal(db, { title: "Run a half marathon", targetKind: "none", period: "day", startDay: "2026-10-01" }, stamp);
   await insertGoal(db, { title: "Old", targetKind: "none", period: "day", startDay: "2026-01-01", endDay: "2026-02-01" }, stamp);
 
   await upsertCatalog(db, "freddy", [{ metric: "daily_steps" }], 1);
   await db.run("UPDATE metric_catalog SET daily_agg = 'sum' WHERE metric = 'daily_steps'");
   await upsertSamples(db, [sample({ source: "freddy", device: "", externalId: `${TODAY}#0`, metric: "daily_steps", valueNum: 12000 }, TODAY)]);
-  await logFood(db, { name: "Lunch", meal: "lunch", calories: 700, proteinG: 50, carbsG: null, fatG: null, atMs: midnight(TODAY) + 13 * 3_600_000, timeZone: TZ });
+  await logFood(db, {
+    name: "Lunch",
+    meal: "lunch",
+    calories: 700,
+    proteinG: 50,
+    carbsG: null,
+    fatG: null,
+    atMs: midnight(TODAY) + 13 * 3_600_000,
+    timeZone: TZ,
+  });
   await insertMeasurement(db, { measuredAtMs: midnight(TODAY) + 7 * 3_600_000, offsetMin: 60, kind: "weight", valueNum: 81.2, unit: "kg" }, stamp);
 
   const goals = await listGoals(db, TODAY);
-  assert.deepEqual(goals.map((g) => g.title), ["10,000 steps a day", "120 g protein a day", "At most 70 g alcohol a week", "Weigh 80 kg", "Run a half marathon"]);
+  assert.deepEqual(
+    goals.map((g) => g.title),
+    ["10,000 steps a day", "120 g protein a day", "At most 70 g alcohol a week", "Weigh 80 kg", "Run a half marathon"],
+  );
   const progress = await Promise.all(goals.map((g) => goalProgress(db, g, TODAY)));
-  assert.deepEqual(progress.map((p) => p && [p.current, p.status]), [[12000, "met"], [50, "behind"], [null, "no_data"], [81.2, "behind"], null]);
+  assert.deepEqual(
+    progress.map((p) => p && [p.current, p.status]),
+    [[12000, "met"], [50, "behind"], [null, "no_data"], [81.2, "behind"], null],
+  );
 
   await deleteGoal(db, goals[0].id);
   assert.equal((await listGoals(db, TODAY)).length, 4);
@@ -198,14 +225,25 @@ test("workouts: the Garmin sync keeps start times and wins its days over freddy 
       sample({ source, externalId, metric: "activity_durationInSeconds", valueNum: 1800, ...at }, day),
     ];
   };
-  await upsertSamples(db, [
-    ...run("garmin", "activity:777", 8),
-    ...run("garmin", "activity:778", 18),
-    ...run("garmin_export", "activity:777", 8), // the same session, from the export
-    ...run("freddy", `${day}#0`, 0), // and from freddy
-  ], 1);
+  await upsertSamples(
+    db,
+    [
+      ...run("garmin", "activity:777", 8),
+      ...run("garmin", "activity:778", 18),
+      ...run("garmin_export", "activity:777", 8), // the same session, from the export
+      ...run("freddy", `${day}#0`, 0), // and from freddy
+    ],
+    1,
+  );
 
   const ws = await listWorkouts(db, day, day);
-  assert.deepEqual(ws.map((w) => [w.source, w.key.split("|")[1]]), [["garmin", "activity:778"], ["garmin", "activity:777"]], "latest first, each once");
+  assert.deepEqual(
+    ws.map((w) => [w.source, w.key.split("|")[1]]),
+    [
+      ["garmin", "activity:778"],
+      ["garmin", "activity:777"],
+    ],
+    "latest first, each once",
+  );
   assert.equal(ws[1].startMs, midnight(day) + 8 * 3_600_000, "the sync has real start times");
 });

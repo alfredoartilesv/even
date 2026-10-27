@@ -1,6 +1,19 @@
 // zod/mini: the Dashboard loads the profile at start-up, and full zod was a sixth of that code.
 import { z } from "zod/mini";
-import { ACTIVITY_FACTORS, ageOn, bmi, bmiClass, bmr, calorieTarget, healthyWeightRange, proteinTarget, tdee, type ActivityLevel, type BmiClass, type Sex } from "../../core/health";
+import {
+  ACTIVITY_FACTORS,
+  ageOn,
+  bmi,
+  bmiClass,
+  bmr,
+  calorieTarget,
+  healthyWeightRange,
+  proteinTarget,
+  tdee,
+  type ActivityLevel,
+  type BmiClass,
+  type Sex,
+} from "../../core/health";
 import { createLogger } from "../../core/log";
 import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
@@ -68,7 +81,11 @@ export async function saveProfile(db: SqlDriver, input: unknown, today: string, 
     if (age < 16 || age > 110) throw new Error("Age must be between 16 and 110 for the estimates");
   }
   await setSetting(db, PROFILE_KEY, JSON.stringify(p), nowMs);
-  log.info("profile saved", { fields: Object.entries(p).filter(([, v]) => v !== null).map(([k]) => k) });
+  log.info("profile saved", {
+    fields: Object.entries(p)
+      .filter(([, v]) => v !== null)
+      .map(([k]) => k),
+  });
   return p;
 }
 
@@ -118,7 +135,8 @@ export function estimates(p: Profile, weightKg: number | null, today: string): E
   if (weightKg === null) missing.push("weight");
 
   const b = weightKg !== null && p.heightCm !== null ? bmi(weightKg, p.heightCm) : null;
-  const person = ageYears !== null && p.sex && p.heightCm !== null && weightKg !== null ? { sex: p.sex as Sex, ageYears, heightCm: p.heightCm, weightKg } : null;
+  const person =
+    ageYears !== null && p.sex && p.heightCm !== null && weightKg !== null ? { sex: p.sex as Sex, ageYears, heightCm: p.heightCm, weightKg } : null;
   return {
     ageYears,
     bmi: b === null ? null : { value: Math.round(b * 10) / 10, class: bmiClass(b) },

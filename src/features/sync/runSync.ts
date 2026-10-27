@@ -40,10 +40,7 @@ async function doSync(db: SqlDriver, source: Source, now: () => number): Promise
   const cursorBefore = await loadCursor(db, source.id);
   const started = now();
   log.info("sync started", { source: source.id, cursorBefore });
-  await db.run(
-    "INSERT INTO sync_runs (id, source, started_ms, status, cursor_before) VALUES (?, ?, ?, 'running', ?)",
-    [runId, source.id, now(), cursorBefore],
-  );
+  await db.run("INSERT INTO sync_runs (id, source, started_ms, status, cursor_before) VALUES (?, ?, ?, 'running', ?)", [runId, source.id, now(), cursorBefore]);
 
   try {
     const res = await source.fetchSince(cursorBefore);
@@ -53,7 +50,14 @@ async function doSync(db: SqlDriver, source: Source, now: () => number): Promise
     await saveSyncState(db, source.id, res.nextCursor, t);
     const warnings = res.warnings ?? [];
     await finish(db, runId, now(), "ok", { cursorAfter: res.nextCursor, written, warnings });
-    log.info("sync finished", { source: source.id, samples: written, catalog: res.catalog?.length ?? 0, warnings: warnings.length, cursorAfter: res.nextCursor, ms: now() - started });
+    log.info("sync finished", {
+      source: source.id,
+      samples: written,
+      catalog: res.catalog?.length ?? 0,
+      warnings: warnings.length,
+      cursorAfter: res.nextCursor,
+      ms: now() - started,
+    });
     for (const w of warnings) log.warn("sync warning", { source: source.id, warning: w });
     return { status: "ok", samplesWritten: written, warnings, cursorBefore, cursorAfter: res.nextCursor };
   } catch (err) {
@@ -105,10 +109,7 @@ export async function lastSync(db: SqlDriver, source: string): Promise<LastSync 
   );
   const r = rows[0];
   if (!r) return null;
-  const ok = await db.all<{ t: number | null }>(
-    "SELECT MAX(finished_ms) AS t FROM sync_runs WHERE source = ? AND status = 'ok'",
-    [source],
-  );
+  const ok = await db.all<{ t: number | null }>("SELECT MAX(finished_ms) AS t FROM sync_runs WHERE source = ? AND status = 'ok'", [source]);
   return {
     status: r.status,
     startedMs: r.started_ms,
