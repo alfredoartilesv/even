@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# APK exported by `npm run docker:apk`
+out/
 .env
 .env.*
 *.log

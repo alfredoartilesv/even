@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { LocalNotice, Notifier } from "../src/core/notifier";
+import { pluginNotification, type LocalNotice, type Notifier } from "../src/core/notifier";
 import {
   ago,
   freshness,
@@ -94,4 +94,15 @@ test("refresh: overdue repeats tomorrow; cancelled when not set up, switched off
 
   const broken: Notifier = { ensurePermission: async () => true, schedule: async () => Promise.reject(new Error("plugin missing")), cancel: async () => {} };
   assert.equal(await refreshSyncReminder(db, broken, { configured: true, nowMs: NOW }), "cancelled");
+});
+
+test("the reminder asks Android for an inexact alarm, so scheduling never opens the Alarms & reminders screen", () => {
+  const at = Date.UTC(2026, 9, 29, 9, 0);
+  assert.deepEqual(pluginNotification({ id: SYNC_REMINDER_ID, title: "t", body: "b", atMs: at }), {
+    id: SYNC_REMINDER_ID,
+    title: "t",
+    body: "b",
+    schedule: { at: new Date(at), allowWhileIdle: true },
+    isExactNotification: false,
+  });
 });
