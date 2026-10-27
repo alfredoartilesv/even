@@ -57,9 +57,7 @@ export function StockView({ db, tag, version }: Props) {
     setStock(s);
     setPerDay(ppd);
     setPreps(p);
-    setPlan(
-      planDefrost(s, { today: day, nowMs: Date.now(), timeZone: timeZone(), portionsPerDay: ppd, eatenToday: await portionsEatenOn(db, day, tag) }),
-    );
+    setPlan(planDefrost(s, { today: day, nowMs: Date.now(), timeZone: timeZone(), portionsPerDay: ppd, eatenToday: await portionsEatenOn(db, day, tag) }));
   }, [db, tag]);
 
   useEffect(() => {
@@ -145,27 +143,21 @@ export function StockView({ db, tag, version }: Props) {
         {plan && perDay > 0 ? (
           <>
             <p className="small">
-              {plan.coveredThrough
-                ? `Covered through ${fmtDay(plan.coveredThrough)}${plan.short.length ? "" : " (whole week)"}.`
-                : "Nothing ready for today."}
+              {plan.coveredThrough ? `Covered through ${fmtDay(plan.coveredThrough)}${plan.short.length ? "" : " (whole week)"}.` : "Nothing ready for today."}
             </p>
             {plan.thaw.length ? (
               <ul className="plain">
                 {plan.thaw.map((t) => (
                   <li key={`${t.day}|${t.forDay}|${t.batchId}`} className={t.day === todayStr ? "warning" : ""}>
-                    <strong>{t.day === todayStr ? "Today" : fmtDay(t.day)}</strong>: move {plural(t.portions, "portion")} of {t.name} to the fridge
-                    (for {fmtDay(t.forDay)}){t.late && ", it will be ready late"}
+                    <strong>{t.day === todayStr ? "Today" : fmtDay(t.day)}</strong>: move {plural(t.portions, "portion")} of {t.name} to the fridge (for{" "}
+                    {fmtDay(t.forDay)}){t.late && ", it will be ready late"}
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="muted small">Nothing to defrost this week.</p>
             )}
-            {plan.short.length > 0 && (
-              <p className="warning small">
-                Not enough for {plan.short.map((s) => fmtDay(s.day)).join(", ")}. Time to cook.
-              </p>
-            )}
+            {plan.short.length > 0 && <p className="warning small">Not enough for {plan.short.map((s) => fmtDay(s.day)).join(", ")}. Time to cook.</p>}
             {plan.waste.map((w) => (
               <p key={`${w.batchId}|${w.eatBy}`} className="warning small">
                 {plural(w.portions, "portion")} of {w.name} will not get eaten by {fmtDay(w.eatBy)}. Freeze them now?

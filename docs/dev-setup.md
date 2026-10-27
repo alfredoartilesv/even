@@ -63,7 +63,20 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 1. `npm run dev` for screens that do not need the database (the browser build has no SQLite).
 2. `npm test` for logic: everything except `src/platform/` runs in Node.
 3. "Android: run on emulator or phone" to try it for real, `chrome://inspect` to debug.
-4. Before a PR: `npm run docker:test` (CI runs the same), and `npm run test:device` on the emulator when a change touches the phone side.
+4. Before a PR: `npm run health` (or `npm run docker:test`, which CI runs, with the same checks inside), and `npm run test:device` on the emulator when a change touches the phone side.
+
+**Health checks** (`npm run health`, also the Docker test stage and so CI):
+
+| Script | Checks |
+|---|---|
+| `npm run format:check` | Prettier style (`.prettierrc.json`: print width 160, LF). `npm run format` fixes it. Line endings are LF in the repo whatever the checkout (`.gitattributes`). |
+| `npm run lint` | oxlint (`.oxlintrc.json`): correctness, React Hooks, TypeScript and import rules, no warnings allowed. typescript-eslint does not support TypeScript 7 yet; oxlint does not need the TypeScript package. |
+| `npm run typecheck` | the app (`tsconfig.json`) and the tests and scripts (`tsconfig.node.json`). |
+| `npm run dupes` | copied blocks of 8+ lines in `src/` and `scripts/` (`scripts/dupes.mjs`), at most 1%. Tests are left out on purpose. |
+| `npm test` | every Node test. |
+| `npm run audit` | known vulnerabilities in runtime dependencies (network, so not in `health`). |
+
+**Start-up timings** (`npm run perf:device`, `scripts/perf-device.mjs`): compares two debug builds on the emulator. Build each with `VITE_PERF_SEED=1` (about 42,000 readings, `src/app/perfSeed.ts`) and an `applicationIdSuffix ".perf"` for the debug build type in the generated `android/app/build.gradle`, so it installs next to the normal app. Then `npm run perf:device -- --apk <apk> --label before --out before.json`, the same for the other build, and `npm run perf:device -- --compare before.json after.json`. It reads Android's launch time, first paint, and the app's marks (`even:db-open`, `even:dashboard-ready`, one per step of the database open) through the WebView's DevTools socket.
 
 ## 4. Docker: the standard test and build
 
@@ -71,7 +84,7 @@ Since 27 Oct 2026 the **standard check before a PR and the standard APK build ru
 
 | Command (or VS Code task) | Does | Time |
 |---|---|---|
-| `npm run docker:test` (*Docker: test*) | `npm ci`, typecheck, every Node test, web build, in Linux | about 20 s once cached |
+| `npm run docker:test` (*Docker: test*) | `npm ci`, the health checks (format, lint, types, duplicates, every Node test), web build, in Linux | about 30 s once cached |
 | `npm run docker:apk` (*Docker: build debug APK*) | the above, then the Android project (`cap add`, hardening, `cap sync`) and `gradlew assembleDebug`; writes `out/app-debug.apk` (git-ignored) | about 3 min the first time on this PC (SDK download, Gradle), less after |
 | `npm run docker:release` | the signed release APK, checked in the build; writes `out/app-release.apk` (section 6) | about 1.5 min once the SDK is cached |
 

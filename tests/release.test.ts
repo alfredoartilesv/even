@@ -62,7 +62,11 @@ test("the package.json version is a releasable version", () => {
 test("the release cert fingerprint is committed (public) and the keystore is not", () => {
   assert.match(read("release/cert-sha256.txt").trim(), /^[0-9a-f]{64}$/);
   const ignored = read(".gitignore") + read(".dockerignore");
-  for (const p of ["*.jks", "*.keystore"]) assert.ok(ignored.split("\n").some((l) => l.trim() === p), `${p} ignored by git and Docker`);
+  for (const p of ["*.jks", "*.keystore"])
+    assert.ok(
+      ignored.split("\n").some((l) => l.trim() === p),
+      `${p} ignored by git and Docker`,
+    );
 });
 
 test("the Docker release stage gets the keystore only as BuildKit secrets and checks the APK", () => {

@@ -123,15 +123,15 @@ test("a failure midway rolls the whole restore back", async () => {
   const { db: fresh } = await migratedDb();
   // day_notes is restored after food_entries: a note for a day that already has one under another id
   // breaks the unique index, and the food rows written before it must disappear too.
-  await db.run(
-    "INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('n1', '2026-10-24', 'a', ?, ?, 'dev')",
-    [NOW, NOW],
-  );
+  await db.run("INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('n1', '2026-10-24', 'a', ?, ?, 'dev')", [
+    NOW,
+    NOW,
+  ]);
   const withNote = (await exportBackup(db, PW, FAST)).text;
-  await fresh.run(
-    "INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('other', '2026-10-24', 'b', ?, ?, 'dev')",
-    [NOW, NOW],
-  );
+  await fresh.run("INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('other', '2026-10-24', 'b', ?, ?, 'dev')", [
+    NOW,
+    NOW,
+  ]);
   await assert.rejects(restoreBackup(fresh, withNote, PW), /nothing was changed.*UNIQUE/);
   assert.equal((await fresh.all("SELECT * FROM food_entries")).length, 0, "earlier tables were rolled back too");
   await restoreBackup(fresh, text, PW); // the file without the note still restores
@@ -147,8 +147,13 @@ test("export and restore through the Capacitor driver (plugin transactions, mult
   const { db } = await seeded();
   // Enough rows to need several INSERT batches (health_samples has 15 columns -> 60 rows per batch).
   const many = Array.from({ length: 250 }, (_, i) => ({
-    source: "garmin", device: "Garmin", externalId: `2026-10-24#${i + 1}`, metric: "daily_steps",
-    startMs: NOW, offsetMin: 120, valueNum: i,
+    source: "garmin",
+    device: "Garmin",
+    externalId: `2026-10-24#${i + 1}`,
+    metric: "daily_steps",
+    startMs: NOW,
+    offsetMin: 120,
+    valueNum: i,
   }));
   await upsertSamples(db, many, NOW);
   const { text } = await exportBackup(db, PW, FAST);

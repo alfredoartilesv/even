@@ -46,11 +46,7 @@ export function SyncBanner({ status, configured, syncing, nowMs, onSync }: Props
   return (
     <div className="banner" role="status">
       <div>
-        {f.state === "stale" ? (
-          <strong>No Garmin sync for {days} days.</strong>
-        ) : (
-          <strong>The last sync failed.</strong>
-        )}
+        {f.state === "stale" ? <strong>No Garmin sync for {days} days.</strong> : <strong>The last sync failed.</strong>}
         {failed && status?.error && <div className="small">{status.error}</div>}
       </div>
       <button onClick={onSync} disabled={syncing}>

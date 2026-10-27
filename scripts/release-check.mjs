@@ -62,7 +62,10 @@ console.log(`release check: ${apk} (package.json ${version}, versionCode ${versi
 check("signed with the release key", () => {
   const out = run(tool("apksigner"), ["verify", "--verbose", "--print-certs", apk]);
   expect(/^Verifies$/m.test(out), "apksigner does not verify it");
-  expect(/Verified using v2 scheme \(APK Signature Scheme v2\): true|Verified using v3 scheme \(APK Signature Scheme v3\): true/.test(out), "no v2/v3 signature");
+  expect(
+    /Verified using v2 scheme \(APK Signature Scheme v2\): true|Verified using v3 scheme \(APK Signature Scheme v3\): true/.test(out),
+    "no v2/v3 signature",
+  );
   const certs = [...out.matchAll(/certificate SHA-256 digest: ([0-9a-f]{64})/g)].map((m) => m[1]);
   expect(certs.length === 1, `expected one signer, found ${certs.length}`);
   expect(!/CN=Android Debug/.test(out), "signed with a debug key");
@@ -143,7 +146,10 @@ if (args.includes("--device")) {
     return `pid ${pid}`;
   });
   check("in front after launch", () => {
-    const line = adb("shell", "dumpsys", "activity", "activities").split("\n").find((l) => /topResumedActivity|mResumedActivity/.test(l)) ?? "";
+    const line =
+      adb("shell", "dumpsys", "activity", "activities")
+        .split("\n")
+        .find((l) => /topResumedActivity|mResumedActivity/.test(l)) ?? "";
     expect(line.includes(APP), `in front: ${line.trim()}`);
     return "MainActivity";
   });

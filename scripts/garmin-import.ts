@@ -15,10 +15,8 @@
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { setLogLevel } from "../src/core/log";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { migratedNodeDb } from "./lib/nodeDb";
 import { exportBackup } from "../src/features/backup/backup";
 import { importGarminZip } from "../src/features/import/garminImport";
 
@@ -30,22 +28,6 @@ const IMPORT_DIR = join(ROOT, "imports", "garmin");
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
   return i > -1 ? process.argv[i + 1] : undefined;
-}
-
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  raw.exec("PRAGMA foreign_keys = ON");
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
 }
 
 function findZip(): string {
@@ -101,18 +83,16 @@ async function main() {
     if (password.length < 8) throw new Error("Use a backup password of at least 8 characters");
   }
 
-  const db = openDb(dbPath ?? ":memory:");
-  const dir = join(ROOT, "src", "db", "migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  await migrate(db, parseMigrations(files));
+  const { db } = await migratedNodeDb(dbPath ?? ":memory:", { foreignKeys: true });
 
   console.log(`Reading ${zipPath.replace(ROOT, ".")} (days without an offset use ${timeZone})...`);
   const { written, parsed } = await importGarminZip(db, new Uint8Array(readFileSync(zipPath)), { timeZone });
 
   const r = parsed.report;
   const line = (label: string, k: (typeof r)["daily"], unit: string) =>
-    console.log(`  ${label.padEnd(12)} ${String(k.imported).padStart(5)} ${unit} imported, ${k.skipped} skipped, from ${k.files} file(s)${k.firstDay ? `, ${k.firstDay} to ${k.lastDay}` : ""}`);
+    console.log(
+      `  ${label.padEnd(12)} ${String(k.imported).padStart(5)} ${unit} imported, ${k.skipped} skipped, from ${k.files} file(s)${k.firstDay ? `, ${k.firstDay} to ${k.lastDay}` : ""}`,
+    );
   line("Daily", r.daily, "days");
   line("Sleep", r.sleep, "nights");
   line("Weight", r.biometrics, "weigh-ins");

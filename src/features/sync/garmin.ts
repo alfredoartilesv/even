@@ -1,7 +1,7 @@
 import { addDays, localDay, localDayStart } from "../../core/tz";
 import { createLogger } from "../../core/log";
 import { catalogFor } from "../import/garmin";
-import type { SampleInput, Source, SyncResult } from "./types";
+import { sampleCollector, type SampleInput, type Source, type SyncResult } from "./types";
 
 const log = createLogger("sync.garmin");
 
@@ -184,7 +184,7 @@ export class GarminSource implements Source {
     const start = cursor ? (cursor < today ? cursor : today) : addDays(today, -(firstSyncDays - 1));
     log.debug("window", { start, end: today, firstSync: !cursor, tz });
 
-    const samples: SampleInput[] = [];
+    const { samples, add } = sampleCollector(GARMIN_SOURCE, DEVICE);
     const offsets = new Map<string, number>();
     const bounds = (day: string) => {
       const off = offsets.get(day);
@@ -194,11 +194,6 @@ export class GarminSource implements Source {
       }
       const startMs = Date.parse(`${day}T00:00:00Z`) - off * 60_000;
       return { startMs, endMs: startMs + 86_400_000, offsetMin: off };
-    };
-    const add = (metric: string, value: number | null, unit: string | null, at: { startMs: number; endMs: number; offsetMin: number }, externalId: string) => {
-      if (value === null) return 0;
-      samples.push({ source: GARMIN_SOURCE, device: DEVICE, externalId, metric, startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueNum: value, ...(unit ? { unit } : {}) });
-      return 1;
     };
     /** One endpoint failing for lack of access (scope, feature) should not stop the others. */
     const read = async (what: string, path: string, query?: Record<string, string | number>) => {
@@ -255,7 +250,13 @@ export class GarminSource implements Source {
         add("daily_vigorousIntensityDurationInSeconds", minutes(im.vigorous), "seconds", at, id);
         add("daily_averageStressLevel", inRange(num(st.avgLevel), 0, 100), null, at, id);
         add("daily_maxStressLevel", inRange(num(st.maxLevel), 0, 100), null, at, id);
-        add("daily_stressDurationInSeconds", ms(st.lowStressDurationInMillis, st.mediumStressDurationInMillis, st.highStressDurationInMillis), "seconds", at, id);
+        add(
+          "daily_stressDurationInSeconds",
+          ms(st.lowStressDurationInMillis, st.mediumStressDurationInMillis, st.highStressDurationInMillis),
+          "seconds",
+          at,
+          id,
+        );
         add("daily_restStressDurationInSeconds", ms(st.restDurationInMillis), "seconds", at, id);
         add("dailyBodyBattery_highestValue", inRange(num(bb.maxValue), 0, 100), null, at, id);
         add("dailyBodyBattery_lowestValue", inRange(num(bb.minValue), 0, 100), null, at, id);
@@ -307,7 +308,7 @@ export class GarminSource implements Source {
         if (!isObj(s)) continue;
         const entries = arr(s.allWeightMetrics).length ? arr(s.allWeightMetrics) : [s.latestWeight];
         for (const r of entries) {
-          const day = isObj(r) ? dayOf(r.calendarDate) ?? dayOf(s.summaryDate) : null;
+          const day = isObj(r) ? (dayOf(r.calendarDate) ?? dayOf(s.summaryDate)) : null;
           const w = isObj(r) ? num(r.weight) : null;
           // USER_SETTING is the profile weight, not a weigh-in (as in the export).
           if (!isObj(r) || !day || w === null || r.sourceType === "USER_SETTING") continue;
@@ -322,7 +323,14 @@ export class GarminSource implements Source {
 
     // Activities: paged, filtered by local start day.
     for (let offset = 0; ; offset += ACTIVITY_PAGE) {
-      const page = arr(await read("Activities", "/activitylist-service/activities/search/activities", { startDate: start, endDate: today, start: offset, limit: ACTIVITY_PAGE }));
+      const page = arr(
+        await read("Activities", "/activitylist-service/activities/search/activities", {
+          startDate: start,
+          endDate: today,
+          start: offset,
+          limit: ACTIVITY_PAGE,
+        }),
+      );
       for (const a of page) this.addActivity(a, samples);
       if (page.length < ACTIVITY_PAGE) break;
     }
@@ -334,7 +342,7 @@ export class GarminSource implements Source {
 
   private addActivity(a: unknown, samples: SampleInput[]) {
     const id = isObj(a) ? num(a.activityId) : null;
-    const gmt = isObj(a) ? num(a.beginTimestamp) ?? naiveMs(a.startTimeGMT) : null;
+    const gmt = isObj(a) ? (num(a.beginTimestamp) ?? naiveMs(a.startTimeGMT)) : null;
     if (!isObj(a) || id === null || gmt === null) return;
     const local = naiveMs(a.startTimeLocal);
     const gmtNaive = naiveMs(a.startTimeGMT) ?? gmt;
@@ -368,7 +376,7 @@ export class GarminSource implements Source {
       const tz = isObj(s) && typeof s.timeZone === "string" ? s.timeZone : null;
       if (tz) {
         // Throws on a zone name the runtime does not know.
-        new Intl.DateTimeFormat("en", { timeZone: tz });
+        void new Intl.DateTimeFormat("en", { timeZone: tz });
         return tz;
       }
     } catch (e) {

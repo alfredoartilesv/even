@@ -17,7 +17,14 @@ const fake = (fail = false): Source => ({
     const day = (d: string) => Date.parse(`${d}T00:00:00Z`) - 120 * 60_000;
     return {
       samples: ["2026-10-24", "2026-10-25"].map((d) => ({
-        source: "garmin", device: "Garmin", externalId: `${d}#0`, metric: "daily_steps", startMs: day(d), endMs: day(d) + 86_400_000, offsetMin: 120, valueNum: 9000,
+        source: "garmin",
+        device: "Garmin",
+        externalId: `${d}#0`,
+        metric: "daily_steps",
+        startMs: day(d),
+        endMs: day(d) + 86_400_000,
+        offsetMin: 120,
+        valueNum: 9000,
       })),
       catalog: [{ metric: "daily_steps" }, { metric: "sleep_durationInSeconds" }, { metric: "hrv_lastNightAvg" }],
       nextCursor: "2026-10-24",

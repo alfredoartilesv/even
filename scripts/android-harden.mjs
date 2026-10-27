@@ -77,16 +77,16 @@ cpSync(join(import.meta.dirname, "../resources/android/res"), join(main, "res"),
 const { appName } = JSON.parse(readFileSync(join(import.meta.dirname, "../capacitor.config.json"), "utf8"));
 const stringsPath = join(main, "res/values/strings.xml");
 const label = appName.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-writeFileSync(
-  stringsPath,
-  readFileSync(stringsPath, "utf8").replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, `$1${label}$2`),
-);
+writeFileSync(stringsPath, readFileSync(stringsPath, "utf8").replace(/(<string name="(?:app_name|title_activity_main)">)[^<]*(<\/string>)/g, `$1${label}$2`));
 console.log(`Launcher icon and label set: ${appName}.`);
 
 // The palette on the native side: light and night colors, the window behind the WebView and the
 // splash screen. Every res/drawable*/splash.png goes, so nothing can show Capacitor's white splash.
 const { light, dark } = readPalette();
-for (const [dir, theme] of [["values", light], ["values-night", dark]]) {
+for (const [dir, theme] of [
+  ["values", light],
+  ["values-night", dark],
+]) {
   mkdirSync(join(main, `res/${dir}`), { recursive: true });
   writeFileSync(join(main, `res/${dir}/colors.xml`), androidColorsXml(theme));
 }

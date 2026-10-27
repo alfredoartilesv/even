@@ -66,10 +66,7 @@ test("fold: eating takes defrosted portions before ones still thawing, and count
 });
 
 test("alerts: expired, due soon, still thawing and old in the freezer", () => {
-  const s = foldBatch(batch({ freezerDays: 2 }), [
-    move("freeze", 3, COOKED, "2026-10-20"),
-    move("thaw", 1, COOKED + 100 * H, "2026-10-24"),
-  ]);
+  const s = foldBatch(batch({ freezerDays: 2 }), [move("freeze", 3, COOKED, "2026-10-20"), move("thaw", 1, COOKED + 100 * H, "2026-10-24")]);
   const now = COOKED + 101 * H;
   const kinds = stockAlerts([s], "2026-10-25", now).map((a) => [a.kind, a.portions]);
   assert.deepEqual(kinds, [
@@ -115,7 +112,10 @@ test("plan: portions already eaten today count, late defrosts are flagged, unrea
   });
   // 4 in the fridge, good until the 22nd: eaten on the 21st and 22nd, 2 left over.
   assert.deepEqual(plan.waste, [{ batchId: "b1", name: "Chili", portions: 2, eatBy: "2026-10-22" }]);
-  assert.deepEqual(plan.thaw.map((t) => [t.day, t.forDay]), [["2026-10-22", "2026-10-23"]]);
+  assert.deepEqual(
+    plan.thaw.map((t) => [t.day, t.forDay]),
+    [["2026-10-22", "2026-10-23"]],
+  );
 
   const hungry = planDefrost([foldBatch(batch({ portions: 1 }), [move("freeze", 1, COOKED, "2026-10-20")])], {
     today: "2026-10-20",
@@ -124,7 +124,10 @@ test("plan: portions already eaten today count, late defrosts are flagged, unrea
     portionsPerDay: 1,
     horizonDays: 1,
   });
-  assert.deepEqual(hungry.thaw.map((t) => [t.day, t.forDay, t.late]), [["2026-10-20", "2026-10-20", true]]);
+  assert.deepEqual(
+    hungry.thaw.map((t) => [t.day, t.forDay, t.late]),
+    [["2026-10-20", "2026-10-20", true]],
+  );
   assert.equal(hungry.coveredThrough, "2026-10-20");
 });
 

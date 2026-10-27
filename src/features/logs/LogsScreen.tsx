@@ -38,7 +38,14 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
   const shown = all.filter((r) => RANK[r.level] >= RANK[show]).reverse();
   const errors = all.filter((r) => r.level === "error").length;
   const warnings = all.filter((r) => r.level === "warn").length;
-  const report = () => logReport(recentLogs.records(), { platform: platformName, build: `${APP_VERSION}, ${import.meta.env.DEV ? "development" : "production"}`, timeZone: timeZone(), level, nowMs: Date.now() });
+  const report = () =>
+    logReport(recentLogs.records(), {
+      platform: platformName,
+      build: `${APP_VERSION}, ${import.meta.env.DEV ? "development" : "production"}`,
+      timeZone: timeZone(),
+      level,
+      nowMs: Date.now(),
+    });
 
   async function exportFile() {
     try {
@@ -103,9 +110,8 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
       </div>
       <MsgLine msg={msg} />
       <p className="muted small">
-        The export is a Markdown file with the app's context and every record, ready to attach to a Claude chat. Logs say what the
-        app did (counts, timings, errors), never your health values, notes or keys. They stay in memory and are cleared when the
-        app closes, so export before closing it.
+        The export is a Markdown file with the app's context and every record, ready to attach to a Claude chat. Logs say what the app did (counts, timings,
+        errors), never your health values, notes or keys. They stay in memory and are cleared when the app closes, so export before closing it.
       </p>
 
       <div className="row">

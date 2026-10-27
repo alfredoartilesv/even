@@ -19,7 +19,9 @@ export function CalorieMeter({ eaten, target, fromDrinks = 0 }: { eaten: number;
       </div>
       {target !== null && (
         <Meter value={eaten} max={target} label="Calories today">
-          <div className={over ? "warning small" : "muted small"}>{over ? `${kcal(eaten - target)} kcal over target` : `${kcal(target - eaten)} kcal left`}</div>
+          <div className={over ? "warning small" : "muted small"}>
+            {over ? `${kcal(eaten - target)} kcal over target` : `${kcal(target - eaten)} kcal left`}
+          </div>
         </Meter>
       )}
       {fromDrinks > 0 && <div className="muted small">including {kcal(fromDrinks)} kcal from drinks</div>}
@@ -39,4 +41,39 @@ export function MacroSplit({ proteinG, carbsG, fatG }: { proteinG: number | null
     { label: `Fat ${fmtValue(f)} g`, value: f * 9, slot: 3 },
   ];
   return <StackedBar parts={parts} format={kcal} unit="kcal" label="Calories by macro" />;
+}
+
+/** The text a kcal and macros form holds: what the person typed, numbers parsed on save. */
+export interface MacroDraft {
+  calories: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+}
+
+/**
+ * kcal, protein, carbs and fat as four decimal fields in a grid: a meal in the food log, a portion
+ * of a recipe. `kcalHint` is the estimate from the macros, shown when kcal is left empty.
+ */
+export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft; set: (patch: Partial<MacroDraft>) => void; kcalHint?: number | null }) {
+  const field = (label: string, key: keyof MacroDraft) => (
+    <label>
+      {label}
+      <input
+        inputMode="decimal"
+        value={draft[key]}
+        placeholder={key === "calories" && kcalHint !== null ? `≈ ${kcalHint}` : undefined}
+        title={key === "calories" && kcalHint !== null ? "Left empty, kcal is estimated from the macros" : undefined}
+        onChange={(e) => set({ [key]: e.target.value })}
+      />
+    </label>
+  );
+  return (
+    <div className="grid">
+      {field("kcal", "calories")}
+      {field("Protein g", "proteinG")}
+      {field("Carbs g", "carbsG")}
+      {field("Fat g", "fatG")}
+    </div>
+  );
 }

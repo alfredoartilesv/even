@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, mergeConfig } from "vite";
-import base from "../../vite.config.ts";
+import base from "../../vite.config";
 
 /** The app as built, with the native database swapped for the in-memory demo one (demoDatabase.ts). */
 const demo = fileURLToPath(new URL("./demoDatabase.ts", import.meta.url));

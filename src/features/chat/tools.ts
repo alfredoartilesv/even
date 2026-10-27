@@ -248,7 +248,13 @@ const listGoals: ChatTool = {
           period: g.period,
           start_day: g.startDay,
           end_day: g.endDay,
-          progress: p && { current: p.current === null ? null : Math.round(p.current * 10) / 10, status: p.status, period_from: p.periodFrom, last7: p.last7, streak: p.streak },
+          progress: p && {
+            current: p.current === null ? null : Math.round(p.current * 10) / 10,
+            status: p.status,
+            period_from: p.periodFrom,
+            last7: p.last7,
+            streak: p.streak,
+          },
         };
       }),
     );

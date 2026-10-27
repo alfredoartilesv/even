@@ -61,7 +61,10 @@ test("meal slot by hour, usual slot, ranking", () => {
     "breakfast",
     MORNING,
   );
-  assert.deepEqual(ranked.map((r) => r.name), ["Oats", "Toast", "Pasta", "Eggs"]);
+  assert.deepEqual(
+    ranked.map((r) => r.name),
+    ["Oats", "Toast", "Pasta", "Eggs"],
+  );
 });
 
 test("log, edit, relog and delete food; local day in the owner's zone", async () => {
@@ -170,7 +173,10 @@ test("suggestions: saved meals and repeated meals, ranked for the time of day, p
   for (let d = 1; d <= 2; d++) await addMove(db, { batchId: batch, kind: "eat", portions: 1, atMs: MORNING - d * DAY + H, timeZone: TZ });
 
   const s = await suggestions(db, { nowMs: MORNING, timeZone: TZ });
-  assert.deepEqual(s.map((c) => c.name), ["Oats", "Chicken rice", "Protein shake"]);
+  assert.deepEqual(
+    s.map((c) => c.name),
+    ["Oats", "Chicken rice", "Protein shake"],
+  );
   assert.equal(s[0].uses, 3);
   assert.ok(s[0].lastEntryId);
   assert.equal(s[2].savedMealId !== null, true);

@@ -44,7 +44,7 @@ export function TodayView({ db, version, onChanged }: Props) {
   const [lastLogged, setLastLogged] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<MealDraft>(emptyDraft(mealForHour(new Date().getHours())));
+  const [draft, setDraft] = useState<MealDraft>(() => emptyDraft(mealForHour(new Date().getHours())));
   const [photo, setPhoto] = useState<PhotoInput | null>(null);
   const [bookmark, setBookmark] = useState(false);
 
@@ -122,7 +122,12 @@ export function TodayView({ db, version, onChanged }: Props) {
 
   return (
     <div>
-      <CalorieMeter eaten={eaten} fromDrinks={drinks} target={target} macros={{ calories: food, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }} />
+      <CalorieMeter
+        eaten={eaten}
+        fromDrinks={drinks}
+        target={target}
+        macros={{ calories: food, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") }}
+      />
       {goalInput === null ? (
         <button className="link small muted" onClick={() => setGoalInput(target === null ? "" : String(target))}>
           {target === null ? "Set a daily calorie target" : "Change target"}

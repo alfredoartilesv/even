@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { deviceFetch } from "../../platform/device";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
-import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
+import {
+  CLAUDE_KEYS_URL,
+  claudeConnection,
+  connectClaude,
+  CONNECT_STEPS,
+  disconnectClaude,
+  type ClaudeConnection,
+  type ConnectionStatus,
+} from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
 import { garminExportCoverage, MAX_ZIP_BYTES, storeGarminImport, type ExportCoverage } from "../import/garminImport";
 import { parseGarminZip } from "../import/garminParse";
@@ -109,10 +117,12 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
         {state}
       </div>
       <p className="muted small">
-        Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where
-        Garmin has the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
+        Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where Garmin has
+        the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
       </p>
-      {on && sync?.warnings.length ? <p className="warning small">Not read last time: {sync.warnings.map((w) => w.split(":")[0]).join(", ")}. Allow them in the Health app.</p> : null}
+      {on && sync?.warnings.length ? (
+        <p className="warning small">Not read last time: {sync.warnings.map((w) => w.split(":")[0]).join(", ")}. Allow them in the Health app.</p>
+      ) : null}
       <div className="actions">
         {on ? (
           <button type="button" className="secondary" onClick={() => void disconnect()}>
@@ -128,11 +138,45 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
       <details className="more">
         <summary className="small accent">Change what Even can read</summary>
         <p className="muted small">
-          iOS asks only once. After that, choose what Even reads in the Health app: tap your picture, then Apps, then Even. iOS never tells an app
-          what it was refused, so a type you turned off just comes back empty.
+          iOS asks only once. After that, choose what Even reads in the Health app: tap your picture, then Apps, then Even. iOS never tells an app what it was
+          refused, so a type you turned off just comes back empty.
         </p>
       </details>
     </section>
+  );
+}
+
+/** The two key-based connections (Garmin, Claude) share these: status, Disconnect, how to get a key. */
+function ConnectionBadge({ status }: { status: ConnectionStatus | undefined }) {
+  if (status === "connected") return <StatusBadge status="good">connected</StatusBadge>;
+  if (status === "needs_attention") return <StatusBadge status="warning">needs attention</StatusBadge>;
+  return <StatusBadge status="info">not connected</StatusBadge>;
+}
+
+function DisconnectButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="actions">
+      <button className="secondary danger" onClick={onClick}>
+        Disconnect
+      </button>
+    </div>
+  );
+}
+
+function KeySteps({ steps, href, open, children }: { steps: readonly string[]; href: string; open: string; children?: ReactNode }) {
+  return (
+    <details className="more">
+      <summary className="small accent">How do I get a key?</summary>
+      <ol className="small muted">
+        {steps.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
+      </ol>
+      <a className="file-button" href={href} target="_blank" rel="noopener noreferrer">
+        {open}
+      </a>
+      {children}
+    </details>
   );
 }
 
@@ -181,50 +225,30 @@ function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
     <section className="card">
       <div className="card-head">
         <h2>Garmin sync</h2>
-        {conn?.status === "connected" ? (
-          <StatusBadge status="good">connected</StatusBadge>
-        ) : conn?.status === "needs_attention" ? (
-          <StatusBadge status="warning">needs attention</StatusBadge>
-        ) : (
-          <StatusBadge status="info">not connected</StatusBadge>
-        )}
+        <ConnectionBadge status={conn?.status} />
       </div>
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the
-            phone's secure storage.
+            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the phone's
+            secure storage.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
-          <div className="actions">
-            <button
-              className="secondary danger"
-              onClick={async () => {
-                await disconnectGarmin(secrets);
-                setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; synced data stays." });
-                onChanged();
-                await load();
-              }}
-            >
-              Disconnect
-            </button>
-          </div>
+          <DisconnectButton
+            onClick={async () => {
+              await disconnectGarmin(secrets);
+              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; synced data stays." });
+              onChanged();
+              await load();
+            }}
+          />
         </>
       ) : (
         <>
           <p className="muted small">Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key.</p>
-          <details className="more">
-            <summary className="small accent">How do I get a key?</summary>
-            <ol className="small muted">
-              {GARMIN_STEPS.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ol>
-            <a className="file-button" href={GARMIN_KEY_PAGE} target="_blank" rel="noopener noreferrer">
-              Open Garmin Connect
-            </a>
+          <KeySteps steps={GARMIN_STEPS} href={GARMIN_KEY_PAGE} open="Open Garmin Connect">
             {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
-          </details>
+          </KeySteps>
         </>
       )}
       {conn && conn.status !== "connected" && (
@@ -331,7 +355,12 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
       </p>
       <form onSubmit={run} className="stack">
         <label className="file-button">
-          <input type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={Boolean(busy)} />
+          <input
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            disabled={Boolean(busy)}
+          />
           {file ? `${file.name} (${(file.size / 1024 / 1024).toFixed(0)} MB)` : "Choose the Garmin export (.zip)"}
         </label>
         <button type="submit" disabled={!file || Boolean(busy)}>
@@ -404,48 +433,27 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
     <section className="card">
       <div className="card-head">
         <h2>Claude</h2>
-        {claude?.status === "connected" ? (
-          <StatusBadge status="good">connected</StatusBadge>
-        ) : claude?.status === "needs_attention" ? (
-          <StatusBadge status="warning">needs attention</StatusBadge>
-        ) : (
-          <StatusBadge status="info">not connected</StatusBadge>
-        )}
+        <ConnectionBadge status={claude?.status} />
       </div>
       {claude && claude.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}. It is in the phone's secure storage and used only to call Claude; billing is per
-            use, on your Claude Console account. What Claude may see is under Privacy &amp; data.
+            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}. It is in the phone's secure storage and used only to call Claude; billing is per use, on
+            your Claude Console account. What Claude may see is under Privacy &amp; data.
           </p>
           {claude.problem && <p className="warning small">{claude.problem}</p>}
-          <div className="actions">
-            <button
-              className="secondary danger"
-              onClick={async () => {
-                await disconnectClaude(db, secrets);
-                setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; your chats stay." });
-                await load();
-              }}
-            >
-              Disconnect
-            </button>
-          </div>
+          <DisconnectButton
+            onClick={async () => {
+              await disconnectClaude(db, secrets);
+              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; your chats stay." });
+              await load();
+            }}
+          />
         </>
       ) : (
         <>
           <p className="muted small">The chat uses your own Claude API key.</p>
-          <details className="more">
-            <summary className="small accent">How do I get a key?</summary>
-            <ol className="small muted">
-              {CONNECT_STEPS.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ol>
-            <a className="file-button" href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
-              Open the Claude Console
-            </a>
-          </details>
+          <KeySteps steps={CONNECT_STEPS} href={CLAUDE_KEYS_URL} open="Open the Claude Console" />
         </>
       )}
       {claude?.status !== "connected" && (

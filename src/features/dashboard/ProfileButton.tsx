@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { Avatar } from "../me/ui/avatar";
-import { loadProfile, loadProfilePhoto } from "../settings/profile";
+import { loadIdentity } from "../settings/profile";
 
 /** The round picture at the top of the Dashboard that opens the profile. */
 export function ProfileButton({ db, version, onOpen }: { db: SqlDriver; version: number; onOpen: () => void }) {
   const [who, setWho] = useState<{ photo: string | null; name: string | null }>({ photo: null, name: null });
   useEffect(() => {
-    void Promise.all([loadProfilePhoto(db), loadProfile(db)]).then(([photo, p]) => setWho({ photo, name: p.name }));
+    void loadIdentity(db).then(setWho);
   }, [db, version]);
   return (
     <button type="button" className="profile-button" onClick={onOpen} aria-label="Open your profile and past activity">
