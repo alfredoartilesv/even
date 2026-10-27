@@ -4,7 +4,7 @@ import { getCurrency } from "../../alcohol/alcohol";
 import { listShopping } from "../shopping";
 import { addMonths, addTrip, deleteTrip, knownShops, listTrips, monthlySpending, monthOf, monthRange, restoreTrip, spending, type Spending, type Trip } from "../spending";
 import { BarChart, Meter, StatTile } from "../../../ui/charts";
-import { failed, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, fmtMoney, MsgWithUndo, NoteField, numOrNull, plural, timeZone, today, type Msg } from "../../../ui/common";
 import { Icon } from "../../../ui/icons";
 import { SectionHeader } from "../../../ui/layout";
 
@@ -136,12 +136,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
             <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
           </label>
         </div>
-        <label>
-          <span>
-            Note <span className="muted small">optional</span>
-          </span>
-          <input value={notes} maxLength={200} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        <NoteField value={notes} onChange={setNotes} />
         {ticked > 0 && (
           <label className="inline">
             <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
@@ -149,14 +144,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
           </label>
         )}
         <button type="submit">Save</button>
-        <div className="row">
-          <MsgLine msg={msg} />
-          {undo && (
-            <button type="button" className="link small accent" onClick={() => void undoLast()}>
-              Undo
-            </button>
-          )}
-        </div>
+        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
       </form>
 
       <div className="period-nav">

@@ -5,7 +5,7 @@ import { kcalFromMacros } from "../../../core/health";
 import { addDays } from "../../../core/tz";
 import { MEALS, type Meal } from "../suggest";
 import { failed, numOrNull } from "../../../ui/common";
-import { CalorieMeter as Meter, MacroSplit } from "../../../ui/nutrition";
+import { CalorieMeter as Meter, MacroInputs, MacroSplit } from "../../../ui/nutrition";
 import { downscalePhoto, photoInputUrl } from "./photo";
 import { Icon } from "../../../ui/icons";
 
@@ -169,30 +169,7 @@ export function MealFields({
           </button>
         ))}
       </div>
-      <div className="grid">
-        <label>
-          kcal
-          <input
-            inputMode="decimal"
-            value={draft.calories}
-            placeholder={estimateKcal(draft) !== null ? `≈ ${estimateKcal(draft)}` : undefined}
-            title={estimateKcal(draft) !== null ? "Left empty, kcal is estimated from the macros" : undefined}
-            onChange={(e) => set({ calories: e.target.value })}
-          />
-        </label>
-        <label>
-          Protein g
-          <input inputMode="decimal" value={draft.proteinG} onChange={(e) => set({ proteinG: e.target.value })} />
-        </label>
-        <label>
-          Carbs g
-          <input inputMode="decimal" value={draft.carbsG} onChange={(e) => set({ carbsG: e.target.value })} />
-        </label>
-        <label>
-          Fat g
-          <input inputMode="decimal" value={draft.fatG} onChange={(e) => set({ fatG: e.target.value })} />
-        </label>
-      </div>
+      <MacroInputs draft={draft} set={set} kcalHint={estimateKcal(draft)} />
       <label>
         Notes
         <input value={draft.notes} onChange={(e) => set({ notes: e.target.value })} />

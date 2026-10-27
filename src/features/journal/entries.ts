@@ -1,4 +1,5 @@
-import { z } from "zod";
+// zod/mini: this module is on the Dashboard's start-up path.
+import { z } from "zod/mini";
 import { createLogger } from "../../core/log";
 import { addDays, tzOffsetMinutes } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
@@ -221,10 +222,10 @@ export interface DayNote {
 export const SCALE = ["Very low", "Low", "OK", "Good", "Very good"] as const;
 
 const noteSchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
-  mood: z.number().int().min(1).max(5).nullable(),
-  energy: z.number().int().min(1).max(5).nullable(),
-  body: z.string().max(4000, "At most 4,000 characters"),
+  day: z.string().check(z.regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day")),
+  mood: z.nullable(z.int().check(z.minimum(1), z.maximum(5))),
+  energy: z.nullable(z.int().check(z.minimum(1), z.maximum(5))),
+  body: z.string().check(z.maxLength(4000, "At most 4,000 characters")),
 });
 
 interface NoteRow {

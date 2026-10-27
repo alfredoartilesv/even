@@ -16,36 +16,19 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { DatabaseSync } from "node:sqlite";
 import { listAgentActions, type ActionProposal } from "../src/features/chat/actions";
 import { claudeCreate } from "../src/features/chat/client";
 import { hasConsent, recordConsent, type ConsentScope } from "../src/features/chat/consent";
 import { askClaude, startConversation, type ChatDeps } from "../src/features/chat/engine";
 import { toAttachment, type ImageAttachment } from "../src/features/chat/images";
 import { listDisclosures } from "../src/features/chat/store";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
+import { nodeDb } from "./lib/nodeDb";
 import { migrate, parseMigrations } from "../src/db/migrate";
 import { deviceId } from "../src/db/settings";
 import { setLogLevel } from "../src/core/log";
 
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
 setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
-
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  raw.exec("PRAGMA foreign_keys = ON");
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
-}
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -71,7 +54,7 @@ async function main() {
   if (photo) images.push(toAttachment(readFileSync(photo).toString("base64"), TYPES[extname(photo).toLowerCase()]));
   if (!question && images.length === 0) throw new Error('Pass a question, e.g. "How did I sleep this week?"');
 
-  const db = openDb(dbPath);
+  const db = nodeDb(dbPath, { foreignKeys: true }).db;
   const dir = join(import.meta.dirname, "../src/db/migrations");
   const files: Record<string, string> = {};
   for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");

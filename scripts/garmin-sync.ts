@@ -9,8 +9,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
+import { nodeDb } from "./lib/nodeDb";
 import { migrate, parseMigrations } from "../src/db/migrate";
 import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
 import { GarminApi, GarminSource } from "../src/features/sync/garmin";
@@ -18,21 +17,6 @@ import { setLogLevel } from "../src/core/log";
 
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
 setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
-
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
-}
 
 function loadMigrations() {
   const dir = join(import.meta.dirname, "../src/db/migrations");
@@ -47,7 +31,7 @@ async function main() {
 
   const dbArg = process.argv.indexOf("--db");
   const dbPath = dbArg > -1 ? process.argv[dbArg + 1] : ":memory:";
-  const db = openDb(dbPath);
+  const db = nodeDb(dbPath).db;
   const applied = await migrate(db, loadMigrations());
   console.log(`database: ${dbPath === ":memory:" ? "in memory" : dbPath}; migrations applied now: ${applied.length}`);
 

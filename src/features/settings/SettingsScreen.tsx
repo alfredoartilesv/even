@@ -6,7 +6,7 @@ import { Avatar } from "../me/ui/avatar";
 import { AboutSettings } from "./AboutSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { PrivacySettings } from "./PrivacySettings";
-import { loadProfile, loadProfilePhoto } from "./profile";
+import { loadIdentity } from "./profile";
 import { ProfileSettings } from "./ProfileSettings";
 import type { SecretStore } from "./secrets";
 
@@ -51,7 +51,7 @@ const LABEL = Object.fromEntries(SETTINGS_MENU.flatMap((g) => g.items.map((i) =>
 export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync }: Props) {
   const [who, setWho] = useState<{ photo: string | null; name: string | null } | null>(null);
   useEffect(() => {
-    if (page === null) void Promise.all([loadProfilePhoto(db), loadProfile(db)]).then(([photo, p]) => setWho({ photo, name: p.name }));
+    if (page === null) void loadIdentity(db).then(setWho);
   }, [db, page, version]);
 
   if (page === null) {

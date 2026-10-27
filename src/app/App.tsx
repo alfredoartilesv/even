@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { deviceFetch, isNative } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
-import { AlcoholScreen } from "../features/alcohol/ui/AlcoholScreen";
-import { ChatScreen } from "../features/chat/ui/ChatScreen";
 import { DashboardScreen } from "../features/dashboard/DashboardScreen";
-import { MealPrepScreen, type MealPrepView } from "../features/mealprep/ui/MealPrepScreen";
-import { SettingsScreen, type SettingsPage } from "../features/settings/SettingsScreen";
-import { LogsScreen } from "../features/logs/LogsScreen";
-import { MeScreen } from "../features/me/MeScreen";
+import type { MealPrepView } from "../features/mealprep/ui/MealPrepScreen";
+import type { SettingsPage } from "../features/settings/SettingsScreen";
 import { ProfileButton } from "../features/dashboard/ProfileButton";
-import { JournalScreen, type JournalView } from "../features/journal/ui/JournalScreen";
+import type { JournalView } from "../features/journal/ui/JournalScreen";
+import { AlcoholScreen, ChatScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, SettingsScreen } from "./screens";
 import { loadGarminKey, removeLegacySecrets } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
@@ -52,9 +49,11 @@ export function App() {
         // Timing builds only (scripts/perf-device.mjs); normal builds drop this branch and the module.
         if (import.meta.env.VITE_PERF_SEED) await (await import("./perfSeed")).seedForPerf(db);
         performance.mark("even:db-open");
-        await applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
+        // Not awaited: the Dashboard's queries need not wait for the log level.
+        void applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
         void removeLegacySecrets(secretStore).catch((err) => log.warn("old secrets not removed", { err }));
         setDbStatus({ state: "ready", db });
+        preloadScreens();
       },
       (err: Error) => {
         log.error("database unavailable", { err });
@@ -138,10 +137,10 @@ export function App() {
           {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
         </p>
         {dbStatus.state === "error" && (
-          <>
+          <Suspense>
             <h2>Logs</h2>
             <LogsScreen db={null} />
-          </>
+          </Suspense>
         )}
       </main>
     );
@@ -172,6 +171,7 @@ export function App() {
       <main className="shell with-tabbar">
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
+        <Suspense>
         {tab === "dashboard" ? (
           !overlay ? (
             <DashboardScreen
@@ -228,6 +228,7 @@ export function App() {
             onSync={() => void sync()}
           />
         )}
+        </Suspense>
         </div>
       </main>
       <TabBar
