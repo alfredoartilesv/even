@@ -52,8 +52,7 @@ test("the launch screen is the logo on the palette's --bg, light and dark", () =
   assert.equal(hex(set.colors[1].color), dark.bg);
   assert.throws(() => launchBackgroundColorset({ ...light, bg: "color-mix(in srgb, red, blue)" }, dark), /#rrggbb/);
 
-  assert.match(LAUNCH_STORYBOARD, /^<?xml [^>]*?>
-<document /, "ibtool needs <document> right after the declaration");
+  assert.match(LAUNCH_STORYBOARD, /^<\?xml [^>]*\?>\n<document /, "ibtool needs <document> right after the declaration");
   assert.match(LAUNCH_STORYBOARD, /launchScreen="YES"/);
   assert.match(LAUNCH_STORYBOARD, /<color key="backgroundColor" name="LaunchBackground"\/>/);
   assert.match(LAUNCH_STORYBOARD, /image="Splash"/);
@@ -139,7 +138,8 @@ test("iOS workflow: on a Mac, on demand and on native-side PRs, compiles both wa
   assert.match(wf, /node scripts\/ios-harden\.mjs/);
   assert.match(wf, /generic\/platform=iOS Simulator/);
   assert.match(wf, /generic\/platform=iOS'/);
-  assert.match(wf, /CODE_SIGNING_ALLOWED=NO/);
+  assert.match(wf, /iOS Simulator' -derivedDataPath build\/ios\s+CODE_SIGN_IDENTITY=-/, "simulator build ad-hoc signed: unsigned apps get no Keychain");
+  assert.match(wf, /generic\/platform=iOS' -derivedDataPath build\/ios\s+CODE_SIGNING_ALLOWED=NO/, "device build unsigned (no Apple account)");
   assert.match(wf, /node scripts\/ios-sim\.mjs --app build\/ios\/Build\/Products\/Debug-iphonesimulator\/App\.app/);
   assert.match(wf, /upload-artifact/);
   assert.doesNotMatch(wf, /secrets\./, "no signing secrets: nothing here is signed");
