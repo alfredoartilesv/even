@@ -8,9 +8,10 @@ import { SavedView } from "../../food/ui/SavedView";
 import { TodayView } from "../../food/ui/TodayView";
 import { RecipesView } from "./RecipesView";
 import { ShoppingView } from "./ShoppingView";
+import { SpendingView } from "./SpendingView";
 import { StockView } from "./StockView";
 
-export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping";
+export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping" | "spending";
 
 export type MealPrepGroup = "food" | "prep";
 
@@ -31,6 +32,7 @@ export const MEAL_PREP_GROUPS: (Choice<MealPrepGroup> & { views: Choice<MealPrep
       { id: "stock", label: "Stock" },
       { id: "recipes", label: "Recipes" },
       { id: "shopping", label: "Shopping" },
+      { id: "spending", label: "Spending" },
     ],
   },
 ];
@@ -53,7 +55,8 @@ interface Props {
 
 /**
  * The third tab: everything about eating, in two groups. Food log: what you eat today, past days,
- * saved meals. Meal prep: what is in stock and what to defrost, recipes, the shopping list.
+ * saved meals. Meal prep: what is in stock and what to defrost, recipes, the shopping list, and
+ * what the supermarket cost.
  */
 export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) {
   const [tags, setTags] = useState<string[]>([]);
@@ -92,7 +95,8 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
       {view === "saved" && <SavedView db={db} version={v} onChanged={changed} />}
       {view === "stock" && <StockView db={db} tag={tag} version={v} />}
       {view === "recipes" && <RecipesView db={db} tag={tag} allTags={tags} version={v} onChanged={changed} />}
-      {view === "shopping" && <ShoppingView db={db} version={v} />}
+      {view === "shopping" && <ShoppingView db={db} version={v} onPaid={() => onView("spending")} />}
+      {view === "spending" && <SpendingView db={db} version={v} onChanged={changed} />}
     </section>
   );
 }

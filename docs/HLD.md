@@ -99,7 +99,7 @@ flowchart TB
 | Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance and protein; the check-in and latest weight; energy, workouts and meal prep as the day's numbers or daily averages and totals; charts per day; every synced number of a day | `src/features/dashboard/` |
 | Journal (from the Dashboard) | Daily check-in (mood and energy 1 to 5, a note) with 30 days of history and a trend; manual measurements (weight, body fat, waist, blood pressure, resting heart rate, glucose, supplements, symptoms) with a trend per kind | `src/features/journal/` |
 | Chat tab | Conversations with Claude: camera or gallery photos, quick prompts, consent and change confirmation in line, changes with undo, history | `src/features/chat/ui/ChatScreen.tsx` |
-| Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list) | `src/features/mealprep/ui/`, `src/features/food/ui/` |
+| Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list, supermarket spending per month and per supermarket) | `src/features/mealprep/ui/`, `src/features/food/ui/` |
 | UI kit and palette | Shared components (charts, figures, controls, `PageHeader`, `SubTabs`, `Segmented`, `Icon`) and the one color palette (`palette.css`), checked by tests. Screens: `docs/screens/index.html` | `src/ui/` |
 | Alcohol tab | One-tap drink logging first, then drinks per period, their kcal and cost, weight without alcohol | `src/features/alcohol/ui/` |
 | Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: Garmin personal API key, Claude API key, Garmin history. *Privacy & data*: Claude consents, what was sent, what is stored, backup and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/features/settings/` |
@@ -109,7 +109,7 @@ flowchart TB
 | GarminSource | Decides the date window (30 days on the first sync, then from the cursor), reads each endpoint in 28-day chunks, maps the JSON to samples with the export's metric names | `src/features/sync/garmin.ts` |
 | Garmin API client | Trades the personal API key for a token (cached, renewed before expiry or on a 401), GETs JSON, no secrets in errors | `src/features/sync/garmin.ts` (`GarminApi`) |
 | Native HTTP adapter | `fetch` look-alike over `CapacitorHttp` | `src/platform/nativeFetch.ts` |
-| Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, journal. Shared: settings, transactions | `src/features/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
+| Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, spending, journal. Shared: settings, transactions | `src/features/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
 | Migration runner | Applies numbered SQL files, versioned in `PRAGMA user_version` | `src/db/migrate.ts`, `src/db/migrations/` |
 | Logging | Scoped, levelled logger; console and an in-memory buffer; secrets redacted; level stored in settings | `src/core/log.ts`, `src/app/logging.ts`, `src/features/settings/logLevel.ts` |
 | SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/platform/sqlite.ts` |
@@ -229,7 +229,7 @@ One local SQLite database (`health`), encrypted with SQLCipher. Main groups:
 | Group | Tables | Written by |
 |---|---|---|
 | Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync (source `garmin`), Garmin export import (`garmin_export`); older rows from freddy (`freddy`) |
-| Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals` | UI (Meal prep, Alcohol, Journal, profile) and the agent |
+| Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `shopping_trips` | UI (Meal prep, Alcohol, Journal, profile) and the agent |
 | Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `agent_actions` | Agent engine (Chat tab) |
 | Settings | `app_settings` (non-secret) | UI |
 | Read models | Views `daily_metric_values`, `daily_nutrition`, `daily_alcohol` | Derived |

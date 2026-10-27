@@ -29,6 +29,15 @@ export function fmtDay(day: string, ref: string = today()): string {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
+/** An amount in the app currency ("€12.40"), or "12.40 XYZ" for a code the browser does not know. */
+export function fmtMoney(n: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
+  } catch {
+    return `${n.toFixed(2)} ${currency}`;
+  }
+}
+
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Empty input -> null, otherwise the number (NaN for junk, so callers can reject it). */

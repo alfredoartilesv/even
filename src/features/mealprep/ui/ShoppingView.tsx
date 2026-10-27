@@ -16,9 +16,11 @@ import { failed, MsgLine, numOrNull, type Msg } from "../../../ui/common";
 interface Props {
   db: SqlDriver;
   version: number;
+  /** Opens Spending, to log what the shop cost (and clear the ticked items there). */
+  onPaid: () => void;
 }
 
-export function ShoppingView({ db, version }: Props) {
+export function ShoppingView({ db, version, onPaid }: Props) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
@@ -90,6 +92,7 @@ export function ShoppingView({ db, version }: Props) {
 
       {items.length > 0 && (
         <div className="actions">
+          {open < items.length && <button onClick={onPaid}>Log what you paid</button>}
           <button onClick={share} disabled={!open}>
             {isNative ? "Share list" : "Copy list"}
           </button>
