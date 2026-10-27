@@ -1,7 +1,7 @@
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import { BACKUP_TABLES, BackupError, exportBackup, restoreBackup } from "../src/features/backup/backup";
+import { BACKUP_TABLES, BackupError, exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../src/features/backup/backup";
 import { deviceId, getSetting, setSetting } from "../src/db/settings";
 import { upsertSamples } from "../src/features/metrics/samples";
 import { migrate } from "../src/db/migrate";
@@ -177,4 +177,13 @@ test("a backup made before the app was renamed to Even still restores", async ()
 
   const { text } = await exportBackup(db, PW, FAST);
   assert.equal(JSON.parse(text).format, "even-backup", "new backups use the new name");
+});
+
+test("the privacy page knows when the last backup was saved", async () => {
+  const { db } = await migratedDb();
+  assert.equal(await lastBackupSaved(db), null);
+  await markBackupSaved(db, NOW);
+  assert.equal(await lastBackupSaved(db), NOW);
+  await markBackupSaved(db, NOW + 86_400_000);
+  assert.equal(await lastBackupSaved(db), NOW + 86_400_000);
 });

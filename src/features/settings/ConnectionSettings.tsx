@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { deviceFetch } from "../../platform/device";
-import { failed, MsgLine, type Msg } from "../../ui/common";
-import { StatusBadge } from "../../ui/controls";
+import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
+import { StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
+import type { GarminImport, GarminKind } from "../import/garmin";
+import { garminExportCoverage, importGarminZip, MAX_ZIP_BYTES, type ExportCoverage } from "../import/garminImport";
 import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
 import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
 import { lastSync, type LastSync } from "../sync/runSync";
@@ -14,73 +16,72 @@ interface Props {
   db: SqlDriver;
   secrets: SecretStore;
   isNative: boolean;
-  /** Called after the Garmin key or the reminder setting change. */
+  /** Called after the Garmin key, the reminder setting or the imported data change. */
   onChanged: () => void;
 }
 
 const when = (ms: number | null) => (ms ? new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
 
-/** Where the data comes from (Garmin, the Garmin export) and where questions go (Claude). */
+/** One line per kind of data in the import report, in the words the owner uses. */
+const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
+  { kind: "daily", label: "Daily summaries", unit: "day" },
+  { kind: "sleep", label: "Sleep", unit: "night" },
+  { kind: "activities", label: "Activities", unit: "activity" },
+  { kind: "biometrics", label: "Weight", unit: "weigh-in" },
+  { kind: "vo2max", label: "VO2 max", unit: "value" },
+];
+
+const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
+
+/** Where the data comes from (the Garmin sync, the Garmin export) and where questions go (Claude). */
 export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) {
+  return (
+    <div>
+      <GarminSync db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} />
+      <GarminHistory db={db} onChanged={onChanged} />
+      <ClaudeConnectionCard db={db} secrets={secrets} />
+    </div>
+  );
+}
+
+function GarminSync({ db, secrets, isNative, onChanged }: Props) {
   const [key, setKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [remind, setRemind] = useState(true);
   const [sync, setSync] = useState<LastSync | null>(null);
-  const [garminMsg, setGarminMsg] = useState<Msg>(null);
-
-  const [claude, setClaude] = useState<ClaudeConnection | null>(null);
-  const [claudeKey, setClaudeKey] = useState("");
-  const [claudeMsg, setClaudeMsg] = useState<Msg>(null);
-  const [checking, setChecking] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
 
   const load = useCallback(async () => {
     setHasKey(Boolean(await loadGarminKey(secrets)));
     setRemind(await reminderEnabled(db));
     setSync(await lastSync(db, GARMIN_SOURCE));
-    setClaude(await claudeConnection(db, secrets));
   }, [db, secrets]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function saveGarmin(e: FormEvent) {
+  async function save(e: FormEvent) {
     e.preventDefault();
     try {
       await saveGarminKey(secrets, key);
       setKey("");
       setHasKey(true);
-      setGarminMsg({ kind: "ok", text: "Saved. Use the sync button at the top to test it." });
+      setMsg({ kind: "ok", text: "Saved. Use the sync button at the top of the Dashboard to test it." });
       onChanged();
     } catch (err) {
-      setGarminMsg(failed(err, "settings"));
+      setMsg(failed(err, "settings"));
     }
   }
 
-  async function forgetGarmin() {
+  async function forget() {
     await clearGarminKey(secrets);
     setHasKey(false);
-    setGarminMsg({ kind: "ok", text: "Garmin key removed from this phone. Data already synced stays." });
+    setMsg({ kind: "ok", text: "Garmin key removed from this phone. Data already synced stays." });
     onChanged();
   }
 
-  async function connect(e: FormEvent) {
-    e.preventDefault();
-    setChecking(true);
-    try {
-      const res = await connectClaude(db, secrets, claudeKey, claudeKeyVerifier(deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 20_000 })));
-      if (!res.ok) return setClaudeMsg({ kind: "error", text: res.message });
-      setClaude(res.connection);
-      setClaudeKey("");
-      setClaudeMsg({ kind: "ok", text: "Connected. Claude accepted the key." });
-    } catch (err) {
-      setClaudeMsg(failed(err, "settings.claude"));
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  const garminState = !hasKey ? (
+  const state = !hasKey ? (
     <StatusBadge status="info">not set up</StatusBadge>
   ) : sync?.status === "error" ? (
     <StatusBadge status="warning">last sync failed</StatusBadge>
@@ -91,58 +92,184 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
   );
 
   return (
-    <div>
-      <div className="row">
-        <h2>Garmin</h2>
-        {garminState}
+    <section className="card">
+      <div className="card-head">
+        <h2>Garmin sync</h2>
+        {state}
       </div>
       <p className="muted small">
-        Your watch data comes straight from Garmin Connect with your personal API key (read-only). Last successful sync:{" "}
-        {when(sync?.lastOkMs ?? null)}
-        {sync?.status === "error" && sync.error ? `. Last attempt: ${sync.error}` : ""}.
+        Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key. Last sync: {when(sync?.lastOkMs ?? null)}.
       </p>
-      <form onSubmit={saveGarmin} className="stack">
+      {sync?.status === "error" && sync.error && <p className="warning small">Last attempt: {sync.error}</p>}
+      <form onSubmit={save} className="stack">
         <label>
-          Personal API key {hasKey && <span className="muted small">(stored; paste a new one to replace it)</span>}
+          <span>
+            Personal API key {hasKey && <span className="muted small">stored; paste a new one to replace it</span>}
+          </span>
           <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" required />
         </label>
         <div className="actions">
           <button type="submit" disabled={!key.trim()}>
-            Save
+            Save key
           </button>
-          <button type="button" className="secondary" onClick={forgetGarmin} disabled={!hasKey}>
-            Forget
-          </button>
+          {hasKey && (
+            <button type="button" className="secondary" onClick={() => void forget()}>
+              Forget key
+            </button>
+          )}
         </div>
+        <MsgLine msg={msg} />
+      </form>
+      <details className="more">
+        <summary className="small accent">Where do I get the key?</summary>
         <p className="muted small">
-          Make the key in Garmin Connect on the web: Settings → Personal API Key. It is shown once and expires on the date you pick; then
-          make a new one and paste it here.{" "}
+          In Garmin Connect on the web: Settings → Personal API Key. It is shown once and expires on the date you pick; then make a new one
+          and paste it here.{" "}
           <a href={GARMIN_KEY_PAGE} target="_blank" rel="noopener noreferrer">
             Open Garmin Connect
           </a>
         </p>
         {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
-        <MsgLine msg={garminMsg} />
-      </form>
-      <label className="inline">
-        <input
-          type="checkbox"
-          checked={remind}
-          onChange={async (e) => {
-            const on = e.target.checked;
-            await setReminderEnabled(db, on);
-            setRemind(on);
-            onChanged(); // reschedules or cancels the notification
-          }}
-        />
-        Notify me when Garmin has not synced for 3 days
-      </label>
-      <p className="muted small">
-        The app syncs when it opens, when you come back to it, and with the sync button at the top. A reminder comes 3 days after the last
-        successful sync{isNative ? "" : " (on the phone only)"}, usually a sign the key has expired.
-      </p>
+      </details>
+      <Switch
+        checked={remind}
+        onChange={async (on) => {
+          await setReminderEnabled(db, on);
+          setRemind(on);
+          onChanged(); // reschedules or cancels the notification
+        }}
+        label="Remind me when sync stops"
+        description={`A notification 3 days after the last successful sync${isNative ? "" : " (on the phone only)"}, usually a sign the key has expired. The app syncs when it opens and when you come back to it.`}
+      />
+    </section>
+  );
+}
 
-      <div className="row">
+/** The Garmin export ZIP, imported on the phone: years of history the sync's first 30 days do not reach. */
+function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
+  const [coverage, setCoverage] = useState<ExportCoverage | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<{ written: number; report: GarminImport["report"] } | null>(null);
+  const [msg, setMsg] = useState<Msg>(null);
+
+  const load = useCallback(async () => setCoverage(await garminExportCoverage(db)), [db]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function run(e: FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    setResult(null);
+    setMsg(null);
+    try {
+      if (!/\.zip$/i.test(file.name)) throw new Error("Pick the .zip file Garmin sent (not a folder or a single file from inside it).");
+      if (file.size > MAX_ZIP_BYTES) throw new Error("The file is over 1 GB, too big to read on the phone. Use npm run import:garmin on a PC instead.");
+      setBusy(`Reading ${(file.size / 1024 / 1024).toFixed(0)} MB…`);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      setBusy("Unpacking and saving. This can take a minute…");
+      // Let the message paint before the synchronous unzip and parse.
+      await new Promise((r) => setTimeout(r, 50));
+      const { written, parsed } = await importGarminZip(db, bytes, { timeZone: timeZone() });
+      setResult({ written, report: parsed.report });
+      setMsg({ kind: "ok", text: `Imported ${written.toLocaleString()} readings. Importing the same file again changes nothing.` });
+      setFile(null);
+      onChanged();
+      await load();
+    } catch (err) {
+      setMsg(failed(err, "settings.import"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Garmin history</h2>
+        {coverage && coverage.readings > 0 ? <StatusBadge status="good">imported</StatusBadge> : <StatusBadge status="info">not imported</StatusBadge>}
+      </div>
+      <p className="muted small">
+        The sync starts with the last 30 days. For everything before, import the export Garmin emails you.{" "}
+        {coverage && coverage.readings > 0 && coverage.from && coverage.to
+          ? `Imported so far: ${coverage.readings.toLocaleString()} readings, ${fmtDay(coverage.from)} to ${fmtDay(coverage.to)}.`
+          : ""}
+      </p>
+      <form onSubmit={run} className="stack">
+        <label className="file-button">
+          <input type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={Boolean(busy)} />
+          {file ? `${file.name} (${(file.size / 1024 / 1024).toFixed(0)} MB)` : "Choose the Garmin export (.zip)"}
+        </label>
+        <button type="submit" disabled={!file || Boolean(busy)}>
+          {busy ? "Importing…" : "Import"}
+        </button>
+        {busy && (
+          <p className="muted small" role="status">
+            {busy}
+          </p>
+        )}
+        <MsgLine msg={msg} />
+      </form>
+      {result && (
+        <ul className="report small" aria-label="What was imported">
+          {KINDS.map(({ kind, label, unit }) => {
+            const k = result.report[kind];
+            return (
+              <li key={kind}>
+                <span>{label}</span>
+                <span className="muted">
+                  {k.imported ? count(k.imported, unit) : "none"}
+                  {k.firstDay && k.lastDay ? `, ${fmtDay(k.firstDay)} to ${fmtDay(k.lastDay)}` : ""}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <details className="more">
+        <summary className="small accent">How do I get the export?</summary>
+        <ol className="small muted">
+          <li>In Garmin Connect on the web: Account → Data Management → Export Your Data → Request Data Export.</li>
+          <li>Garmin emails a download link, usually within a day or two.</li>
+          <li>Download the ZIP on the phone and choose it above. It stays on the phone; nothing is uploaded.</li>
+        </ol>
+        <p className="muted small">Days the sync also has are shown once, from the sync. Weight comes from weigh-ins only, not profile settings.</p>
+      </details>
+    </section>
+  );
+}
+
+function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretStore }) {
+  const [claude, setClaude] = useState<ClaudeConnection | null>(null);
+  const [claudeKey, setClaudeKey] = useState("");
+  const [msg, setMsg] = useState<Msg>(null);
+  const [checking, setChecking] = useState(false);
+
+  const load = useCallback(async () => setClaude(await claudeConnection(db, secrets)), [db, secrets]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function connect(e: FormEvent) {
+    e.preventDefault();
+    setChecking(true);
+    try {
+      const res = await connectClaude(db, secrets, claudeKey, claudeKeyVerifier(deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 20_000 })));
+      if (!res.ok) return setMsg({ kind: "error", text: res.message });
+      setClaude(res.connection);
+      setClaudeKey("");
+      setMsg({ kind: "ok", text: "Connected. Claude accepted the key." });
+    } catch (err) {
+      setMsg(failed(err, "settings.claude"));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <section className="card">
+      <div className="card-head">
         <h2>Claude</h2>
         {claude?.status === "connected" ? (
           <StatusBadge status="good">connected</StatusBadge>
@@ -153,43 +280,43 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
         )}
       </div>
       {claude && claude.status !== "not_connected" ? (
-        <div className="stack tight">
-          <p className="small">
-            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}.
+        <>
+          <p className="muted small">
+            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}. It is in the phone's secure storage and used only to call Claude; billing is per
+            use, on your Claude Console account. What Claude may see is under Privacy &amp; data.
           </p>
           {claude.problem && <p className="warning small">{claude.problem}</p>}
-          <p className="muted small">
-            The key is in the phone's secure storage and is used only to call Claude. Billing is per use, on your Claude Console account.
-            What Claude may see is set under Privacy.
-          </p>
           <div className="actions">
             <button
               className="secondary danger"
               onClick={async () => {
                 await disconnectClaude(db, secrets);
-                setClaudeMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; your chats stay." });
+                setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; your chats stay." });
                 await load();
               }}
             >
               Disconnect
             </button>
           </div>
-        </div>
+        </>
       ) : (
-        <div className="stack tight">
-          <p className="muted small">The chat uses your own Claude API key. Three steps:</p>
-          <ol className="small">
-            {CONNECT_STEPS.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ol>
-          <a className="file-button" href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
-            Open the Claude Console
-          </a>
-        </div>
+        <>
+          <p className="muted small">The chat uses your own Claude API key.</p>
+          <details className="more">
+            <summary className="small accent">How do I get a key?</summary>
+            <ol className="small muted">
+              {CONNECT_STEPS.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ol>
+            <a className="file-button" href={CLAUDE_KEYS_URL} target="_blank" rel="noopener noreferrer">
+              Open the Claude Console
+            </a>
+          </details>
+        </>
       )}
       {claude?.status !== "connected" && (
-        <form onSubmit={connect} className="stack" style={{ marginTop: "0.75rem" }}>
+        <form onSubmit={connect} className="stack">
           <label>
             {claude?.status === "needs_attention" ? "New API key" : "API key"}
             <input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" required />
@@ -199,14 +326,7 @@ export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) 
           </button>
         </form>
       )}
-      <MsgLine msg={claudeMsg} />
-
-      <h2>Garmin history</h2>
-      <p className="muted small">
-        The first Garmin sync reads the last 30 days. For your full history, request your data export in Garmin Connect (Account → Data
-        Management → Export Your Data), run <code>npm run import:garmin</code> on the PC, and restore the encrypted file it writes under
-        Privacy → Restore. Days the sync also has are shown once, from the sync.
-      </p>
-    </div>
+      <MsgLine msg={msg} />
+    </section>
   );
 }

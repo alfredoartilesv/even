@@ -216,8 +216,8 @@ const SCREENS: Screen[] = [
   { id: "alcohol", tab: "Alcohol", title: "Alcohol", about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.", go: (p) => tab(p, "Alcohol") },
   { id: "settings-menu", tab: "Settings", title: "Menu", about: "Every page in three groups, each row saying what is inside. Tapping Settings again comes back here.", go: (p) => tab(p, "Settings") },
   { id: "settings-profile", tab: "Settings", title: "Profile", about: "Google account, the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).", go: (p) => settings(p, "Profile") },
-  { id: "settings-connections", tab: "Settings", title: "Connections", about: "Garmin sync, the Claude API key, and the Garmin history import.", go: (p) => settings(p, "Connections") },
-  { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.", go: (p) => settings(p, "Privacy & data") },
+  { id: "settings-connections", tab: "Settings", title: "Connections", about: "One card per connection: Garmin sync (key, last sync, the 3-day reminder switch), Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude. How-tos fold away.", go: (p) => settings(p, "Connections") },
+  { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore.", go: (p) => settings(p, "Privacy & data") },
   { id: "settings-logs", tab: "Settings", title: "Debug logs", about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.", go: (p) => settings(p, "Debug logs") },
   { id: "settings-about", tab: "Settings", title: "About", about: "The Even logo and name, app version, build, platform, database schema and chat model.", go: (p) => settings(p, "About") },
 ];
@@ -289,6 +289,7 @@ function indexHtml(): string {
     ["SectionHeader", "src/ui/layout.tsx", "Section headings with a link (Workouts › Your activity, Meal prep › Open)."],
     ["QuickActions", "src/ui/layout.tsx", "Log food, Log a drink, Ask Claude, Check-in on the Dashboard."],
     ["ScaleRating", "src/ui/controls.tsx", "Mood and energy, 1 to 5 in words, on the check-in."],
+    ["Switch", "src/ui/controls.tsx", "On/off settings as rows: what Claude may see, the sync reminder."],
     ["MenuList", "src/ui/layout.tsx", "The Settings menu."],
     ["SubTabs", "src/ui/layout.tsx", "The views inside a Meal prep group."],
     ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard; Food log / Meal prep."],
