@@ -1,0 +1,132 @@
+# Release: when develop is merged into master (a push to master), build the signed release APK in
+# Docker, check it, install and launch it on an Android emulator, then tag v<package.json version>
+# and publish a GitHub release with the APK. develop is the default branch, so the merge never
+# deletes it. A version that is already tagged stops the release: bump package.json on develop first.
+#
+# Secrets (Settings > Secrets and variables > Actions): HEALTH_KEYSTORE_BASE64 (the .jks, base64),
+# HEALTH_KEYSTORE_PASSWORD, HEALTH_KEY_ALIAS, HEALTH_KEY_PASSWORD. docs/dev-setup.md section 6.
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Version not released yet
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$V" > /dev/null; then
+            echo "::error::v$V is already released. Bump the version in package.json on develop, then merge to master again."
+            exit 1
+          fi
+          echo "Releasing v$V"
+
+  build:
+    name: Signed release APK (Docker)
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - uses: actions/checkout@v4
+      - name: Keystore from secrets (files in the runner's temp folder, removed after the build)
+        env:
+          HEALTH_KEYSTORE_BASE64: ${{ secrets.HEALTH_KEYSTORE_BASE64 }}
+          HEALTH_KEYSTORE_PASSWORD: ${{ secrets.HEALTH_KEYSTORE_PASSWORD }}
+          HEALTH_KEY_ALIAS: ${{ secrets.HEALTH_KEY_ALIAS }}
+          HEALTH_KEY_PASSWORD: ${{ secrets.HEALTH_KEY_PASSWORD }}
+        run: |
+          test -n "$HEALTH_KEYSTORE_BASE64" || { echo "::error::The HEALTH_KEYSTORE_BASE64 secret is not set"; exit 1; }
+          echo "$HEALTH_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'HEALTH_KEYSTORE_PASSWORD=%s\nHEALTH_KEY_ALIAS=%s\nHEALTH_KEY_PASSWORD=%s\n' "$HEALTH_KEYSTORE_PASSWORD" "$HEALTH_KEY_ALIAS" "$HEALTH_KEY_PASSWORD" > "$RUNNER_TEMP/release.env"
+      - uses: docker/setup-buildx-action@v3
+      - name: docker build --target release-apk (runs scripts/release-check.mjs inside)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: release-apk
+          push: false
+          outputs: type=local,dest=out
+          secret-files: |
+            keystore=${{ runner.temp }}/release.jks
+            keystore_env=${{ runner.temp }}/release.env
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Remove the keystore files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/release.env"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: out/app-release.apk
+          retention-days: 30
+
+  emulator:
+    name: Install and launch on an emulator
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-release-apk
+          path: out
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Release check on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: node scripts/release-check.mjs --apk out/app-release.apk --device --build-tools "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)" --out out/shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-launch-screenshot
+          path: out/shots
+          retention-days: 30
+
+  publish:
+    name: Tag and publish the release
+    runs-on: ubuntu-latest
+    needs: [version, emulator]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-release-apk
+          path: out
+      - name: gh release create (creates the tag on this commit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          cp out/app-release.apk "out/health-$TAG.apk"
+          (cd out && sha256sum "health-$TAG.apk" > "health-$TAG.apk.sha256")
+          gh release create "$TAG" "out/health-$TAG.apk" "out/health-$TAG.apk.sha256" \
+            --target "$GITHUB_SHA" --title "Health $TAG" --generate-notes

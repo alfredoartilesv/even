@@ -21,3 +21,7 @@ imports
 # Editor and OS clutter
 .vscode
 *.log
+
+# Signing keys (required): passed to the release build as BuildKit secrets only.
+*.jks
+*.keystore

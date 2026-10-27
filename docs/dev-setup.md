@@ -51,7 +51,7 @@ Tasks (Terminal > Run Task, `.vscode/tasks.json`):
 | Android: run on emulator or phone | sync, then `npx cap run android`: build, install, launch; asks which device if several |
 | Android: logcat (app only) | `adb logcat` filtered to the app's process |
 | Test, Typecheck | `npm test`, `npm run typecheck` |
-| Docker: test, Docker: build debug APK | `npm run docker:test`, `npm run docker:apk` (section 4) |
+| Docker: test, Docker: build debug APK | `npm run docker:test`, `npm run docker:apk` (section 4); the release build is `npm run docker:release` (section 6) |
 | Android: device integration test | `npm run test:device` on the running emulator or phone (section 5) |
 
 Debugging the WebView: with the app running on the emulator or a USB phone, open `chrome://inspect` in Chrome or Edge and click *inspect* under `app.health.personal`. Settings > Debug logs in the app shows the app's own log records.
@@ -67,12 +67,13 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 
 ## 4. Docker: the standard test and build
 
-Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI (`.github/workflows/ci.yml` on every PR and push to `develop` and `master`; the APK is kept as a build artifact for 14 days).
+Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI: `.github/workflows/ci.yml` runs the test stage on every PR (no APK), and `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6).
 
 | Command (or VS Code task) | Does | Time |
 |---|---|---|
 | `npm run docker:test` (*Docker: test*) | `npm ci`, typecheck, every Node test, web build, in Linux | about 20 s once cached |
 | `npm run docker:apk` (*Docker: build debug APK*) | the above, then the Android project (`cap add`, hardening, `cap sync`) and `gradlew assembleDebug`; writes `out/app-debug.apk` (git-ignored) | about 3 min the first time on this PC (SDK download, Gradle), less after |
+| `npm run docker:release` | the signed release APK, checked in the build; writes `out/app-release.apk` (section 6) | about 1.5 min once the SDK is cached |
 
 `.dockerignore` keeps `.env`, `imports/` and local databases out of the build context, so no key or health data can end up in an image layer; `tests/docker.test.ts` checks that, the digest pins, the checksum, and that the versions match `.nvmrc` and this page. When a version changes (Node, JDK, SDK), change it in `Dockerfile` and here in the same commit, and refresh the digest with `docker pull <image>` and `docker image inspect <image> --format "{{index .RepoDigests 0}}"`.
 
@@ -104,3 +105,41 @@ It prints check names and counts, never the key or health values; screenshots of
 **Galaxy S23 emulator.** The AVD `Galaxy_S23_API_36` copies the Pixel 8 AVD with the S23's screen: 1080 x 2340 at density 420 (the S23's 6.1" panel is about 425 ppi), Android 16 (API 36, One UI 8 on the real phone), 4 GB RAM, host GPU. Its `config.ini` sets `hw.device.name=galaxy_s23`, `hw.lcd.width=1080`, `hw.lcd.height=2340`, `hw.lcd.density=420`, `showDeviceFrame=no`. Start it with the task *Android: start emulator* (name `Galaxy_S23_API_36`) or the emulator extension. It is not Samsung's One UI: Samsung-specific behaviour (battery optimisation, Secure Folder, One UI permission screens) still needs the real phone.
 
 First run (27 Oct 2026, `develop` at the merge of PR #21): 9/9 checks on `Galaxy_S23_API_36`, a real sync of 924 readings. It found that scheduling the 3-day reminder opened Android's *Alarms & reminders* screen after every sync (the notifications plugin asks for exact alarms by default, which Android 14+ does not grant); the reminder now asks for an inexact alarm (`pluginNotification` in `src/core/notifier.ts`) and check 6 guards it.
+
+## 6. Releases
+
+A release is a merge of `develop` into `master`. The push to `master` runs `.github/workflows/release.yml`:
+
+1. **Version gate.** The version is `package.json`'s. If the tag `v<version>` already exists, the release stops: bump the version on `develop` first (a PR like any other change).
+2. **Build.** `docker build --target release-apk`, the same as `npm run docker:release` here. It is signed with the release key, which reaches the build only as BuildKit secrets, and it is checked inside the build (`scripts/release-check.mjs`):
+   - signed (v2/v3) with the key whose SHA-256 is in `release/cert-sha256.txt`, and not with a debug key;
+   - package `app.health.personal`, with `versionName` and `versionCode` matching `package.json`;
+   - not debuggable;
+   - min SDK 24 and target SDK 36;
+   - Android backups off;
+   - the web app inside.
+3. **Emulator.** An Android 15 emulator on the runner gets a clean install, then the check confirms the app launches, stays alive and in front, and leaves nothing in the crash log. A screenshot is kept as an artifact.
+4. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `health-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
+
+PRs (to `develop` or `master`) only run the tests, with no APK (`ci.yml`). `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
+
+**Version code.** `versionCode` comes from the version: `MAJOR*10000 + MINOR*100 + PATCH`, so 0.1.0 is 100. Android only installs an update with a higher code, so versions only go up, and minor and patch stay below 100 (`scripts/android-gradle.mjs`, tested).
+
+**The release key** was made on 27 Oct 2026. It is RSA 4096, alias `health`, PKCS12, valid 30 years. It lives outside the repo:
+- `%USERPROFILE%\.android\health-release\health-release.jks`, the keystore;
+- `%USERPROFILE%\.android\health-release\health-release.env`, with `HEALTH_KEYSTORE`, `HEALTH_KEYSTORE_PASSWORD`, `HEALTH_KEY_ALIAS` and `HEALTH_KEY_PASSWORD`.
+
+**Back both files up somewhere safe**, such as a password manager. Every update to an installed app must be signed with the same key. If the key is lost, the phone can only get a new install, and a new install starts with empty data unless you restore a backup. `*.jks` and `*.keystore` are ignored by git and Docker.
+
+**GitHub secrets** (Settings > Secrets and variables > Actions), set once from the files above:
+
+```bash
+base64 -w0 ~/.android/health-release/health-release.jks | gh secret set HEALTH_KEYSTORE_BASE64
+for k in HEALTH_KEYSTORE_PASSWORD HEALTH_KEY_ALIAS HEALTH_KEY_PASSWORD; do
+  grep "^$k=" ~/.android/health-release/health-release.env | cut -d= -f2- | tr -d '\r\n' | gh secret set $k
+done
+```
+
+**Local release** (the same build as CI): `npm run docker:release` writes `out/app-release.apk`. `npm run release:check -- --apk out/app-release.apk --device` checks it and installs it on the running emulator or phone. A release build has no WebView debugging, so the deeper checks (sync, database) are `npm run test:device` on a debug build of the same commit.
+
+First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.

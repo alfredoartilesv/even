@@ -22,3 +22,7 @@ ios/
 # Data exports to import (Garmin ZIP etc.): health data, never committed. Only the README is.
 imports/*
 !imports/README.md
+
+# Signing keys (the release key lives outside the repo: docs/dev-setup.md section 6)
+*.jks
+*.keystore
