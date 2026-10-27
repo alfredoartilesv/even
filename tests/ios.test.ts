@@ -52,6 +52,8 @@ test("the launch screen is the logo on the palette's --bg, light and dark", () =
   assert.equal(hex(set.colors[1].color), dark.bg);
   assert.throws(() => launchBackgroundColorset({ ...light, bg: "color-mix(in srgb, red, blue)" }, dark), /#rrggbb/);
 
+  assert.match(LAUNCH_STORYBOARD, /^<?xml [^>]*?>
+<document /, "ibtool needs <document> right after the declaration");
   assert.match(LAUNCH_STORYBOARD, /launchScreen="YES"/);
   assert.match(LAUNCH_STORYBOARD, /<color key="backgroundColor" name="LaunchBackground"\/>/);
   assert.match(LAUNCH_STORYBOARD, /image="Splash"/);

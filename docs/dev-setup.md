@@ -147,3 +147,25 @@ done
 **Local release** (the same build as CI): `npm run docker:release` writes `out/app-release.apk`. `npm run release:check -- --apk out/app-release.apk --device` checks it and installs it on the running emulator or phone. A release build has no WebView debugging, so the deeper checks (sync, database) are `npm run test:device` on a debug build of the same commit.
 
 First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.
+
+## 7. iOS
+
+iOS builds need macOS with Xcode, so on this Windows PC they run on GitHub's Macs: `.github/workflows/ios.yml` (macOS 15, the runner's default Xcode). It runs on demand (Actions > iOS > Run workflow, once the workflow is on `master`) and on PRs to `develop` or `master` that touch the native side (`package.json`, `capacitor.config.json`, `resources/`, `src/platform/`, the palette, the iOS scripts). The repo is private, so macOS minutes count 10x against the plan's allowance; pure web changes do not trigger it.
+
+The run:
+
+1. builds the web app, generates `ios/` with `npx cap add ios --packagemanager SPM` (Swift Package Manager, no CocoaPods; every plugin ships a `Package.swift`), applies `scripts/ios-harden.mjs` and syncs;
+2. compiles for the simulator (Debug) and for devices (Release, `generic/platform=iOS`, unsigned);
+3. runs `scripts/ios-sim.mjs` on an iPhone simulator with the newest iOS:
+   - fresh install, light mode: the app logs `app starting` with `native: true`, creates its database secret in the Keychain, opens the encrypted database and reaches the sync check, logs no error and is still running after 20 s;
+   - relaunch, Dark Mode: still no error, and the secret is not created again (the Keychain kept it);
+4. uploads `ios-simulator`: a screenshot per launch, the app logs, and `Even-simulator.app.zip` (drag it onto a booted simulator on any Mac to try the build).
+
+`ios-harden.mjs` does for `ios/` what `android-harden.mjs` does for `android/`: `MARKETING_VERSION` from `package.json` and `CURRENT_PROJECT_VERSION` equal to Android's `versionCode`, the name from `capacitor.config.json`, the app icon and launch logo from `resources/ios/`, and a launch screen with the logo on the palette's `--bg` (a `LaunchBackground` color with a Dark Mode value). `resources/ios/AppIcon-1024.png` (opaque, full bleed: iOS rounds it) and `Splash.png` (120 pt @3x) are rendered from `resources/logo.svg` by `npm run ios:icons` with Chrome or Edge; run it after changing the logo.
+
+On a Mac: `npm ci`, `npx cap add ios --packagemanager SPM`, `npm run ios:sync`, then `npx cap open ios` (Xcode) or `npx cap run ios`. To check a simulator build the way CI does: `node scripts/ios-sim.mjs --app <App.app>`.
+
+**Not yet on iOS:**
+- **Installing on an iPhone** needs signing with an Apple Developer account (99 USD a year), plus TestFlight or a registered device. The device build in CI is unsigned and proves only that it compiles.
+- **Google sign-in** is hidden on iOS (`googleSignInAvailable`) until there is an iOS OAuth client and its URL scheme in `Info.plist`.
+- **iCloud backup.** The database lives in the app's Library folder, which iOS backs up. It is SQLCipher-encrypted, but Android turns backups off entirely, so iOS should exclude it from backup too.
