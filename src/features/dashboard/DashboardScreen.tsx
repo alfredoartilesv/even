@@ -118,12 +118,14 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       return p.then((v) => (done({ span }), v));
     };
     const all = log.time("dashboard loaded", "info");
+    performance.mark("even:dashboard-query");
     const [d, p, m] = await Promise.all([
       timed("figures", loadDashboard(db, span, anchor, today())),
       loadProfile(db),
       span === "day" ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
     ]);
     all({ span, cached: Boolean(cached) });
+    performance.mark("even:dashboard-data");
     const fresh = { data: d, metrics: m, name: p.name };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);

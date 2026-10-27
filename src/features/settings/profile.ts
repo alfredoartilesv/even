@@ -59,7 +59,22 @@ export type Profile = z.infer<typeof profileSchema>;
 
 export const EMPTY_PROFILE: Profile = profileSchema.parse({});
 
-export async function loadProfile(db: SqlDriver): Promise<Profile> {
+/**
+ * Reads started while one is still running share it: at start-up the Dashboard and its profile
+ * picture both ask. Nothing is kept once it settles, so a read after a save sees the save.
+ */
+const reading = new WeakMap<SqlDriver, Promise<Profile>>();
+
+export function loadProfile(db: SqlDriver): Promise<Profile> {
+  let p = reading.get(db);
+  if (!p) {
+    p = readProfile(db).finally(() => reading.delete(db));
+    reading.set(db, p);
+  }
+  return p;
+}
+
+async function readProfile(db: SqlDriver): Promise<Profile> {
   const raw = await getSetting(db, PROFILE_KEY);
   if (!raw) return EMPTY_PROFILE;
   try {

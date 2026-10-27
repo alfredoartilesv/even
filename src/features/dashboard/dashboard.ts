@@ -6,7 +6,7 @@ import { getCalorieGoal, nutritionRange } from "../food/food";
 import { loadStock } from "../mealprep/mealPrep";
 import { spending } from "../mealprep/spending";
 import { listWorkouts } from "../me/workouts";
-import { metricDays } from "../metrics/queries";
+import { metricsDays } from "../metrics/queries";
 
 /**
  * The Dashboard's numbers for a day, a week (Monday start) or a calendar month: one row per day,
@@ -116,10 +116,8 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
   const range = spanRange(span, anchor);
   const from = range.from;
   const to = range.to > today ? today : range.to;
-  const [steps, burned, active, food, drinks, prep, workouts, stock, kcalGoal, stepGoal, notes, weight, groceries, currency] = await Promise.all([
-    metricDays(db, DASH_METRICS.steps, from, to),
-    metricDays(db, DASH_METRICS.burned, from, to),
-    metricDays(db, DASH_METRICS.active, from, to),
+  const [daily, food, drinks, prep, workouts, stock, kcalGoal, stepGoal, notes, weight, groceries, currency] = await Promise.all([
+    metricsDays(db, [DASH_METRICS.steps, DASH_METRICS.burned, DASH_METRICS.active], from, to),
     from <= to ? nutritionRange(db, from, to) : Promise.resolve([]),
     drinkKcalByDay(db, from, to),
     prepPortionsByDay(db, from, to),
@@ -132,6 +130,9 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     spending(db, from, to),
     getCurrency(db),
   ]);
+  const steps = daily.get(DASH_METRICS.steps)!;
+  const burned = daily.get(DASH_METRICS.burned)!;
+  const active = daily.get(DASH_METRICS.active)!;
   const foodBy = new Map(food.map((f) => [f.day, f]));
 
   const days: DashDay[] = [];

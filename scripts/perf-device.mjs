@@ -84,7 +84,8 @@ const START_TIMINGS = `(async () => {
   for (let i = 0; i < 1200 && performance.getEntriesByName("even:dashboard-ready").length === 0; i++) await new Promise((r) => setTimeout(r, 50));
   const mark = (n) => performance.getEntriesByName(n)[0]?.startTime ?? null;
   const fcp = performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint")?.startTime ?? null;
-  return { fcp, dbOpen: mark("even:db-open"), dashboard: mark("even:dashboard-ready"), heap: performance.memory?.usedJSHeapSize ?? null };
+  const marks = Object.fromEntries(performance.getEntriesByType("mark").filter((m) => m.name.startsWith("even:")).map((m) => [m.name.slice(5), Math.round(m.startTime)]));
+  return { fcp, dbOpen: mark("even:db-open"), dashboard: mark("even:dashboard-ready"), heap: performance.memory?.usedJSHeapSize ?? null, marks };
 })()`;
 
 /** Taps each tab in turn and times it until its title is on screen and a frame has been painted. */

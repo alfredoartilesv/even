@@ -23,9 +23,23 @@ export const MeScreen = lazy(() => load.me().then((m) => ({ default: m.MeScreen 
 export const JournalScreen = lazy(() => load.journal().then((m) => ({ default: m.JournalScreen })));
 export const LogsScreen = lazy(() => load.logs().then((m) => ({ default: m.LogsScreen })));
 
-/** Fetch the other screens when the phone is idle. Safe to call more than once. */
+/**
+ * Fetch the other screens once the Dashboard shows its first numbers (mark even:dashboard-ready),
+ * then when the phone is idle: parsing them earlier would compete with the Dashboard's own start.
+ */
 export function preloadScreens(): void {
   const run = () => Object.values(load).forEach((l) => void l());
-  if ("requestIdleCallback" in window) requestIdleCallback(run, { timeout: 2000 });
-  else setTimeout(run, 500);
+  const idle = () => ("requestIdleCallback" in window ? requestIdleCallback(run, { timeout: 2000 }) : setTimeout(run, 500));
+  if (performance.getEntriesByName("even:dashboard-ready").length) return void idle();
+  const seen = new PerformanceObserver((list) => {
+    if (!list.getEntries().some((e) => e.name === "even:dashboard-ready")) return;
+    seen.disconnect();
+    idle();
+  });
+  seen.observe({ type: "mark" });
+  // Started on another tab (the Dashboard never shown): still fetch them, a little later.
+  setTimeout(() => {
+    seen.disconnect();
+    idle();
+  }, 5000);
 }
