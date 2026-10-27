@@ -30,7 +30,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It reads the 
 | Account | Optional Google sign-in (Android Credential Manager via `@capgo/capacitor-social-login`, no Firebase). One owner per install: the first account to sign in owns the phone's data. See section 5b | Built 26 Oct 2026; needs the Google Cloud setup |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
 | Native projects | `android/` and `ios/` are generated (`npx cap add`) and git-ignored. Anything we change in them is a script (`scripts/android-harden.mjs`) | 25 Oct 2026 |
-| Builds and CI | Docker is the standard way to test and build (`Dockerfile`: Node from `.nvmrc`, Temurin 21, Android SDK 36, digests and checksum pinned); CI runs the same image. Development and the emulator stay native, because an emulator cannot run in Docker on Windows (docs/dev-setup.md section 4) | 27 Oct 2026 |
+| Builds and CI | Docker is the standard way to test and build (`Dockerfile`: Node from `.nvmrc`, Temurin 21, Android SDK 36, digests and checksum pinned); CI runs the same image. Development and the emulator stay native, because an emulator cannot run in Docker on Windows (docs/dev-setup.md section 4). PRs only test; merging `develop` into `master` builds the signed release, checks it on an emulator, tags `v<version>` and publishes the APK as a GitHub release (section 6 of dev-setup.md) | 27 Oct 2026 |
 
 ### Why these choices
 

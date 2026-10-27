@@ -9,10 +9,12 @@
  * - allowBackup="false" and fullBackupContent="false": no Google Drive backup, no adb backup.
  * - dataExtractionRules (Android 12+): allowBackup alone no longer stops device-to-device
  *   transfer, so exclude every domain from both cloud backup and device transfer.
- * - versionName from package.json, the version Settings > About shows.
+ * - versionName and versionCode from package.json, and the release signing config
+ *   (scripts/android-gradle.mjs).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { patchGradle, versionCode } from "./android-gradle.mjs";
 
 const main = join(import.meta.dirname, "../android/app/src/main");
 const manifestPath = join(main, "AndroidManifest.xml");
@@ -56,10 +58,9 @@ writeFileSync(manifestPath, manifest);
 
 console.log("Android backup disabled: allowBackup=false, fullBackupContent=false, data_extraction_rules excludes everything.");
 
-// The app version: package.json is the one source (Settings > About shows it), so the APK's
-// versionName follows it on every sync.
+// The app version (package.json is the one source; Settings > About shows it) and the release
+// signing config: scripts/android-gradle.mjs.
 const gradlePath = join(import.meta.dirname, "../android/app/build.gradle");
 const { version } = JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8"));
-const gradle = readFileSync(gradlePath, "utf8");
-writeFileSync(gradlePath, gradle.replace(/versionName\s+\S+/, `versionName "${version}"`));
-console.log(`Android versionName set to ${version}.`);
+writeFileSync(gradlePath, patchGradle(readFileSync(gradlePath, "utf8"), version));
+console.log(`Android version set to ${version} (versionCode ${versionCode(version)}); release signing reads HEALTH_KEYSTORE* from the environment.`);
