@@ -49,6 +49,9 @@ export function App() {
   useEffect(() => {
     openDatabase().then(
       async ({ db }) => {
+        // Timing builds only (scripts/perf-device.mjs); normal builds drop this branch and the module.
+        if (import.meta.env.VITE_PERF_SEED) await (await import("./perfSeed")).seedForPerf(db);
+        performance.mark("even:db-open");
         await applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
         void removeLegacySecrets(secretStore).catch((err) => log.warn("old secrets not removed", { err }));
         setDbStatus({ state: "ready", db });
