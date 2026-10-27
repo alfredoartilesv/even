@@ -55,13 +55,9 @@ export async function storeGarminImport(
   return written;
 }
 
-export async function importGarminZip(
-  db: SqlDriver,
-  bytes: Uint8Array,
-  opts: { timeZone: string; nowMs?: number; onProgress?: (saved: number, total: number) => void },
-): Promise<{ written: number; parsed: GarminImport }> {
+export async function importGarminZip(db: SqlDriver, bytes: Uint8Array, opts: { timeZone: string; nowMs?: number }): Promise<{ written: number; parsed: GarminImport }> {
   const parsed = parseGarminExport(readGarminZip(bytes), { timeZone: opts.timeZone });
-  const written = await storeGarminImport(db, parsed, opts.nowMs, opts.onProgress);
+  const written = await storeGarminImport(db, parsed, opts.nowMs);
   return { written, parsed };
 }
 

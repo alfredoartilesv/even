@@ -139,3 +139,9 @@ test("chat messages need an existing conversation (foreign keys on)", async () =
   await db.run(msg, ["m1", "c1", 0, NOW, NOW]);
   await assert.rejects(db.run(msg, ["m2", "c1", 0, NOW, NOW]), /UNIQUE/);
 });
+
+test("one day's metrics are found by the day index, not by reading every sample", async () => {
+  const { raw } = await migratedDb();
+  const plan = raw.prepare("EXPLAIN QUERY PLAN SELECT * FROM daily_metric_values WHERE local_day = ?").all("2026-10-27").map((r) => String((r as { detail: string }).detail));
+  assert.ok(plan.some((d) => /SEARCH h USING INDEX idx_health_samples_day_metric \(local_day=\?\)/.test(d)), plan.join("\n"));
+});

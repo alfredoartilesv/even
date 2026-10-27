@@ -7,8 +7,12 @@ import { createLogger } from "../../core/log";
 const log = createLogger("metrics");
 
 const COLUMNS = 15;
-/** Rows per INSERT: one bridge call per row made a 40,000-reading Garmin export take minutes on the phone. 60 x 15 stays under SQLite's 999 parameters. */
-export const ROWS_PER_INSERT = 60;
+/**
+ * Rows per INSERT: one bridge call per row made a 40,000-reading Garmin export take minutes on the
+ * phone. 400 x 15 = 6,000 parameters, under the 32,766 SQLite allows since 3.32 (the app's
+ * SQLCipher 4 builds on a newer SQLite on Android and iOS).
+ */
+export const ROWS_PER_INSERT = 400;
 
 const upsert = (rows: number) => `
 INSERT INTO health_samples
