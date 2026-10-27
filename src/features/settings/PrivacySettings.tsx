@@ -3,7 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { deviceId } from "../../db/settings";
 import { backupFileName, saveBackupFile } from "../../platform/files";
 import { failed, fmtDay, MsgLine, plural, today, timeZone, type Msg } from "../../ui/common";
-import { StatusBadge, Switch } from "../../ui/controls";
+import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { localDay } from "../../core/tz";
 import { exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../backup/backup";
 import { ALL_SCOPES, consentStatus, CONSENT_TEXT, recordConsent, type ConsentScope } from "../chat/consent";
@@ -225,11 +225,11 @@ function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBa
         <form onSubmit={doExport} className="stack">
           <label>
             Backup password
-            <input type="password" value={exportPw} onChange={(e) => setExportPw(e.target.value)} minLength={8} required autoComplete="new-password" />
+            <SecretInput value={exportPw} onChange={setExportPw} minLength={8} required autoComplete="new-password" />
           </label>
           <label>
             Repeat password
-            <input type="password" value={exportPw2} onChange={(e) => setExportPw2(e.target.value)} minLength={8} required autoComplete="new-password" />
+            <SecretInput value={exportPw2} onChange={setExportPw2} minLength={8} required autoComplete="new-password" />
           </label>
           <button type="submit" disabled={busy}>
             Create backup
@@ -250,7 +250,7 @@ function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBa
           </label>
           <label>
             Password
-            <input type="password" value={restorePw} onChange={(e) => setRestorePw(e.target.value)} required autoComplete="off" />
+            <SecretInput value={restorePw} onChange={setRestorePw} required autoComplete="off" />
           </label>
           <button type="submit" className="secondary" disabled={busy || !restoreFile}>
             Restore
