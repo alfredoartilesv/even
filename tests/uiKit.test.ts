@@ -62,10 +62,20 @@ test("defrost timeline: one row per day, late defrosts and waste on the right da
   };
   const days = timelineDays(plan, "2026-10-26");
   assert.equal(days.length, 7);
-  assert.deepEqual(days[0].takeOut.map((t) => t.name), ["Chili"], "late advice shows today");
-  assert.deepEqual(days[2].takeOut.map((t) => t.name), ["Curry"]);
+  assert.deepEqual(
+    days[0].takeOut.map((t) => t.name),
+    ["Chili"],
+    "late advice shows today",
+  );
+  assert.deepEqual(
+    days[2].takeOut.map((t) => t.name),
+    ["Curry"],
+  );
   assert.deepEqual(days[1].expiring, [{ name: "Rice", portions: 1 }]);
-  assert.deepEqual(days.map((d) => d.state), ["covered", "covered", "covered", "covered", "covered", "short", "covered"]);
+  assert.deepEqual(
+    days.map((d) => d.state),
+    ["covered", "covered", "covered", "covered", "covered", "short", "covered"],
+  );
   assert.equal(daysCovered(plan, "2026-10-26"), 5);
   assert.equal(daysCovered({ coveredThrough: null }, "2026-10-26"), 0);
 
@@ -84,7 +94,16 @@ test("charts: accessible name, table toggle, empty state, target in words", () =
   assert.match(line, />Table</, "every chart has its table view");
   assert.doesNotMatch(line, /viz-legend/, "one series: the title names it, no legend box");
 
-  const multi = render(h(LineChart, { title: "Sleep", x, series: [{ id: "a", label: "Deep", values: [1, 2, 3] }, { id: "b", label: "REM", values: [2, 1, 2], slot: 4 }] }));
+  const multi = render(
+    h(LineChart, {
+      title: "Sleep",
+      x,
+      series: [
+        { id: "a", label: "Deep", values: [1, 2, 3] },
+        { id: "b", label: "REM", values: [2, 1, 2], slot: 4 },
+      ],
+    }),
+  );
   assert.match(multi, /viz-legend/);
   assert.match(multi, /var\(--series-4\)/, "an explicit slot keeps its color");
 

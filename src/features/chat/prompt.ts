@@ -42,9 +42,7 @@ Give insights about patterns and practical suggestions, not diagnoses. You are n
 Answer in the language the owner writes in, use metric units, and keep answers short unless they ask for detail.`;
 
 export function dateContext(nowMs: number, timeZone: string): string {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
-    new Date(nowMs),
-  );
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(nowMs));
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(new Date(nowMs));
   const time = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(nowMs));
   return `Now: ${weekday} ${today}, ${time} (time zone ${timeZone}).`;

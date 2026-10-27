@@ -20,9 +20,42 @@ test("real migrations apply through the plugin driver, using plugin transactions
   const db = capacitorDriver(conn);
   const all = realMigrations();
   const applied = await migrate(db, all);
-  assert.deepEqual(applied, all.map((_, i) => i + 1));
-  assert.deepEqual(tables(raw), ["account", "agent_actions", "ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "drink_types", "food_entries", "food_photos", "goals", "health_samples", "manual_measurements", "meal_prep_batches", "meal_prep_ingredients", "meal_prep_moves", "meal_prep_tags", "meal_preps", "metric_catalog", "saved_meals", "shopping_list_items", "shopping_trips", "sync_runs", "sync_state"]);
-  assert.deepEqual(calls, Array(all.length).fill(["begin", "execute:false", "execute:false", "commit"]).flat());
+  assert.deepEqual(
+    applied,
+    all.map((_, i) => i + 1),
+  );
+  assert.deepEqual(tables(raw), [
+    "account",
+    "agent_actions",
+    "ai_disclosures",
+    "app_settings",
+    "chat_conversations",
+    "chat_messages",
+    "consents",
+    "day_notes",
+    "drink_entries",
+    "drink_types",
+    "food_entries",
+    "food_photos",
+    "goals",
+    "health_samples",
+    "manual_measurements",
+    "meal_prep_batches",
+    "meal_prep_ingredients",
+    "meal_prep_moves",
+    "meal_prep_tags",
+    "meal_preps",
+    "metric_catalog",
+    "saved_meals",
+    "shopping_list_items",
+    "shopping_trips",
+    "sync_runs",
+    "sync_state",
+  ]);
+  assert.deepEqual(
+    calls,
+    all.flatMap(() => ["begin", "execute:false", "execute:false", "commit"]),
+  );
   assert.deepEqual(await migrate(db, realMigrations()), []);
 });
 

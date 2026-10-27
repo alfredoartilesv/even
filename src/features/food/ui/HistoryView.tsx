@@ -61,7 +61,14 @@ export function HistoryView({ db, version, onChanged }: Props) {
   return (
     <div>
       <div className="row">
-        <button className="secondary" aria-label="Previous week" onClick={() => { setWeekEnd(addDays(weekEnd, -7)); setDay(addDays(day, -7)); }}>
+        <button
+          className="secondary"
+          aria-label="Previous week"
+          onClick={() => {
+            setWeekEnd(addDays(weekEnd, -7));
+            setDay(addDays(day, -7));
+          }}
+        >
           ‹
         </button>
         <span className="small">

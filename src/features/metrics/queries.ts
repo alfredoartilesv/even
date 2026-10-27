@@ -135,16 +135,31 @@ export async function dayValues(db: SqlDriver, day: string): Promise<DayValue[]>
  * devices on one day: the one with most readings. summed: the metric is an amount (steps, kcal).
  */
 export async function metricDays(db: SqlDriver, metric: string, from: string, to: string): Promise<{ values: Map<string, number>; summed: boolean }> {
-  const rows = await db.all<{ day: string; v: number; agg: string | null; readings: number }>(
-    `SELECT d.local_day AS day, d.readings,
+  return (await metricsDays(db, [metric], from, to)).get(metric)!;
+}
+
+/** metricDays for several metrics in one query: the Dashboard reads three at start-up, and each query is a call to the native plugin. */
+export async function metricsDays(
+  db: SqlDriver,
+  metrics: string[],
+  from: string,
+  to: string,
+): Promise<Map<string, { values: Map<string, number>; summed: boolean }>> {
+  const rows = await db.all<{ metric: string; day: string; v: number; agg: string | null; readings: number }>(
+    `SELECT d.metric, d.local_day AS day, d.readings,
             CASE COALESCE(c.daily_agg, 'avg') WHEN 'sum' THEN d.sum_num WHEN 'min' THEN d.min_num WHEN 'max' THEN d.max_num
                  WHEN 'last' THEN d.last_num ELSE d.avg_num END AS v, c.daily_agg AS agg
      FROM daily_metric_values d LEFT JOIN metric_catalog c ON c.source = d.source AND c.metric = d.metric
-     WHERE d.metric = ? AND d.local_day BETWEEN ? AND ?
-     ORDER BY d.local_day, d.readings DESC`,
-    [metric, from, to],
+     WHERE d.metric IN (${metrics.map(() => "?").join(", ")}) AND d.local_day BETWEEN ? AND ?
+     ORDER BY d.metric, d.local_day, d.readings DESC`,
+    [...metrics, from, to],
   );
-  const values = new Map<string, number>();
-  for (const r of rows) if (!values.has(r.day)) values.set(r.day, r.v);
-  return { values, summed: rows.some((r) => r.agg === "sum") };
+  const out = new Map(metrics.map((m) => [m, { values: new Map<string, number>(), summed: false }]));
+  for (const r of rows) {
+    const m = out.get(r.metric)!;
+    // The row with the most readings wins a day (rows are sorted that way).
+    if (!m.values.has(r.day)) m.values.set(r.day, r.v);
+    if (r.agg === "sum") m.summed = true;
+  }
+  return out;
 }

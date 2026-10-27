@@ -39,3 +39,35 @@ export interface Source {
   readonly id: string;
   fetchSince(cursor: string | null): Promise<SyncResult>;
 }
+
+/** When a numeric sample happened: its start and end, and the UTC offset of its day. */
+export interface SampleTime {
+  startMs: number;
+  endMs: number;
+  offsetMin: number;
+}
+
+/**
+ * Collects numeric samples from one source and device (the Garmin sync and the Garmin export
+ * build theirs this way). add() skips a missing value and returns how many it added, 0 or 1,
+ * so callers can count what a file or endpoint gave.
+ */
+export function sampleCollector(source: string, device: string) {
+  const samples: SampleInput[] = [];
+  const add = (metric: string, value: number | null, unit: string | null, at: SampleTime, externalId: string) => {
+    if (value === null) return 0;
+    samples.push({
+      source,
+      device,
+      externalId,
+      metric,
+      startMs: at.startMs,
+      endMs: at.endMs,
+      offsetMin: at.offsetMin,
+      valueNum: value,
+      ...(unit ? { unit } : {}),
+    });
+    return 1;
+  };
+  return { samples, add };
+}

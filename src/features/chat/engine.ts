@@ -136,11 +136,18 @@ export function toChatError(err: unknown): ChatApiError {
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
     return new ChatApiError("auth", "Claude rejected the API key. Check it in Settings.", false, err.status);
   }
-  if (err instanceof Anthropic.RateLimitError) return new ChatApiError("rate_limit", "Claude is rate-limiting this key. Wait a moment and try again.", true, 429);
+  if (err instanceof Anthropic.RateLimitError)
+    return new ChatApiError("rate_limit", "Claude is rate-limiting this key. Wait a moment and try again.", true, 429);
   if (err instanceof Anthropic.BadRequestError) {
     const detail = apiDetail(err);
     if (/credit balance|billing|purchase credits/i.test(detail)) {
-      return new ChatApiError("billing", "Your Anthropic account is out of credits, so Claude can't answer. Add credits in the Anthropic Console, then try again.", true, 400, detail);
+      return new ChatApiError(
+        "billing",
+        "Your Anthropic account is out of credits, so Claude can't answer. Add credits in the Anthropic Console, then try again.",
+        true,
+        400,
+        detail,
+      );
     }
     return new ChatApiError("bad_request", "Claude couldn't process this message. Try rewording it or starting a new chat.", false, 400, detail);
   }
@@ -340,13 +347,7 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
 }
 
 /** Run every tool call of one reply and return all results in a single user message (parallel calls stay parallel). */
-async function answerToolCalls(
-  deps: ChatDeps,
-  conversationId: string,
-  toolUses: ToolUseBlock[],
-  report: ToolCallReport[],
-  actions: ActionReport[],
-) {
+async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses: ToolUseBlock[], report: ToolCallReport[], actions: ActionReport[]) {
   const now = deps.now ?? Date.now;
   const timeZone = deps.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const results: ToolResultBlockParam[] = [];
@@ -405,7 +406,9 @@ async function answerToolCalls(
     const scope = SCOPE_FOR[tool.dataClass];
     if (!(await consentFor(deps, scope))) {
       chatLog.info("tool blocked: no consent", { tool: call.name, scope });
-      results.push(error(call.id, `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`));
+      results.push(
+        error(call.id, `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`),
+      );
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: false });
       continue;
     }

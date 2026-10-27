@@ -110,10 +110,7 @@ export async function exportBackup(
     if (columns.length === 0) continue; // not in this schema version yet
     const rows: SqlValue[][] = [];
     for (let offset = 0; ; offset += PAGE) {
-      const page = await db.all<Record<string, SqlValue>>(
-        `SELECT * FROM ${t.name} ORDER BY rowid LIMIT ? OFFSET ?`,
-        [PAGE, offset],
-      );
+      const page = await db.all<Record<string, SqlValue>>(`SELECT * FROM ${t.name} ORDER BY rowid LIMIT ? OFFSET ?`, [PAGE, offset]);
       for (const r of page) rows.push(columns.map((c) => r[c] ?? null));
       if (page.length < PAGE) break;
     }
@@ -169,11 +166,7 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
   let payload: Payload;
   try {
     const key = await deriveKey(password, fromB64(header.kdf.salt), header.kdf.iterations);
-    const plain = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: fromB64(header.cipher.iv), additionalData: aad(header) },
-      key,
-      fromB64(data),
-    );
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(header.cipher.iv), additionalData: aad(header) }, key, fromB64(data));
     payload = payloadSchema.parse(JSON.parse(new TextDecoder().decode(await gunzip(new Uint8Array(plain)))));
   } catch {
     log.warn("restore refused: wrong password or damaged file");
@@ -243,10 +236,7 @@ async function restoreTable(db: SqlDriver, t: BackupTable, fileColumns: string[]
   const tuple = `(${cols.map(() => "?").join(", ")})`;
   for (let i = 0; i < selected.length; i += perBatch) {
     const batch = selected.slice(i, i + perBatch);
-    await db.run(
-      `INSERT INTO ${t.name} (${cols.join(", ")}) VALUES ${batch.map(() => tuple).join(", ")} ${onConflict}`,
-      batch.flat(),
-    );
+    await db.run(`INSERT INTO ${t.name} (${cols.join(", ")}) VALUES ${batch.map(() => tuple).join(", ")} ${onConflict}`, batch.flat());
   }
   return selected.length;
 }
@@ -264,13 +254,10 @@ async function schemaVersion(db: SqlDriver): Promise<number> {
 
 async function deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
   const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    { name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations },
-    base,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
+  return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations }, base, { name: "AES-GCM", length: 256 }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 function aad(header: object): Uint8Array<ArrayBuffer> {

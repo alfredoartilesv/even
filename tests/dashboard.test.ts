@@ -7,6 +7,7 @@ import { logFood, setCalorieGoal } from "../src/features/food/food";
 import { insertGoal } from "../src/features/journal/journal";
 import { upsertCatalog } from "../src/features/metrics/catalog";
 import { upsertSamples } from "../src/features/metrics/samples";
+import { metricDays, metricsDays } from "../src/features/metrics/queries";
 import type { SampleInput } from "../src/features/sync/types";
 import { migratedDb } from "./helpers";
 
@@ -52,8 +53,26 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
     daily("daily_activeKilocalories", "2026-10-21", 600),
     daily("daily_steps", TODAY, 3000),
   ]);
-  await logFood(db, { name: "Lunch", meal: "lunch", calories: 900, proteinG: 60, carbsG: null, fatG: null, atMs: midnight("2026-10-20") + 13 * 3_600_000, timeZone: TZ });
-  await logFood(db, { name: "Dinner", meal: "dinner", calories: 1100, proteinG: 40, carbsG: null, fatG: null, atMs: midnight("2026-10-20") + 20 * 3_600_000, timeZone: TZ });
+  await logFood(db, {
+    name: "Lunch",
+    meal: "lunch",
+    calories: 900,
+    proteinG: 60,
+    carbsG: null,
+    fatG: null,
+    atMs: midnight("2026-10-20") + 13 * 3_600_000,
+    timeZone: TZ,
+  });
+  await logFood(db, {
+    name: "Dinner",
+    meal: "dinner",
+    calories: 1100,
+    proteinG: 40,
+    carbsG: null,
+    fatG: null,
+    atMs: midnight("2026-10-20") + 20 * 3_600_000,
+    timeZone: TZ,
+  });
   await logDrink(db, { name: "Beer", volumeMl: 330, abvPercent: 5, calories: 150, count: 2, atMs: midnight("2026-10-21") + 21 * 3_600_000, timeZone: TZ });
 
   const week = await loadDashboard(db, "week", "2026-10-22", TODAY);
@@ -74,8 +93,35 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   // The live calorie target and steps goal, for the rings.
   await setCalorieGoal(db, 2300, "2026-10-01", 1);
   const stamp = { createdBy: "user" as const, deviceId: "dev" };
-  await insertGoal(db, { title: "8,000 steps", targetKind: "sample", metric: "daily_steps", comparator: ">=", targetNum: 8000, unit: "steps", period: "day", startDay: "2026-09-01", endDay: "2026-09-30" }, stamp);
-  await insertGoal(db, { title: "10,000 steps", targetKind: "sample", metric: "daily_steps", comparator: ">=", targetNum: 10000, unit: "steps", period: "day", startDay: "2026-10-01" }, stamp);
+  await insertGoal(
+    db,
+    {
+      title: "8,000 steps",
+      targetKind: "sample",
+      metric: "daily_steps",
+      comparator: ">=",
+      targetNum: 8000,
+      unit: "steps",
+      period: "day",
+      startDay: "2026-09-01",
+      endDay: "2026-09-30",
+    },
+    stamp,
+  );
+  await insertGoal(
+    db,
+    {
+      title: "10,000 steps",
+      targetKind: "sample",
+      metric: "daily_steps",
+      comparator: ">=",
+      targetNum: 10000,
+      unit: "steps",
+      period: "day",
+      startDay: "2026-10-01",
+    },
+    stamp,
+  );
   assert.deepEqual((await loadDashboard(db, "week", "2026-10-22", TODAY)).targets, { kcal: 2300, steps: 10000 });
 
   // The current week stops at today.
@@ -84,7 +130,12 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.equal(now.steps.total, 3000);
 
   // A workout synced by both Garmin and (before the switch) freddy is one session.
-  const run = (source: string, metric: string, v: { valueNum?: number; valueText?: string }): SampleInput => ({ ...daily(metric, "2026-10-22", 0), source, valueNum: null, ...v });
+  const run = (source: string, metric: string, v: { valueNum?: number; valueText?: string }): SampleInput => ({
+    ...daily(metric, "2026-10-22", 0),
+    source,
+    valueNum: undefined,
+    ...v,
+  });
   await upsertSamples(db, [
     run("garmin", "activity_activityType", { valueText: "RUNNING" }),
     run("garmin", "activity_durationInSeconds", { valueNum: 1800 }),
@@ -123,4 +174,27 @@ test("overlapping loads: only the newest answer is applied, whatever order they 
   assert.deepEqual(shown, ["day"]);
   await load("week", 1);
   assert.deepEqual(shown, ["day", "week"]);
+});
+
+test("the Dashboard's three daily metrics come from one query, each as metricDays would give it", async () => {
+  const { db } = await migratedDb();
+  await upsertSamples(
+    db,
+    [daily("daily_steps", "2026-10-21", 9000), daily("daily_steps", "2026-10-22", 11000), daily("daily_totalKilocalories", "2026-10-22", 2500)],
+    1,
+  );
+  let queries = 0;
+  const counting = { ...db, all: <T>(sql: string, params?: (string | number | null)[]) => (queries++, db.all<T>(sql, params)) };
+  const both = await metricsDays(counting, ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories"], "2026-10-20", "2026-10-22");
+  assert.equal(queries, 1);
+  for (const m of ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories"])
+    assert.deepEqual(both.get(m), await metricDays(db, m, "2026-10-20", "2026-10-22"), m);
+  assert.deepEqual(
+    [...both.get("daily_steps")!.values],
+    [
+      ["2026-10-21", 9000],
+      ["2026-10-22", 11000],
+    ],
+  );
+  assert.equal(both.get("daily_activeKilocalories")!.values.size, 0);
 });

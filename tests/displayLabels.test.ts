@@ -10,15 +10,42 @@ import { migratedDb } from "./helpers";
 
 /** Day metrics the Garmin API sync and the export import write (see src/features/import/garmin.ts). */
 const GARMIN_METRICS = [
-  "daily_steps", "daily_distanceInMeters", "daily_totalKilocalories", "daily_activeKilocalories", "daily_bmrKilocalories",
-  "daily_restingHeartRateInBeatsPerMinute", "daily_minHeartRateInBeatsPerMinute", "daily_maxHeartRateInBeatsPerMinute",
-  "daily_moderateIntensityDurationInSeconds", "daily_vigorousIntensityDurationInSeconds", "daily_activeDurationInSeconds",
-  "daily_highlyActiveDurationInSeconds", "daily_averageStressLevel", "daily_maxStressLevel", "daily_stressDurationInSeconds",
-  "daily_restStressDurationInSeconds", "dailyBodyBattery_highestValue", "dailyBodyBattery_lowestValue", "dailyBodyBattery_chargedValue",
-  "dailyBodyBattery_drainedValue", "pulseOx_averageSpO2", "pulseOx_lowestSpO2", "respiration_avgWakingBreathsPerMinute",
-  "sleep_durationInSeconds", "sleep_deepDurationInSeconds", "sleep_lightDurationInSeconds", "sleep_remDurationInSeconds",
-  "sleep_awakeDurationInSeconds", "sleep_averageSpO2", "sleep_averageHeartRateInBeatsPerMinute", "sleep_averageRespiration",
-  "body_weightInGrams", "userMetrics_vo2Max", "userMetrics_vo2MaxRunning", "userMetrics_vo2MaxWalking", "userMetrics_fitnessAge",
+  "daily_steps",
+  "daily_distanceInMeters",
+  "daily_totalKilocalories",
+  "daily_activeKilocalories",
+  "daily_bmrKilocalories",
+  "daily_restingHeartRateInBeatsPerMinute",
+  "daily_minHeartRateInBeatsPerMinute",
+  "daily_maxHeartRateInBeatsPerMinute",
+  "daily_moderateIntensityDurationInSeconds",
+  "daily_vigorousIntensityDurationInSeconds",
+  "daily_activeDurationInSeconds",
+  "daily_highlyActiveDurationInSeconds",
+  "daily_averageStressLevel",
+  "daily_maxStressLevel",
+  "daily_stressDurationInSeconds",
+  "daily_restStressDurationInSeconds",
+  "dailyBodyBattery_highestValue",
+  "dailyBodyBattery_lowestValue",
+  "dailyBodyBattery_chargedValue",
+  "dailyBodyBattery_drainedValue",
+  "pulseOx_averageSpO2",
+  "pulseOx_lowestSpO2",
+  "respiration_avgWakingBreathsPerMinute",
+  "sleep_durationInSeconds",
+  "sleep_deepDurationInSeconds",
+  "sleep_lightDurationInSeconds",
+  "sleep_remDurationInSeconds",
+  "sleep_awakeDurationInSeconds",
+  "sleep_averageSpO2",
+  "sleep_averageHeartRateInBeatsPerMinute",
+  "sleep_averageRespiration",
+  "body_weightInGrams",
+  "userMetrics_vo2Max",
+  "userMetrics_vo2MaxRunning",
+  "userMetrics_vo2MaxWalking",
+  "userMetrics_fitnessAge",
 ];
 
 test("synced metric names read as plain English with usable units", () => {
@@ -53,7 +80,12 @@ test("rows without a catalog entry group by the name-based category, not all und
 test("a failed first question carries its conversation, so a new chat can Try again", async () => {
   const { db } = await migratedDb();
   await recordConsent(db, "claude.aggregates", true, "dev");
-  const billing = new Anthropic.BadRequestError(400, { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } }, "x", new Headers());
+  const billing = new Anthropic.BadRequestError(
+    400,
+    { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." } },
+    "x",
+    new Headers(),
+  );
   const err = await startConversation({ db, deviceId: "dev", create: async () => Promise.reject(billing) }, "How did I sleep?").catch((e) => e);
   assert.ok(err instanceof ChatApiError);
   assert.equal(err.kind, "billing");
@@ -68,7 +100,13 @@ test("pace per km", () => {
 });
 
 test("an out-of-credits 400 becomes a billing error with a plain message and the API detail kept apart", () => {
-  const body = { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits." } };
+  const body = {
+    type: "error",
+    error: {
+      type: "invalid_request_error",
+      message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+    },
+  };
   const e = toChatError(new Anthropic.BadRequestError(400, body, "x", new Headers({ "request-id": "req_123" })));
   assert.equal(e.kind, "billing");
   assert.doesNotMatch(e.message, /\{|invalid_request_error/);

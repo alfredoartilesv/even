@@ -8,7 +8,10 @@ import { join } from "node:path";
 const root = join(import.meta.dirname, "..");
 const read = (f: string) => readFileSync(join(root, f), "utf8").replace(/\r\n/g, "\n");
 const dockerfile = read("Dockerfile");
-const ignore = read(".dockerignore").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const ignore = read(".dockerignore")
+  .split("\n")
+  .map((l) => l.trim())
+  .filter((l) => l && !l.startsWith("#"));
 const arg = (name: string) => new RegExp(`^ARG ${name}=(.+)$`, "m").exec(dockerfile)?.[1];
 
 test("secrets and health data never enter the Docker build context", () => {
@@ -44,12 +47,20 @@ test("the Android SDK download is checksum-verified and the SDK packages match t
   for (const pkg of ['"platforms;android-36"', '"build-tools;35.0.0"', '"build-tools;36.0.0"']) assert.ok(dockerfile.includes(pkg), pkg);
 });
 
-test("stages and npm scripts: test runs typecheck and tests, apk exports only the APK", () => {
+test("stages and npm scripts: test runs the health checks (format, lint, types, duplicates, tests), apk exports only the APK", () => {
   for (const stage of ["deps", "test", "android", "apk"]) assert.match(dockerfile, new RegExp(`^FROM .+ AS ${stage}$`, "m"), `stage ${stage}`);
-  assert.match(dockerfile, /npm run typecheck && npm test/);
+  assert.match(dockerfile, /RUN npm run health && npx vite build/);
+  const health = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts.health as string;
+  for (const step of ["format:check", "lint", "typecheck", "dupes", "test"])
+    assert.ok(health.includes(`npm run ${step}`) || health.includes(`npm ${step}`), step);
   assert.match(dockerfile, /FROM scratch AS apk\nCOPY --from=android \S+app-debug\.apk/);
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
   assert.equal(scripts["docker:test"], "docker build --target test .");
   assert.equal(scripts["docker:apk"], "docker build --target apk --output out .");
-  assert.ok(read(".gitignore").split("\n").some((l) => l.trim() === "out/" || l.trim() === "out"), "out/ (the exported APK) is git-ignored");
+  assert.ok(
+    read(".gitignore")
+      .split("\n")
+      .some((l) => l.trim() === "out/" || l.trim() === "out"),
+    "out/ (the exported APK) is git-ignored",
+  );
 });

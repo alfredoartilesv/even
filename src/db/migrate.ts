@@ -50,7 +50,7 @@ export async function migrate(db: SqlDriver, migrations: Migration[]): Promise<n
     } catch (err) {
       await db.exec("ROLLBACK");
       log.error("migration failed, rolled back", { version: m.version, name: m.name, err });
-      throw new Error(`Migration ${m.version}_${m.name} failed: ${(err as Error).message}`);
+      throw new Error(`Migration ${m.version}_${m.name} failed: ${(err as Error).message}`, { cause: err });
     }
     current = m.version;
     applied.push(m.version);

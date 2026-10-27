@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { configureLogging, consoleSink, createLogger, enabled, format, getLogLevel, isLevel, ringBuffer, sanitize, setLogLevel, type LogRecord } from "../src/core/log";
+import {
+  configureLogging,
+  consoleSink,
+  createLogger,
+  enabled,
+  format,
+  getLogLevel,
+  isLevel,
+  ringBuffer,
+  sanitize,
+  setLogLevel,
+  type LogRecord,
+} from "../src/core/log";
 
 function capture() {
   const records: LogRecord[] = [];
@@ -21,7 +33,10 @@ test("levels filter, scopes override by prefix", () => {
   createLogger("sync.garmin").debug("shown too");
   createLogger("synchro").debug("hidden: not a child of sync");
   createLogger("chat").error("hidden: silent");
-  assert.deepEqual(records.map((r) => `${r.scope}:${r.msg}`), ["db:shown", "sync.garmin:shown too"]);
+  assert.deepEqual(
+    records.map((r) => `${r.scope}:${r.msg}`),
+    ["db:shown", "sync.garmin:shown too"],
+  );
   assert.equal(getLogLevel(), "info");
   assert.equal(enabled("sync.garmin.http", "debug"), true);
   assert.throws(() => setLogLevel("loud" as never), /Unknown/);
@@ -56,14 +71,31 @@ test("child scopes, timers and the ring buffer", () => {
   assert.equal(format(records[0]), '00:00:01.042 INFO  backup.restore: restore finished {"tables":3,"ms":42}');
 
   const ring = ringBuffer(2);
-  configureLogging({ sinks: [ring.sink, () => { throw new Error("broken sink"); }] });
+  configureLogging({
+    sinks: [
+      ring.sink,
+      () => {
+        throw new Error("broken sink");
+      },
+    ],
+  });
   for (const m of ["a", "b", "c"]) createLogger("x").warn(m);
-  assert.deepEqual(ring.records().map((r) => r.msg), ["b", "c"], "keeps the newest, a broken sink does not stop the others");
+  assert.deepEqual(
+    ring.records().map((r) => r.msg),
+    ["b", "c"],
+    "keeps the newest, a broken sink does not stop the others",
+  );
   ring.clear();
   assert.deepEqual(ring.records(), []);
 });
 
 test("validation errors are summarised as path: message", () => {
-  const err = Object.assign(new Error('[{"code":"too_big", ...}]'), { name: "ZodError", issues: [{ path: ["entries", 0, "calories"], message: "Too big" }, { path: [], message: "Required" }] });
+  const err = Object.assign(new Error('[{"code":"too_big", ...}]'), {
+    name: "ZodError",
+    issues: [
+      { path: ["entries", 0, "calories"], message: "Too big" },
+      { path: [], message: "Required" },
+    ],
+  });
   assert.deepEqual(sanitize({ err }).err, { name: "ZodError", message: "entries.0.calories: Too big; input: Required" });
 });

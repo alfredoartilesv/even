@@ -26,7 +26,9 @@ Done and tested (`npm test`, all against Node's SQLite and a fake that copies th
 ```bash
 npm install
 npm test
-npm run docker:test       # the standard check before a PR: typecheck + tests in the pinned Linux toolchain (CI runs the same)
+npm run health            # format, lint, types (app, tests, scripts), duplicated code, tests: run before a PR
+npm run format            # Prettier
+npm run docker:test       # the same health checks in the pinned Linux toolchain (CI runs this)
 npm run docker:apk        # debug APK into out/app-debug.apk, no local Android SDK needed
 npm run docker:release    # signed, checked release APK into out/app-release.apk (release key outside the repo)
 npm run build

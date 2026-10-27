@@ -16,7 +16,21 @@ export interface Choice<T extends string> {
  * Title row: an optional back button ("‹ Dashboard") or leading element (the profile picture),
  * the title with an optional line under it, and actions on the right (sync, History, New).
  */
-export function PageHeader({ title, subtitle, leading, actions, onBack, backLabel = "Back" }: { title: string; subtitle?: string; leading?: ReactNode; actions?: ReactNode; onBack?: () => void; backLabel?: string }) {
+export function PageHeader({
+  title,
+  subtitle,
+  leading,
+  actions,
+  onBack,
+  backLabel = "Back",
+}: {
+  title: string;
+  subtitle?: string;
+  leading?: ReactNode;
+  actions?: ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
+}) {
   return (
     <header className="topbar">
       {onBack && (
@@ -65,7 +79,13 @@ export function SubTabs<T extends string>({ items, value, onChange, label }: { i
   return (
     <nav ref={ref} className="tabs sub" aria-label={label}>
       {items.map((it) => (
-        <button key={it.id} type="button" className={value === it.id ? "active" : ""} aria-current={value === it.id ? "page" : undefined} onClick={() => onChange(it.id)}>
+        <button
+          key={it.id}
+          type="button"
+          className={value === it.id ? "active" : ""}
+          aria-current={value === it.id ? "page" : undefined}
+          onClick={() => onChange(it.id)}
+        >
           {it.label}
         </button>
       ))}
@@ -78,7 +98,14 @@ export function Segmented<T extends string>({ items, value, onChange, label }: {
   return (
     <div className="segmented" role="radiogroup" aria-label={label}>
       {items.map((it) => (
-        <button key={it.id} type="button" role="radio" aria-checked={value === it.id} className={value === it.id ? "active" : ""} onClick={() => onChange(it.id)}>
+        <button
+          key={it.id}
+          type="button"
+          role="radio"
+          aria-checked={value === it.id}
+          className={value === it.id ? "active" : ""}
+          onClick={() => onChange(it.id)}
+        >
           {it.label}
         </button>
       ))}

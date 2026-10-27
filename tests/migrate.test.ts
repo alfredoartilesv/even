@@ -9,7 +9,10 @@ test("real migrations apply cleanly and set user_version", async () => {
   const { db } = memoryDriver();
   const migrations = realMigrations();
   const applied = await migrate(db, migrations);
-  assert.deepEqual(applied, migrations.map((m) => m.version));
+  assert.deepEqual(
+    applied,
+    migrations.map((m) => m.version),
+  );
   const [{ user_version }] = await db.all<{ user_version: number }>("PRAGMA user_version");
   assert.equal(user_version, migrations.at(-1)!.version);
 });
@@ -24,12 +27,37 @@ test("running twice is a no-op", async () => {
 test("expected tables exist", async () => {
   const { db } = memoryDriver();
   await migrate(db, realMigrations());
-  const rows = await db.all<{ name: string }>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-  );
+  const rows = await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(
     rows.map((r) => r.name),
-    ["account", "agent_actions", "ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "drink_types", "food_entries", "food_photos", "goals", "health_samples", "manual_measurements", "meal_prep_batches", "meal_prep_ingredients", "meal_prep_moves", "meal_prep_tags", "meal_preps", "metric_catalog", "saved_meals", "shopping_list_items", "shopping_trips", "sync_runs", "sync_state"],
+    [
+      "account",
+      "agent_actions",
+      "ai_disclosures",
+      "app_settings",
+      "chat_conversations",
+      "chat_messages",
+      "consents",
+      "day_notes",
+      "drink_entries",
+      "drink_types",
+      "food_entries",
+      "food_photos",
+      "goals",
+      "health_samples",
+      "manual_measurements",
+      "meal_prep_batches",
+      "meal_prep_ingredients",
+      "meal_prep_moves",
+      "meal_prep_tags",
+      "meal_preps",
+      "metric_catalog",
+      "saved_meals",
+      "shopping_list_items",
+      "shopping_trips",
+      "sync_runs",
+      "sync_state",
+    ],
   );
 });
 
@@ -78,7 +106,10 @@ test("a failing migration rolls back and leaves the previous version", async () 
 
 test("parseMigrations validates names and sorts", () => {
   const sorted = parseMigrations({ "./m/0002_b.sql": "", "./m/0001_a.sql": "" });
-  assert.deepEqual(sorted.map((m) => m.version), [1, 2]);
+  assert.deepEqual(
+    sorted.map((m) => m.version),
+    [1, 2],
+  );
   assert.throws(() => parseMigrations({ "./m/init.sql": "" }), /Bad migration file name/);
   assert.throws(() => parseMigrations({ "./a/0001_a.sql": "", "./b/0001_b.sql": "" }), /Duplicate/);
 });

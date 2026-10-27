@@ -64,7 +64,15 @@ function exportZip() {
       { calendarDate: "not a day" },
     ]),
     "DI_CONNECT/DI-Connect-Wellness/2026-10-01_2026-12-31_123_sleepData.json": json([
-      { calendarDate: "2026-10-24", deepSleepSeconds: 5400, lightSleepSeconds: 14400, remSleepSeconds: 6000, awakeSleepSeconds: 900, averageRespiration: 13, spo2SleepSummary: { averageSPO2: 94, averageHR: 50 } },
+      {
+        calendarDate: "2026-10-24",
+        deepSleepSeconds: 5400,
+        lightSleepSeconds: 14400,
+        remSleepSeconds: 6000,
+        awakeSleepSeconds: 900,
+        averageRespiration: 13,
+        spo2SleepSummary: { averageSPO2: 94, averageHR: 50 },
+      },
     ]),
     "DI_CONNECT/DI-Connect-Wellness/123_userBioMetrics.json": json([
       { metaData: { calendarDate: "2026-10-24", sequence: 1 }, weight: { weight: 80500, sourceType: "MANUAL" } },
@@ -144,7 +152,10 @@ test("units are converted and the day's offset comes from the export", () => {
   assert.equal(get("sleep_durationInSeconds")!.offsetMin, 120, "sleep reuses the day's offset");
   assert.equal(get("sleep_deepSleepDurationInSeconds")!.valueNum, 5400, "the sync's name");
 
-  assert.deepEqual(samples.filter((s) => s.metric === "body_weightInGrams").map((s) => s.valueNum), [80500, 80100]);
+  assert.deepEqual(
+    samples.filter((s) => s.metric === "body_weightInGrams").map((s) => s.valueNum),
+    [80500, 80100],
+  );
   assert.equal(report.weightProfileValuesSkipped, 1);
 
   assert.equal(get("userMetrics_vo2MaxRunning")!.valueNum, 51, "latest update of the day wins");
@@ -184,7 +195,8 @@ test("stored as its own source with sensible daily aggregation; re-import adds n
   assert.equal(covered.readings, n1, "what Connections shows as imported");
   assert.ok(covered.from! <= "2026-10-24" && covered.to! >= "2026-10-24");
 
-  const agg = async (m: string) => (await db.all<{ daily_agg: string }>("SELECT daily_agg FROM metric_catalog WHERE source = ? AND metric = ?", [GARMIN_EXPORT_SOURCE, m]))[0]?.daily_agg;
+  const agg = async (m: string) =>
+    (await db.all<{ daily_agg: string }>("SELECT daily_agg FROM metric_catalog WHERE source = ? AND metric = ?", [GARMIN_EXPORT_SOURCE, m]))[0]?.daily_agg;
   assert.equal(await agg("daily_steps"), "sum");
   assert.equal(await agg("daily_maxHeartRateInBeatsPerMinute"), "max");
   assert.equal(await agg("activity_aerobicTrainingEffect"), "max");
@@ -207,17 +219,40 @@ test("where freddy has the same metric on the same day, only freddy's value is s
   await importGarminZip(db, exportZip(), { timeZone: TZ, nowMs: 1_000 });
   // freddy synced 2026-10-24 (the same watch, so the same steps), not 2026-10-25.
   const day = Date.UTC(2026, 9, 23, 22, 0);
-  await upsertSamples(db, [
-    { source: "freddy", device: "", externalId: "2026-10-24#0", metric: "daily_steps", startMs: day, endMs: day + 86_400_000, offsetMin: 120, valueNum: 9000 },
-  ], 2_000);
+  await upsertSamples(
+    db,
+    [
+      {
+        source: "freddy",
+        device: "",
+        externalId: "2026-10-24#0",
+        metric: "daily_steps",
+        startMs: day,
+        endMs: day + 86_400_000,
+        offsetMin: 120,
+        valueNum: 9000,
+      },
+    ],
+    2_000,
+  );
 
   const steps = (await dayValues(db, "2026-10-24")).filter((v) => v.metric === "daily_steps");
   assert.equal(steps.length, 1, "not counted twice");
   assert.equal(steps[0].device, "", "freddy's row");
-  assert.equal((await dayValues(db, "2026-10-24")).filter((v) => v.metric === "sleep_durationInSeconds").length, 1, "metrics freddy lacks still come from the export");
+  assert.equal(
+    (await dayValues(db, "2026-10-24")).filter((v) => v.metric === "sleep_durationInSeconds").length,
+    1,
+    "metrics freddy lacks still come from the export",
+  );
 
   const series = await dailySeries(db, "daily_steps", "2026-10-24", "2026-10-25");
-  assert.deepEqual(series.map((s) => [s.source, s.points.map((p) => p.day)]), [["freddy", ["2026-10-24"]], [GARMIN_EXPORT_SOURCE, ["2026-10-25"]]]);
+  assert.deepEqual(
+    series.map((s) => [s.source, s.points.map((p) => p.day)]),
+    [
+      ["freddy", ["2026-10-24"]],
+      [GARMIN_EXPORT_SOURCE, ["2026-10-25"]],
+    ],
+  );
   const kept = await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples WHERE metric = 'daily_steps' AND local_day = '2026-10-24'");
   assert.equal(kept[0].n, 2, "both rows are kept, only the view picks one");
 });
@@ -225,7 +260,10 @@ test("where freddy has the same metric on the same day, only freddy's value is s
 test("migration 0008 renames metrics an earlier import stored under the old names", async () => {
   const { db } = memoryDriver();
   const all = realMigrations();
-  await migrate(db, all.filter((m) => m.version < 8));
+  await migrate(
+    db,
+    all.filter((m) => m.version < 8),
+  );
   await db.run(
     `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, end_ms, offset_min, value_num, local_day, created_at, updated_at)
      VALUES ('a', 'garmin_export', 'Garmin', '2026-10-24#0', 'sleep_deepDurationInSeconds', 0, 1, 0, 5400, '2026-10-24', 0, 0),
@@ -234,18 +272,28 @@ test("migration 0008 renames metrics an earlier import stored under the old name
   await db.run("INSERT INTO metric_catalog (source, metric, updated_at) VALUES ('garmin_export', 'pulseOx_lowestSpO2', 0)");
   await migrate(db, all);
   const rows = await db.all<{ source: string; metric: string }>("SELECT source, metric FROM health_samples ORDER BY id");
-  assert.deepEqual(rows, [
-    { source: "garmin_export", metric: "sleep_deepSleepDurationInSeconds" },
-    { source: "freddy", metric: "sleep_deepDurationInSeconds" },
-  ], "only the import's rows");
+  assert.deepEqual(
+    rows,
+    [
+      { source: "garmin_export", metric: "sleep_deepSleepDurationInSeconds" },
+      { source: "freddy", metric: "sleep_deepDurationInSeconds" },
+    ],
+    "only the import's rows",
+  );
   const cat = await db.all<{ metric: string }>("SELECT metric FROM metric_catalog WHERE source = 'garmin_export'");
-  assert.deepEqual(cat.map((c) => c.metric), ["pulseOx_minSpo2InPercent"]);
+  assert.deepEqual(
+    cat.map((c) => c.metric),
+    ["pulseOx_minSpo2InPercent"],
+  );
 });
 
 test("migration 0009 turns activity calories an earlier import stored in kJ into kcal, and nothing else", async () => {
   const { db } = memoryDriver();
   const all = realMigrations();
-  await migrate(db, all.filter((m) => m.version < 9));
+  await migrate(
+    db,
+    all.filter((m) => m.version < 9),
+  );
   await db.run(
     `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, end_ms, offset_min, value_num, local_day, created_at, updated_at)
      VALUES ('a', 'garmin_export', 'Garmin', 'activity:1', 'activity_activeKilocalories', 0, 1, 0, 1757, '2026-10-24', 0, 0),
@@ -254,5 +302,9 @@ test("migration 0009 turns activity calories an earlier import stored in kJ into
   );
   await migrate(db, all);
   const rows = await db.all<{ id: string; value_num: number }>("SELECT id, value_num FROM health_samples ORDER BY id");
-  assert.deepEqual(rows, [{ id: "a", value_num: 420 }, { id: "b", value_num: 420 }, { id: "c", value_num: 600 }]);
+  assert.deepEqual(rows, [
+    { id: "a", value_num: 420 },
+    { id: "b", value_num: 420 },
+    { id: "c", value_num: 600 },
+  ]);
 });

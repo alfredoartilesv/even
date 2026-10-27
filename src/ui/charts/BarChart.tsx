@@ -31,7 +31,21 @@ const MAX_BAR = 24;
  * end; the band's leftover is air. Over-target columns use the warning color, and the tooltip,
  * table and legend say "over target" so color is never the only signal.
  */
-export function BarChart({ title, subtitle, x, values, formatX = (s) => s, formatXLong, formatValue = fmtValue, unit, target = null, selected = null, onSelect, height = 170, dim }: BarChartProps) {
+export function BarChart({
+  title,
+  subtitle,
+  x,
+  values,
+  formatX = (s) => s,
+  formatXLong,
+  formatValue = fmtValue,
+  unit,
+  target = null,
+  selected = null,
+  onSelect,
+  height = 170,
+  dim,
+}: BarChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const long = formatXLong ?? formatX;
@@ -107,7 +121,14 @@ export function BarChart({ title, subtitle, x, values, formatX = (s) => s, forma
                 }
               : {};
             return (
-              <g key={x[i]} {...interactive} onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)}>
+              <g
+                key={x[i]}
+                {...interactive}
+                onPointerEnter={() => setHover(i)}
+                onPointerLeave={() => setHover(null)}
+                onFocus={() => setHover(i)}
+                onBlur={() => setHover(null)}
+              >
                 {/* The hit target is the whole band, not the painted pixels. */}
                 <rect className="viz-hit" x={PAD.left + band * i} y={PAD.top} width={band} height={plotH} />
                 {bar && <path className={cls} d={bar} style={over(v) ? undefined : { fill: SINGLE }} />}
@@ -130,7 +151,12 @@ export function BarChart({ title, subtitle, x, values, formatX = (s) => s, forma
           )}
         </svg>
         {hover !== null && (
-          <Tooltip x={cx(hover)} width={width} title={long(x[hover])} rows={[{ label: title, value: describe(hover), color: over(values[hover]) ? "var(--warning)" : SINGLE }]} />
+          <Tooltip
+            x={cx(hover)}
+            width={width}
+            title={long(x[hover])}
+            rows={[{ label: title, value: describe(hover), color: over(values[hover]) ? "var(--warning)" : SINGLE }]}
+          />
         )}
       </div>
     </ChartFrame>

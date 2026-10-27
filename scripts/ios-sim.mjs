@@ -19,7 +19,10 @@ export const BUNDLE_ID = "app.health.personal";
 export function pickDevice(list, name) {
   const runtimes = Object.entries(list.devices)
     .filter(([rt]) => /SimRuntime\.iOS-/.test(rt))
-    .map(([rt, devices]) => ({ version: rt.split("iOS-")[1].split("-").map(Number), devices: devices.filter((d) => d.isAvailable !== false && /^iPhone/.test(d.name)) }))
+    .map(([rt, devices]) => ({
+      version: rt.split("iOS-")[1].split("-").map(Number),
+      devices: devices.filter((d) => d.isAvailable !== false && d.name.startsWith("iPhone")),
+    }))
     .filter((r) => r.devices.length)
     .sort((a, b) => b.version[0] - a.version[0] || (b.version[1] ?? 0) - (a.version[1] ?? 0));
   const all = runtimes.flatMap((r) => r.devices.map((d) => ({ ...d, ios: r.version.join(".") })));
@@ -111,7 +114,10 @@ async function main() {
     writeFileSync(join(out, `app-${mode}.log`), text);
     try {
       // The system's view of the same launch, for debugging only.
-      writeFileSync(join(out, `system-${mode}.log`), sim("spawn", device.udid, "log", "show", "--style", "compact", "--start", since, "--predicate", 'process == "App"'));
+      writeFileSync(
+        join(out, `system-${mode}.log`),
+        sim("spawn", device.udid, "log", "show", "--style", "compact", "--start", since, "--predicate", 'process == "App"'),
+      );
     } catch {
       // best effort
     }

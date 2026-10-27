@@ -74,11 +74,7 @@ export function ShoppingView({ db, version, onPaid }: Props) {
         {items.map((i) => (
           <li key={i.id} className={i.checked ? "done" : ""}>
             <label>
-              <input
-                type="checkbox"
-                checked={i.checked}
-                onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(load)}
-              />
+              <input type="checkbox" checked={i.checked} onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(load)} />
               <span>{i.name}</span>
               <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
             </label>

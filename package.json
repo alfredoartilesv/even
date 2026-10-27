@@ -1,12 +1,18 @@
 {
   "name": "even",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "lint": "oxlint src tests scripts --deny-warnings",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dupes": "node scripts/dupes.mjs --max 1",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "health": "npm run format:check && npm run lint && npm run typecheck && npm run dupes && npm test",
     "test": "tsx --import ./tests/setup.ts --test tests/*.test.ts",
     "test:device": "node --env-file-if-exists=.env --import tsx scripts/device-test.ts",
     "docker:test": "docker build --target test .",
@@ -21,7 +27,8 @@
     "chat": "node --env-file=.env --import tsx scripts/claude-chat.ts",
     "import:garmin": "tsx scripts/garmin-import.ts",
     "sync:garmin": "node --env-file=.env --import tsx scripts/garmin-sync.ts",
-    "docs:screens": "tsx scripts/screens/capture.ts"
+    "docs:screens": "tsx scripts/screens/capture.ts",
+    "perf:device": "node scripts/perf-device.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -47,6 +54,8 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "drizzle-orm": "^0.45.4",
+    "oxlint": "^1.90.0",
+    "prettier": "^3.9.10",
     "sql.js": "^1.15.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

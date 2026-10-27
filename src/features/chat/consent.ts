@@ -28,8 +28,7 @@ export const SCOPE_FOR: Record<DataClass, ConsentScope> = {
 export const CONSENT_TEXT: Record<ConsentScope, string> = {
   "claude.aggregates":
     "Send your questions, and summaries of your health data (averages, ranges, trends, counts), your goals and meal plans, to Anthropic's Claude API to answer them.",
-  "claude.raw_series":
-    "Also send detailed records when Claude asks for them: day-by-day values of a metric and individual food log entries.",
+  "claude.raw_series": "Also send detailed records when Claude asks for them: day-by-day values of a metric and individual food log entries.",
   "claude.notes": "Also send the notes you wrote (day notes, mood and energy) when Claude asks for them.",
   "claude.photos": "Send the photos you attach in the chat (for example of a meal) to Claude so it can look at them.",
 };
@@ -55,13 +54,7 @@ export async function hasConsent(db: SqlDriver, scope: ConsentScope): Promise<bo
   return r !== undefined && r.granted === 1 && r.policy_version === CONSENT_POLICY_VERSION[scope];
 }
 
-export async function recordConsent(
-  db: SqlDriver,
-  scope: ConsentScope,
-  granted: boolean,
-  deviceId: string,
-  nowMs: number = Date.now(),
-): Promise<void> {
+export async function recordConsent(db: SqlDriver, scope: ConsentScope, granted: boolean, deviceId: string, nowMs: number = Date.now()): Promise<void> {
   await db.run(
     `INSERT INTO consents (id, scope, granted, decided_at_ms, policy_version, created_at, updated_at, origin_device_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

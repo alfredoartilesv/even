@@ -4,11 +4,11 @@
 # the same on this PC, another computer and CI. Development and the emulator stay native
 # (docs/dev-setup.md section 4).
 #
-#   npm run docker:test      # typecheck + the whole Node test suite      (docker build --target test .)
+#   npm run docker:test      # health checks (format, lint, types, duplicates, tests) (docker build --target test .)
 #   npm run docker:apk       # debug APK into out/app-debug.apk            (docker build --target apk --output out .)
 #   npm run docker:release   # signed release APK into out/app-release.apk (target release-apk, keystore as BuildKit secrets)
 #
-# Stages: deps (npm ci) -> test (typecheck, tests, web build) -> android-base (SDK, android/ project)
+# Stages: deps (npm ci) -> test (health checks, web build) -> android-base (SDK, android/ project)
 #   -> android (debug) -> apk;  android-base -> release (signed, checked) -> release-apk.
 # Base images are pinned by digest (Node 24.19.0, Temurin 21.0.12.1+1); tests/docker.test.ts keeps the versions in step with .nvmrc.
 
@@ -25,7 +25,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 # ---- Typecheck, tests, web build ----
 FROM deps AS test
 COPY . .
-RUN npm run typecheck && npm test && npx vite build
+# Formatting, lint, types (app, tests, scripts), duplicated code and every test; then the build.
+RUN npm run health && npx vite build
 
 # ---- Android SDK and the generated android/ project ----
 FROM ${JDK_IMAGE} AS android-base
