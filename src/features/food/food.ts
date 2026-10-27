@@ -89,7 +89,6 @@ const toEntry = (r: EntryRow): FoodEntry => ({
   fromPrep: r.from_prep === 1,
 });
 
-
 const MACRO_LABELS: [keyof Macros, string][] = [
   ["calories", "Calories"],
   ["proteinG", "Protein"],
@@ -107,8 +106,7 @@ function checkMacros(m: Macros): void {
 const scale = (v: number | null, k: number) => (v === null ? null : Math.round(v * k * 10) / 10);
 
 /** Local hour 0 to 23 of an instant in a zone. */
-export const localHour = (ms: number, timeZone: string) =>
-  Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(ms));
+export const localHour = (ms: number, timeZone: string) => Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(ms));
 
 export async function logFood(db: SqlDriver, f: FoodInput): Promise<string> {
   const name = f.name.trim();
@@ -143,7 +141,12 @@ export async function logFood(db: SqlDriver, f: FoodInput): Promise<string> {
 }
 
 /** Edit name, slot, macros and notes of an entry. The time stays. */
-export async function updateFood(db: SqlDriver, id: string, f: Omit<FoodInput, "atMs" | "timeZone" | "savedMealId">, nowMs: number = Date.now()): Promise<void> {
+export async function updateFood(
+  db: SqlDriver,
+  id: string,
+  f: Omit<FoodInput, "atMs" | "timeZone" | "savedMealId">,
+  nowMs: number = Date.now(),
+): Promise<void> {
   const name = f.name.trim();
   if (!name) throw new Error("Give the meal a name");
   checkMacros(f);
@@ -186,10 +189,9 @@ export async function relogFood(db: SqlDriver, entryId: string, opts: { atMs?: n
 }
 
 export async function dayFood(db: SqlDriver, day: string): Promise<FoodEntry[]> {
-  const rows = await db.all<EntryRow>(
-    `SELECT ${ENTRY_COLS} FROM ${ENTRY_FROM} WHERE e.local_day = ? AND e.deleted_at IS NULL ORDER BY e.eaten_at_ms, e.id`,
-    [day],
-  );
+  const rows = await db.all<EntryRow>(`SELECT ${ENTRY_COLS} FROM ${ENTRY_FROM} WHERE e.local_day = ? AND e.deleted_at IS NULL ORDER BY e.eaten_at_ms, e.id`, [
+    day,
+  ]);
   return rows.map(toEntry);
 }
 
@@ -200,10 +202,14 @@ export interface DayTotals extends Macros {
 
 /** One row per calendar day from..to (inclusive), zeros for days with nothing logged. */
 export async function nutritionRange(db: SqlDriver, from: string, to: string): Promise<DayTotals[]> {
-  const rows = await db.all<{ local_day: string; entries: number; calories: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null }>(
-    "SELECT local_day, entries, calories, protein_g, carbs_g, fat_g FROM daily_nutrition WHERE local_day BETWEEN ? AND ?",
-    [from, to],
-  );
+  const rows = await db.all<{
+    local_day: string;
+    entries: number;
+    calories: number | null;
+    protein_g: number | null;
+    carbs_g: number | null;
+    fat_g: number | null;
+  }>("SELECT local_day, entries, calories, protein_g, carbs_g, fat_g FROM daily_nutrition WHERE local_day BETWEEN ? AND ?", [from, to]);
   const by = new Map(rows.map((r) => [r.local_day, r]));
   const out: DayTotals[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) {
@@ -222,10 +228,10 @@ export async function nutritionRange(db: SqlDriver, from: string, to: string): P
 
 /** The newest days that have food logged, before (not including) a day. For paging the history. */
 export async function loggedDaysBefore(db: SqlDriver, before: string, limit = 30): Promise<string[]> {
-  const rows = await db.all<{ local_day: string }>(
-    "SELECT local_day FROM daily_nutrition WHERE local_day < ? ORDER BY local_day DESC LIMIT ?",
-    [before, limit],
-  );
+  const rows = await db.all<{ local_day: string }>("SELECT local_day FROM daily_nutrition WHERE local_day < ? ORDER BY local_day DESC LIMIT ?", [
+    before,
+    limit,
+  ]);
   return rows.map((r) => r.local_day);
 }
 
@@ -322,9 +328,7 @@ export async function saveMeal(db: SqlDriver, m: SavedMealInput, nowMs: number =
   checkMacros(m);
   const dev = await deviceId(db, nowMs);
   return withTransaction(db, async () => {
-    const [existing] = m.id
-      ? await db.all<{ photo_id: string | null }>("SELECT photo_id FROM saved_meals WHERE id = ? AND deleted_at IS NULL", [m.id])
-      : [];
+    const [existing] = m.id ? await db.all<{ photo_id: string | null }>("SELECT photo_id FROM saved_meals WHERE id = ? AND deleted_at IS NULL", [m.id]) : [];
     if (m.id && !existing) throw new Error("That saved meal no longer exists");
     let photoId = existing?.photo_id ?? null;
     if (m.photo !== undefined) {
@@ -435,7 +439,11 @@ export async function getSavedMeal(db: SqlDriver, id: string): Promise<SavedMeal
 }
 
 /** Log a saved meal, scaled by servings. */
-export async function logSavedMeal(db: SqlDriver, id: string, opts: { servings?: number; meal?: Meal | null; atMs?: number; timeZone: string }): Promise<string> {
+export async function logSavedMeal(
+  db: SqlDriver,
+  id: string,
+  opts: { servings?: number; meal?: Meal | null; atMs?: number; timeZone: string },
+): Promise<string> {
   const m = await getSavedMeal(db, id);
   if (!m) throw new Error("That saved meal no longer exists");
   const k = opts.servings ?? 1;
@@ -474,7 +482,15 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
   const since = addDays(today, -LOOKBACK_DAYS);
   const hour = localHour(now, opts.timeZone);
 
-  const recent = await db.all<{ id: string; name: string; meal: Meal | null; calories: number | null; saved_meal_id: string | null; eaten_at_ms: number; local_day: string }>(
+  const recent = await db.all<{
+    id: string;
+    name: string;
+    meal: Meal | null;
+    calories: number | null;
+    saved_meal_id: string | null;
+    eaten_at_ms: number;
+    local_day: string;
+  }>(
     `SELECT e.id, e.name, e.meal, e.calories, s.id AS saved_meal_id, e.eaten_at_ms, e.local_day
      FROM food_entries e LEFT JOIN saved_meals s ON s.id = e.saved_meal_id AND s.deleted_at IS NULL
      WHERE e.deleted_at IS NULL AND e.local_day >= ? AND COALESCE(e.meal, '') <> 'prep'
@@ -503,7 +519,19 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     const key = e.saved_meal_id ? `saved:${e.saved_meal_id}` : `name:${e.name.trim().toLowerCase()}`;
     let c = cands.get(key);
     if (!c) {
-      c = { key, savedMealId: null, lastEntryId: null, name: e.name, calories: e.calories, photoId: null, uses: 0, lastMs: null, slots: {}, defaultMeal: null, loggedToday: false };
+      c = {
+        key,
+        savedMealId: null,
+        lastEntryId: null,
+        name: e.name,
+        calories: e.calories,
+        photoId: null,
+        uses: 0,
+        lastMs: null,
+        slots: {},
+        defaultMeal: null,
+        loggedToday: false,
+      };
       cands.set(key, c);
     }
     c.uses++;

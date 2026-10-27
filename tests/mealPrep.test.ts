@@ -60,22 +60,41 @@ test("save a recipe with normalised tags and ordered ingredients, then edit it i
   let [p] = await listMealPreps(db);
   assert.equal(p.name, "Chili");
   assert.deepEqual(p.tags, ["batch cook", "dinner"]);
-  assert.deepEqual(p.ingredients.map((i) => i.name), ["Minced beef", "Kidney beans", "Cumin"]);
+  assert.deepEqual(
+    p.ingredients.map((i) => i.name),
+    ["Minced beef", "Kidney beans", "Cumin"],
+  );
 
   const beef = p.ingredients[0];
   await saveMealPrep(
     db,
-    { ...p, tags: ["dinner", "lunch"], ingredients: [{ name: "Rice", quantity: 500, unit: "g" }, { ...beef, quantity: 0.8 }] },
+    {
+      ...p,
+      tags: ["dinner", "lunch"],
+      ingredients: [
+        { name: "Rice", quantity: 500, unit: "g" },
+        { ...beef, quantity: 0.8 },
+      ],
+    },
     NOW + 1,
   );
   [p] = await listMealPreps(db);
   assert.deepEqual(p.tags, ["dinner", "lunch"]);
-  assert.deepEqual(p.ingredients.map((i) => [i.name, i.quantity]), [["Rice", 500], ["Minced beef", 0.8]]);
+  assert.deepEqual(
+    p.ingredients.map((i) => [i.name, i.quantity]),
+    [
+      ["Rice", 500],
+      ["Minced beef", 0.8],
+    ],
+  );
   assert.equal(p.ingredients[1].id, beef.id, "edited ingredient keeps its id");
 
   assert.equal((await listMealPreps(db, "LUNCH")).length, 1);
   assert.equal((await listMealPreps(db, "breakfast")).length, 0);
-  assert.deepEqual(await listTags(db), [{ tag: "dinner", recipes: 1 }, { tag: "lunch", recipes: 1 }]);
+  assert.deepEqual(await listTags(db), [
+    { tag: "dinner", recipes: 1 },
+    { tag: "lunch", recipes: 1 },
+  ]);
 
   await deleteMealPrep(db, id, NOW + 2);
   assert.deepEqual(await listMealPreps(db), []);
@@ -86,10 +105,7 @@ test("recipe validation", async () => {
   const { db } = await migratedDb();
   await assert.rejects(saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: " " }), /name/);
   await assert.rejects(saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "x", portions: 0 }), /Portions/);
-  await assert.rejects(
-    saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "x", ingredients: [{ name: "salt", quantity: -1, unit: null }] }),
-    /Quantity/,
-  );
+  await assert.rejects(saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "x", ingredients: [{ name: "salt", quantity: -1, unit: null }] }), /Quantity/);
   assert.deepEqual(await listMealPreps(db), []);
 });
 
@@ -134,14 +150,23 @@ test("stock filters by tag, survives recipe deletion, and a deleted batch takes 
   const lunch = await saveMealPrep(db, { ...DEFAULT_MEAL_PREP, name: "Salad", tags: ["lunch"] }, NOW);
   const b1 = await logBatch(db, { mealPrepId: id, cookedAtMs: NOW, timeZone: TZ });
   await logBatch(db, { mealPrepId: lunch, portions: 3, cookedAtMs: NOW + 1, timeZone: TZ });
-  assert.deepEqual((await loadStock(db, { tag: "lunch" })).map((s) => s.batch.name), ["Salad"]);
+  assert.deepEqual(
+    (await loadStock(db, { tag: "lunch" })).map((s) => s.batch.name),
+    ["Salad"],
+  );
 
   await deleteMealPrep(db, id, NOW + 5);
-  assert.deepEqual((await loadStock(db)).map((s) => s.batch.name), ["Chili", "Salad"]);
+  assert.deepEqual(
+    (await loadStock(db)).map((s) => s.batch.name),
+    ["Chili", "Salad"],
+  );
 
   await addMove(db, { batchId: b1, kind: "eat", portions: 1, atMs: NOW + H, timeZone: TZ });
   await deleteBatch(db, b1, NOW + 2 * H);
-  assert.deepEqual((await loadStock(db)).map((s) => s.batch.name), ["Salad"]);
+  assert.deepEqual(
+    (await loadStock(db)).map((s) => s.batch.name),
+    ["Salad"],
+  );
   assert.equal((await db.all("SELECT 1 FROM food_entries WHERE deleted_at IS NULL")).length, 0);
   await assert.rejects(logBatch(db, { mealPrepId: id, timeZone: TZ }), /no longer exists/);
   await assert.rejects(logBatch(db, { mealPrepId: lunch, frozen: 9, timeZone: TZ }), /cannot freeze 9/);
@@ -171,10 +196,25 @@ test("shopping list: recipes scale and merge by name and unit, ticked items stay
   const { db, id } = await withChili();
   const rice = await saveMealPrep(
     db,
-    { ...DEFAULT_MEAL_PREP, name: "Rice bowls", ingredients: [{ name: "minced BEEF", quantity: 500, unit: "g" }, { name: "Cumin", quantity: null, unit: null }] },
+    {
+      ...DEFAULT_MEAL_PREP,
+      name: "Rice bowls",
+      ingredients: [
+        { name: "minced BEEF", quantity: 500, unit: "g" },
+        { name: "Cumin", quantity: null, unit: null },
+      ],
+    },
     NOW,
   );
-  const lines = await addRecipesToShopping(db, [{ mealPrepId: id, batches: 2 }, { mealPrepId: rice, batches: 1 }, { mealPrepId: rice, batches: 0 }], NOW);
+  const lines = await addRecipesToShopping(
+    db,
+    [
+      { mealPrepId: id, batches: 2 },
+      { mealPrepId: rice, batches: 1 },
+      { mealPrepId: rice, batches: 0 },
+    ],
+    NOW,
+  );
   assert.equal(lines, 5);
   let items = await listShopping(db);
   assert.deepEqual(

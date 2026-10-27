@@ -94,8 +94,17 @@ const nullableMeal = { type: ["string", "null"], enum: [...MEALS, null], descrip
 const TIME_DESC = "Local time HH:MM, or null (today: now; another day: a usual time for the meal)";
 
 const text = (max: number) => z.string().trim().min(1).max(max);
-const optText = (max: number) => z.string().trim().max(max).nullable().transform((v) => v || null);
-const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "times are HH:MM").nullable();
+const optText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((v) => v || null);
+const time = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "times are HH:MM")
+  .nullable();
 const num = (min: number, max: number) => z.number().min(min).max(max);
 const optNum = (min: number, max: number) => num(min, max).nullable();
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
@@ -126,7 +135,6 @@ async function markAssistant(db: SqlDriver, table: string, ids: string[]): Promi
   if (!MARKABLE.has(table)) throw new Error(`Cannot mark rows in ${table}`);
   for (const id of ids) await db.run(`UPDATE ${table} SET created_by = 'assistant' WHERE id = ?`, [id]);
 }
-
 
 // ---- food -----------------------------------------------------------------------------------
 
@@ -237,7 +245,9 @@ const logSavedMealTool: WriteTool = {
     return {
       tool: "log_saved_meal",
       summary: `Log ${m.name} (${plural(p.servings, "serving")})`,
-      lines: [`${p.day} ${hhmm(t.ms, ctx.timeZone)}${meal ? ` ${meal}` : ""}: ${m.name}, ${kcal(scale(m.calories))}${macros(scale(m.proteinG), scale(m.carbsG), scale(m.fatG))}`],
+      lines: [
+        `${p.day} ${hhmm(t.ms, ctx.timeZone)}${meal ? ` ${meal}` : ""}: ${m.name}, ${kcal(scale(m.calories))}${macros(scale(m.proteinG), scale(m.carbsG), scale(m.fatG))}`,
+      ],
       async apply() {
         const id = await logSavedMeal(ctx.db, m.id, { servings: p.servings, meal, atMs: t.ms, timeZone: ctx.timeZone });
         await markAssistant(ctx.db, "food_entries", [id]);
@@ -300,9 +310,15 @@ const saveMealTool: WriteTool = {
     return {
       tool: "save_meal",
       summary: `Save "${p.name}" as a favourite${photo ? " with the photo" : ""}`,
-      lines: [`${p.name}${p.meal ? ` (${p.meal})` : ""}: ${kcal(p.calories)} per serving${macros(p.protein_g, p.carbs_g, p.fat_g)}${photo ? ", with photo" : ""}`],
+      lines: [
+        `${p.name}${p.meal ? ` (${p.meal})` : ""}: ${kcal(p.calories)} per serving${macros(p.protein_g, p.carbs_g, p.fat_g)}${photo ? ", with photo" : ""}`,
+      ],
       async apply() {
-        const id = await saveMeal(ctx.db, { name: p.name, meal: p.meal, calories: p.calories, proteinG: p.protein_g, carbsG: p.carbs_g, fatG: p.fat_g, notes: p.notes, photo }, ctx.now);
+        const id = await saveMeal(
+          ctx.db,
+          { name: p.name, meal: p.meal, calories: p.calories, proteinG: p.protein_g, carbsG: p.carbs_g, fatG: p.fat_g, notes: p.notes, photo },
+          ctx.now,
+        );
         await markAssistant(ctx.db, "saved_meals", [id]);
         return { result: { saved: 1, saved_meal_id: id }, rows: [{ op: "saved_meal", table: "saved_meals", id }] };
       },
@@ -336,7 +352,11 @@ const createMealPrepTool: WriteTool = {
           type: "object",
           additionalProperties: false,
           required: ["name", "quantity", "unit"],
-          properties: { name: { type: "string" }, quantity: nullableNumber("Amount for the whole batch"), unit: nullableString("g, kg, ml, l, units, tbsp...") },
+          properties: {
+            name: { type: "string" },
+            quantity: nullableNumber("Amount for the whole batch"),
+            unit: nullableString("g, kg, ml, l, units, tbsp..."),
+          },
         },
       },
       notes: nullableString("Method, storage, reheating"),
@@ -402,7 +422,9 @@ const logCookedBatchTool: WriteTool = {
     },
   ),
   async prepare(ctx, input) {
-    const p = z.object({ meal_prep_id: z.string().min(1), portions: int(1, 40).nullable(), frozen: int(0, 40).nullable(), day, time, notes: optText(500) }).parse(input);
+    const p = z
+      .object({ meal_prep_id: z.string().min(1), portions: int(1, 40).nullable(), frozen: int(0, 40).nullable(), day, time, notes: optText(500) })
+      .parse(input);
     logDay(ctx, p.day, 14);
     const recipe = (await listMealPreps(ctx.db)).find((r) => r.id === p.meal_prep_id);
     if (!recipe) throw new Error(`No meal prep recipe with id ${p.meal_prep_id}`);
@@ -413,7 +435,9 @@ const logCookedBatchTool: WriteTool = {
     return {
       tool: "log_cooked_batch",
       summary: `Log a cooked batch of ${recipe.name} (${plural(portions, "portion")})`,
-      lines: [`${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${recipe.name}, ${plural(portions, "portion")}${frozen ? `, ${frozen} straight to the freezer` : ", all in the fridge"}`],
+      lines: [
+        `${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${recipe.name}, ${plural(portions, "portion")}${frozen ? `, ${frozen} straight to the freezer` : ", all in the fridge"}`,
+      ],
       async apply() {
         const id = await logBatch(ctx.db, { mealPrepId: recipe.id, portions, frozen, cookedAtMs: t.ms, timeZone: ctx.timeZone, notes: p.notes });
         await markAssistant(ctx.db, "meal_prep_batches", [id]);
@@ -438,7 +462,14 @@ const prepPortionsTool: WriteTool = {
   ),
   async prepare(ctx, input) {
     const p = z
-      .object({ batch_id: z.string().min(1), action: z.enum(["eat", "freeze", "thaw", "discard"]), portions: int(1, 40), from: z.enum(["fridge", "freezer"]).nullable(), day, time })
+      .object({
+        batch_id: z.string().min(1),
+        action: z.enum(["eat", "freeze", "thaw", "discard"]),
+        portions: int(1, 40),
+        from: z.enum(["fridge", "freezer"]).nullable(),
+        day,
+        time,
+      })
       .parse(input);
     logDay(ctx, p.day, 14);
     const [stock] = await loadStock(ctx.db, { batchId: p.batch_id, includeFinished: true });
@@ -453,7 +484,9 @@ const prepPortionsTool: WriteTool = {
     return {
       tool: "prep_portions",
       summary: `${verb} ${plural(p.portions, "portion")} of ${stock.batch.name}`,
-      lines: [`${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${verb.toLowerCase()} ${plural(p.portions, "portion")} of ${stock.batch.name} (cooked ${stock.batch.localDay}) from the ${fromLoc}${food}`],
+      lines: [
+        `${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${verb.toLowerCase()} ${plural(p.portions, "portion")} of ${stock.batch.name} (cooked ${stock.batch.localDay}) from the ${fromLoc}${food}`,
+      ],
       async apply() {
         const id = await addMove(ctx.db, { batchId: p.batch_id, kind: p.action, fromLoc, portions: p.portions, atMs: t.ms, timeZone: ctx.timeZone });
         const [move] = await ctx.db.all<{ food_entry_id: string | null }>("SELECT food_entry_id FROM meal_prep_moves WHERE id = ?", [id]);
@@ -470,7 +503,10 @@ const prepPortionsTool: WriteTool = {
 async function shoppingChange(db: SqlDriver, change: () => Promise<unknown>): Promise<ActionRow[]> {
   const snapshot = async () =>
     new Map(
-      (await db.all<{ id: string; quantity: number | null }>("SELECT id, quantity FROM shopping_list_items WHERE deleted_at IS NULL")).map((r) => [r.id, r.quantity]),
+      (await db.all<{ id: string; quantity: number | null }>("SELECT id, quantity FROM shopping_list_items WHERE deleted_at IS NULL")).map((r) => [
+        r.id,
+        r.quantity,
+      ]),
     );
   const before = await snapshot();
   await change();
@@ -532,13 +568,23 @@ const addRecipeToShoppingTool: WriteTool = {
           type: "object",
           additionalProperties: false,
           required: ["meal_prep_id", "batches"],
-          properties: { meal_prep_id: { type: "string", description: "Id from list_meal_preps" }, batches: { type: "integer", description: "Batches to cook" } },
+          properties: {
+            meal_prep_id: { type: "string", description: "Id from list_meal_preps" },
+            batches: { type: "integer", description: "Batches to cook" },
+          },
         },
       },
     },
   ),
   async prepare(ctx, input) {
-    const p = z.object({ recipes: z.array(z.object({ meal_prep_id: z.string().min(1), batches: int(1, 10) })).min(1).max(10) }).parse(input);
+    const p = z
+      .object({
+        recipes: z
+          .array(z.object({ meal_prep_id: z.string().min(1), batches: int(1, 10) }))
+          .min(1)
+          .max(10),
+      })
+      .parse(input);
     const all = await listMealPreps(ctx.db);
     const picks = p.recipes.map((r) => {
       const recipe = all.find((x) => x.id === r.meal_prep_id);
@@ -552,7 +598,13 @@ const addRecipeToShoppingTool: WriteTool = {
       lines: picks.map(({ recipe, batches }) => `${recipe.name} x${batches}: ${recipe.ingredients.map((i) => i.name).join(", ")}`),
       async apply() {
         // addRecipesToShopping runs its own transaction.
-        const rows = await shoppingChange(ctx.db, () => addRecipesToShopping(ctx.db, picks.map(({ recipe, batches }) => ({ mealPrepId: recipe.id, batches })), ctx.now));
+        const rows = await shoppingChange(ctx.db, () =>
+          addRecipesToShopping(
+            ctx.db,
+            picks.map(({ recipe, batches }) => ({ mealPrepId: recipe.id, batches })),
+            ctx.now,
+          ),
+        );
         return { result: { saved: true, lines_changed: rows.length }, rows };
       },
     };
@@ -576,9 +628,7 @@ const addDrinkTypeTool: WriteTool = {
     },
   ),
   async prepare(ctx, input) {
-    const p = z
-      .object({ name: text(80), volume_ml: num(1, 3000), abv_percent: num(0, 80), calories: optNum(0, 3000), price: optNum(0, 10_000) })
-      .parse(input);
+    const p = z.object({ name: text(80), volume_ml: num(1, 3000), abv_percent: num(0, 80), calories: optNum(0, 3000), price: optNum(0, 10_000) }).parse(input);
     const existing = await findDrinkType(ctx.db, p.name);
     if (existing) {
       const fields: { calories?: number; price?: number } = {};
@@ -728,11 +778,22 @@ const logMeasurementTool: WriteTool = {
     return {
       tool: "log_measurement",
       summary: `Log ${p.kind}: ${value}${p.unit ? ` ${p.unit}` : ""}`,
-      lines: [`${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${p.kind} ${value}${p.unit ? ` ${p.unit}` : ""}${p.value_num != null && p.value_text ? ` (${p.value_text})` : ""}`],
+      lines: [
+        `${p.day} ${hhmm(t.ms, ctx.timeZone)}: ${p.kind} ${value}${p.unit ? ` ${p.unit}` : ""}${p.value_num != null && p.value_text ? ` (${p.value_text})` : ""}`,
+      ],
       async apply() {
         const id = await insertMeasurement(
           ctx.db,
-          { measuredAtMs: t.ms, offsetMin: t.offsetMin, kind: p.kind, valueNum: p.value_num, valueNum2: p.value_num2, valueText: p.value_text, unit: p.unit, notes: p.notes },
+          {
+            measuredAtMs: t.ms,
+            offsetMin: t.offsetMin,
+            kind: p.kind,
+            valueNum: p.value_num,
+            valueNum2: p.value_num2,
+            valueText: p.value_text,
+            unit: p.unit,
+            notes: p.notes,
+          },
           stamp(ctx),
         );
         return { result: { saved: 1, entry_id: id }, rows: [{ op: "insert", table: "manual_measurements", id }] };
@@ -798,9 +859,15 @@ const createGoalTool: WriteTool = {
         start_day: day,
         end_day: day.nullable(),
       })
-      .refine((g) => g.target_kind === "none" || (g.metric && g.comparator && g.target_num != null), "a measurable goal needs metric, comparator and target_num")
+      .refine(
+        (g) => g.target_kind === "none" || (g.metric && g.comparator && g.target_num != null),
+        "a measurable goal needs metric, comparator and target_num",
+      )
       .refine((g) => !g.end_day || g.end_day >= g.start_day, "end_day is before start_day")
-      .refine((g) => !(g.target_kind === "food" && g.metric === "calories" && g.period === "day"), "the daily calorie target is set by the owner on the Food screen")
+      .refine(
+        (g) => !(g.target_kind === "food" && g.metric === "calories" && g.period === "day"),
+        "the daily calorie target is set by the owner on the Food screen",
+      )
       .parse(input);
     const today = localDay(ctx.now, ctx.timeZone);
     if (p.start_day < addDays(today, -366) || p.start_day > addDays(today, 366)) throw new Error("start_day must be within a year of today");
@@ -873,7 +940,20 @@ export async function logAgentAction(
     `INSERT INTO agent_actions
        (id, conversation_id, tool_name, summary, input_json, status, rows_json, error, decided_at_ms, created_at, updated_at, origin_device_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, a.conversationId, a.tool, a.summary, JSON.stringify(a.input), a.status, a.rows ? JSON.stringify(a.rows) : null, a.error ?? null, a.now, a.now, a.now, a.deviceId],
+    [
+      id,
+      a.conversationId,
+      a.tool,
+      a.summary,
+      JSON.stringify(a.input),
+      a.status,
+      a.rows ? JSON.stringify(a.rows) : null,
+      a.error ?? null,
+      a.now,
+      a.now,
+      a.now,
+      a.deviceId,
+    ],
   );
   log.info("agent action recorded", { id, tool: a.tool, status: a.status, rows: a.rows?.length ?? 0 });
   return id;

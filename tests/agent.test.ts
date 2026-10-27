@@ -114,8 +114,14 @@ test("photo of a meal: sent with consent, logged as a photo disclosure, entries 
   assert.equal(await createdBy(db, "food_entries", chicken.id), "assistant");
 
   assert.equal(JSON.parse(resultsOf(api.calls, 1)[0].content as string).status, "saved");
-  assert.deepEqual(res.actions.map((a) => [a.tool, a.status]), [["log_food", "applied"]]);
-  assert.deepEqual((await listAgentActions(db))[0].rows.map((r) => r.op), ["food", "food"]);
+  assert.deepEqual(
+    res.actions.map((a) => [a.tool, a.status]),
+    [["log_food", "applied"]],
+  );
+  assert.deepEqual(
+    (await listAgentActions(db))[0].rows.map((r) => r.op),
+    ["food", "food"],
+  );
 });
 
 test("no confirmation means no write: declined is logged and Claude is told", async () => {
@@ -124,7 +130,10 @@ test("no confirmation means no write: declined is logged and Claude is told", as
     const api = oneRound(call("t1", "log_food", { entries: [lunch] }));
     const res = await startConversation(deps(db, api.create, { confirmAction }), "Log it");
     assert.equal((await dayFood(db, "2026-10-24")).length, 0);
-    assert.deepEqual(res.actions.map((a) => a.status), ["declined"]);
+    assert.deepEqual(
+      res.actions.map((a) => a.status),
+      ["declined"],
+    );
     const r = resultsOf(api.calls, 1)[0];
     assert.equal(r.is_error, true);
     assert.match(String(r.content), /declined/);
@@ -202,13 +211,21 @@ test("meal prep end to end through the app's own functions, and every step undoe
     "Shopping",
   );
   const list = await listShopping(db);
-  assert.deepEqual(list.map((i) => [i.name, i.quantity, i.unit]).sort(), [["Chicken breast", 1600, "g"], ["Kidney beans", 4, "cans"], ["Rice", 800, "g"]]);
+  assert.deepEqual(list.map((i) => [i.name, i.quantity, i.unit]).sort(), [
+    ["Chicken breast", 1600, "g"],
+    ["Kidney beans", 4, "cans"],
+    ["Rice", 800, "g"],
+  ]);
 
   // 3. Cooked, 1 portion straight to the freezer. 4. Ate one portion: logs food with the recipe's macros.
   const r3 = await startConversation(
-    deps(db, oneRound(call("d", "log_cooked_batch", { meal_prep_id: recipe.id, portions: null, frozen: 1, day: "2026-10-25", time: "12:00", notes: null })).create, {
-      confirmAction: confirm,
-    }),
+    deps(
+      db,
+      oneRound(call("d", "log_cooked_batch", { meal_prep_id: recipe.id, portions: null, frozen: 1, day: "2026-10-25", time: "12:00", notes: null })).create,
+      {
+        confirmAction: confirm,
+      },
+    ),
     "Cooked it",
   );
   const [batch] = await loadStock(db);
@@ -216,9 +233,13 @@ test("meal prep end to end through the app's own functions, and every step undoe
   assert.equal(batch.freezerCount, 1);
   assert.equal(await createdBy(db, "meal_prep_batches", batch.batch.id), "assistant");
   const r4 = await startConversation(
-    deps(db, oneRound(call("e", "prep_portions", { batch_id: batch.batch.id, action: "eat", portions: 1, from: null, day: "2026-10-25", time: "14:00" })).create, {
-      confirmAction: confirm,
-    }),
+    deps(
+      db,
+      oneRound(call("e", "prep_portions", { batch_id: batch.batch.id, action: "eat", portions: 1, from: null, day: "2026-10-25", time: "14:00" })).create,
+      {
+        confirmAction: confirm,
+      },
+    ),
     "Ate one",
   );
   const [ate] = await dayFood(db, "2026-10-25");
@@ -241,7 +262,11 @@ test("meal prep end to end through the app's own functions, and every step undoe
   await undoAgentAction(db, r3.actions[0].id, NOW + 2);
   assert.equal((await loadStock(db)).length, 0);
   await undoAgentAction(db, r2.actions[0].id, NOW + 3);
-  assert.deepEqual((await listShopping(db)).map((i) => [i.name, i.quantity]), [["Rice", 200]], "the owner's rice is back to 200 g, not deleted");
+  assert.deepEqual(
+    (await listShopping(db)).map((i) => [i.name, i.quantity]),
+    [["Rice", 200]],
+    "the owner's rice is back to 200 g, not deleted",
+  );
   await undoAgentAction(db, r1.actions[0].id, NOW + 4);
   assert.equal((await listMealPreps(db)).length, 0);
   await assert.rejects(undoAgentAction(db, r1.actions[0].id), /Only applied actions/);
@@ -298,7 +323,10 @@ test("undo refuses rows outside the agent's tables, even if the log was tampered
   const res = await startConversation(deps(db, oneRound(call("t1", "log_food", { entries: [lunch] })).create, { confirmAction: yes }), "Q");
   const [entry] = await dayFood(db, "2026-10-24");
   await db.run("UPDATE agent_actions SET rows_json = ? WHERE id = ?", [
-    JSON.stringify([{ op: "food", table: "food_entries", id: entry.id }, { op: "insert", table: "app_settings", id: "x" }]),
+    JSON.stringify([
+      { op: "food", table: "food_entries", id: entry.id },
+      { op: "insert", table: "app_settings", id: "x" },
+    ]),
     res.actions[0].id,
   ]);
   await assert.rejects(undoAgentAction(db, res.actions[0].id), /Refusing to undo insert on table app_settings/);
@@ -307,16 +335,68 @@ test("undo refuses rows outside the agent's tables, even if the log was tampered
 
 test("drinks, measurements, day notes and goals: proposals read well, limits hold", async () => {
   const db = await setup();
-  await db.run("INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('n0', '2026-10-24', 'mine', ?, ?, 'dev')", [NOW, NOW]);
+  await db.run("INSERT INTO day_notes (id, local_day, body, created_at, updated_at, origin_device_id) VALUES ('n0', '2026-10-24', 'mine', ?, ?, 'dev')", [
+    NOW,
+    NOW,
+  ]);
   const proposals: string[] = [];
   const api = oneRound(
-    call("a", "log_drink", { drink_type: null, name: "Beer", volume_ml: 500, abv_percent: 5, count: 1, calories: null, price: null, day: "2026-10-25", time: "20:00", notes: null }),
-    call("b", "log_measurement", { kind: "blood_pressure", value_num: 128, value_num2: 82, value_text: null, unit: "mmHg", day: "2026-10-25", time: "08:00", notes: null }),
+    call("a", "log_drink", {
+      drink_type: null,
+      name: "Beer",
+      volume_ml: 500,
+      abv_percent: 5,
+      count: 1,
+      calories: null,
+      price: null,
+      day: "2026-10-25",
+      time: "20:00",
+      notes: null,
+    }),
+    call("b", "log_measurement", {
+      kind: "blood_pressure",
+      value_num: 128,
+      value_num2: 82,
+      value_text: null,
+      unit: "mmHg",
+      day: "2026-10-25",
+      time: "08:00",
+      notes: null,
+    }),
     call("c", "add_day_note", { day: "2026-10-24", mood: 4, energy: 3, note: "Good run" }),
     call("d", "add_day_note", { day: "2026-10-25", mood: 4, energy: 3, note: "Rest day" }),
-    call("e", "create_goal", { title: "Protein", target_kind: "food", metric: "protein_g", comparator: ">=", target_num: 140, unit: "g", period: "day", start_day: "2026-10-26", end_day: null }),
-    call("f", "create_goal", { title: "Kcal", target_kind: "food", metric: "calories", comparator: "<=", target_num: 2200, unit: "kcal", period: "day", start_day: "2026-10-26", end_day: null }),
-    call("g", "log_measurement", { kind: "Blood Pressure!", value_num: 1, value_num2: null, value_text: null, unit: null, day: "2026-10-25", time: null, notes: null }),
+    call("e", "create_goal", {
+      title: "Protein",
+      target_kind: "food",
+      metric: "protein_g",
+      comparator: ">=",
+      target_num: 140,
+      unit: "g",
+      period: "day",
+      start_day: "2026-10-26",
+      end_day: null,
+    }),
+    call("f", "create_goal", {
+      title: "Kcal",
+      target_kind: "food",
+      metric: "calories",
+      comparator: "<=",
+      target_num: 2200,
+      unit: "kcal",
+      period: "day",
+      start_day: "2026-10-26",
+      end_day: null,
+    }),
+    call("g", "log_measurement", {
+      kind: "Blood Pressure!",
+      value_num: 1,
+      value_num2: null,
+      value_text: null,
+      unit: null,
+      day: "2026-10-25",
+      time: null,
+      notes: null,
+    }),
   );
   await startConversation(deps(db, api.create, { confirmAction: async (p) => (proposals.push(`${p.summary} | ${p.lines.join(" / ")}`), true) }), "Q");
   assert.deepEqual(proposals, [
@@ -349,7 +429,9 @@ test("energy_needs calculates from the owner's numbers without reading the datab
   assert.equal(r.target_kcal, 2170);
   assert.equal(r.target_floored_at_bmr, false);
   assert.equal(r.protein_target_g, 128);
-  await assert.rejects(TOOLS_BY_NAME.get("energy_needs")!.run(db, { sex: "male", age_years: 35, height_cm: 180, weight_kg: 80, activity: "moderate", kg_per_week: -3 }));
+  await assert.rejects(
+    TOOLS_BY_NAME.get("energy_needs")!.run(db, { sex: "male", age_years: 35, height_cm: 180, weight_kg: 80, activity: "moderate", kg_per_week: -3 }),
+  );
 });
 
 test("attachments: data URLs and app photos accepted, wrong types, bad base64 and too many photos refused", () => {
@@ -387,7 +469,10 @@ test("writes and undo work on the phone driver without nesting plugin transactio
   await migrate(db, realMigrations());
   await recordConsent(db, "claude.aggregates", true, DEV, NOW - 1000);
   calls.length = 0;
-  const res = await startConversation(deps(db, oneRound(call("t1", "log_food", { entries: [lunch, { ...lunch, name: "Salad" }] })).create, { confirmAction: yes }), "Q");
+  const res = await startConversation(
+    deps(db, oneRound(call("t1", "log_food", { entries: [lunch, { ...lunch, name: "Salad" }] })).create, { confirmAction: yes }),
+    "Q",
+  );
   assert.equal((await dayFood(db, "2026-10-24")).length, 2);
   const r2 = await startConversation(deps(db, oneRound(call("t2", "create_meal_prep", chili)).create, { confirmAction: yes }), "Recipe");
   assert.ok(!calls.includes("run:true") && !calls.includes("run:undefined"), "never nests plugin transactions");
@@ -401,6 +486,9 @@ test("conversation stays valid after a write: replayed history pairs every tool_
   const db = await setup();
   const res = await startConversation(deps(db, oneRound(call("t1", "log_food", { entries: [lunch] })).create, { confirmAction: yes }), "Q");
   const msgs = await loadMessages(db, res.conversationId);
-  assert.deepEqual(msgs.map((m) => m.role), ["user", "assistant", "user", "assistant"]);
+  assert.deepEqual(
+    msgs.map((m) => m.role),
+    ["user", "assistant", "user", "assistant"],
+  );
   assert.equal((msgs[2].content as ToolResult[])[0].tool_use_id, "t1");
 });

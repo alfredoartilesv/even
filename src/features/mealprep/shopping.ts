@@ -107,11 +107,7 @@ export async function addShoppingItem(
  * Put the ingredients of recipes on the list, scaled by the number of batches to cook.
  * Returns how many ingredient lines were added or merged.
  */
-export async function addRecipesToShopping(
-  db: SqlDriver,
-  picks: { mealPrepId: string; batches: number }[],
-  nowMs: number = Date.now(),
-): Promise<number> {
+export async function addRecipesToShopping(db: SqlDriver, picks: { mealPrepId: string; batches: number }[], nowMs: number = Date.now()): Promise<number> {
   let lines = 0;
   await withTransaction(db, async () => {
     for (const { mealPrepId, batches } of picks) {
@@ -142,9 +138,10 @@ export async function removeShoppingItem(db: SqlDriver, id: string, nowMs: numbe
 
 /** Remove the ticked items, or everything with all = true. */
 export async function clearShopping(db: SqlDriver, opts: { all?: boolean } = {}, nowMs: number = Date.now()): Promise<void> {
-  await db.run(
-    `UPDATE shopping_list_items SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL AND (? = 1 OR checked = 1)`,
-    [nowMs, nowMs, opts.all ? 1 : 0],
-  );
+  await db.run(`UPDATE shopping_list_items SET deleted_at = ?, updated_at = ? WHERE deleted_at IS NULL AND (? = 1 OR checked = 1)`, [
+    nowMs,
+    nowMs,
+    opts.all ? 1 : 0,
+  ]);
   log.info(opts.all ? "shopping list emptied" : "ticked items cleared");
 }

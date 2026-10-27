@@ -130,7 +130,19 @@ export const ICON_NAMES = Object.keys(PATHS) as IconName[];
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {
   return (
-    <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false">
+    <svg
+      className="icon"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      focusable="false"
+    >
       {PATHS[name]}
     </svg>
   );

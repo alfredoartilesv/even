@@ -44,10 +44,7 @@ export function SavedView({ db, version, onChanged }: Props) {
       <form className="stack" onSubmit={submit}>
         <h3>{editing.id ? "Edit saved meal" : "New saved meal"}</h3>
         {editing.photo === undefined && editing.photoId && <PhotoThumb db={db} id={editing.photoId} size={120} />}
-        <PhotoPicker
-          value={editing.photo ?? null}
-          onChange={(p) => setEditing({ ...editing, photo: p, photoId: p ? editing.photoId : null })}
-        />
+        <PhotoPicker value={editing.photo ?? null} onChange={(p) => setEditing({ ...editing, photo: p, photoId: p ? editing.photoId : null })} />
         <MealFields draft={editing.draft} onChange={(d) => setEditing({ ...editing, draft: d })} />
         <MsgLine msg={msg} />
         <EditActions

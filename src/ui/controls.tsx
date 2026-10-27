@@ -19,11 +19,28 @@ export const RANGES: RangeOption[] = [
 ];
 
 /** One choice among chips (a period, a filter), as a radio group. */
-export function ChipGroup<T extends string | number>({ options, value, onChange, label }: { options: { id: T; label: string }[]; value: T; onChange: (id: T) => void; label: string }) {
+export function ChipGroup<T extends string | number>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+  label: string;
+}) {
   return (
     <div className="chips" role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={o.id} type="button" role="radio" aria-checked={o.id === value} className={o.id === value ? "chip active" : "chip"} onClick={() => onChange(o.id)}>
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={o.id === value}
+          className={o.id === value ? "chip active" : "chip"}
+          onClick={() => onChange(o.id)}
+        >
           {o.label}
         </button>
       ))}
@@ -32,12 +49,34 @@ export function ChipGroup<T extends string | number>({ options, value, onChange,
 }
 
 /** One row of presets, above every chart it scopes (never inside a chart card). */
-export function RangePicker({ value, onChange, options = RANGES, label = "Range" }: { value: number; onChange: (days: number) => void; options?: RangeOption[]; label?: string }) {
+export function RangePicker({
+  value,
+  onChange,
+  options = RANGES,
+  label = "Range",
+}: {
+  value: number;
+  onChange: (days: number) => void;
+  options?: RangeOption[];
+  label?: string;
+}) {
   return <ChipGroup options={options.map((o) => ({ id: o.days, label: o.label }))} value={value} onChange={onChange} label={label} />;
 }
 
 /** − n + for small counts (portions). Buttons are 44px targets; the number is announced on change. */
-export function Stepper({ value, onChange, min = 0, max = 99, label }: { value: number; onChange: (n: number) => void; min?: number; max?: number; label: string }) {
+export function Stepper({
+  value,
+  onChange,
+  min = 0,
+  max = 99,
+  label,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+  label: string;
+}) {
   return (
     <div className="stepper" role="group" aria-label={label}>
       <button type="button" className="secondary" aria-label={`Fewer: ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>
@@ -70,7 +109,21 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
  * the right. A real checkbox with role="switch", so it reads as "on" or "off" and the whole row is
  * the tap target.
  */
-export function Switch({ checked, onChange, label, description, note, disabled }: { checked: boolean; onChange: (on: boolean) => void; label: string; description?: ReactNode; note?: ReactNode; disabled?: boolean }) {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  description,
+  note,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (on: boolean) => void;
+  label: string;
+  description?: ReactNode;
+  note?: ReactNode;
+  disabled?: boolean;
+}) {
   return (
     <label className="switch-row">
       <span className="grow">
@@ -89,7 +142,17 @@ export function Switch({ checked, onChange, label, description, note, disabled }
  * A 1-5 rating (mood, energy): five round steps, the chosen word under them. Tapping the chosen
  * step again clears it. Each step is a radio named with its word, so it is never a bare number.
  */
-export function ScaleRating({ value, onChange, label, words }: { value: number | null; onChange: (v: number | null) => void; label: string; words: readonly string[] }) {
+export function ScaleRating({
+  value,
+  onChange,
+  label,
+  words,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+  label: string;
+  words: readonly string[];
+}) {
   return (
     <div className="scale">
       <div className="scale-head">
@@ -98,7 +161,15 @@ export function ScaleRating({ value, onChange, label, words }: { value: number |
       </div>
       <div className="scale-steps" role="radiogroup" aria-label={label}>
         {words.map((w, i) => (
-          <button key={w} type="button" role="radio" aria-checked={value === i + 1} aria-label={`${i + 1}: ${w}`} className={value !== null && i + 1 <= value ? "on" : ""} onClick={() => onChange(value === i + 1 ? null : i + 1)}>
+          <button
+            key={w}
+            type="button"
+            role="radio"
+            aria-checked={value === i + 1}
+            aria-label={`${i + 1}: ${w}`}
+            className={value !== null && i + 1 <= value ? "on" : ""}
+            onClick={() => onChange(value === i + 1 ? null : i + 1)}
+          >
             {i + 1}
           </button>
         ))}
@@ -122,7 +193,16 @@ export function SecretInput({
   const ref = useRef<HTMLInputElement>(null);
   return (
     <span className="secret-input">
-      <input {...rest} ref={ref} type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+      <input
+        {...rest}
+        ref={ref}
+        type={shown ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+      />
       <span className="secret-actions">
         {value && (
           <button
@@ -137,7 +217,13 @@ export function SecretInput({
             <Icon name="close" size={18} />
           </button>
         )}
-        <button type="button" className="icon-button ghost" aria-label={`${shown ? "Hide" : "Show"} the ${noun}`} aria-pressed={shown} onClick={() => setShown(!shown)}>
+        <button
+          type="button"
+          className="icon-button ghost"
+          aria-label={`${shown ? "Hide" : "Show"} the ${noun}`}
+          aria-pressed={shown}
+          onClick={() => setShown(!shown)}
+        >
           <Icon name={shown ? "eyeOff" : "eye"} size={18} />
         </button>
       </span>

@@ -19,7 +19,9 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const args = Object.fromEntries(
-  process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]?.startsWith("--") ? true : (all[i + 1] ?? true)]] : acc), []),
+  process.argv
+    .slice(2)
+    .reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]?.startsWith("--") ? true : (all[i + 1] ?? true)]] : acc), []),
 );
 const ACTIVITY = "app.health.personal.MainActivity";
 const TABS = [
@@ -61,7 +63,7 @@ async function devtools(pkg) {
   const pending = new Map();
   ws.onmessage = (m) => {
     const msg = JSON.parse(m.data);
-    if (pending.has(msg.id)) pending.get(msg.id)(msg), pending.delete(msg.id);
+    if (pending.has(msg.id)) (pending.get(msg.id)(msg), pending.delete(msg.id));
   };
   const evaluate = async (expression) => {
     const msg = await new Promise((r) => {

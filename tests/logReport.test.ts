@@ -4,7 +4,13 @@ import { configureLogging, consoleSink, createLogger, recentLogs, ringBuffer, se
 import { logReport, reportFileName } from "../src/features/logs/report";
 
 const ctx = { platform: "android", build: "production", timeZone: "Europe/Madrid", level: "info" as const, nowMs: Date.UTC(2026, 9, 26, 6, 13) };
-const rec = (ts: number, level: LogRecord["level"], scope: string, msg: string, fields?: LogRecord["fields"]): LogRecord => ({ ts: Date.UTC(2026, 9, 26, 6, 0, ts), level, scope, msg, ...(fields ? { fields } : {}) });
+const rec = (ts: number, level: LogRecord["level"], scope: string, msg: string, fields?: LogRecord["fields"]): LogRecord => ({
+  ts: Date.UTC(2026, 9, 26, 6, 0, ts),
+  level,
+  scope,
+  msg,
+  ...(fields ? { fields } : {}),
+});
 
 test("the report gives Claude the brief, the context, problems first, then every record oldest first", () => {
   const md = logReport(
@@ -29,7 +35,10 @@ test("the report gives Claude the brief, the context, problems first, then every
   assert.doesNotMatch(problems, /app starting/);
   const all = md.slice(md.indexOf("## All records"));
   assert.deepEqual(
-    all.split("\n").filter((l) => /^\d\d:/.test(l)).map((l) => l.split(": ")[1].split(" {")[0]),
+    all
+      .split("\n")
+      .filter((l) => /^\d\d:/.test(l))
+      .map((l) => l.split(": ")[1].split(" {")[0]),
     ["app starting", "Claude key rejected during chat", "sync failed, cursor kept"],
   );
   assert.match(all, /"err":\{"name":"Error","message":"HTTP 502"\}/);

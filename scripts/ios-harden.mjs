@@ -12,7 +12,16 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readPalette } from "./palette.mjs";
-import { APP_ICON_CONTENTS, ENTITLEMENTS, ENTITLEMENTS_PATH, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "./ios-project.mjs";
+import {
+  APP_ICON_CONTENTS,
+  ENTITLEMENTS,
+  ENTITLEMENTS_PATH,
+  LAUNCH_STORYBOARD,
+  SPLASH_CONTENTS,
+  launchBackgroundColorset,
+  patchInfoPlist,
+  patchPbxproj,
+} from "./ios-project.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const app = join(ROOT, "ios/App");

@@ -51,7 +51,14 @@ interface TypeDraft {
 }
 const emptyType: TypeDraft = { name: "", volumeMl: "", abvPercent: "", calories: "", price: "" };
 const s = (n: number | null) => (n === null ? "" : String(n));
-const toDraft = (t: DrinkType): TypeDraft => ({ id: t.id, name: t.name, volumeMl: s(t.volumeMl), abvPercent: s(t.abvPercent), calories: s(t.calories), price: s(t.price) });
+const toDraft = (t: DrinkType): TypeDraft => ({
+  id: t.id,
+  name: t.name,
+  volumeMl: s(t.volumeMl),
+  abvPercent: s(t.abvPercent),
+  calories: s(t.calories),
+  price: s(t.price),
+});
 const fromDraft = (d: TypeDraft): DrinkTypeInput => ({
   id: d.id,
   name: d.name,
@@ -83,7 +90,11 @@ function TypeFields({ d, set, currency }: { d: TypeDraft; set: (d: TypeDraft) =>
           <input
             inputMode="decimal"
             value={d.calories}
-            placeholder={Number(d.volumeMl) > 0 && Number(d.abvPercent) >= 0 ? `≈ ${servingKcal({ volumeMl: Number(d.volumeMl), abvPercent: Number(d.abvPercent), calories: null })}` : undefined}
+            placeholder={
+              Number(d.volumeMl) > 0 && Number(d.abvPercent) >= 0
+                ? `≈ ${servingKcal({ volumeMl: Number(d.volumeMl), abvPercent: Number(d.abvPercent), calories: null })}`
+                : undefined
+            }
             onChange={(e) => set({ ...d, calories: e.target.value })}
           />
         </label>
@@ -138,10 +149,13 @@ export function AlcoholView({ db, version, onChanged }: Props) {
     if (!other) return;
     const t = fromDraft(other);
     const n = Number(count || 1);
-    const ok = await run(async () => {
-      const typeId = saveAsType ? await saveDrinkType(db, t) : null;
-      setLastIds(await logDrink(db, { ...t, typeId, count: n, timeZone: timeZone() }));
-    }, `Logged ${n} x ${t.name.trim()}${saveAsType ? " and saved the type" : ""}.`);
+    const ok = await run(
+      async () => {
+        const typeId = saveAsType ? await saveDrinkType(db, t) : null;
+        setLastIds(await logDrink(db, { ...t, typeId, count: n, timeZone: timeZone() }));
+      },
+      `Logged ${n} x ${t.name.trim()}${saveAsType ? " and saved the type" : ""}.`,
+    );
     if (ok) {
       setOther(null);
       setCount("1");
@@ -212,7 +226,6 @@ export function AlcoholView({ db, version, onChanged }: Props) {
         </button>
       )}
 
-
       <SectionHeader title="How it adds up" />
       <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
 
@@ -234,9 +247,9 @@ export function AlcoholView({ db, version, onChanged }: Props) {
                 <span className="muted"> ({impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)} kg` : "no difference"})</span>
               </p>
               <p className="muted small">
-                If the {kcal(t.kcal)} kcal from drinks in the last {PERIODS.find((p) => p.key === period)!.label.toLowerCase()} had not been
-                added on top (7,700 kcal ≈ 1 kg). Weight from {impact.weight.source === "manual" ? "a weigh-in" : "your watch"} on{" "}
-                {fmtDay(impact.weight.day)}. An upper bound, not a prediction.
+                If the {kcal(t.kcal)} kcal from drinks in the last {PERIODS.find((p) => p.key === period)!.label.toLowerCase()} had not been added on top (7,700
+                kcal ≈ 1 kg). Weight from {impact.weight.source === "manual" ? "a weigh-in" : "your watch"} on {fmtDay(impact.weight.day)}. An upper bound, not
+                a prediction.
               </p>
             </>
           ) : (
@@ -288,7 +301,8 @@ export function AlcoholView({ db, version, onChanged }: Props) {
                     {d.createdBy === "assistant" && <span className="muted small"> · added by the assistant</span>}
                   </div>
                   <div className="muted small">
-                    {d.volumeMl} ml, {d.abvPercent}% · {servingKcal(d)} kcal{d.calories === null ? " (est.)" : ""} · {d.price === null ? "no price" : money(d.price)} · {d.uses}×
+                    {d.volumeMl} ml, {d.abvPercent}% · {servingKcal(d)} kcal{d.calories === null ? " (est.)" : ""} ·{" "}
+                    {d.price === null ? "no price" : money(d.price)} · {d.uses}×
                   </div>
                 </div>
                 <button className="secondary" onClick={() => setEditing(toDraft(d))}>

@@ -27,8 +27,7 @@ interface Props {
 }
 
 type Pending =
-  | { kind: "consent"; text: string; resolve: (ok: boolean) => void }
-  | { kind: "confirm"; summary: string; lines: string[]; resolve: (ok: boolean) => void };
+  { kind: "consent"; text: string; resolve: (ok: boolean) => void } | { kind: "confirm"; summary: string; lines: string[]; resolve: (ok: boolean) => void };
 
 // Native HTTP on the phone; a reply with thinking and tools can take minutes.
 const fetchImpl = deviceFetch({ connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 });
@@ -439,8 +438,22 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
             <Icon name="send" size={22} />
           </button>
         </div>
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void addPhotos(e.target.files).then(() => (e.target.value = ""))} />
-        <input ref={galleryRef} type="file" accept="image/*" multiple hidden onChange={(e) => void addPhotos(e.target.files).then(() => (e.target.value = ""))} />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(e) => void addPhotos(e.target.files).then(() => (e.target.value = ""))}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => void addPhotos(e.target.files).then(() => (e.target.value = ""))}
+        />
       </form>
     </section>
   );

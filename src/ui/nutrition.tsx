@@ -19,7 +19,9 @@ export function CalorieMeter({ eaten, target, fromDrinks = 0 }: { eaten: number;
       </div>
       {target !== null && (
         <Meter value={eaten} max={target} label="Calories today">
-          <div className={over ? "warning small" : "muted small"}>{over ? `${kcal(eaten - target)} kcal over target` : `${kcal(target - eaten)} kcal left`}</div>
+          <div className={over ? "warning small" : "muted small"}>
+            {over ? `${kcal(eaten - target)} kcal over target` : `${kcal(target - eaten)} kcal left`}
+          </div>
         </Meter>
       )}
       {fromDrinks > 0 && <div className="muted small">including {kcal(fromDrinks)} kcal from drinks</div>}

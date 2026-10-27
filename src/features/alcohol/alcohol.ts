@@ -34,8 +34,7 @@ export interface DrinkType extends Required<DrinkTypeInput> {
 }
 
 /** kcal of one serving: the label value, else 7 kcal per gram of alcohol. */
-export const servingKcal = (t: Pick<DrinkTypeInput, "volumeMl" | "abvPercent" | "calories">) =>
-  t.calories ?? Math.round(alcoholKcal(t.volumeMl, t.abvPercent));
+export const servingKcal = (t: Pick<DrinkTypeInput, "volumeMl" | "abvPercent" | "calories">) => t.calories ?? Math.round(alcoholKcal(t.volumeMl, t.abvPercent));
 
 function check(t: DrinkTypeInput): void {
   if (!t.name.trim()) throw new Error("Give the drink a name");
@@ -169,7 +168,23 @@ export async function logDrink(db: SqlDriver, d: LogDrinkInput): Promise<string[
         `INSERT INTO drink_entries (id, drunk_at_ms, offset_min, local_day, name, volume_ml, abv_percent, notes, drink_type_id, calories, price,
            created_by, created_at, updated_at, origin_device_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, at, offset, day, t.name, t.volumeMl, t.abvPercent, d.notes?.trim() || null, type?.id ?? null, t.calories, t.price, d.createdBy ?? "user", at, at, dev],
+        [
+          id,
+          at,
+          offset,
+          day,
+          t.name,
+          t.volumeMl,
+          t.abvPercent,
+          d.notes?.trim() || null,
+          type?.id ?? null,
+          t.calories,
+          t.price,
+          d.createdBy ?? "user",
+          at,
+          at,
+          dev,
+        ],
       );
       ids.push(id);
     }
@@ -250,7 +265,15 @@ export interface AlcoholTotals {
 }
 
 export async function alcoholTotals(db: SqlDriver, from: string, to: string): Promise<AlcoholTotals> {
-  const [r] = await db.all<{ drinks: number | null; days: number; alcohol_g: number | null; calories: number | null; est: number | null; price: number | null; priced: number | null }>(
+  const [r] = await db.all<{
+    drinks: number | null;
+    days: number;
+    alcohol_g: number | null;
+    calories: number | null;
+    est: number | null;
+    price: number | null;
+    priced: number | null;
+  }>(
     `SELECT SUM(drinks) AS drinks, COUNT(*) AS days, SUM(alcohol_g) AS alcohol_g, SUM(calories) AS calories,
             SUM(calories_estimated) AS est, SUM(price) AS price, SUM(priced) AS priced
      FROM daily_alcohol WHERE local_day BETWEEN ? AND ?`,
@@ -276,10 +299,10 @@ export async function alcoholTotals(db: SqlDriver, from: string, to: string): Pr
 
 /** kcal from drinks per local day, for adding to the food calorie tracker. */
 export async function drinkKcalByDay(db: SqlDriver, from: string, to: string): Promise<Map<string, number>> {
-  const rows = await db.all<{ local_day: string; calories: number }>(
-    "SELECT local_day, calories FROM daily_alcohol WHERE local_day BETWEEN ? AND ?",
-    [from, to],
-  );
+  const rows = await db.all<{ local_day: string; calories: number }>("SELECT local_day, calories FROM daily_alcohol WHERE local_day BETWEEN ? AND ?", [
+    from,
+    to,
+  ]);
   return new Map(rows.map((r) => [r.local_day, r.calories]));
 }
 

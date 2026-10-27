@@ -36,7 +36,12 @@ const adb = (...a: string[]) => execFileSync("adb", adbArgs(a), { encoding: "utf
 const adbRaw = (...a: string[]) => execFileSync("adb", adbArgs(a), { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function until<T>(what: string, fn: () => Promise<T | null | undefined | false> | T | null | undefined | false, timeoutMs = 30_000, everyMs = 500): Promise<T> {
+async function until<T>(
+  what: string,
+  fn: () => Promise<T | null | undefined | false> | T | null | undefined | false,
+  timeoutMs = 30_000,
+  everyMs = 500,
+): Promise<T> {
   const end = Date.now() + timeoutMs;
   let last: unknown;
   while (Date.now() < end) {
@@ -150,7 +155,10 @@ async function check(name: string, fn: () => Promise<string>) {
 
 /** The activity in front, e.g. "app.health.personal/.MainActivity" or a Settings screen. */
 function foreground(): string {
-  const line = adb("shell", "dumpsys", "activity", "activities").split("\n").find((l) => /topResumedActivity|mResumedActivity/.test(l)) ?? "";
+  const line =
+    adb("shell", "dumpsys", "activity", "activities")
+      .split("\n")
+      .find((l) => /topResumedActivity|mResumedActivity/.test(l)) ?? "";
   return /\{[^ ]+ [^ ]+ ([^ }]+)/.exec(line)?.[1] ?? line.trim();
 }
 
@@ -159,7 +167,12 @@ async function launch(): Promise<Page> {
   const pid = await until("the app process", () => adb("shell", "pidof", "-s", APP).trim() || null, 20_000);
   const socket = await until(
     "the WebView DevTools socket",
-    () => adb("shell", "cat", "/proc/net/unix").split("\n").map((l) => l.trim().split(/\s+/).pop() ?? "").find((s) => s === `@webview_devtools_remote_${pid}`)?.slice(1),
+    () =>
+      adb("shell", "cat", "/proc/net/unix")
+        .split("\n")
+        .map((l) => l.trim().split(/\s+/).pop() ?? "")
+        .find((s) => s === `@webview_devtools_remote_${pid}`)
+        ?.slice(1),
     20_000,
   );
   adb("forward", `tcp:${port}`, `localabstract:${socket}`);
@@ -201,7 +214,10 @@ async function storedReadings(page: Page): Promise<number> {
 }
 
 async function main() {
-  const devices = execFileSync("adb", ["devices"], { encoding: "utf8" }).split("\n").slice(1).filter((l) => /\tdevice\b/.test(l));
+  const devices = execFileSync("adb", ["devices"], { encoding: "utf8" })
+    .split("\n")
+    .slice(1)
+    .filter((l) => /\tdevice\b/.test(l));
   if (devices.length === 0) throw new Error("No device or emulator connected (adb devices is empty)");
   if (!serial && devices.length > 1) throw new Error("Several devices connected: pass --serial");
   const model = adb("shell", "getprop", "ro.product.model").trim();
@@ -282,14 +298,21 @@ async function main() {
 
   await check(`database migrated to schema v${latestSchema}`, async () => {
     await openSettingsPage(page, "About");
-    const v = await until("the schema row", () => page.eval<string | null>(`(() => { const m = /Database schema\\s*v(\\d+)/.exec(__t.text()); return m ? m[1] : null; })()`), 15_000);
+    const v = await until(
+      "the schema row",
+      () => page.eval<string | null>(`(() => { const m = /Database schema\\s*v(\\d+)/.exec(__t.text()); return m ? m[1] : null; })()`),
+      15_000,
+    );
     screenshot("about");
     if (Number(v) !== latestSchema) throw new Error(`schema is v${v}, the app ships v${latestSchema}`);
     return `v${v}`;
   });
 
   await check("database file is encrypted (not plain SQLite)", async () => {
-    const files = adb("shell", "run-as", APP, "ls", "databases").split("\n").map((f) => f.trim()).filter((f) => f.endsWith(".db"));
+    const files = adb("shell", "run-as", APP, "ls", "databases")
+      .split("\n")
+      .map((f) => f.trim())
+      .filter((f) => f.endsWith(".db"));
     if (files.length === 0) throw new Error("no database file found");
     const head = adbRaw("exec-out", "run-as", APP, "head", "-c", "16", `databases/${files[0]}`).toString("latin1");
     if (head.startsWith("SQLite format 3")) throw new Error(`${files[0]} is a plain SQLite file`);
@@ -357,7 +380,9 @@ async function main() {
       for (let i = 0; i < 7; i++) {
         await sleep(800);
         // The steps ring is a meter: its value is in aria-valuenow (absent when the day has no data).
-        const steps = await page.eval<number | null>(`(() => { const m = document.querySelector('[role="meter"][aria-label^="Steps"]'); const v = m && m.getAttribute("aria-valuenow"); return v ? Number(v) : null; })()`);
+        const steps = await page.eval<number | null>(
+          `(() => { const m = document.querySelector('[role="meter"][aria-label^="Steps"]'); const v = m && m.getAttribute("aria-valuenow"); return v ? Number(v) : null; })()`,
+        );
         if (steps !== null && steps > 0) {
           screenshot("dashboard-steps");
           return `steps ring has a value (${i === 0 ? "today" : `${i} day(s) back`})`;

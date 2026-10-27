@@ -95,7 +95,9 @@ async function main() {
 
   const r = parsed.report;
   const line = (label: string, k: (typeof r)["daily"], unit: string) =>
-    console.log(`  ${label.padEnd(12)} ${String(k.imported).padStart(5)} ${unit} imported, ${k.skipped} skipped, from ${k.files} file(s)${k.firstDay ? `, ${k.firstDay} to ${k.lastDay}` : ""}`);
+    console.log(
+      `  ${label.padEnd(12)} ${String(k.imported).padStart(5)} ${unit} imported, ${k.skipped} skipped, from ${k.files} file(s)${k.firstDay ? `, ${k.firstDay} to ${k.lastDay}` : ""}`,
+    );
   line("Daily", r.daily, "days");
   line("Sleep", r.sleep, "nights");
   line("Weight", r.biometrics, "weigh-ins");

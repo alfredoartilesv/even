@@ -45,13 +45,29 @@ test("drink types: unique names, estimated kcal, delete keeps the drinks", async
 
   await logDrink(db, { typeId: id, count: 2, atMs: NOW, timeZone: TZ });
   let types = await listDrinkTypes(db);
-  assert.deepEqual(types.map((t) => [t.name, t.uses]), [["Mahou 33 cl", 2], ["Red wine", 0]]);
+  assert.deepEqual(
+    types.map((t) => [t.name, t.uses]),
+    [
+      ["Mahou 33 cl", 2],
+      ["Red wine", 0],
+    ],
+  );
   await saveDrinkType(db, { ...types[0], price: 1.5 }, { nowMs: NOW + 1 });
   await deleteDrinkType(db, id, NOW + 2);
   types = await listDrinkTypes(db);
-  assert.deepEqual(types.map((t) => t.name), ["Red wine"]);
+  assert.deepEqual(
+    types.map((t) => t.name),
+    ["Red wine"],
+  );
   const drinks = await listDrinks(db, "2026-10-25", "2026-10-25");
-  assert.deepEqual(drinks.map((d) => [d.name, d.kcal, d.price]), [["Mahou 33 cl", 142, 1.2], ["Mahou 33 cl", 142, 1.2]], "history keeps the values it was logged with");
+  assert.deepEqual(
+    drinks.map((d) => [d.name, d.kcal, d.price]),
+    [
+      ["Mahou 33 cl", 142, 1.2],
+      ["Mahou 33 cl", 142, 1.2],
+    ],
+    "history keeps the values it was logged with",
+  );
 });
 
 test("totals in drinks, alcohol, kcal and money; drink kcal per day", async () => {
@@ -122,7 +138,10 @@ test("currency setting", async () => {
 test("0006 keeps drinks logged before it, with estimated kcal and no price", async () => {
   const { db } = memoryDriver();
   const all = realMigrations();
-  await migrate(db, all.filter((m) => m.version <= 5));
+  await migrate(
+    db,
+    all.filter((m) => m.version <= 5),
+  );
   await db.run(
     `INSERT INTO drink_entries (id, drunk_at_ms, offset_min, local_day, name, volume_ml, abv_percent, created_at, updated_at, origin_device_id)
      VALUES ('d1', ?, 60, '2026-10-25', 'beer', 500, 5, ?, ?, 'dev')`,
@@ -138,7 +157,17 @@ test("0006 keeps drinks logged before it, with estimated kcal and no price", asy
 type BetaMessage = Anthropic.Beta.Messages.BetaMessage;
 type ToolResult = Anthropic.Beta.Messages.BetaToolResultBlockParam;
 const reply = (content: unknown[], stop_reason: string) =>
-  ({ id: "m", type: "message", role: "assistant", model: CHAT_MODEL, content, stop_reason, stop_sequence: null, stop_details: null, usage: { input_tokens: 1, output_tokens: 1 } }) as unknown as BetaMessage;
+  ({
+    id: "m",
+    type: "message",
+    role: "assistant",
+    model: CHAT_MODEL,
+    content,
+    stop_reason,
+    stop_sequence: null,
+    stop_details: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  }) as unknown as BetaMessage;
 const call = (id: string, name: string, input: unknown) => ({ type: "tool_use", id, name, input });
 
 function oneRound(...calls: unknown[]) {
@@ -161,8 +190,26 @@ const deps = (db: ChatDeps["db"], create: ClaudeCreate, proposals: string[]): Ch
   timeZone: TZ,
   confirmAction: async (p) => (proposals.push(`${p.summary} | ${p.lines.join(" / ")}`), true),
 });
-const drinkType = (name: string, volume_ml: number, abv_percent: number, calories: number | null, price: number | null) => ({ name, volume_ml, abv_percent, calories, price });
-const drink = (over: Record<string, unknown>) => ({ drink_type: null, name: null, volume_ml: null, abv_percent: null, count: 1, calories: null, price: null, day: "2026-10-25", time: "20:00", notes: null, ...over });
+const drinkType = (name: string, volume_ml: number, abv_percent: number, calories: number | null, price: number | null) => ({
+  name,
+  volume_ml,
+  abv_percent,
+  calories,
+  price,
+});
+const drink = (over: Record<string, unknown>) => ({
+  drink_type: null,
+  name: null,
+  volume_ml: null,
+  abv_percent: null,
+  count: 1,
+  calories: null,
+  price: null,
+  day: "2026-10-25",
+  time: "20:00",
+  notes: null,
+  ...over,
+});
 
 test("chat adds drink types, fills only missing values, logs by type, and every step undoes", async () => {
   const db = await chatDb();
@@ -214,9 +261,15 @@ test("chat read tools: drink types with currency, and the alcohol impact with ex
      VALUES ('m1', ?, 60, '2026-10-25', 'weight', 80, 'kg', ?, ?, 'dev')`,
     [NOW, NOW, NOW],
   );
-  const types = (await TOOLS_BY_NAME.get("drink_types")!.run(db, {})).result as { currency: string; types: { name: string; kcal_per_serving: number; times_logged: number }[] };
+  const types = (await TOOLS_BY_NAME.get("drink_types")!.run(db, {})).result as {
+    currency: string;
+    types: { name: string; kcal_per_serving: number; times_logged: number }[];
+  };
   assert.equal(types.currency, "EUR");
-  assert.deepEqual(types.types.map((t) => [t.name, t.kcal_per_serving, t.times_logged]), [["Mahou 33 cl", 154, 10]]);
+  assert.deepEqual(
+    types.types.map((t) => [t.name, t.kcal_per_serving, t.times_logged]),
+    [["Mahou 33 cl", 154, 10]],
+  );
 
   const impact = (await TOOLS_BY_NAME.get("alcohol_impact")!.run(db, { from: "2026-10-19", to: "2026-10-25" })).result as Record<string, unknown>;
   assert.equal(impact.drinks, 10);

@@ -122,7 +122,17 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
 
   const add = (metric: string, value: number | null, unit: string | null, at: { startMs: number; endMs: number; offsetMin: number }, externalId: string) => {
     if (value === null) return 0;
-    samples.push({ source: GARMIN_EXPORT_SOURCE, device: DEVICE, externalId, metric, startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueNum: value, ...(unit ? { unit } : {}) });
+    samples.push({
+      source: GARMIN_EXPORT_SOURCE,
+      device: DEVICE,
+      externalId,
+      metric,
+      startMs: at.startMs,
+      endMs: at.endMs,
+      offsetMin: at.offsetMin,
+      valueNum: value,
+      ...(unit ? { unit } : {}),
+    });
     return 1;
   };
 
@@ -165,7 +175,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
       n += add("daily_maxHeartRateInBeatsPerMinute", inRange(num(r.maxHeartRate), 20, 250), "bpm", at, id);
       n += add("daily_moderateIntensityDurationInSeconds", minutes(r.moderateIntensityMinutes), "seconds", at, id);
       n += add("daily_vigorousIntensityDurationInSeconds", minutes(r.vigorousIntensityMinutes), "seconds", at, id);
-      n += add("daily_activeTimeInSeconds",inRange(num(r.activeSeconds), 0, 86_400), "seconds", at, id);
+      n += add("daily_activeTimeInSeconds", inRange(num(r.activeSeconds), 0, 86_400), "seconds", at, id);
       n += add("daily_highlyActiveDurationInSeconds", inRange(num(r.highlyActiveSeconds), 0, 86_400), "seconds", at, id);
       n += add("daily_averageStressLevel", inRange(num(stress?.averageStressLevel), 0, 100), null, at, id);
       n += add("daily_maxStressLevel", inRange(num(stress?.maxStressLevel), 0, 100), null, at, id);
@@ -257,7 +267,14 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
         continue;
       }
       const sport = typeof r.sport === "string" && r.sport ? r.sport.toUpperCase() : "";
-      const metric = sport === "RUNNING" ? "userMetrics_vo2MaxRunning" : sport === "WALKING" ? "userMetrics_vo2MaxWalking" : sport === "CYCLING" ? "userMetrics_vo2MaxCycling" : "userMetrics_vo2Max";
+      const metric =
+        sport === "RUNNING"
+          ? "userMetrics_vo2MaxRunning"
+          : sport === "WALKING"
+            ? "userMetrics_vo2MaxWalking"
+            : sport === "CYCLING"
+              ? "userMetrics_vo2MaxCycling"
+              : "userMetrics_vo2Max";
       const updated = typeof r.updateTimestamp === "string" ? r.updateTimestamp : "";
       let used = false;
       const value = inRange(num(r.vo2MaxValue), 10, 100);
@@ -289,7 +306,7 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
     for (const a of list) {
       report.activities.records++;
       const id = isObj(a) ? num(a.activityId) : null;
-      const gmt = isObj(a) ? num(a.startTimeGmt) ?? num(a.beginTimestamp) : null;
+      const gmt = isObj(a) ? (num(a.startTimeGmt) ?? num(a.beginTimestamp)) : null;
       if (!isObj(a) || id === null || gmt === null) {
         report.activities.skipped++;
         continue;
@@ -304,19 +321,40 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
         return n === null ? null : Math.round(n) / 100;
       };
       if (typeof a.activityType === "string" && a.activityType) {
-        samples.push({ source: GARMIN_EXPORT_SOURCE, device: DEVICE, externalId: ext, metric: "activity_activityType",startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueText: a.activityType });
+        samples.push({
+          source: GARMIN_EXPORT_SOURCE,
+          device: DEVICE,
+          externalId: ext,
+          metric: "activity_activityType",
+          startMs: at.startMs,
+          endMs: at.endMs,
+          offsetMin: at.offsetMin,
+          valueText: a.activityType,
+        });
       }
       add("activity_durationInSeconds", durationMs === null ? null : Math.round(durationMs / 1000), "seconds", at, ext);
-      add("activity_movingDurationInSeconds", (() => {
-        const m = inRange(num(a.movingDuration), 0, 7 * 86_400_000);
-        return m === null ? null : Math.round(m / 1000);
-      })(), "seconds", at, ext);
+      add(
+        "activity_movingDurationInSeconds",
+        (() => {
+          const m = inRange(num(a.movingDuration), 0, 7 * 86_400_000);
+          return m === null ? null : Math.round(m / 1000);
+        })(),
+        "seconds",
+        at,
+        ext,
+      );
       add("activity_distanceInMeters", cm(a.distance, 1_000_000), "meters", at, ext);
-      add("activity_totalElevationGainInMeters",cm(a.elevationGain, 20_000), "meters", at, ext);
-      add("activity_activeKilocalories", (() => {
-        const kj = inRange(num(a.calories), 0, 80_000);
-        return kj === null ? null : Math.round(kj / 4.184);
-      })(), "kcal", at, ext);
+      add("activity_totalElevationGainInMeters", cm(a.elevationGain, 20_000), "meters", at, ext);
+      add(
+        "activity_activeKilocalories",
+        (() => {
+          const kj = inRange(num(a.calories), 0, 80_000);
+          return kj === null ? null : Math.round(kj / 4.184);
+        })(),
+        "kcal",
+        at,
+        ext,
+      );
       add("activity_averageHeartRateInBeatsPerMinute", inRange(num(a.avgHr), 20, 250), "bpm", at, ext);
       add("activity_maxHeartRateInBeatsPerMinute", inRange(num(a.maxHr), 20, 250), "bpm", at, ext);
       add("activity_steps", inRange(num(a.steps), 0, 200_000), null, at, ext);

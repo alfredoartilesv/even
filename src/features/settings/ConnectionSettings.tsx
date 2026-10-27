@@ -4,7 +4,15 @@ import { deviceFetch } from "../../platform/device";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
-import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection, type ConnectionStatus } from "../chat/connect";
+import {
+  CLAUDE_KEYS_URL,
+  claudeConnection,
+  connectClaude,
+  CONNECT_STEPS,
+  disconnectClaude,
+  type ClaudeConnection,
+  type ConnectionStatus,
+} from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
 import { garminExportCoverage, MAX_ZIP_BYTES, storeGarminImport, type ExportCoverage } from "../import/garminImport";
 import { parseGarminZip } from "../import/garminParse";
@@ -109,10 +117,12 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
         {state}
       </div>
       <p className="muted small">
-        Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where
-        Garmin has the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
+        Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where Garmin has
+        the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
       </p>
-      {on && sync?.warnings.length ? <p className="warning small">Not read last time: {sync.warnings.map((w) => w.split(":")[0]).join(", ")}. Allow them in the Health app.</p> : null}
+      {on && sync?.warnings.length ? (
+        <p className="warning small">Not read last time: {sync.warnings.map((w) => w.split(":")[0]).join(", ")}. Allow them in the Health app.</p>
+      ) : null}
       <div className="actions">
         {on ? (
           <button type="button" className="secondary" onClick={() => void disconnect()}>
@@ -128,8 +138,8 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
       <details className="more">
         <summary className="small accent">Change what Even can read</summary>
         <p className="muted small">
-          iOS asks only once. After that, choose what Even reads in the Health app: tap your picture, then Apps, then Even. iOS never tells an app
-          what it was refused, so a type you turned off just comes back empty.
+          iOS asks only once. After that, choose what Even reads in the Health app: tap your picture, then Apps, then Even. iOS never tells an app what it was
+          refused, so a type you turned off just comes back empty.
         </p>
       </details>
     </section>
@@ -220,8 +230,8 @@ function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the
-            phone's secure storage.
+            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the phone's
+            secure storage.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
           <DisconnectButton
@@ -345,7 +355,12 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
       </p>
       <form onSubmit={run} className="stack">
         <label className="file-button">
-          <input type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={Boolean(busy)} />
+          <input
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            disabled={Boolean(busy)}
+          />
           {file ? `${file.name} (${(file.size / 1024 / 1024).toFixed(0)} MB)` : "Choose the Garmin export (.zip)"}
         </label>
         <button type="submit" disabled={!file || Boolean(busy)}>
@@ -423,8 +438,8 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
       {claude && claude.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}. It is in the phone's secure storage and used only to call Claude; billing is per
-            use, on your Claude Console account. What Claude may see is under Privacy &amp; data.
+            Key {claude.keyHint}, checked {when(claude.verifiedAtMs)}. It is in the phone's secure storage and used only to call Claude; billing is per use, on
+            your Claude Console account. What Claude may see is under Privacy &amp; data.
           </p>
           {claude.problem && <p className="warning small">{claude.problem}</p>}
           <DisconnectButton

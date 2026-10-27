@@ -147,7 +147,10 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const tile = (f: Figure | undefined, fmt: (n: number) => string = int) => {
     if (!f || f.total === null) return { value: null, note: many ? "no data" : undefined };
     if (!many) return { value: fmt(f.total) };
-    return { value: fmt(f.avg!), note: `a day · ${fmt(f.total)} total${f.daysWithData < (data?.days.length ?? 0) ? ` · ${plural(f.daysWithData, "day")}` : ""}` };
+    return {
+      value: fmt(f.avg!),
+      note: `a day · ${fmt(f.total)} total${f.daysWithData < (data?.days.length ?? 0) ? ` · ${plural(f.daysWithData, "day")}` : ""}`,
+    };
   };
   /** For the rings and the hero line: the day's number, or the daily average. */
   const headline = (f: Figure | undefined) => (f && f.total !== null ? (many ? f.avg : f.total) : null);
@@ -174,8 +177,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       ))}
       {!configured && !hasAny && (
         <p className="muted small">
-          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in Settings" : "Add your Garmin key in Settings"} to bring in steps and calories burned, or
-          import your Garmin export.
+          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in Settings" : "Add your Garmin key in Settings"} to bring in steps and calories
+          burned, or import your Garmin export.
         </p>
       )}
 
@@ -257,7 +260,16 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
 
       {many && d && (
         <>
-          <BarChart title="Steps" subtitle="Tap a day to open it" x={x} values={d.days.map((r) => r.steps)} formatX={axis} formatXLong={(day) => fmtDay(day)} formatValue={int} onSelect={openDay} />
+          <BarChart
+            title="Steps"
+            subtitle="Tap a day to open it"
+            x={x}
+            values={d.days.map((r) => r.steps)}
+            formatX={axis}
+            formatXLong={(day) => fmtDay(day)}
+            formatValue={int}
+            onSelect={openDay}
+          />
           <LineChart
             title="Calories in and out"
             x={x}
@@ -279,7 +291,11 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       {d && d.workouts.count > 0 ? (
         <div className="viz-tiles pairs">
           <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
-          <StatTile label="Time" value={fmtDuration(d.workouts.durationS)} note={many ? `${fmtDuration(d.workouts.durationS / d.days.length)} a day` : undefined} />
+          <StatTile
+            label="Time"
+            value={fmtDuration(d.workouts.durationS)}
+            note={many ? `${fmtDuration(d.workouts.durationS / d.days.length)} a day` : undefined}
+          />
         </div>
       ) : (
         <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
@@ -288,8 +304,16 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
       <div className="viz-tiles pairs">
         <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
-        <StatTile label="In stock now" value={d ? String(d.stock.portions) : null} note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined} />
-        <StatTile label="Groceries" value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null} note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined} />
+        <StatTile
+          label="In stock now"
+          value={d ? String(d.stock.portions) : null}
+          note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined}
+        />
+        <StatTile
+          label="Groceries"
+          value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null}
+          note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined}
+        />
       </div>
 
       {span === "day" && metrics.length > 0 && <SyncedNumbers metrics={metrics} />}
@@ -305,11 +329,17 @@ function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
   const devices = [...new Set(metrics.map((v) => v.device).filter(Boolean))];
   const perMetric = new Map<string, number>();
   for (const v of metrics) perMetric.set(v.metric, (perMetric.get(v.metric) ?? 0) + 1);
-  const groups = CATEGORY_ORDER.map((c) => ({ category: c, rows: metrics.filter((v) => displayCategory(v.metric, v.category) === c) })).filter((g) => g.rows.length);
+  const groups = CATEGORY_ORDER.map((c) => ({ category: c, rows: metrics.filter((v) => displayCategory(v.metric, v.category) === c) })).filter(
+    (g) => g.rows.length,
+  );
   return (
     <details className="card synced">
       <summary>
-        All synced numbers <span className="muted small">· {metrics.length}{devices.length === 1 ? ` from ${devices[0]}` : ""}</span>
+        All synced numbers{" "}
+        <span className="muted small">
+          · {metrics.length}
+          {devices.length === 1 ? ` from ${devices[0]}` : ""}
+        </span>
       </summary>
       {groups.map((g) => (
         <div key={g.category}>
@@ -367,7 +397,8 @@ function CheckInCard({ data, many, day, onOpen, onWeight }: { data: Dashboard | 
         <Icon name="scale" size={18} />
         {j.weight ? (
           <span>
-            Weight <strong>{j.weight.kg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong> <span className="muted">· {fmtDay(j.weight.day)}</span>
+            Weight <strong>{j.weight.kg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong>{" "}
+            <span className="muted">· {fmtDay(j.weight.day)}</span>
           </span>
         ) : (
           <span className="muted">Log your weight</span>

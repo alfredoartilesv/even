@@ -85,10 +85,22 @@ test("max heart rate (Tanaka) and zones, with and without resting rate", () => {
 test("series: mean, slope over calendar days, rolling average with gaps, smoothing", () => {
   assert.equal(mean([]), null);
   assert.equal(mean([1, 2, NaN, 3]), 2);
-  assert.equal(slopePerDay([{ day: "2026-10-20", value: 0 }, { day: "2026-10-22", value: 2 }]), 1);
+  assert.equal(
+    slopePerDay([
+      { day: "2026-10-20", value: 0 },
+      { day: "2026-10-22", value: 2 },
+    ]),
+    1,
+  );
   assert.equal(slopePerDay([{ day: "2026-10-20", value: 5 }]), 0);
   // Over a DST change the slope still counts calendar days.
-  assert.equal(slopePerDay([{ day: "2026-10-24", value: 80 }, { day: "2026-10-26", value: 79 }]), -0.5);
+  assert.equal(
+    slopePerDay([
+      { day: "2026-10-24", value: 80 },
+      { day: "2026-10-26", value: 79 },
+    ]),
+    -0.5,
+  );
   assert.deepEqual(
     rollingAverage(
       [

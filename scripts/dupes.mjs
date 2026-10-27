@@ -46,11 +46,17 @@ function codeLines(text) {
   return out;
 }
 
-const all = DIRS.flatMap((d) => files(join(ROOT, d))).map((f) => ({ file: relative(ROOT, f).split("\\").join("/"), lines: codeLines(readFileSync(f, "utf8")) }));
+const all = DIRS.flatMap((d) => files(join(ROOT, d))).map((f) => ({
+  file: relative(ROOT, f).split("\\").join("/"),
+  lines: codeLines(readFileSync(f, "utf8")),
+}));
 const windows = new Map();
 for (const f of all) {
   for (let i = 0; i + MIN_LINES <= f.lines.length; i++) {
-    const key = f.lines.slice(i, i + MIN_LINES).map((x) => x.l).join("\n");
+    const key = f.lines
+      .slice(i, i + MIN_LINES)
+      .map((x) => x.l)
+      .join("\n");
     if (!windows.has(key)) windows.set(key, []);
     windows.get(key).push({ file: f.file, i });
   }
@@ -62,7 +68,10 @@ const groups = new Map();
 for (const [key, hits] of windows) {
   if (hits.length < 2) continue;
   for (const h of hits) for (let k = 0; k < MIN_LINES; k++) dup.get(h.file).add(h.i + k);
-  const sig = hits.map((h) => h.file).sort().join(" + ");
+  const sig = hits
+    .map((h) => h.file)
+    .sort()
+    .join(" + ");
   groups.set(sig, (groups.get(sig) ?? 0) + 1);
   void key;
 }

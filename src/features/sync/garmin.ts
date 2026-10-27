@@ -197,7 +197,17 @@ export class GarminSource implements Source {
     };
     const add = (metric: string, value: number | null, unit: string | null, at: { startMs: number; endMs: number; offsetMin: number }, externalId: string) => {
       if (value === null) return 0;
-      samples.push({ source: GARMIN_SOURCE, device: DEVICE, externalId, metric, startMs: at.startMs, endMs: at.endMs, offsetMin: at.offsetMin, valueNum: value, ...(unit ? { unit } : {}) });
+      samples.push({
+        source: GARMIN_SOURCE,
+        device: DEVICE,
+        externalId,
+        metric,
+        startMs: at.startMs,
+        endMs: at.endMs,
+        offsetMin: at.offsetMin,
+        valueNum: value,
+        ...(unit ? { unit } : {}),
+      });
       return 1;
     };
     /** One endpoint failing for lack of access (scope, feature) should not stop the others. */
@@ -255,7 +265,13 @@ export class GarminSource implements Source {
         add("daily_vigorousIntensityDurationInSeconds", minutes(im.vigorous), "seconds", at, id);
         add("daily_averageStressLevel", inRange(num(st.avgLevel), 0, 100), null, at, id);
         add("daily_maxStressLevel", inRange(num(st.maxLevel), 0, 100), null, at, id);
-        add("daily_stressDurationInSeconds", ms(st.lowStressDurationInMillis, st.mediumStressDurationInMillis, st.highStressDurationInMillis), "seconds", at, id);
+        add(
+          "daily_stressDurationInSeconds",
+          ms(st.lowStressDurationInMillis, st.mediumStressDurationInMillis, st.highStressDurationInMillis),
+          "seconds",
+          at,
+          id,
+        );
         add("daily_restStressDurationInSeconds", ms(st.restDurationInMillis), "seconds", at, id);
         add("dailyBodyBattery_highestValue", inRange(num(bb.maxValue), 0, 100), null, at, id);
         add("dailyBodyBattery_lowestValue", inRange(num(bb.minValue), 0, 100), null, at, id);
@@ -307,7 +323,7 @@ export class GarminSource implements Source {
         if (!isObj(s)) continue;
         const entries = arr(s.allWeightMetrics).length ? arr(s.allWeightMetrics) : [s.latestWeight];
         for (const r of entries) {
-          const day = isObj(r) ? dayOf(r.calendarDate) ?? dayOf(s.summaryDate) : null;
+          const day = isObj(r) ? (dayOf(r.calendarDate) ?? dayOf(s.summaryDate)) : null;
           const w = isObj(r) ? num(r.weight) : null;
           // USER_SETTING is the profile weight, not a weigh-in (as in the export).
           if (!isObj(r) || !day || w === null || r.sourceType === "USER_SETTING") continue;
@@ -322,7 +338,14 @@ export class GarminSource implements Source {
 
     // Activities: paged, filtered by local start day.
     for (let offset = 0; ; offset += ACTIVITY_PAGE) {
-      const page = arr(await read("Activities", "/activitylist-service/activities/search/activities", { startDate: start, endDate: today, start: offset, limit: ACTIVITY_PAGE }));
+      const page = arr(
+        await read("Activities", "/activitylist-service/activities/search/activities", {
+          startDate: start,
+          endDate: today,
+          start: offset,
+          limit: ACTIVITY_PAGE,
+        }),
+      );
       for (const a of page) this.addActivity(a, samples);
       if (page.length < ACTIVITY_PAGE) break;
     }
@@ -334,7 +357,7 @@ export class GarminSource implements Source {
 
   private addActivity(a: unknown, samples: SampleInput[]) {
     const id = isObj(a) ? num(a.activityId) : null;
-    const gmt = isObj(a) ? num(a.beginTimestamp) ?? naiveMs(a.startTimeGMT) : null;
+    const gmt = isObj(a) ? (num(a.beginTimestamp) ?? naiveMs(a.startTimeGMT)) : null;
     if (!isObj(a) || id === null || gmt === null) return;
     const local = naiveMs(a.startTimeLocal);
     const gmtNaive = naiveMs(a.startTimeGMT) ?? gmt;

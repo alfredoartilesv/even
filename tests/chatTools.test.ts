@@ -26,7 +26,15 @@ async function db() {
     ],
     NOW,
   );
-  await upsertCatalog(db, "garmin", [{ metric: "daily_steps", records: 4 }, { metric: "body_weightInGrams", unit: "grams" }], NOW);
+  await upsertCatalog(
+    db,
+    "garmin",
+    [
+      { metric: "daily_steps", records: 4 },
+      { metric: "body_weightInGrams", unit: "grams" },
+    ],
+    NOW,
+  );
   const food = `INSERT INTO food_entries (id, eaten_at_ms, offset_min, local_day, name, calories, protein_g, created_at, updated_at, origin_device_id)
                 VALUES (?, 0, 120, ?, 'x', ?, ?, ?, ?, 'dev')`;
   await db.run(food, ["f1", "2026-10-19", 2000, 100, NOW, NOW]);
@@ -60,7 +68,10 @@ test("list_metrics shows local coverage, manual kinds and log days", async () =>
   assert.equal(steps.first_day, "2026-10-12");
   assert.equal(steps.daily_agg, "sum");
   assert.equal(steps.category, "activity");
-  assert.deepEqual(r.manual_kinds.map((k: any) => [k.kind, k.entries]), [["blood_pressure", 2]]);
+  assert.deepEqual(
+    r.manual_kinds.map((k: any) => [k.kind, k.entries]),
+    [["blood_pressure", 2]],
+  );
   assert.equal(r.food_log_days, 2);
   assert.equal(r.drink_log_days, 1);
 });
@@ -106,7 +117,10 @@ test("nutrition, manual measurements and goals summaries", async () => {
 
 test("daily_series returns one point per day; limits protect against huge ranges", async () => {
   const r = await run("daily_series", { metric: "daily_steps", from: "2026-10-01", to: "2026-10-31" });
-  assert.deepEqual(r.series[0].points.map((p: any) => p.value), [6000, 8000, 10000, 12000]);
+  assert.deepEqual(
+    r.series[0].points.map((p: any) => p.value),
+    [6000, 8000, 10000, 12000],
+  );
   const d = await db();
   await assert.rejects(TOOLS_BY_NAME.get("daily_series")!.run(d, { metric: "daily_steps", from: "2024-01-01", to: "2026-01-01" }), /limited to 400 days/);
   await assert.rejects(TOOLS_BY_NAME.get("metric_summary")!.run(d, { metric: "daily_steps", from: "2026-1-1", to: "2026-10-01" }), /YYYY-MM-DD/);

@@ -10,7 +10,19 @@ import { daysCovered, timelineDays, type PlanLike } from "./timeline";
  */
 
 /** Fridge, freezer and days covered as three tiles. */
-export function StockSummary({ plan, fridgeNow, freezerNow, perDay, today }: { plan: PlanLike; fridgeNow: number; freezerNow: number; perDay: number; today: string }) {
+export function StockSummary({
+  plan,
+  fridgeNow,
+  freezerNow,
+  perDay,
+  today,
+}: {
+  plan: PlanLike;
+  fridgeNow: number;
+  freezerNow: number;
+  perDay: number;
+  today: string;
+}) {
   const covered = daysCovered(plan, today);
   return (
     <div className="viz-tiles">
@@ -46,12 +58,8 @@ export function DefrostTimeline({ plan, today, horizon = 7 }: { plan: PlanLike; 
           </div>
           {d.takeOut.map((t) => (
             <div key={`${t.name}-${t.forDay}`} className="small">
-              {t.late ? (
-                <StatusBadge status="critical">Defrost now</StatusBadge>
-              ) : (
-                <span className="muted">Take out </span>
-              )}{" "}
-              {plural(t.portions, "portion")} of {t.name}
+              {t.late ? <StatusBadge status="critical">Defrost now</StatusBadge> : <span className="muted">Take out </span>} {plural(t.portions, "portion")} of{" "}
+              {t.name}
               <span className="muted"> for {fmtDay(t.forDay, today)}</span>
             </div>
           ))}

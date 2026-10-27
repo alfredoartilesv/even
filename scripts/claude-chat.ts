@@ -88,13 +88,17 @@ async function main() {
   console.log(
     `requests: ${res.usage.requests}; tokens in ${res.usage.inputTokens} (cache read ${res.usage.cacheReadTokens}, write ${res.usage.cacheWriteTokens}), out ${res.usage.outputTokens}`,
   );
-  for (const c of res.toolCalls) console.log(`tool ${c.name}${c.dataClass ? ` [${c.dataClass}]` : ""} ${c.allowed ? "ran" : "NOT ALLOWED"}${c.error ? `: ${c.error}` : ""}`);
+  for (const c of res.toolCalls)
+    console.log(`tool ${c.name}${c.dataClass ? ` [${c.dataClass}]` : ""} ${c.allowed ? "ran" : "NOT ALLOWED"}${c.error ? `: ${c.error}` : ""}`);
   for (const a of res.actions) console.log(`change ${a.status}: ${a.summary} (undo id ${a.id})`);
   const sent = await listDisclosures(db, res.conversationId);
   console.log(`data sent in this conversation: ${sent.length} item(s), ${sent.reduce((a, d) => a + d.bytes, 0)} bytes`);
   for (const d of sent) console.log(`  - [${d.dataClass}] ${d.summary}`);
   const all = await listAgentActions(db, res.conversationId);
-  if (all.length) console.log(`changes in this conversation: ${all.filter((a) => a.status === "applied").length} saved, ${all.filter((a) => a.status === "declined").length} declined`);
+  if (all.length)
+    console.log(
+      `changes in this conversation: ${all.filter((a) => a.status === "applied").length} saved, ${all.filter((a) => a.status === "declined").length} declined`,
+    );
 }
 
 main().catch((e) => {

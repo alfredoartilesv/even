@@ -8,7 +8,10 @@ import { join } from "node:path";
 const root = join(import.meta.dirname, "..");
 const read = (f: string) => readFileSync(join(root, f), "utf8").replace(/\r\n/g, "\n");
 const dockerfile = read("Dockerfile");
-const ignore = read(".dockerignore").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+const ignore = read(".dockerignore")
+  .split("\n")
+  .map((l) => l.trim())
+  .filter((l) => l && !l.startsWith("#"));
 const arg = (name: string) => new RegExp(`^ARG ${name}=(.+)$`, "m").exec(dockerfile)?.[1];
 
 test("secrets and health data never enter the Docker build context", () => {
@@ -51,5 +54,10 @@ test("stages and npm scripts: test runs typecheck and tests, apk exports only th
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
   assert.equal(scripts["docker:test"], "docker build --target test .");
   assert.equal(scripts["docker:apk"], "docker build --target apk --output out .");
-  assert.ok(read(".gitignore").split("\n").some((l) => l.trim() === "out/" || l.trim() === "out"), "out/ (the exported APK) is git-ignored");
+  assert.ok(
+    read(".gitignore")
+      .split("\n")
+      .some((l) => l.trim() === "out/" || l.trim() === "out"),
+    "out/ (the exported APK) is git-ignored",
+  );
 });
