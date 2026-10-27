@@ -19,8 +19,8 @@ export async function saveTextFile(fileName: string, text: string, opts: { title
 }
 
 /** The backup is already encrypted, so wherever it ends up only the password opens it. */
-export const saveBackupFile = (fileName: string, text: string) => saveTextFile(fileName, text, { title: "Health backup", mimeType: "application/json" });
+export const saveBackupFile = (fileName: string, text: string) => saveTextFile(fileName, text, { title: "Even backup", mimeType: "application/json" });
 
 export function backupFileName(nowMs: number = Date.now()): string {
-  return `health-backup-${new Date(nowMs).toISOString().slice(0, 10)}.json`;
+  return `even-backup-${new Date(nowMs).toISOString().slice(0, 10)}.json`;
 }

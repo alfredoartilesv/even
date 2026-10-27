@@ -1,6 +1,6 @@
 {
   "appId": "app.health.personal",
-  "appName": "Health",
+  "appName": "Even",
   "webDir": "dist",
   "plugins": {
     "CapacitorSQLite": {

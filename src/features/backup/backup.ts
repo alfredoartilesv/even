@@ -54,15 +54,18 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "sync_runs", key: ["id"], lastWriteWins: false },
 ];
 
-const FORMAT = "health-app-backup";
-const PAYLOAD_FORMAT = "health-app-data";
+const FORMAT = "even-backup";
+const PAYLOAD_FORMAT = "even-data";
+// Written before the app was renamed to Even; still restored.
+const OLD_FORMAT = "health-app-backup";
+const OLD_PAYLOAD_FORMAT = "health-app-data";
 const DEFAULT_ITERATIONS = 600_000;
 const PAGE = 2000;
 const MAX_PARAMS = 900; // stay under SQLite's historic 999 bound-parameter limit
 
 const sqlValue = z.union([z.string(), z.number(), z.null()]);
 const envelopeSchema = z.object({
-  format: z.literal(FORMAT),
+  format: z.union([z.literal(FORMAT), z.literal(OLD_FORMAT)]),
   version: z.literal(1),
   kdf: z.object({
     name: z.literal("PBKDF2"),
@@ -74,7 +77,7 @@ const envelopeSchema = z.object({
   data: z.string(),
 });
 const payloadSchema = z.object({
-  format: z.literal(PAYLOAD_FORMAT),
+  format: z.union([z.literal(PAYLOAD_FORMAT), z.literal(OLD_PAYLOAD_FORMAT)]),
   schemaVersion: z.number().int().min(0),
   exportedAt: z.number(),
   tables: z.record(z.string(), z.object({ columns: z.array(z.string()), rows: z.array(z.array(sqlValue)) })),
@@ -159,7 +162,7 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
     envelope = envelopeSchema.parse(JSON.parse(fileText));
   } catch {
     log.warn("restore refused: not a backup file");
-    throw new BackupError("This is not a Health backup file");
+    throw new BackupError("This is not an Even backup file");
   }
   const { data, ...header } = envelope;
 
