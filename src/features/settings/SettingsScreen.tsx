@@ -23,6 +23,8 @@ interface Props {
   onPage: (page: SettingsPage | null) => void;
   /** Called after credentials, transport or profile change, and after a restore. */
   onChanged: () => void;
+  /** Sync now (after Garmin is connected). */
+  onSync: () => void;
 }
 
 export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[] = [
@@ -46,7 +48,7 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
 const LABEL = Object.fromEntries(SETTINGS_MENU.flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
 
 /** A menu of pages: who you are, where data comes from and goes, what is kept and shared, the debug logs, and the app version. */
-export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged }: Props) {
+export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync }: Props) {
   const [who, setWho] = useState<{ photo: string | null; name: string | null } | null>(null);
   useEffect(() => {
     if (page === null) void Promise.all([loadProfilePhoto(db), loadProfile(db)]).then(([photo, p]) => setWho({ photo, name: p.name }));
@@ -70,7 +72,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
       {page === "profile" ? (
         <ProfileSettings db={db} onChanged={onChanged} />
       ) : page === "connections" ? (
-        <ConnectionSettings db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} />
+        <ConnectionSettings db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={onSync} />
       ) : page === "privacy" ? (
         <PrivacySettings db={db} onChanged={onChanged} />
       ) : page === "logs" ? (

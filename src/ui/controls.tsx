@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Icon } from "./icons";
 
 /**
  * Small controls shared by screens: chip groups, the date-range picker that sits above the charts it
- * scopes, a number stepper, status badges, and on/off switches.
+ * scopes, a number stepper, status badges, on/off switches, and password / key fields.
  */
 
 export interface RangeOption {
@@ -103,5 +104,43 @@ export function ScaleRating({ value, onChange, label, words }: { value: number |
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * A password or API key field with Clear and Show / Hide buttons inside it, so a long key can be
+ * checked before saving and a wrong paste removed in one tap. Shown as text, it still asks the
+ * keyboard not to learn or correct it.
+ */
+export function SecretInput({
+  value,
+  onChange,
+  noun = "password",
+  ...rest
+}: { value: string; onChange: (v: string) => void; noun?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [shown, setShown] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <span className="secret-input">
+      <input {...rest} ref={ref} type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+      <span className="secret-actions">
+        {value && (
+          <button
+            type="button"
+            className="icon-button ghost"
+            aria-label={`Clear the ${noun}`}
+            onClick={() => {
+              onChange("");
+              ref.current?.focus();
+            }}
+          >
+            <Icon name="close" size={18} />
+          </button>
+        )}
+        <button type="button" className="icon-button ghost" aria-label={`${shown ? "Hide" : "Show"} the ${noun}`} aria-pressed={shown} onClick={() => setShown(!shown)}>
+          <Icon name={shown ? "eyeOff" : "eye"} size={18} />
+        </button>
+      </span>
+    </span>
   );
 }
