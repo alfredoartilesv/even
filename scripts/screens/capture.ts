@@ -142,7 +142,7 @@ const settings = async (p: Page, label: string) => {
 };
 
 const SCREENS: Screen[] = [
-  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, meal prep. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; then energy, workouts and meal prep, and every synced number of the day.", go: (p) => tab(p, "Dashboard") },
+  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep, and every synced number of the day.", go: (p) => tab(p, "Dashboard") },
   {
     id: "dashboard-week",
     tab: "Dashboard",
@@ -162,6 +162,26 @@ const SCREENS: Screen[] = [
     go: async (p) => {
       await p.click(".segmented button", "Day");
       await p.click(".profile-button");
+    },
+  },
+  {
+    id: "journal-checkin",
+    tab: "Dashboard",
+    title: "Journal: Check-in",
+    about: "Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
+    go: async (p) => {
+      await p.click('[aria-label="Back to Dashboard"]');
+      await p.click(".quick-action", "Check-in");
+    },
+  },
+  {
+    id: "journal-measurements",
+    tab: "Dashboard",
+    title: "Journal: Measurements",
+    about: "Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.",
+    go: async (p) => {
+      await p.click(".segmented button", "Measurements");
+      await p.click(".kind-head", "Weight");
     },
   },
   {
@@ -266,7 +286,8 @@ function indexHtml(): string {
   const components = [
     ["PageHeader", "src/ui/layout.tsx", "The sticky title row of every tab: back button or profile picture, title and subtitle, actions (sync, History, New)."],
     ["SectionHeader", "src/ui/layout.tsx", "Section headings with a link (Workouts › Your activity, Meal prep › Open)."],
-    ["QuickActions", "src/ui/layout.tsx", "Log food, Log a drink, Ask Claude, Meal prep on the Dashboard."],
+    ["QuickActions", "src/ui/layout.tsx", "Log food, Log a drink, Ask Claude, Check-in on the Dashboard."],
+    ["ScaleRating", "src/ui/controls.tsx", "Mood and energy, 1 to 5 in words, on the check-in."],
     ["MenuList", "src/ui/layout.tsx", "The Settings menu."],
     ["SubTabs", "src/ui/layout.tsx", "The views inside a Meal prep group."],
     ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard; Food log / Meal prep."],
