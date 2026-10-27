@@ -10,6 +10,7 @@ import { SettingsScreen, type SettingsPage } from "../features/settings/Settings
 import { LogsScreen } from "../features/logs/LogsScreen";
 import { MeScreen } from "../features/me/MeScreen";
 import { ProfileButton } from "../features/dashboard/ProfileButton";
+import { JournalScreen, type JournalView } from "../features/journal/ui/JournalScreen";
 import { loadGarminKey, removeLegacySecrets } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
@@ -32,7 +33,8 @@ export function App() {
   const [dbStatus, setDbStatus] = useState<DbStatus>({ state: "opening" });
   const [tab, setTab] = useState<Tab>("dashboard");
   // The profile opens over the Dashboard, with a way back.
-  const [profileOpen, setProfileOpen] = useState(false);
+  // A page over the Dashboard (the profile or the journal), with a way back.
+  const [overlay, setOverlay] = useState<{ page: "profile" } | { page: "journal"; view: JournalView; day?: string } | null>(null);
   const [mealPrepView, setMealPrepView] = useState<MealPrepView>("log");
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
   const [configured, setConfigured] = useState(false);
@@ -137,13 +139,17 @@ export function App() {
     setTab(t);
     window.scrollTo(0, 0);
   };
+  const open = (o: NonNullable<typeof overlay>) => {
+    setOverlay(o);
+    window.scrollTo(0, 0);
+  };
   const openSettings = (page: SettingsPage) => {
     setSettingsPage(page);
     go("settings");
   };
   const syncButton = <SyncButton status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />;
   // Changes with every screen, so the new one animates in.
-  const screenKey = tab === "dashboard" ? `dashboard|${profileOpen}` : tab === "settings" ? `settings|${settingsPage}` : tab === "mealprep" ? `mealprep|${mealPrepView}` : tab;
+  const screenKey = tab === "dashboard" ? `dashboard|${overlay?.page ?? ""}|${overlay?.page === "journal" ? overlay.view : ""}` : tab === "settings" ? `settings|${settingsPage}` : tab === "mealprep" ? `mealprep|${mealPrepView}` : tab;
 
   return (
     <>
@@ -151,13 +157,13 @@ export function App() {
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
         {tab === "dashboard" ? (
-          !profileOpen ? (
+          !overlay ? (
             <DashboardScreen
               db={ready}
               version={version}
               configured={configured}
               syncWarnings={status?.warnings ?? []}
-              profile={<ProfileButton db={ready} version={version} onOpen={() => setProfileOpen(true)} />}
+              profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
               sync={syncButton}
               go={{
                 logFood: () => {
@@ -170,16 +176,19 @@ export function App() {
                   setMealPrepView("stock");
                   go("mealprep");
                 },
-                profile: () => {
-                  setProfileOpen(true);
-                  window.scrollTo(0, 0);
-                },
+                profile: () => open({ page: "profile" }),
+                checkIn: (day) => open({ page: "journal", view: "checkin", day }),
+                measurements: () => open({ page: "journal", view: "measurements" }),
               }}
             />
           ) : (
             <section>
-              <PageHeader title="Profile" onBack={() => setProfileOpen(false)} backLabel="Dashboard" />
-              <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} />
+              <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
+              {overlay.page === "profile" ? (
+                <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} />
+              ) : (
+                <JournalScreen db={ready} version={version} view={overlay.view} initialDay={overlay.day} onView={(view) => setOverlay({ page: "journal", view })} onChanged={changed} />
+              )}
             </section>
           )
         ) : tab === "chat" ? (
@@ -206,8 +215,8 @@ export function App() {
       <TabBar
         tab={tab}
         onTab={(t) => {
-          // Tapping a tab goes to its top level: the Dashboard closes the profile, Settings shows its menu.
-          if (t === "dashboard") setProfileOpen(false);
+          // Tapping a tab goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
+          if (t === "dashboard") setOverlay(null);
           if (t === "settings") setSettingsPage(null);
           go(t);
         }}
