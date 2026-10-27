@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * Small controls shared by screens: chip groups, the date-range picker that sits above the charts it
- * scopes, a number stepper, and status badges.
+ * scopes, a number stepper, status badges, and on/off switches.
  */
 
 export interface RangeOption {
@@ -61,6 +61,26 @@ export function StatusBadge({ status, children }: { status: Status; children: Re
       <span aria-hidden>{ICON[status]}</span>
       {children}
     </span>
+  );
+}
+
+/**
+ * An on/off setting as a row: the label (and a line saying what it does) on the left, the switch on
+ * the right. A real checkbox with role="switch", so it reads as "on" or "off" and the whole row is
+ * the tap target.
+ */
+export function Switch({ checked, onChange, label, description, note, disabled }: { checked: boolean; onChange: (on: boolean) => void; label: string; description?: ReactNode; note?: ReactNode; disabled?: boolean }) {
+  return (
+    <label className="switch-row">
+      <span className="grow">
+        <span className="switch-label">
+          {label}
+          {note && <span className="muted small"> {note}</span>}
+        </span>
+        {description && <span className="muted small switch-desc">{description}</span>}
+      </span>
+      <input type="checkbox" role="switch" className="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }
 

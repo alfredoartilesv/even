@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { SqlDriver, SqlValue } from "../../db/driver";
-import { DEVICE_ID_KEY } from "../../db/settings";
+import { DEVICE_ID_KEY, getSetting, setSetting } from "../../db/settings";
 import { createLogger } from "../../core/log";
 import { assertSameOwner, getOwner } from "../account/account";
 
@@ -295,4 +295,18 @@ function fromB64(b64: string): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
   return out;
+}
+
+// ---- When the last backup was saved (shown on the privacy page) ----
+
+export const LAST_BACKUP_KEY = "backup.last_saved_ms";
+
+/** Record that a backup file was saved (call after the share sheet or download, not on export). */
+export async function markBackupSaved(db: SqlDriver, nowMs: number = Date.now()): Promise<void> {
+  await setSetting(db, LAST_BACKUP_KEY, String(nowMs), nowMs);
+}
+
+export async function lastBackupSaved(db: SqlDriver): Promise<number | null> {
+  const v = Number(await getSetting(db, LAST_BACKUP_KEY));
+  return Number.isFinite(v) && v > 0 ? v : null;
 }

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { strToU8, zipSync } from "fflate";
 import { GARMIN_EXPORT_SOURCE, garminKind, parseGarminExport } from "../src/features/import/garmin";
-import { importGarminZip, readGarminZip } from "../src/features/import/garminImport";
+import { garminExportCoverage, importGarminZip, readGarminZip } from "../src/features/import/garminImport";
 import { dailySeries, dayValues } from "../src/features/metrics/queries";
 import { upsertSamples } from "../src/features/metrics/samples";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
@@ -174,11 +174,15 @@ test("units are converted and the day's offset comes from the export", () => {
 
 test("stored as its own source with sensible daily aggregation; re-import adds nothing and keeps the owner's choices", async () => {
   const { db } = await migratedDb();
+  assert.deepEqual(await garminExportCoverage(db), { readings: 0, from: null, to: null }, "nothing imported yet");
   const zip = exportZip();
   const first = await importGarminZip(db, zip, { timeZone: TZ, nowMs: 1_000 });
   assert.ok(first.written > 30);
   const count = async () => (await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples"))[0].n;
   const n1 = await count();
+  const covered = await garminExportCoverage(db);
+  assert.equal(covered.readings, n1, "what Connections shows as imported");
+  assert.ok(covered.from! <= "2026-10-24" && covered.to! >= "2026-10-24");
 
   const agg = async (m: string) => (await db.all<{ daily_agg: string }>("SELECT daily_agg FROM metric_catalog WHERE source = ? AND metric = ?", [GARMIN_EXPORT_SOURCE, m]))[0]?.daily_agg;
   assert.equal(await agg("daily_steps"), "sum");

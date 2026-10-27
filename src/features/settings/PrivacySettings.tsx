@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { deviceId } from "../../db/settings";
 import { backupFileName, saveBackupFile } from "../../platform/files";
-import { failed, fmtDay, MsgLine, plural, type Msg } from "../../ui/common";
-import { StatusBadge } from "../../ui/controls";
-import { exportBackup, restoreBackup } from "../backup/backup";
+import { failed, fmtDay, MsgLine, plural, today, timeZone, type Msg } from "../../ui/common";
+import { StatusBadge, Switch } from "../../ui/controls";
+import { localDay } from "../../core/tz";
+import { exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../backup/backup";
 import { ALL_SCOPES, consentStatus, CONSENT_TEXT, recordConsent, type ConsentScope } from "../chat/consent";
 import { listDisclosures, type Disclosure } from "../chat/store";
 import { dataInventory, type InventoryRow } from "./dataInventory";
@@ -17,27 +18,30 @@ const SCOPE_TITLE: Record<ConsentScope, string> = {
 };
 
 const CLASS_WORD: Record<Disclosure["dataClass"], string> = { aggregate: "summary", raw: "detailed", note: "notes", photo: "photo" };
-const SHOWN = 25;
+const SHOWN = 5;
+/** A backup older than this gets a reminder: notes, logs and chats exist only on the phone. */
+const STALE_DAYS = 30;
 
-/** What Claude may see, what it was sent, what is stored here, and the backup. */
+/** "Meal photos" -> "meal photos", but "Data sent to Claude" keeps Claude. */
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
+const daysAgo = (ms: number) => Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${localDay(ms, timeZone())}T00:00:00Z`)) / 86_400_000);
+
+/** What Claude may see and was sent, what is stored on this phone, and the encrypted backup. */
 export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
   const [consent, setConsent] = useState<Record<ConsentScope, boolean> | null>(null);
   const [sent, setSent] = useState<Disclosure[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [inventory, setInventory] = useState<InventoryRow[]>([]);
+  const [lastBackup, setLastBackup] = useState<number | null>(null);
   const [consentMsg, setConsentMsg] = useState<Msg>(null);
 
-  const [exportPw, setExportPw] = useState("");
-  const [exportPw2, setExportPw2] = useState("");
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
-  const [restorePw, setRestorePw] = useState("");
-  const [backupMsg, setBackupMsg] = useState<Msg>(null);
-  const [busy, setBusy] = useState(false);
-
   const load = useCallback(async () => {
-    const [c, d, inv] = await Promise.all([consentStatus(db), listDisclosures(db), dataInventory(db)]);
+    const [c, d, inv, b] = await Promise.all([consentStatus(db), listDisclosures(db), dataInventory(db), lastBackupSaved(db)]);
     setConsent(c);
     setSent(d);
     setInventory(inv);
+    setLastBackup(b);
   }, [db]);
 
   useEffect(() => {
@@ -54,6 +58,109 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
     }
   }
 
+  const stored = inventory.filter((r) => r.count > 0);
+  const empty = inventory.filter((r) => r.count === 0);
+
+  return (
+    <div>
+      <section className="card">
+        <div className="card-head">
+          <h2>What Claude may see</h2>
+        </div>
+        <p className="muted small">
+          Claude reads nothing on its own: the app answers its questions with what you allow here and records everything it sends. Change your
+          mind any time.
+        </p>
+        {consent &&
+          ALL_SCOPES.map((s) => (
+            <Switch
+              key={s}
+              checked={consent[s]}
+              onChange={(on) => void decide(s, on)}
+              label={SCOPE_TITLE[s]}
+              note={s === "claude.aggregates" ? "needed for any chat" : undefined}
+              description={CONSENT_TEXT[s]}
+            />
+          ))}
+        <MsgLine msg={consentMsg} />
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <h2>Sent to Claude</h2>
+          {sent.length > 0 && <span className="muted small">{kb(sent.reduce((n, d) => n + d.bytes, 0))} in all</span>}
+        </div>
+        {sent.length === 0 ? (
+          <p className="muted small">Nothing yet.</p>
+        ) : (
+          <>
+            <p className="muted small">{plural(sent.length, "piece")} of data, newest first.</p>
+            <ul className="entries">
+              {(showAll ? sent : sent.slice(0, SHOWN)).map((d) => (
+                <li key={d.id}>
+                  <div className="grow">
+                    <div className="small">{d.summary}</div>
+                    <div className="muted small">
+                      {new Date(d.sentAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {kb(d.bytes)}
+                    </div>
+                  </div>
+                  <StatusBadge status={d.dataClass === "aggregate" ? "info" : "warning"}>{CLASS_WORD[d.dataClass]}</StatusBadge>
+                </li>
+              ))}
+            </ul>
+            {sent.length > SHOWN && (
+              <button type="button" className="link small accent" onClick={() => setShowAll(!showAll)}>
+                {showAll ? `Show the last ${SHOWN}` : `Show all ${sent.length}`}
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <h2>On this phone</h2>
+        </div>
+        <p className="muted small">
+          In an encrypted database, on this phone only. Keys (Garmin, Claude) are in the phone's secure storage, never in the database or a
+          backup. Logs keep no health values and are cleared when the app closes.
+        </p>
+        {stored.length > 0 && (
+          <table className="values">
+            <tbody>
+              {stored.map((r) => (
+                <tr key={r.label}>
+                  <td>
+                    {r.label}
+                    {r.from && r.to && (
+                      <div className="muted small">
+                        {fmtDay(r.from)} to {fmtDay(r.to)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="num">{r.count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {empty.length > 0 && <p className="muted small">Nothing stored yet: {empty.map((r) => lowerFirst(r.label.replace(/ \(.*\)$/, ""))).join(", ")}.</p>}
+      </section>
+
+      <Backup db={db} lastBackup={lastBackup} onSaved={load} onRestored={onChanged} />
+    </div>
+  );
+}
+
+function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBackup: number | null; onSaved: () => Promise<void>; onRestored: () => void }) {
+  const [exportPw, setExportPw] = useState("");
+  const [exportPw2, setExportPw2] = useState("");
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePw, setRestorePw] = useState("");
+  const [backupMsg, setBackupMsg] = useState<Msg>(null);
+  const [restoreMsg, setRestoreMsg] = useState<Msg>(null);
+  const [busy, setBusy] = useState(false);
+
   async function doExport(e: FormEvent) {
     e.preventDefault();
     if (exportPw !== exportPw2) return setBackupMsg({ kind: "error", text: "The two passwords differ." });
@@ -61,10 +168,12 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
     try {
       const { text, rows } = await exportBackup(db, exportPw);
       await saveBackupFile(backupFileName(), text);
+      await markBackupSaved(db);
       const total = Object.values(rows).reduce((a, b) => a + b, 0);
       setBackupMsg({ kind: "ok", text: `Backup created (${total.toLocaleString()} rows). Keep the password: without it the file cannot be opened.` });
       setExportPw("");
       setExportPw2("");
+      await onSaved();
     } catch (err) {
       setBackupMsg(failed(err, "settings"));
     } finally {
@@ -79,120 +188,76 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
     try {
       const report = await restoreBackup(db, await restoreFile.text(), restorePw);
       const total = Object.values(report.rows).reduce((a, b) => a + b, 0);
-      setBackupMsg({
+      setRestoreMsg({
         kind: "ok",
         text: `Restored ${total.toLocaleString()} rows from a backup made ${new Date(report.exportedAt).toLocaleString()}. Newer data on this phone was kept.`,
       });
       setRestorePw("");
-      onChanged();
-      await load();
+      setRestoreFile(null);
+      onRestored();
+      await onSaved();
     } catch (err) {
-      setBackupMsg(failed(err, "settings"));
+      setRestoreMsg(failed(err, "settings"));
     } finally {
       setBusy(false);
     }
   }
 
+  const age = lastBackup === null ? null : daysAgo(lastBackup);
+
   return (
-    <div>
-      <h2>What Claude may see</h2>
-      <p className="muted small">
-        Health data is sensitive, so each kind needs your yes. Claude reads nothing on its own: the app answers its questions with
-        what you allow here, and records every piece it sends. Change your mind any time; earlier choices are kept with their date.
-      </p>
-      {consent &&
-        ALL_SCOPES.map((s) => (
-          <div key={s} className="card">
-            <label className="inline">
-              <input type="checkbox" checked={consent[s]} onChange={(e) => void decide(s, e.target.checked)} />
-              <strong>{SCOPE_TITLE[s]}</strong>
-              {s === "claude.aggregates" && <span className="muted small">needed for any chat</span>}
-            </label>
-            <p className="muted small">{CONSENT_TEXT[s]}</p>
-          </div>
-        ))}
-      <MsgLine msg={consentMsg} />
+    <>
+      <section className="card">
+        <div className="card-head">
+          <h2>Backup</h2>
+          {age === null ? (
+            <StatusBadge status="warning">no backup yet</StatusBadge>
+          ) : age > STALE_DAYS ? (
+            <StatusBadge status="warning">{age} days old</StatusBadge>
+          ) : (
+            <StatusBadge status="good">{age === 0 ? "today" : age === 1 ? "yesterday" : `${age} days ago`}</StatusBadge>
+          )}
+        </div>
+        <p className="muted small">
+          An encrypted copy of everything in the database: synced data, logs, notes, chats, your profile. Notes, logs and chats exist only on this
+          phone, so keep a copy somewhere else. Keys are not included.
+        </p>
+        <form onSubmit={doExport} className="stack">
+          <label>
+            Backup password
+            <input type="password" value={exportPw} onChange={(e) => setExportPw(e.target.value)} minLength={8} required autoComplete="new-password" />
+          </label>
+          <label>
+            Repeat password
+            <input type="password" value={exportPw2} onChange={(e) => setExportPw2(e.target.value)} minLength={8} required autoComplete="new-password" />
+          </label>
+          <button type="submit" disabled={busy}>
+            Create backup
+          </button>
+          <MsgLine msg={backupMsg} />
+        </form>
+      </section>
 
-      <h2>What was sent to Claude</h2>
-      {sent.length === 0 ? (
-        <p className="muted small">Nothing yet.</p>
-      ) : (
-        <>
-          <p className="muted small">
-            {plural(sent.length, "piece")} of data, {(sent.reduce((n, d) => n + d.bytes, 0) / 1024).toFixed(1)} KB in all. Newest first
-            {sent.length > SHOWN ? `, the last ${SHOWN} shown` : ""}.
-          </p>
-          <ul className="entries">
-            {sent.slice(0, SHOWN).map((d) => (
-              <li key={d.id}>
-                <div className="grow">
-                  <div className="small">{d.summary}</div>
-                  <div className="muted small">
-                    {new Date(d.sentAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {(d.bytes / 1024).toFixed(1)} KB
-                  </div>
-                </div>
-                <StatusBadge status={d.dataClass === "aggregate" ? "info" : "warning"}>{CLASS_WORD[d.dataClass]}</StatusBadge>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      <h2>On this phone</h2>
-      <p className="muted small">
-        Everything is in an encrypted database on this phone. Keys (Garmin, Claude) are in the phone's secure storage, never in the
-        database or a backup. Logs keep no health values and are cleared when the app closes.
-      </p>
-      <table className="values">
-        <tbody>
-          {inventory.map((r) => (
-            <tr key={r.label}>
-              <td>
-                {r.label}
-                {r.from && r.to && (
-                  <div className="muted small">
-                    {fmtDay(r.from)} to {fmtDay(r.to)}
-                  </div>
-                )}
-              </td>
-              <td className="num">{r.count.toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h2>Backup</h2>
-      <p className="muted small">
-        An encrypted copy of everything in the local database (synced data, logs, notes, chats, your profile).
-        Your notes, logs and chats exist only here, so keep a copy. Keys are not included.
-      </p>
-      <form onSubmit={doExport} className="stack">
-        <label>
-          Backup password
-          <input type="password" value={exportPw} onChange={(e) => setExportPw(e.target.value)} minLength={8} required autoComplete="new-password" />
-        </label>
-        <label>
-          Repeat password
-          <input type="password" value={exportPw2} onChange={(e) => setExportPw2(e.target.value)} minLength={8} required autoComplete="new-password" />
-        </label>
-        <button type="submit" disabled={busy}>
-          Create backup
-        </button>
-      </form>
-      <form onSubmit={doRestore} className="stack">
-        <label>
-          Restore from file
-          <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)} />
-        </label>
-        <label>
-          Password
-          <input type="password" value={restorePw} onChange={(e) => setRestorePw(e.target.value)} required autoComplete="off" />
-        </label>
-        <button type="submit" disabled={busy || !restoreFile}>
-          Restore
-        </button>
-      </form>
-      <MsgLine msg={backupMsg} />
-    </div>
+      <section className="card">
+        <div className="card-head">
+          <h2>Restore</h2>
+        </div>
+        <p className="muted small">Merges a backup into this phone: data already here stays, nothing is duplicated, and the newer copy of a row wins.</p>
+        <form onSubmit={doRestore} className="stack">
+          <label className="file-button">
+            <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)} disabled={busy} />
+            {restoreFile ? restoreFile.name : "Choose a backup file (.json)"}
+          </label>
+          <label>
+            Password
+            <input type="password" value={restorePw} onChange={(e) => setRestorePw(e.target.value)} required autoComplete="off" />
+          </label>
+          <button type="submit" className="secondary" disabled={busy || !restoreFile}>
+            Restore
+          </button>
+          <MsgLine msg={restoreMsg} />
+        </form>
+      </section>
+    </>
   );
 }
