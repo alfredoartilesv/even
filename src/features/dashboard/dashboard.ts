@@ -90,6 +90,15 @@ export function spanRange(span: Span, anchor: string): { from: string; to: strin
   return { from, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) };
 }
 
+/**
+ * The day to pin the Dashboard to, or null when that day's span is the current one: null follows
+ * today, so the screen moves on by itself after midnight; a past span stays where the owner put it.
+ */
+export function pinnedAnchor(span: Span, day: string, today: string): string | null {
+  const r = spanRange(span, day);
+  return r.from <= today && today <= r.to ? null : day;
+}
+
 /** The anchor of the previous (-1) or next (+1) span. */
 export function shiftSpan(span: Span, anchor: string, dir: 1 | -1): string {
   const { from, to } = spanRange(span, anchor);
