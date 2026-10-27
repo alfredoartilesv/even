@@ -6,7 +6,8 @@ import { StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
-import { garminExportCoverage, importGarminZip, MAX_ZIP_BYTES, type ExportCoverage } from "../import/garminImport";
+import { garminExportCoverage, MAX_ZIP_BYTES, storeGarminImport, type ExportCoverage } from "../import/garminImport";
+import { parseGarminZip } from "../import/garminParse";
 import { appleHealthSupported, requestAppleHealthAccess } from "../../platform/health";
 import { APPLE_HEALTH_READ, APPLE_HEALTH_SOURCE, appleHealthEnabled, setAppleHealthEnabled } from "../sync/appleHealth";
 import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
@@ -272,18 +273,14 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
       if (file.size > MAX_ZIP_BYTES) throw new Error("The file is over 1 GB, too big to read on the phone. Use npm run import:garmin on a PC instead.");
       setBusy(`Reading ${(file.size / 1024 / 1024).toFixed(0)} MB…`);
       const bytes = new Uint8Array(await file.arrayBuffer());
-      setBusy("Unpacking and saving. This can take a minute…");
-      // Let the message paint before the synchronous unzip and parse.
-      await new Promise((r) => setTimeout(r, 50));
+      setBusy("Unpacking…");
+      const parsed = await parseGarminZip(bytes, timeZone());
       let shown = -1;
-      const { written, parsed } = await importGarminZip(db, bytes, {
-        timeZone: timeZone(),
-        onProgress: (saved, total) => {
-          const pct = Math.floor((saved / total) * 100);
-          if (pct === shown) return;
-          shown = pct;
-          setBusy(`Saving ${saved.toLocaleString()} of ${total.toLocaleString()} readings (${pct}%)…`);
-        },
+      const written = await storeGarminImport(db, parsed, Date.now(), (saved, total) => {
+        const pct = Math.floor((saved / total) * 100);
+        if (pct === shown) return;
+        shown = pct;
+        setBusy(`Saving ${saved.toLocaleString()} of ${total.toLocaleString()} readings (${pct}%)…`);
       });
       setJob({
         result: { written, report: parsed.report },

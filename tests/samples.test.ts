@@ -111,8 +111,8 @@ test("a large import is written in batches, reports progress, and a repeated rea
 
   assert.equal(await upsertSamples(counting, samples, T1, undefined, (saved, total) => (assert.equal(total, samples.length), progress.push(saved))), samples.length);
 
-  assert.equal(runs, 3, "126 rows in batches of 60, not one call per row");
-  assert.deepEqual(progress, [60, 120, 126]);
+  assert.equal(runs, 3, "one call per batch, not one per row");
+  assert.deepEqual(progress, [ROWS_PER_INSERT, ROWS_PER_INSERT * 2, samples.length]);
   assert.equal((await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples"))[0].n, days.length);
   const [first] = await db.all<{ value_num: number }>("SELECT value_num FROM health_samples WHERE external_id = ?", [`${days[0]}#0`]);
   assert.equal(first.value_num, 2000);
