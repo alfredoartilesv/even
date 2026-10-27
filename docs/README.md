@@ -22,7 +22,7 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Garmin Personal API sync in the app (personal API key in the Keystore, sync on launch and on demand, native HTTP) | Built, tested; real sync verified from a PC. Replaced the freddy sync on 26 Oct 2026 |
 | Encrypted backup export and restore | Built, tested |
 | Android auto-backup disabled | Built (patch script) |
-| Run on Android | Debug build passes the device integration test (`npm run test:device`, 9 checks) on a Galaxy S23-shaped Android 16 emulator. **Not yet on the real phone** |
+| Run on Android | Debug build passes the device integration test (`npm run test:device`, 11 checks). The 0.1.0 release APK is installed on the real S23 on a Galaxy S23-shaped Android 16 emulator. **Not yet on the real phone** |
 | Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/ci.yml` (PRs: tests only) |
 | Releases | Merge `develop` into `master`: signed APK built and checked in Docker, launched on an emulator, tagged `v<version>` and published as a GitHub release (`release.yml`, dev-setup.md section 6). Needs the four `HEALTH_*` GitHub secrets |
 | Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
