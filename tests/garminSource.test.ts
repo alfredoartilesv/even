@@ -23,7 +23,14 @@ const daily = (day: string, prev: string, over: Record<string, unknown> = {}) =>
   calories: { burnedResting: 1900, burnedActive: 600, burnedTotal: 2500 },
   heartRate: { minValue: 48, maxValue: 160, restingValue: 49 },
   intensityMinutes: { goal: 150, moderate: 20, vigorous: 10 },
-  stress: { avgLevel: 30, maxLevel: 90, restDurationInMillis: 30_000_000, lowStressDurationInMillis: 10_000_000, mediumStressDurationInMillis: 6_000_000, highStressDurationInMillis: 4_000_000 },
+  stress: {
+    avgLevel: 30,
+    maxLevel: 90,
+    restDurationInMillis: 30_000_000,
+    lowStressDurationInMillis: 10_000_000,
+    mediumStressDurationInMillis: 6_000_000,
+    highStressDurationInMillis: 4_000_000,
+  },
   bodyBattery: { minValue: 20, maxValue: 85, chargedValue: 60, drainedValue: 55 },
   pulseOx: { avgValue: 95, minValue: 88 },
   ...over,
@@ -81,11 +88,23 @@ function fakeGarmin(over: { token?: { status?: number; body: unknown }; routes?:
         return reply(200, { displayName: "x", timeZone: "Europe/Madrid" });
       case url.pathname === "/usersummary-service/v2/dailysummaries":
         return reply(200, {
-          data: q.get("startDate")! <= "2026-10-24" && q.get("endDate")! >= "2026-10-24" ? [daily("2026-10-24", "2026-10-23"), { calendarDate: "not a day" }] : [],
+          data:
+            q.get("startDate")! <= "2026-10-24" && q.get("endDate")! >= "2026-10-24" ? [daily("2026-10-24", "2026-10-23"), { calendarDate: "not a day" }] : [],
         });
       case url.pathname === "/sleep-service/sleep/dailySleepSummariesByDate":
         return reply(200, [
-          { calendarDate: "2026-10-24", sleepTimeSeconds: 25800, deepSleepSeconds: 5400, lightSleepSeconds: 14400, remSleepSeconds: 6000, awakeSleepSeconds: 900, averageSpO2Value: 94, averageSpO2HRSleep: 50, averageRespirationValue: 13, sleepScores: { overall: { value: 82, qualifierKey: "GOOD" } } },
+          {
+            calendarDate: "2026-10-24",
+            sleepTimeSeconds: 25800,
+            deepSleepSeconds: 5400,
+            lightSleepSeconds: 14400,
+            remSleepSeconds: 6000,
+            awakeSleepSeconds: 900,
+            averageSpO2Value: 94,
+            averageSpO2HRSleep: 50,
+            averageRespirationValue: 13,
+            sleepScores: { overall: { value: 82, qualifierKey: "GOOD" } },
+          },
         ]);
       case url.pathname.startsWith("/hrv-service/hrv/daily/"):
         return reply(200, { hrvSummaries: [{ calendarDate: "2026-10-24", weeklyAvg: 55, lastNightAvg: 58, lastNight5MinHigh: 80, status: "BALANCED" }] });
@@ -93,12 +112,20 @@ function fakeGarmin(over: { token?: { status?: number; body: unknown }; routes?:
         return reply(400, ""); // as the real endpoint
       case url.pathname.startsWith("/weight-service/weight/range/"): {
         // Grams in practice, though documented as kilograms.
-        const at = (h: number, w: number, pk: number, sourceType = "MANUAL") => ({ samplePk: pk, calendarDate: "2026-10-24", weight: w, sourceType, timestampGMT: Date.UTC(2026, 9, 24, h, 30), date: Date.UTC(2026, 9, 24, h + 2, 30) });
+        const at = (h: number, w: number, pk: number, sourceType = "MANUAL") => ({
+          samplePk: pk,
+          calendarDate: "2026-10-24",
+          weight: w,
+          sourceType,
+          timestampGMT: Date.UTC(2026, 9, 24, h, 30),
+          date: Date.UTC(2026, 9, 24, h + 2, 30),
+        });
         const all = [at(5, 80_100, 11), at(19, 80_500, 12), at(20, 82_000, 13, "USER_SETTING")];
         return reply(200, {
-          dailyWeightSummaries: q.get("includeAll") === "true" && url.pathname.endsWith("/2026-10-25")
-            ? [{ summaryDate: "2026-10-24", numOfWeightEntries: 3, latestWeight: all[1], allWeightMetrics: all }]
-            : [],
+          dailyWeightSummaries:
+            q.get("includeAll") === "true" && url.pathname.endsWith("/2026-10-25")
+              ? [{ summaryDate: "2026-10-24", numOfWeightEntries: 3, latestWeight: all[1], allWeightMetrics: all }]
+              : [],
           totalAverage: { weight: 80_300 },
         });
       }
@@ -158,7 +185,10 @@ test("a 401 on a data call gets a new token once, then gives up", async () => {
   assert.equal(f.calls.filter((c) => c.url.pathname.endsWith("/token")).length, 2);
 
   const always = fakeGarmin({ routes: (u) => (u.pathname.includes("settings") ? { status: 401, body: "" } : undefined) });
-  await assert.rejects(new GarminApi({ apiKey: KEY, fetch: always.fetch }).get("/userprofile-service/userprofile/settings"), (e: GarminApiError) => e.status === 401);
+  await assert.rejects(
+    new GarminApi({ apiKey: KEY, fetch: always.fetch }).get("/userprofile-service/userprofile/settings"),
+    (e: GarminApiError) => e.status === 401,
+  );
 });
 
 test("a rejected key gives a clear error that never contains the key", async () => {
@@ -172,8 +202,16 @@ test("a rejected key gives a clear error that never contains the key", async () 
 });
 
 test("network failures and non-JSON replies are GarminApiErrors without the URL", async () => {
-  const down = new GarminApi({ apiKey: KEY, fetch: async () => { throw new TypeError("fetch failed"); } });
-  await assert.rejects(down.get("/x-service/y"), (e: Error) => e instanceof GarminApiError && /Could not reach Garmin/.test(e.message) && !e.message.includes("connectapi"));
+  const down = new GarminApi({
+    apiKey: KEY,
+    fetch: async () => {
+      throw new TypeError("fetch failed");
+    },
+  });
+  await assert.rejects(
+    down.get("/x-service/y"),
+    (e: Error) => e instanceof GarminApiError && /Could not reach Garmin/.test(e.message) && !e.message.includes("connectapi"),
+  );
   const html = fakeGarmin({ routes: () => ({ body: "<html></html>" }) });
   await assert.rejects(new GarminApi({ apiKey: KEY, fetch: html.fetch }).get("/x-service/y"), /not JSON/);
 });
@@ -215,7 +253,14 @@ test("a sync maps every endpoint to the metric names the export import uses", as
   assert.equal(get("hrv_weeklyAvg")!.unit, "ms");
 
   const w = res.samples.filter((s) => s.metric === "body_weightInGrams");
-  assert.deepEqual(w.map((s) => [s.valueNum, s.externalId]), [[80_100, "weight:11"], [80_500, "weight:12"]], "every weigh-in, not the profile weight");
+  assert.deepEqual(
+    w.map((s) => [s.valueNum, s.externalId]),
+    [
+      [80_100, "weight:11"],
+      [80_500, "weight:12"],
+    ],
+    "every weigh-in, not the profile weight",
+  );
   assert.equal(w[0].startMs, Date.UTC(2026, 9, 24, 5, 30));
   assert.equal(get("sleep_averageHeartRateInBeatsPerMinute")!.valueNum, 50, "from averageSpO2HRSleep when avgHeartRate is missing");
 
@@ -241,8 +286,13 @@ test("a sync maps every endpoint to the metric names the export import uses", as
 test("first sync reads 30 days in 28-day chunks, later syncs start at the cursor", async () => {
   const f = fakeGarmin();
   const res = await source(f).fetchSince(null);
-  const ranges = f.calls.filter((c) => c.url.pathname === "/usersummary-service/v2/dailysummaries").map((c) => [c.url.searchParams.get("startDate"), c.url.searchParams.get("endDate")]);
-  assert.deepEqual(ranges, [["2026-09-26", "2026-10-23"], ["2026-10-24", "2026-10-25"]]);
+  const ranges = f.calls
+    .filter((c) => c.url.pathname === "/usersummary-service/v2/dailysummaries")
+    .map((c) => [c.url.searchParams.get("startDate"), c.url.searchParams.get("endDate")]);
+  assert.deepEqual(ranges, [
+    ["2026-09-26", "2026-10-23"],
+    ["2026-10-24", "2026-10-25"],
+  ]);
   assert.ok(f.calls.some((c) => c.url.pathname === "/hrv-service/hrv/daily/2026-09-26/2026-10-23"));
   assert.equal(res.nextCursor, "2026-10-24", "yesterday is read again next time");
 
@@ -285,12 +335,20 @@ test("missing or impossible values are skipped, not stored as zero", async () =>
   const f = fakeGarmin({
     routes: (u) =>
       u.pathname === "/usersummary-service/v2/dailysummaries"
-        ? { body: { data: [daily("2026-10-24", "2026-10-23", { movement: { steps: { value: null } }, heartRate: { restingValue: -1 }, stress: { avgLevel: -2 } })] } }
+        ? {
+            body: {
+              data: [daily("2026-10-24", "2026-10-23", { movement: { steps: { value: null } }, heartRate: { restingValue: -1 }, stress: { avgLevel: -2 } })],
+            },
+          }
         : undefined,
   });
   const res = await source(f).fetchSince("2026-10-24");
   for (const m of ["daily_steps", "daily_restingHeartRateInBeatsPerMinute", "daily_averageStressLevel"]) {
-    assert.equal(res.samples.find((s) => s.metric === m), undefined, m);
+    assert.equal(
+      res.samples.find((s) => s.metric === m),
+      undefined,
+      m,
+    );
   }
 });
 
@@ -331,13 +389,30 @@ function exportZip() {
   return zipSync({
     "DI_CONNECT/DI-Connect-Aggregator/UDSFile_2026-10-01_2026-12-31.json": json([
       { calendarDate: "2026-10-23", totalSteps: 7000, wellnessStartTimeGmt: "2026-10-22T22:00:00.0", wellnessStartTimeLocal: "2026-10-23T00:00:00.0" },
-      { calendarDate: "2026-10-24", totalSteps: 9000, totalKilocalories: 2500, wellnessStartTimeGmt: "2026-10-23T22:00:00.0", wellnessStartTimeLocal: "2026-10-24T00:00:00.0" },
+      {
+        calendarDate: "2026-10-24",
+        totalSteps: 9000,
+        totalKilocalories: 2500,
+        wellnessStartTimeGmt: "2026-10-23T22:00:00.0",
+        wellnessStartTimeLocal: "2026-10-24T00:00:00.0",
+      },
     ]),
-    "DI_CONNECT/DI-Connect-Wellness/1_userBioMetrics.json": json([{ metaData: { calendarDate: "2026-10-24", sequence: 1 }, weight: { weight: 80100, sourceType: "MANUAL" } }]),
+    "DI_CONNECT/DI-Connect-Wellness/1_userBioMetrics.json": json([
+      { metaData: { calendarDate: "2026-10-24", sequence: 1 }, weight: { weight: 80100, sourceType: "MANUAL" } },
+    ]),
     "DI_CONNECT/DI-Connect-Fitness/x_summarizedActivities.json": json([
       {
         summarizedActivitiesExport: [
-          { activityId: 777, activityType: "running", startTimeGmt: Date.UTC(2026, 9, 24, 6, 0), startTimeLocal: Date.UTC(2026, 9, 24, 8, 0), duration: 1_800_000, distance: 600_000, calories: 1757, avgHr: 150 },
+          {
+            activityId: 777,
+            activityType: "running",
+            startTimeGmt: Date.UTC(2026, 9, 24, 6, 0),
+            startTimeLocal: Date.UTC(2026, 9, 24, 8, 0),
+            duration: 1_800_000,
+            distance: 600_000,
+            calories: 1757,
+            avgHr: 150,
+          },
         ],
       },
     ]),
@@ -345,7 +420,9 @@ function exportZip() {
 }
 
 const metricRows = async (db: Awaited<ReturnType<typeof migratedDb>>["db"], metric: string, day: string) =>
-  (await db.all<{ source: string }>("SELECT source FROM daily_metric_values WHERE metric = ? AND local_day = ? ORDER BY source", [metric, day])).map((r) => r.source);
+  (await db.all<{ source: string }>("SELECT source FROM daily_metric_values WHERE metric = ? AND local_day = ? ORDER BY source", [metric, day])).map(
+    (r) => r.source,
+  );
 
 for (const order of ["import first, then sync", "sync first, then import"] as const) {
   test(`export and API overlap (${order}): each metric and day is shown once, from the API`, async () => {
@@ -360,7 +437,14 @@ for (const order of ["import first, then sync", "sync first, then import"] as co
       await doImport();
     }
 
-    for (const metric of ["daily_steps", "daily_totalKilocalories", "body_weightInGrams", "activity_distanceInMeters", "activity_durationInSeconds", "activity_activeKilocalories"]) {
+    for (const metric of [
+      "daily_steps",
+      "daily_totalKilocalories",
+      "body_weightInGrams",
+      "activity_distanceInMeters",
+      "activity_durationInSeconds",
+      "activity_activeKilocalories",
+    ]) {
       assert.deepEqual(await metricRows(db, metric, "2026-10-24"), [GARMIN_SOURCE], metric);
     }
     const day = await dayValues(db, "2026-10-24");
@@ -370,7 +454,13 @@ for (const order of ["import first, then sync", "sync first, then import"] as co
     // A day only the export has still comes from the export.
     assert.deepEqual(await metricRows(db, "daily_steps", "2026-10-23"), [GARMIN_EXPORT_SOURCE]);
     const series = await dailySeries(db, "daily_steps", "2026-10-23", "2026-10-24");
-    assert.deepEqual(series.map((s) => [s.source, s.points.map((p) => p.day)]), [[GARMIN_SOURCE, ["2026-10-24"]], [GARMIN_EXPORT_SOURCE, ["2026-10-23"]]]);
+    assert.deepEqual(
+      series.map((s) => [s.source, s.points.map((p) => p.day)]),
+      [
+        [GARMIN_SOURCE, ["2026-10-24"]],
+        [GARMIN_EXPORT_SOURCE, ["2026-10-23"]],
+      ],
+    );
 
     // Nothing is deleted: both copies stay in the table (and in backups).
     const kept = await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples WHERE metric = 'daily_steps' AND local_day = '2026-10-24'");
@@ -382,10 +472,14 @@ test("freddy rows from before the switch give way to the API, and still beat the
   const { db } = await migratedDb();
   const day = Date.UTC(2026, 9, 23, 22, 0);
   const at = { startMs: day, endMs: day + 86_400_000, offsetMin: 120 };
-  await upsertSamples(db, [
-    { source: "freddy", device: "", externalId: "2026-10-24#0", metric: "daily_steps", ...at, valueNum: 9000 },
-    { source: "freddy", device: "", externalId: "2026-10-23#0", metric: "daily_steps", ...at, startMs: day - 86_400_000, valueNum: 7000 },
-  ], 1);
+  await upsertSamples(
+    db,
+    [
+      { source: "freddy", device: "", externalId: "2026-10-24#0", metric: "daily_steps", ...at, valueNum: 9000 },
+      { source: "freddy", device: "", externalId: "2026-10-23#0", metric: "daily_steps", ...at, startMs: day - 86_400_000, valueNum: 7000 },
+    ],
+    1,
+  );
   await importGarminZip(db, exportZip(), { timeZone: "Europe/Madrid", nowMs: 2 });
   await runSync(db, source(fakeGarmin()), () => NOW);
 

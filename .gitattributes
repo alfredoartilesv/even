@@ -1,8 +1,12 @@
-# The Android SQLite plugin splits migrations on ";\n"; keep SQL files LF on every checkout.
-*.sql text eol=lf
+# One line ending in the repo, whatever the checkout: Prettier expects LF, the Android SQLite plugin
+# splits migrations on ";\n", and Dockerfile line continuations break with CRLF in Linux containers.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
 
-# Built and run in Linux containers: a CRLF checkout would break the shell line continuations.
-Dockerfile text eol=lf
-.dockerignore text eol=lf
-.nvmrc text eol=lf
-*.yml text eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.jks binary
+*.wasm binary

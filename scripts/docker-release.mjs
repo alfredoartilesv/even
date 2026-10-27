@@ -38,7 +38,18 @@ if (!existsSync(vars.HEALTH_KEYSTORE)) {
 
 const r = spawnSync(
   "docker",
-  ["build", "--target", "release-apk", "--secret", `id=keystore,src=${vars.HEALTH_KEYSTORE}`, "--secret", `id=keystore_env,src=${envFile}`, "--output", "out", "."],
+  [
+    "build",
+    "--target",
+    "release-apk",
+    "--secret",
+    `id=keystore,src=${vars.HEALTH_KEYSTORE}`,
+    "--secret",
+    `id=keystore_env,src=${envFile}`,
+    "--output",
+    "out",
+    ".",
+  ],
   { stdio: "inherit" },
 );
 process.exit(r.status ?? 1);

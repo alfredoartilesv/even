@@ -2,17 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboard } from "../src/features/dashboard/dashboard";
 import { addShoppingItem, listShopping, setShoppingChecked } from "../src/features/mealprep/shopping";
-import {
-  addMonths,
-  addTrip,
-  deleteTrip,
-  knownShops,
-  listTrips,
-  monthlySpending,
-  monthRange,
-  restoreTrip,
-  spending,
-} from "../src/features/mealprep/spending";
+import { addMonths, addTrip, deleteTrip, knownShops, listTrips, monthlySpending, monthRange, restoreTrip, spending } from "../src/features/mealprep/spending";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";
@@ -53,14 +43,18 @@ test("shops: saved on the owner's day, listed newest first, summed per supermark
   assert.equal(oct[1].atMs, Date.parse("2026-10-12T10:00:00Z"), "a past day is stored at noon local time (CEST)");
   assert.equal(oct[1].notes, "fruit");
 
-  assert.deepEqual(await spending(db, "2026-10-01", "2026-10-31"), {
-    total: 105.82,
-    trips: 3,
-    shops: [
-      { shop: "mercadona", total: 84.32, trips: 2 },
-      { shop: "Lidl", total: 21.5, trips: 1 },
-    ],
-  }, "one line per supermarket whatever the case, in its latest spelling, biggest first");
+  assert.deepEqual(
+    await spending(db, "2026-10-01", "2026-10-31"),
+    {
+      total: 105.82,
+      trips: 3,
+      shops: [
+        { shop: "mercadona", total: 84.32, trips: 2 },
+        { shop: "Lidl", total: 21.5, trips: 1 },
+      ],
+    },
+    "one line per supermarket whatever the case, in its latest spelling, biggest first",
+  );
 
   assert.deepEqual(await knownShops(db), ["mercadona", "Lidl", "Carrefour"], "each supermarket once, most recent first");
 
@@ -84,7 +78,11 @@ test("shops: logging one can clear the ticked shopping list items and counts the
   await setShoppingChecked(db, items.find((i) => i.name === "Eggs")!.id, true, NOW);
 
   await addTrip(db, { shop: "Mercadona", amount: 12, timeZone: TZ, clearTicked: true }, "user", NOW);
-  assert.deepEqual((await listShopping(db)).map((i) => i.name), ["Oats"], "only the ticked items go");
+  assert.deepEqual(
+    (await listShopping(db)).map((i) => i.name),
+    ["Oats"],
+    "only the ticked items go",
+  );
   assert.equal((await listTrips(db, TODAY, TODAY))[0].items, 2);
 
   await addTrip(db, { shop: "Lidl", amount: 5, timeZone: TZ }, "user", NOW + 60_000);

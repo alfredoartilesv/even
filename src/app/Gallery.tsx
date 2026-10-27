@@ -19,7 +19,7 @@ import "../ui/ui.css";
 /** Deterministic noise, so the gallery looks the same on every load. */
 function noise(seed: number) {
   let s = seed;
-  return () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
 const end = today();
@@ -62,7 +62,13 @@ export default function Gallery() {
       <h2>Figures</h2>
       <div className="viz-tiles">
         <StatTile label="Resting HR" value="49" unit="bpm" delta={{ value: -2, period: "vs last week", good: "down" }} trend={rhr} />
-        <StatTile label="Steps" value="7,492" delta={{ value: 1240, period: "vs last week", good: "up" }} formatDelta={(v) => v.toLocaleString()} trend={steps} />
+        <StatTile
+          label="Steps"
+          value="7,492"
+          delta={{ value: 1240, period: "vs last week", good: "up" }}
+          formatDelta={(v) => v.toLocaleString()}
+          trend={steps}
+        />
         <StatTile label="Weight" value="86.5" unit="kg" delta={{ value: 0.4, period: "vs 30 days ago", good: "none" }} />
       </div>
       <div className="meter-card">
@@ -75,7 +81,15 @@ export default function Gallery() {
 
       <h2>Charts</h2>
       <RangePicker value={range} onChange={setRange} />
-      <LineChart title="Resting heart rate" subtitle="Garmin, daily value" x={d30} series={[{ id: "rhr", label: "Resting HR", values: rhr }]} unit="bpm" formatX={short} formatXLong={(d) => fmtDay(d)} />
+      <LineChart
+        title="Resting heart rate"
+        subtitle="Garmin, daily value"
+        x={d30}
+        series={[{ id: "rhr", label: "Resting HR", values: rhr }]}
+        unit="bpm"
+        formatX={short}
+        formatXLong={(d) => fmtDay(d)}
+      />
       <LineChart
         title="Sleep stages"
         subtitle="Hours per night"
@@ -90,8 +104,26 @@ export default function Gallery() {
         formatX={short}
         formatXLong={(d) => fmtDay(d)}
       />
-      <BarChart title="Steps" subtitle="Tap a day" x={d7} values={steps} target={10000} selected={sel} onSelect={setSel} formatX={letter} formatXLong={(d) => fmtDay(d)} formatValue={(v) => Math.round(v).toLocaleString()} />
-      <CalendarHeatmap title="Steps, last year" values={year} from={addDays(end, -364)} to={end} formatDay={(d) => fmtDay(d)} formatValue={(v) => Math.round(v).toLocaleString()} />
+      <BarChart
+        title="Steps"
+        subtitle="Tap a day"
+        x={d7}
+        values={steps}
+        target={10000}
+        selected={sel}
+        onSelect={setSel}
+        formatX={letter}
+        formatXLong={(d) => fmtDay(d)}
+        formatValue={(v) => Math.round(v).toLocaleString()}
+      />
+      <CalendarHeatmap
+        title="Steps, last year"
+        values={year}
+        from={addDays(end, -364)}
+        to={end}
+        formatDay={(d) => fmtDay(d)}
+        formatValue={(v) => Math.round(v).toLocaleString()}
+      />
       <LineChart title="Empty range" x={d7} series={[{ id: "x", label: "Nothing", values: d7.map(() => null) }]} />
 
       <h2>Meal prep</h2>
@@ -122,9 +154,37 @@ export default function Gallery() {
 
       <h2>Layout</h2>
       <PageHeader title="Page title" onBack={() => {}} backLabel="Dashboard" actions={<button className="secondary small-button">Action</button>} />
-      <SubTabs items={[{ id: "log", label: "Log food" }, { id: "stock", label: "Stock" }, { id: "recipes", label: "Recipes" }, { id: "shopping", label: "Shopping" }]} value={view} onChange={setView} label="Views" />
-      <Segmented items={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onChange={setSpan} label="Period" />
-      <ChipGroup options={[{ id: "today", label: "Today" }, { id: "week", label: "7 days" }, { id: "month", label: "30 days" }]} value={chip} onChange={setChip} label="Period" />
+      <SubTabs
+        items={[
+          { id: "log", label: "Log food" },
+          { id: "stock", label: "Stock" },
+          { id: "recipes", label: "Recipes" },
+          { id: "shopping", label: "Shopping" },
+        ]}
+        value={view}
+        onChange={setView}
+        label="Views"
+      />
+      <Segmented
+        items={[
+          { id: "day", label: "Day" },
+          { id: "week", label: "Week" },
+          { id: "month", label: "Month" },
+        ]}
+        value={span}
+        onChange={setSpan}
+        label="Period"
+      />
+      <ChipGroup
+        options={[
+          { id: "today", label: "Today" },
+          { id: "week", label: "7 days" },
+          { id: "month", label: "30 days" },
+        ]}
+        value={chip}
+        onChange={setChip}
+        label="Period"
+      />
 
       <SectionHeader title="Section header" action="Open" onAction={() => {}} />
       <QuickActions
@@ -141,7 +201,13 @@ export default function Gallery() {
       </div>
       <MenuList
         groups={[
-          { title: "Group", items: [{ id: "a", label: "A page", description: "What is inside it", icon: "user" }, { id: "b", label: "Another", description: "And this one", icon: "info" }] },
+          {
+            title: "Group",
+            items: [
+              { id: "a", label: "A page", description: "What is inside it", icon: "user" },
+              { id: "b", label: "Another", description: "And this one", icon: "info" },
+            ],
+          },
         ]}
         onOpen={() => {}}
       />

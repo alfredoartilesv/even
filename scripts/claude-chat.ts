@@ -13,39 +13,21 @@
  * Needs ANTHROPIC_API_KEY in .env. Prints the answer, tools, changes and what data was sent;
  * never prints the key.
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { extname } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { DatabaseSync } from "node:sqlite";
 import { listAgentActions, type ActionProposal } from "../src/features/chat/actions";
 import { claudeCreate } from "../src/features/chat/client";
 import { hasConsent, recordConsent, type ConsentScope } from "../src/features/chat/consent";
 import { askClaude, startConversation, type ChatDeps } from "../src/features/chat/engine";
 import { toAttachment, type ImageAttachment } from "../src/features/chat/images";
 import { listDisclosures } from "../src/features/chat/store";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { migratedNodeDb } from "./lib/nodeDb";
 import { deviceId } from "../src/db/settings";
 import { setLogLevel } from "../src/core/log";
 
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
 setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
-
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  raw.exec("PRAGMA foreign_keys = ON");
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
-}
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -71,11 +53,7 @@ async function main() {
   if (photo) images.push(toAttachment(readFileSync(photo).toString("base64"), TYPES[extname(photo).toLowerCase()]));
   if (!question && images.length === 0) throw new Error('Pass a question, e.g. "How did I sleep this week?"');
 
-  const db = openDb(dbPath);
-  const dir = join(import.meta.dirname, "../src/db/migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  await migrate(db, parseMigrations(files));
+  const { db } = await migratedNodeDb(dbPath, { foreignKeys: true });
 
   const dev = await deviceId(db);
   // Running this script is the consent for summaries; the rest only with --allow (photos also with --photo).
@@ -105,13 +83,17 @@ async function main() {
   console.log(
     `requests: ${res.usage.requests}; tokens in ${res.usage.inputTokens} (cache read ${res.usage.cacheReadTokens}, write ${res.usage.cacheWriteTokens}), out ${res.usage.outputTokens}`,
   );
-  for (const c of res.toolCalls) console.log(`tool ${c.name}${c.dataClass ? ` [${c.dataClass}]` : ""} ${c.allowed ? "ran" : "NOT ALLOWED"}${c.error ? `: ${c.error}` : ""}`);
+  for (const c of res.toolCalls)
+    console.log(`tool ${c.name}${c.dataClass ? ` [${c.dataClass}]` : ""} ${c.allowed ? "ran" : "NOT ALLOWED"}${c.error ? `: ${c.error}` : ""}`);
   for (const a of res.actions) console.log(`change ${a.status}: ${a.summary} (undo id ${a.id})`);
   const sent = await listDisclosures(db, res.conversationId);
   console.log(`data sent in this conversation: ${sent.length} item(s), ${sent.reduce((a, d) => a + d.bytes, 0)} bytes`);
   for (const d of sent) console.log(`  - [${d.dataClass}] ${d.summary}`);
   const all = await listAgentActions(db, res.conversationId);
-  if (all.length) console.log(`changes in this conversation: ${all.filter((a) => a.status === "applied").length} saved, ${all.filter((a) => a.status === "declined").length} declined`);
+  if (all.length)
+    console.log(
+      `changes in this conversation: ${all.filter((a) => a.status === "applied").length} saved, ${all.filter((a) => a.status === "declined").length} declined`,
+    );
 }
 
 main().catch((e) => {

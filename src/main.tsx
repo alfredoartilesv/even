@@ -2,10 +2,12 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import { initLogging } from "./app/logging";
+import { startOpeningDatabase } from "./app/startup";
 import "./ui/palette.css";
 import "./app/styles.css";
 
 initLogging();
+startOpeningDatabase();
 
 // The UI kit gallery (?gallery) exists in dev builds only; production never loads it.
 const Gallery = import.meta.env.DEV && new URLSearchParams(location.search).has("gallery") ? lazy(() => import("./app/Gallery")) : null;

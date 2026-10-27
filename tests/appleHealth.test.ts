@@ -26,7 +26,11 @@ function fakeStore(data: {
   workouts?: Workout[][];
   deny?: string[];
 }) {
-  const calls: { aggregated: QueryAggregatedOptions[]; samples: QueryOptions[]; workouts: QueryWorkoutsOptions[] } = { aggregated: [], samples: [], workouts: [] };
+  const calls: { aggregated: QueryAggregatedOptions[]; samples: QueryOptions[]; workouts: QueryWorkoutsOptions[] } = {
+    aggregated: [],
+    samples: [],
+    workouts: [],
+  };
   const store: HealthStore = {
     async queryAggregated(o) {
       calls.aggregated.push(o);
@@ -127,7 +131,7 @@ test("the first sync reads 30 local days, later ones start at the cursor and end
   assert.equal(c2.samples.find((o) => o.dataType === "sleep")!.startDate, iso(midnight("2026-10-26") - 12 * 3_600_000), "sleep from the evening before");
 });
 
-const stage = (stage: HealthSample["sleepState"], from: number, to: number, device: string): HealthSample => ({
+const stage = (state: HealthSample["sleepState"], from: number, to: number, device: string): HealthSample => ({
   dataType: "sleep",
   value: (to - from) / 60_000,
   unit: "minute",
@@ -135,7 +139,7 @@ const stage = (stage: HealthSample["sleepState"], from: number, to: number, devi
   endDate: iso(to),
   sourceId: device,
   sourceName: device,
-  sleepState: stage,
+  sleepState: state,
 });
 
 test("sleep: a night goes to the wake-up day and is read from the device that recorded the most", async () => {
@@ -238,9 +242,9 @@ test("runSync stores Apple Health and a re-sync adds nothing new", async () => {
   assert.equal(rows[0].n, 1);
 });
 
-const sample = (source: string, metric: string, day: string, v: number, externalId = `${day}#0`): SampleInput => ({
-  source,
-  device: source,
+const sample = (from: string, metric: string, day: string, v: number, externalId = `${day}#0`): SampleInput => ({
+  source: from,
+  device: from,
   externalId,
   metric,
   startMs: midnight(day),
@@ -318,10 +322,7 @@ test("the HealthKit plugin stays out of Android; every other native plugin is st
     (d) => existsSync(join(root, "node_modules", d, "android")) && !["@capacitor/android", "@capacitor/core", "@capacitor/ios"].includes(d),
   );
   assert.ok(nativePlugins.includes("@capgo/capacitor-health"));
-  assert.deepEqual(
-    [...config.android.includePlugins].sort(),
-    nativePlugins.filter((d) => d !== "@capgo/capacitor-health").sort(),
-  );
+  assert.deepEqual([...config.android.includePlugins].sort(), nativePlugins.filter((d) => d !== "@capgo/capacitor-health").sort());
   assert.equal(config.ios?.includePlugins, undefined, "iOS gets every plugin");
   assert.equal(pkg.dependencies["@capgo/capacitor-health"], "8.11.11", "pinned: it reads health data");
 });

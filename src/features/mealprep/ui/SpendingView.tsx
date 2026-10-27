@@ -2,9 +2,22 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { getCurrency } from "../../alcohol/alcohol";
 import { listShopping } from "../shopping";
-import { addMonths, addTrip, deleteTrip, knownShops, listTrips, monthlySpending, monthOf, monthRange, restoreTrip, spending, type Spending, type Trip } from "../spending";
+import {
+  addMonths,
+  addTrip,
+  deleteTrip,
+  knownShops,
+  listTrips,
+  monthlySpending,
+  monthOf,
+  monthRange,
+  restoreTrip,
+  spending,
+  type Spending,
+  type Trip,
+} from "../spending";
 import { BarChart, Meter, StatTile } from "../../../ui/charts";
-import { failed, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, fmtMoney, MsgWithUndo, NoteField, numOrNull, plural, timeZone, today, type Msg } from "../../../ui/common";
 import { Icon } from "../../../ui/icons";
 import { SectionHeader } from "../../../ui/layout";
 
@@ -16,7 +29,10 @@ interface Props {
 
 const monthName = (month: string, style: "long" | "short" = "long") => {
   const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(undefined, style === "long" ? { month: "long", year: "numeric", timeZone: "UTC" } : { month: "short", timeZone: "UTC" });
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString(
+    undefined,
+    style === "long" ? { month: "long", year: "numeric", timeZone: "UTC" } : { month: "short", timeZone: "UTC" },
+  );
 };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -75,7 +91,10 @@ export function SpendingView({ db, version, onChanged }: Props) {
     e.preventDefault();
     try {
       const id = await addTrip(db, { shop, amount: numOrNull(amount.replace(",", ".")), day, timeZone: timeZone(), notes, clearTicked: clear && ticked > 0 });
-      setMsg({ kind: "ok", text: `${money(Number(amount.replace(",", ".")))} at ${shop.trim()} saved${clear && ticked > 0 ? `, ${plural(ticked, "ticked item")} cleared` : ""}.` });
+      setMsg({
+        kind: "ok",
+        text: `${money(Number(amount.replace(",", ".")))} at ${shop.trim()} saved${clear && ticked > 0 ? `, ${plural(ticked, "ticked item")} cleared` : ""}.`,
+      });
       setAmount("");
       setNotes("");
       setUndo({ id, deleted: false });
@@ -118,7 +137,13 @@ export function SpendingView({ db, version, onChanged }: Props) {
         {shops.length > 0 && (
           <div className="chips" role="group" aria-label="Supermarkets used before">
             {shops.map((s) => (
-              <button key={s} type="button" className={s.toLowerCase() === shop.trim().toLowerCase() ? "chip active" : "chip"} aria-pressed={s.toLowerCase() === shop.trim().toLowerCase()} onClick={() => setShop(s)}>
+              <button
+                key={s}
+                type="button"
+                className={s.toLowerCase() === shop.trim().toLowerCase() ? "chip active" : "chip"}
+                aria-pressed={s.toLowerCase() === shop.trim().toLowerCase()}
+                onClick={() => setShop(s)}
+              >
                 {s}
               </button>
             ))}
@@ -136,12 +161,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
             <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
           </label>
         </div>
-        <label>
-          <span>
-            Note <span className="muted small">optional</span>
-          </span>
-          <input value={notes} maxLength={200} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        <NoteField value={notes} onChange={setNotes} />
         {ticked > 0 && (
           <label className="inline">
             <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
@@ -149,14 +169,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
           </label>
         )}
         <button type="submit">Save</button>
-        <div className="row">
-          <MsgLine msg={msg} />
-          {undo && (
-            <button type="button" className="link small accent" onClick={() => void undoLast()}>
-              Undo
-            </button>
-          )}
-        </div>
+        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
       </form>
 
       <div className="period-nav">
@@ -171,7 +184,13 @@ export function SpendingView({ db, version, onChanged }: Props) {
             </button>
           )}
         </div>
-        <button type="button" className="secondary icon-button" aria-label="Next month" disabled={month >= thisMonth} onClick={() => setMonth(addMonths(month, 1))}>
+        <button
+          type="button"
+          className="secondary icon-button"
+          aria-label="Next month"
+          disabled={month >= thisMonth}
+          onClick={() => setMonth(addMonths(month, 1))}
+        >
           ›
         </button>
       </div>
@@ -184,7 +203,11 @@ export function SpendingView({ db, version, onChanged }: Props) {
           formatDelta={money}
           note={month === thisMonth ? "so far this month" : undefined}
         />
-        <StatTile label="Shops" value={sum ? String(sum.trips) : null} note={sum && sum.trips > 0 ? `${money(sum.total / sum.trips)} each on average` : undefined} />
+        <StatTile
+          label="Shops"
+          value={sum ? String(sum.trips) : null}
+          note={sum && sum.trips > 0 ? `${money(sum.total / sum.trips)} each on average` : undefined}
+        />
       </div>
 
       {sum && sum.shops.length > 0 && (
@@ -222,7 +245,9 @@ export function SpendingView({ db, version, onChanged }: Props) {
 
       <SectionHeader title={`Shops in ${monthName(month, "short")}`} />
       {trips.length === 0 ? (
-        <p className="muted small">{month === thisMonth ? "Nothing logged this month. After paying at the supermarket, log it above." : "Nothing logged that month."}</p>
+        <p className="muted small">
+          {month === thisMonth ? "Nothing logged this month. After paying at the supermarket, log it above." : "Nothing logged that month."}
+        </p>
       ) : (
         <>
           <ul className="entries">

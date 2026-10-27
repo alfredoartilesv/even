@@ -66,8 +66,8 @@ export function StatTile({
       </div>
       {delta && (
         <div className={`small viz-delta ${tone}`}>
-          <span aria-hidden>{dir === "up" ? "▲" : dir === "down" ? "▼" : "●"}</span> {dir === "flat" ? "no change" : `${delta.value > 0 ? "+" : "−"}${formatDelta(Math.abs(delta.value))}`}{" "}
-          <span className="muted">{delta.period}</span>
+          <span aria-hidden>{dir === "up" ? "▲" : dir === "down" ? "▼" : "●"}</span>{" "}
+          {dir === "flat" ? "no change" : `${delta.value > 0 ? "+" : "−"}${formatDelta(Math.abs(delta.value))}`} <span className="muted">{delta.period}</span>
         </div>
       )}
       {note && <div className="muted small">{note}</div>}
@@ -115,9 +115,11 @@ export function StackedBar({ parts, format = fmtValue, unit, label }: { parts: P
   return (
     <div className="viz-stack-wrap">
       <div className="viz-stack" role="img" aria-label={`${label}: ${items.map((i) => `${i.label} ${i.value}`).join(", ")}`}>
-        {total > 0
-          ? parts.filter((p) => p.value > 0).map((p) => <div key={p.label} style={{ flexGrow: p.value, background: seriesColor(p.slot) }} />)
-          : <div className="empty" />}
+        {total > 0 ? (
+          parts.filter((p) => p.value > 0).map((p) => <div key={p.label} style={{ flexGrow: p.value, background: seriesColor(p.slot) }} />)
+        ) : (
+          <div className="empty" />
+        )}
       </div>
       <Legend items={items} />
     </div>
@@ -129,7 +131,23 @@ export function StackedBar({ parts, format = fmtValue, unit, label }: { parts: P
  * the warning color past the target and say "over"; `goal` targets (steps) just fill. The arc
  * grows in on first paint (CSS), except with reduced motion.
  */
-export function Ring({ value, target, label, unit, kind = "goal", format = fmtValue, size = 132 }: { value: number | null; target: number | null; label: string; unit?: string; kind?: "goal" | "limit"; format?: (v: number) => string; size?: number }) {
+export function Ring({
+  value,
+  target,
+  label,
+  unit,
+  kind = "goal",
+  format = fmtValue,
+  size = 132,
+}: {
+  value: number | null;
+  target: number | null;
+  label: string;
+  unit?: string;
+  kind?: "goal" | "limit";
+  format?: (v: number) => string;
+  size?: number;
+}) {
   const stroke = 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -137,9 +155,27 @@ export function Ring({ value, target, label, unit, kind = "goal", format = fmtVa
   const over = kind === "limit" && target !== null && value !== null && value > target;
   const left = target !== null && value !== null ? target - value : null;
   const note =
-    value === null ? "no data" : target === null ? (unit ?? "") : over ? `${format(value - target)} over` : kind === "limit" ? `${format(Math.max(0, left!))} left` : left! > 0 ? `${format(left!)} to go` : "goal met";
+    value === null
+      ? "no data"
+      : target === null
+        ? (unit ?? "")
+        : over
+          ? `${format(value - target)} over`
+          : kind === "limit"
+            ? `${format(Math.max(0, left!))} left`
+            : left! > 0
+              ? `${format(left!)} to go`
+              : "goal met";
   return (
-    <div className="ring" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={target ?? undefined} aria-valuenow={value ?? undefined} aria-valuetext={value === null ? "no data" : `${format(value)}${unit ? ` ${unit}` : ""}${target !== null ? ` of ${format(target)}, ${note}` : ""}`}>
+    <div
+      className="ring"
+      role="meter"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={target ?? undefined}
+      aria-valuenow={value ?? undefined}
+      aria-valuetext={value === null ? "no data" : `${format(value)}${unit ? ` ${unit}` : ""}${target !== null ? ` of ${format(target)}, ${note}` : ""}`}
+    >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
         <circle className="ring-track" cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} />
         {target !== null && value !== null && (

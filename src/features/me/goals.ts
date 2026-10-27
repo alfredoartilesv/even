@@ -186,7 +186,8 @@ export function evaluate(g: Pick<Goal, "comparator" | "targetNum" | "period">, v
   const days = [...values.entries()].filter(([d]) => d >= from && d <= today).sort(([a], [b]) => (a < b ? -1 : 1));
   if (!days.length) return empty;
   const nums = days.map(([, v]) => v);
-  const current = combine === "sum" ? nums.reduce((a, b) => a + b, 0) : combine === "last" ? nums[nums.length - 1] : nums.reduce((a, b) => a + b, 0) / nums.length;
+  const current =
+    combine === "sum" ? nums.reduce((a, b) => a + b, 0) : combine === "last" ? nums[nums.length - 1] : nums.reduce((a, b) => a + b, 0) / nums.length;
   // A summed amount under a <= limit can still go over before the period ends: "on track", not "met".
   const ok = meets(current, cmp, target);
   const status: Status = ok ? (cmp === "<=" && combine === "sum" ? "on_track" : "met") : cmp === "<=" && combine === "sum" ? "missed" : "behind";

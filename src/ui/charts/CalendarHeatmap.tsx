@@ -59,7 +59,12 @@ export function CalendarHeatmap({ title, subtitle, values, from, to, formatValue
   return (
     <ChartFrame title={title} subtitle={subtitle} table={table}>
       <div ref={ref} className="viz-plot viz-heat">
-        <svg width={DAY_LABEL_W + weeks * step} height={height} role="img" aria-label={`${title}, ${formatDay(from)} to ${formatDay(to)}. Open the table for every value.`}>
+        <svg
+          width={DAY_LABEL_W + weeks * step}
+          height={height}
+          role="img"
+          aria-label={`${title}, ${formatDay(from)} to ${formatDay(to)}. Open the table for every value.`}
+        >
           {["M", "W", "F"].map((l, k) => (
             <text key={l} className="viz-tick" x={0} y={k * 2 * step + cell / 2} dy="0.32em">
               {l}
@@ -83,7 +88,14 @@ export function CalendarHeatmap({ title, subtitle, values, from, to, formatValue
             );
           })}
           {hovered >= 0 && (
-            <rect className="viz-cell-ring" x={DAY_LABEL_W + pos(hovered).col * step - 1} y={pos(hovered).row * step - 1} width={cell + 2} height={cell + 2} rx={3} />
+            <rect
+              className="viz-cell-ring"
+              x={DAY_LABEL_W + pos(hovered).col * step - 1}
+              y={pos(hovered).row * step - 1}
+              width={cell + 2}
+              height={cell + 2}
+              rx={3}
+            />
           )}
         </svg>
         {hover && (

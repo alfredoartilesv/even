@@ -42,21 +42,22 @@ async function doOpen(): Promise<{ db: SqlDriver; applied: number[] }> {
     throw new Error("Local database is only available in the Android/iOS app");
   }
   const done = log.time("database open", "info");
+  performance.mark("even:db-start");
   if (!(await sqlite.isSecretStored()).result) {
     await sqlite.setEncryptionSecret(newPassphrase());
     log.info("first launch: encryption secret created");
   }
 
+  performance.mark("even:db-secret");
   // After a WebView reload the native side can still hold the connection.
   const consistent = (await sqlite.checkConnectionsConsistency()).result;
   const exists = (await sqlite.isConnection(DB_NAME, false)).result;
   // Version 1 + no addUpgradeStatement: the plugin never touches user_version, migrate() owns it.
-  const conn =
-    consistent && exists
-      ? await sqlite.retrieveConnection(DB_NAME, false)
-      : await sqlite.createConnection(DB_NAME, true, "secret", 1, false);
+  const conn = consistent && exists ? await sqlite.retrieveConnection(DB_NAME, false) : await sqlite.createConnection(DB_NAME, true, "secret", 1, false);
   log.debug(consistent && exists ? "reusing native connection" : "new native connection");
+  performance.mark("even:db-connection");
   if (!(await conn.isDBOpen()).result) await conn.open();
+  performance.mark("even:db-opened");
 
   const db = capacitorDriver(conn);
   const applied = await migrate(db, migrations);

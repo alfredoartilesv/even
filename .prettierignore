@@ -1,0 +1,9 @@
+# Generated or vendored: never hand-formatted.
+dist/
+android/
+ios/
+out/
+coverage/
+docs/screens/
+package-lock.json
+*.md

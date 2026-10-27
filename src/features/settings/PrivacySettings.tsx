@@ -68,8 +68,7 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
           <h2>What Claude may see</h2>
         </div>
         <p className="muted small">
-          Claude reads nothing on its own: the app answers its questions with what you allow here and records everything it sends. Change your
-          mind any time.
+          Claude reads nothing on its own: the app answers its questions with what you allow here and records everything it sends. Change your mind any time.
         </p>
         {consent &&
           ALL_SCOPES.map((s) => (
@@ -122,8 +121,8 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
           <h2>On this phone</h2>
         </div>
         <p className="muted small">
-          In an encrypted database, on this phone only. Keys (Garmin, Claude) are in the phone's secure storage, never in the database or a
-          backup. Logs keep no health values and are cleared when the app closes.
+          In an encrypted database, on this phone only. Keys (Garmin, Claude) are in the phone's secure storage, never in the database or a backup. Logs keep no
+          health values and are cleared when the app closes.
         </p>
         {stored.length > 0 && (
           <table className="values">
@@ -219,8 +218,8 @@ function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBa
           )}
         </div>
         <p className="muted small">
-          An encrypted copy of everything in the database: synced data, logs, notes, chats, your profile. Notes, logs and chats exist only on this
-          phone, so keep a copy somewhere else. Keys are not included.
+          An encrypted copy of everything in the database: synced data, logs, notes, chats, your profile. Notes, logs and chats exist only on this phone, so
+          keep a copy somewhere else. Keys are not included.
         </p>
         <form onSubmit={doExport} className="stack">
           <label>

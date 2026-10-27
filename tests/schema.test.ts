@@ -63,9 +63,7 @@ test("daily_metric_values offers every aggregate, flags partial days, and dayVal
     ],
     NOW,
   );
-  const rows = await db.all<Record<string, number | string>>(
-    "SELECT * FROM daily_metric_values WHERE metric = 'body_weightInGrams'",
-  );
+  const rows = await db.all<Record<string, number | string>>("SELECT * FROM daily_metric_values WHERE metric = 'body_weightInGrams'");
   assert.equal(rows.length, 1);
   assert.equal(rows[0].readings, 2);
   assert.equal(rows[0].avg_num, 86750);
@@ -132,18 +130,21 @@ test("chat messages need an existing conversation (foreign keys on)", async () =
   const msg = `INSERT INTO chat_messages (id, conversation_id, seq, role, content_json, created_at, updated_at, origin_device_id)
                VALUES (?, ?, ?, 'user', '[]', ?, ?, 'dev')`;
   await assert.rejects(db.run(msg, ["m1", "nope", 0, NOW, NOW]), /FOREIGN KEY/);
-  await db.run(
-    "INSERT INTO chat_conversations (id, created_at, updated_at, origin_device_id) VALUES ('c1', ?, ?, 'dev')",
-    [NOW, NOW],
-  );
+  await db.run("INSERT INTO chat_conversations (id, created_at, updated_at, origin_device_id) VALUES ('c1', ?, ?, 'dev')", [NOW, NOW]);
   await db.run(msg, ["m1", "c1", 0, NOW, NOW]);
   await assert.rejects(db.run(msg, ["m2", "c1", 0, NOW, NOW]), /UNIQUE/);
 });
 
 test("one day's metrics are found by the day index, not by reading every sample", async () => {
   const { raw } = await migratedDb();
-  const plan = raw.prepare("EXPLAIN QUERY PLAN SELECT * FROM daily_metric_values WHERE local_day = ?").all("2026-10-27").map((r) => String((r as { detail: string }).detail));
-  assert.ok(plan.some((d) => /SEARCH h USING INDEX idx_health_samples_day_metric \(local_day=\?\)/.test(d)), plan.join("\n"));
+  const plan = raw
+    .prepare("EXPLAIN QUERY PLAN SELECT * FROM daily_metric_values WHERE local_day = ?")
+    .all("2026-10-27")
+    .map((r) => String((r as { detail: string }).detail));
+  assert.ok(
+    plan.some((d) => /SEARCH h USING INDEX idx_health_samples_day_metric \(local_day=\?\)/.test(d)),
+    plan.join("\n"),
+  );
 });
 
 test("the Garmin export coverage is answered from an index alone", async () => {
@@ -152,5 +153,8 @@ test("the Garmin export coverage is answered from an index alone", async () => {
     .prepare("EXPLAIN QUERY PLAN SELECT COUNT(*), MIN(local_day), MAX(local_day) FROM health_samples WHERE source = ?")
     .all("garmin_export")
     .map((r) => String((r as { detail: string }).detail));
-  assert.ok(plan.some((d) => /COVERING INDEX idx_health_samples_source_day/.test(d)), plan.join("\n"));
+  assert.ok(
+    plan.some((d) => /COVERING INDEX idx_health_samples_source_day/.test(d)),
+    plan.join("\n"),
+  );
 });

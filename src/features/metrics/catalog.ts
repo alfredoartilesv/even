@@ -46,12 +46,7 @@ function classifyByName(metric: string): { category: MetricCategory; dailyAgg: D
  * Record what the source says it has. Facts from the source are refreshed;
  * the user's display choices (label, category, daily_agg, pinned, ...) are never overwritten.
  */
-export async function upsertCatalog(
-  db: SqlDriver,
-  source: string,
-  entries: CatalogEntry[],
-  nowMs: number = Date.now(),
-): Promise<void> {
+export async function upsertCatalog(db: SqlDriver, source: string, entries: CatalogEntry[], nowMs: number = Date.now()): Promise<void> {
   log.debug("catalog refreshed", { source, entries: entries.length });
   for (const e of entries) {
     const guess = classifyMetric(e.metric);
@@ -66,18 +61,7 @@ export async function upsertCatalog(
          last_day = excluded.last_day,
          records = excluded.records,
          updated_at = excluded.updated_at`,
-      [
-        source,
-        e.metric,
-        e.unit ?? null,
-        e.device ?? null,
-        e.firstDay ?? null,
-        e.lastDay ?? null,
-        e.records ?? null,
-        guess.category,
-        guess.dailyAgg,
-        nowMs,
-      ],
+      [source, e.metric, e.unit ?? null, e.device ?? null, e.firstDay ?? null, e.lastDay ?? null, e.records ?? null, guess.category, guess.dailyAgg, nowMs],
     );
   }
 }

@@ -42,7 +42,11 @@ async function launchChrome() {
   if (!bin) throw new Error("No Chrome or Edge found. Set CHROME_PATH.");
   const port = 9400 + Math.floor(Math.random() * 400);
   const profile = mkdtempSync(join(tmpdir(), "health-screens-"));
-  const proc = spawn(bin, ["--headless=new", `--remote-debugging-port=${port}`, "--no-first-run", "--disable-gpu", "--hide-scrollbars", `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+  const proc = spawn(
+    bin,
+    ["--headless=new", `--remote-debugging-port=${port}`, "--no-first-run", "--disable-gpu", "--hide-scrollbars", `--user-data-dir=${profile}`, "about:blank"],
+    { stdio: "ignore" },
+  );
   let wsUrl: string | null = null;
   for (let i = 0; i < 100 && !wsUrl; i++) {
     try {
@@ -89,7 +93,10 @@ type Chrome = Awaited<ReturnType<typeof launchChrome>>;
 
 function page(c: Chrome) {
   const evaluate = async <T>(expr: string): Promise<T> => {
-    const r = (await c.send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })) as { result: { value: T }; exceptionDetails?: unknown };
+    const r = (await c.send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })) as {
+      result: { value: T };
+      exceptionDetails?: unknown;
+    };
     if (r.exceptionDetails) throw new Error(`evaluate failed: ${expr}`);
     return r.result.value;
   };
@@ -142,23 +149,41 @@ const settings = async (p: Page, label: string) => {
 };
 
 const SCREENS: Screen[] = [
-  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).", go: async (p) => { await tab(p, "Dashboard"); await p.click("details.synced > summary"); } },
+  {
+    id: "dashboard-day",
+    tab: "Dashboard",
+    title: "Day",
+    about:
+      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).",
+    go: async (p) => {
+      await tab(p, "Dashboard");
+      await p.click("details.synced > summary");
+    },
+  },
   {
     id: "dashboard-week",
     tab: "Dashboard",
     title: "Week",
-    about: "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
+    about:
+      "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
     go: async (p) => {
       await p.click(".segmented button", "Week");
       await p.click('[aria-label="Previous week"]');
     },
   },
-  { id: "dashboard-month", tab: "Dashboard", title: "Month", about: "The same figures for a calendar month: daily averages and totals, and the charts per day.", go: (p) => p.click(".segmented button", "Month") },
+  {
+    id: "dashboard-month",
+    tab: "Dashboard",
+    title: "Month",
+    about: "The same figures for a calendar month: daily averages and totals, and the charts per day.",
+    go: (p) => p.click(".segmented button", "Month"),
+  },
   {
     id: "profile",
     tab: "Dashboard",
     title: "Profile",
-    about: "Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress, and the past activity imported from the Garmin export or synced: totals per sport, longest sessions, recent workouts.",
+    about:
+      "Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress, and the past activity imported from the Garmin export or synced: totals per sport, longest sessions, recent workouts.",
     go: async (p) => {
       await p.click(".segmented button", "Day");
       await p.click(".profile-button");
@@ -168,7 +193,8 @@ const SCREENS: Screen[] = [
     id: "journal-checkin",
     tab: "Dashboard",
     title: "Journal: Check-in",
-    about: "Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
+    about:
+      "Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
     go: async (p) => {
       await p.click('[aria-label="Back to Dashboard"]');
       await p.click(".quick-action", "Check-in");
@@ -178,7 +204,8 @@ const SCREENS: Screen[] = [
     id: "journal-measurements",
     tab: "Dashboard",
     title: "Journal: Measurements",
-    about: "Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.",
+    about:
+      "Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.",
     go: async (p) => {
       await p.click(".segmented button", "Measurements");
       await p.click(".kind-head", "Weight");
@@ -188,7 +215,8 @@ const SCREENS: Screen[] = [
     id: "chat",
     tab: "Chat",
     title: "Conversation",
-    about: "A conversation with Claude. History lists past chats; New starts one. Permissions and changes Claude wants to save are asked in line, with undo afterwards.",
+    about:
+      "A conversation with Claude. History lists past chats; New starts one. Permissions and changes Claude wants to save are asked in line, with undo afterwards.",
     go: async (p) => {
       await p.click('[aria-label="Back to Dashboard"]');
       await tab(p, "Chat");
@@ -201,7 +229,8 @@ const SCREENS: Screen[] = [
     id: "chat-billing-error",
     tab: "Chat",
     title: "Error: out of API credits",
-    about: "When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.",
+    about:
+      "When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.",
     go: async (p) => {
       await p.click(".topbar button", "New");
       await p.evaluate<boolean>(
@@ -222,19 +251,101 @@ const SCREENS: Screen[] = [
       await p.click('[aria-label="Add a photo"]');
     },
   },
-  { id: "mealprep-log", tab: "Meal prep", title: "Food log: Today", about: "Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.", go: (p) => tab(p, "Meal prep") },
-  { id: "mealprep-history", tab: "Meal prep", title: "Food log: History", about: "Calories per day for the week with the target, the weekly average, and any day's entries.", go: (p) => sub(p, "History") },
-  { id: "mealprep-saved", tab: "Meal prep", title: "Food log: Saved meals", about: "Favourite meals to log again in one tap, with servings.", go: (p) => sub(p, "Saved meals") },
-  { id: "mealprep-stock", tab: "Meal prep", title: "Meal prep: Stock", about: "The second group. Portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.", go: (p) => p.click(".segmented button", "Meal prep") },
-  { id: "mealprep-recipes", tab: "Meal prep", title: "Meal prep: Recipes", about: "Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.", go: (p) => sub(p, "Recipes") },
-  { id: "mealprep-spending", tab: "Meal prep", title: "Meal prep: Spending", about: "What the supermarket cost. Log a shop (supermarket, amount, day; it can clear the ticked shopping list items), then the month's total against the month before, per supermarket, the last six months, and each shop with delete and undo.", go: (p) => sub(p, "Spending") },
-  { id: "alcohol", tab: "Alcohol", title: "Alcohol", about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.", go: (p) => tab(p, "Alcohol") },
-  { id: "settings-menu", tab: "Settings", title: "Menu", about: "Every page in three groups, each row saying what is inside; the Profile row shows the profile picture. Tapping Settings again comes back here.", go: (p) => tab(p, "Settings") },
-  { id: "settings-profile", tab: "Settings", title: "Profile", about: "Google account, the profile picture (chosen from the phone), the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).", go: (p) => settings(p, "Profile") },
-  { id: "settings-connections", tab: "Settings", title: "Connections", about: "One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude. How-tos fold away.", go: (p) => settings(p, "Connections") },
-  { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.", go: (p) => settings(p, "Privacy & data") },
-  { id: "settings-logs", tab: "Settings", title: "Debug logs", about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.", go: (p) => settings(p, "Debug logs") },
-  { id: "settings-about", tab: "Settings", title: "About", about: "The Even logo and name, app version, build, platform, database schema and chat model.", go: (p) => settings(p, "About") },
+  {
+    id: "mealprep-log",
+    tab: "Meal prep",
+    title: "Food log: Today",
+    about: "Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.",
+    go: (p) => tab(p, "Meal prep"),
+  },
+  {
+    id: "mealprep-history",
+    tab: "Meal prep",
+    title: "Food log: History",
+    about: "Calories per day for the week with the target, the weekly average, and any day's entries.",
+    go: (p) => sub(p, "History"),
+  },
+  {
+    id: "mealprep-saved",
+    tab: "Meal prep",
+    title: "Food log: Saved meals",
+    about: "Favourite meals to log again in one tap, with servings.",
+    go: (p) => sub(p, "Saved meals"),
+  },
+  {
+    id: "mealprep-stock",
+    tab: "Meal prep",
+    title: "Meal prep: Stock",
+    about: "The second group. Portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.",
+    go: (p) => p.click(".segmented button", "Meal prep"),
+  },
+  {
+    id: "mealprep-recipes",
+    tab: "Meal prep",
+    title: "Meal prep: Recipes",
+    about: "Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.",
+    go: (p) => sub(p, "Recipes"),
+  },
+  {
+    id: "mealprep-spending",
+    tab: "Meal prep",
+    title: "Meal prep: Spending",
+    about:
+      "What the supermarket cost. Log a shop (supermarket, amount, day; it can clear the ticked shopping list items), then the month's total against the month before, per supermarket, the last six months, and each shop with delete and undo.",
+    go: (p) => sub(p, "Spending"),
+  },
+  {
+    id: "alcohol",
+    tab: "Alcohol",
+    title: "Alcohol",
+    about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.",
+    go: (p) => tab(p, "Alcohol"),
+  },
+  {
+    id: "settings-menu",
+    tab: "Settings",
+    title: "Menu",
+    about: "Every page in three groups, each row saying what is inside; the Profile row shows the profile picture. Tapping Settings again comes back here.",
+    go: (p) => tab(p, "Settings"),
+  },
+  {
+    id: "settings-profile",
+    tab: "Settings",
+    title: "Profile",
+    about:
+      "Google account, the profile picture (chosen from the phone), the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).",
+    go: (p) => settings(p, "Profile"),
+  },
+  {
+    id: "settings-connections",
+    tab: "Settings",
+    title: "Connections",
+    about:
+      "One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude. How-tos fold away.",
+    go: (p) => settings(p, "Connections"),
+  },
+  {
+    id: "settings-privacy",
+    tab: "Settings",
+    title: "Privacy & data",
+    about:
+      "What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.",
+    go: (p) => settings(p, "Privacy & data"),
+  },
+  {
+    id: "settings-logs",
+    tab: "Settings",
+    title: "Debug logs",
+    about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.",
+    go: (p) => settings(p, "Debug logs"),
+  },
+  {
+    id: "settings-about",
+    tab: "Settings",
+    title: "About",
+    about: "The Even logo and name, app version, build, platform, database schema and chat model.",
+    go: (p) => settings(p, "About"),
+  },
 ];
 
 const THEMES = ["light", "dark"] as const;
@@ -325,7 +436,11 @@ function indexHtml(): string {
     ["ChipGroup, RangePicker", "src/ui/controls.tsx", "Periods and filters: Alcohol periods, profile activity ranges, chart ranges."],
     ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's camera and send buttons."],
     ["TabBar", "src/app/TabBar.tsx", "The five tabs at the bottom."],
-    ["StatTile, Meter, BarChart, LineChart, CalendarHeatmap", "src/ui/charts/", "Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending."],
+    [
+      "StatTile, Meter, BarChart, LineChart, CalendarHeatmap",
+      "src/ui/charts/",
+      "Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending.",
+    ],
     ["StatusBadge, Stepper", "src/ui/controls.tsx", "States as icon and words; portion counts."],
     ["CalorieMeter, MacroSplit", "src/ui/nutrition.tsx", "Calories against the target, macro shares (Log food)."],
     ["StockSummary, DefrostTimeline, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the defrost plan."],
@@ -384,7 +499,7 @@ function paletteHtml(): string {
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   };
   const ratio = (a: string, b: string) => {
-    if (!/^#/.test(a) || !/^#/.test(b)) return "";
+    if (!a.startsWith("#") || !b.startsWith("#")) return "";
     const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
     return `${((x + 0.05) / (y + 0.05)).toFixed(1)}:1`;
   };
@@ -399,7 +514,11 @@ function paletteHtml(): string {
     const v = theme[role];
     const fill = v.startsWith("color-mix") ? `color-mix(${v.slice(10, -1).replace(/var\(--(\w[\w-]*)\)/g, (_, n) => theme[n])})` : v;
     return `<td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid ${theme.line};background:${fill};vertical-align:middle"></span> <code>${esc(v.startsWith("color-mix") ? "mix" : v)}</code>${
-      text.has(role) ? `<div class="muted" style="font-size:0.8rem">${ratio(v, theme.bg)} on bg · ${ratio(v, theme.surface)} on surface</div>` : role === "on-accent" ? `<div class="muted" style="font-size:0.8rem">${ratio(v, theme.accent)} on accent</div>` : ""
+      text.has(role)
+        ? `<div class="muted" style="font-size:0.8rem">${ratio(v, theme.bg)} on bg · ${ratio(v, theme.surface)} on surface</div>`
+        : role === "on-accent"
+          ? `<div class="muted" style="font-size:0.8rem">${ratio(v, theme.accent)} on accent</div>`
+          : ""
     }</td>`;
   };
   const series = Array.from({ length: 8 }, (_, i) => `series-${i + 1}`);

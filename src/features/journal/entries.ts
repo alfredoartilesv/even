@@ -1,4 +1,5 @@
-import { z } from "zod";
+// zod/mini: this module is on the Dashboard's start-up path.
+import { z } from "zod/mini";
 import { createLogger } from "../../core/log";
 import { addDays, tzOffsetMinutes } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
@@ -185,7 +186,12 @@ export async function measurementKinds(db: SqlDriver): Promise<KindSummary[]> {
 }
 
 /** One point per day (the day's last entry) for a numeric kind, from..to inclusive, nulls where nothing was logged. */
-export async function measurementSeries(db: SqlDriver, kind: string, from: string, to: string): Promise<{ days: string[]; values: (number | null)[]; values2: (number | null)[] }> {
+export async function measurementSeries(
+  db: SqlDriver,
+  kind: string,
+  from: string,
+  to: string,
+): Promise<{ days: string[]; values: (number | null)[]; values2: (number | null)[] }> {
   const rows = (await listMeasurements(db, from, to, kind)).filter((m) => m.value !== null);
   const last = new Map<string, Measurement>();
   for (const m of rows) if (!last.has(m.day)) last.set(m.day, m); // rows are newest first
@@ -221,10 +227,10 @@ export interface DayNote {
 export const SCALE = ["Very low", "Low", "OK", "Good", "Very good"] as const;
 
 const noteSchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
-  mood: z.number().int().min(1).max(5).nullable(),
-  energy: z.number().int().min(1).max(5).nullable(),
-  body: z.string().max(4000, "At most 4,000 characters"),
+  day: z.string().check(z.regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day")),
+  mood: z.nullable(z.int().check(z.minimum(1), z.maximum(5))),
+  energy: z.nullable(z.int().check(z.minimum(1), z.maximum(5))),
+  body: z.string().check(z.maxLength(4000, "At most 4,000 characters")),
 });
 
 interface NoteRow {
@@ -237,10 +243,21 @@ interface NoteRow {
   updated_at: number;
 }
 
-const toNote = (r: NoteRow): DayNote => ({ id: r.id, day: r.local_day, mood: r.mood, energy: r.energy, body: r.body, createdBy: r.created_by, updatedAtMs: r.updated_at });
+const toNote = (r: NoteRow): DayNote => ({
+  id: r.id,
+  day: r.local_day,
+  mood: r.mood,
+  energy: r.energy,
+  body: r.body,
+  createdBy: r.created_by,
+  updatedAtMs: r.updated_at,
+});
 
 export async function getDayNote(db: SqlDriver, day: string): Promise<DayNote | null> {
-  const [r] = await db.all<NoteRow>("SELECT id, local_day, mood, energy, body, created_by, updated_at FROM day_notes WHERE local_day = ? AND deleted_at IS NULL", [day]);
+  const [r] = await db.all<NoteRow>(
+    "SELECT id, local_day, mood, energy, body, created_by, updated_at FROM day_notes WHERE local_day = ? AND deleted_at IS NULL",
+    [day],
+  );
   return r ? toNote(r) : null;
 }
 
@@ -257,7 +274,12 @@ export async function listDayNotes(db: SqlDriver, from: string, to: string): Pro
  * Creates the day's note or updates it (one live note per day). Saving one with nothing in it
  * (no ratings, empty text) deletes it instead. Days in the future are refused.
  */
-export async function saveDayNote(db: SqlDriver, input: { day: string; mood: number | null; energy: number | null; body: string }, today: string, nowMs: number = Date.now()): Promise<DayNote | null> {
+export async function saveDayNote(
+  db: SqlDriver,
+  input: { day: string; mood: number | null; energy: number | null; body: string },
+  today: string,
+  nowMs: number = Date.now(),
+): Promise<DayNote | null> {
   const n = noteSchema.parse({ ...input, body: input.body.trim() });
   if (n.day > today) throw new Error("That day has not happened yet");
   const existing = await getDayNote(db, n.day);

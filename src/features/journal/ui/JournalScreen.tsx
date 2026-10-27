@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
 import { LineChart, Sparkline } from "../../../ui/charts";
-import { failed, fmtDay, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, MsgLine, MsgWithUndo, NoteField, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { ChipGroup, ScaleRating } from "../../../ui/controls";
 import { Icon } from "../../../ui/icons";
 import { SectionHeader, Segmented, type Choice } from "../../../ui/layout";
@@ -60,7 +60,11 @@ export function JournalScreen({ db, version, view, onView, initialDay, onChanged
   return (
     <>
       <Segmented items={VIEWS} value={view} onChange={onView} label="Journal" />
-      {view === "checkin" ? <CheckIn db={db} version={version} initialDay={initialDay} onChanged={onChanged} /> : <Measurements db={db} version={version} onChanged={onChanged} />}
+      {view === "checkin" ? (
+        <CheckIn db={db} version={version} initialDay={initialDay} onChanged={onChanged} />
+      ) : (
+        <Measurements db={db} version={version} onChanged={onChanged} />
+      )}
     </>
   );
 }
@@ -134,7 +138,13 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
         <ScaleRating label="Energy" value={energy} onChange={setEnergy} words={SCALE} />
         <label>
           Note
-          <textarea rows={4} value={body} maxLength={4000} placeholder="Sleep, stress, what you ate, how training went…" onChange={(e) => setBody(e.target.value)} />
+          <textarea
+            rows={4}
+            value={body}
+            maxLength={4000}
+            placeholder="Sleep, stress, what you ate, how training went…"
+            onChange={(e) => setBody(e.target.value)}
+          />
         </label>
         {saved?.createdBy === "assistant" && <p className="muted small">Added by the assistant. Edit it as you like.</p>}
         <div className="actions">
@@ -187,7 +197,9 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
                 <div className="row">
                   <strong>{cap(fmtDay(n.day))}</strong>
                   <span className="muted small">
-                    {[n.mood !== null && `mood ${SCALE[n.mood - 1].toLowerCase()}`, n.energy !== null && `energy ${SCALE[n.energy - 1].toLowerCase()}`].filter(Boolean).join(" · ")}
+                    {[n.mood !== null && `mood ${SCALE[n.mood - 1].toLowerCase()}`, n.energy !== null && `energy ${SCALE[n.energy - 1].toLowerCase()}`]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </div>
                 {n.body && <div className="muted small clamp">{n.body}</div>}
@@ -305,35 +317,47 @@ function Measurements({ db, version, onChanged }: { db: SqlDriver; version: numb
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </label>
         </div>
-        <label>
-          <span>
-            Note <span className="muted small">optional</span>
-          </span>
-          <input value={notes} maxLength={200} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        <NoteField value={notes} onChange={setNotes} />
         <button type="submit">Save {p.label.toLowerCase()}</button>
-        <div className="row">
-          <MsgLine msg={msg} />
-          {undo && (
-            <button type="button" className="link small accent" onClick={() => void undoLast()}>
-              Undo
-            </button>
-          )}
-        </div>
+        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
       </form>
 
       <SectionHeader title="Your measurements" />
       {kinds.length === 0 ? (
         <p className="muted small">Nothing logged yet. Weight logged here also feeds the estimates in your profile and the alcohol screen.</p>
       ) : (
-        kinds.map((k) => <KindCard key={k.kind} db={db} summary={k} open={open === k.kind} onToggle={() => setOpen(open === k.kind ? null : k.kind)} onDelete={remove} version={version} />)
+        kinds.map((k) => (
+          <KindCard
+            key={k.kind}
+            db={db}
+            summary={k}
+            open={open === k.kind}
+            onToggle={() => setOpen(open === k.kind ? null : k.kind)}
+            onDelete={remove}
+            version={version}
+          />
+        ))
       )}
     </>
   );
 }
 
 /** One kind: the latest value and a 90-day trend; opened, the chart and every entry with delete. */
-function KindCard({ db, summary, open, onToggle, onDelete, version }: { db: SqlDriver; summary: KindSummary; open: boolean; onToggle: () => void; onDelete: (m: Measurement) => void; version: number }) {
+function KindCard({
+  db,
+  summary,
+  open,
+  onToggle,
+  onDelete,
+  version,
+}: {
+  db: SqlDriver;
+  summary: KindSummary;
+  open: boolean;
+  onToggle: () => void;
+  onDelete: (m: Measurement) => void;
+  version: number;
+}) {
   const [series, setSeries] = useState<{ days: string[]; values: (number | null)[]; values2: (number | null)[] } | null>(null);
   const [entries, setEntries] = useState<Measurement[]>([]);
   const p = presetFor(summary.kind);
@@ -373,7 +397,14 @@ function KindCard({ db, summary, open, onToggle, onDelete, version }: { db: SqlD
               title={kindLabel(summary.kind)}
               subtitle={`${points} days with an entry, last 90 days`}
               x={logged.map((x) => x.d)}
-              series={p.shape === "pair" ? [{ id: "a", label: "Systolic", values: logged.map((x) => x.v) }, { id: "b", label: "Diastolic", values: logged.map((x) => x.v2) }] : [{ id: "a", label: kindLabel(summary.kind), values: logged.map((x) => x.v) }]}
+              series={
+                p.shape === "pair"
+                  ? [
+                      { id: "a", label: "Systolic", values: logged.map((x) => x.v) },
+                      { id: "b", label: "Diastolic", values: logged.map((x) => x.v2) },
+                    ]
+                  : [{ id: "a", label: kindLabel(summary.kind), values: logged.map((x) => x.v) }]
+              }
               formatX={(d) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" })}
               formatXLong={(d) => fmtDay(d)}
               unit={l.unit ?? undefined}
@@ -391,7 +422,12 @@ function KindCard({ db, summary, open, onToggle, onDelete, version }: { db: SqlD
                     {m.createdBy === "assistant" && " · added by the assistant"}
                   </div>
                 </div>
-                <button type="button" className="icon-button ghost" aria-label={`Delete ${kindLabel(m.kind).toLowerCase()} of ${fmtDay(m.day)}`} onClick={() => onDelete(m)}>
+                <button
+                  type="button"
+                  className="icon-button ghost"
+                  aria-label={`Delete ${kindLabel(m.kind).toLowerCase()} of ${fmtDay(m.day)}`}
+                  onClick={() => onDelete(m)}
+                >
                   <Icon name="trash" size={18} />
                 </button>
               </li>
