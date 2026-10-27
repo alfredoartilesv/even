@@ -222,6 +222,7 @@ export function App() {
               void refreshStatus();
               changed();
             }}
+            onSync={() => void sync()}
           />
         )}
         </div>

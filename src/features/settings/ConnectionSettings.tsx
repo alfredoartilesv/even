@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent 
 import type { SqlDriver } from "../../db/driver";
 import { deviceFetch } from "../../platform/device";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
-import { StatusBadge, Switch } from "../../ui/controls";
+import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
@@ -10,10 +10,11 @@ import { garminExportCoverage, MAX_ZIP_BYTES, storeGarminImport, type ExportCove
 import { parseGarminZip } from "../import/garminParse";
 import { appleHealthSupported, requestAppleHealthAccess } from "../../platform/health";
 import { APPLE_HEALTH_READ, APPLE_HEALTH_SOURCE, appleHealthEnabled, setAppleHealthEnabled } from "../sync/appleHealth";
-import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
-import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
+import { GARMIN_KEY_PAGE } from "../sync/garmin";
 import { lastSync, type LastSync } from "../sync/runSync";
-import { clearGarminKey, loadGarminKey, saveGarminKey, type SecretStore } from "./secrets";
+import { connectGarmin, disconnectGarmin, garminConnection, garminKeyVerifier, type GarminConnection } from "../sync/garminConnect";
+import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
+import type { SecretStore } from "./secrets";
 
 interface Props {
   db: SqlDriver;
@@ -21,6 +22,8 @@ interface Props {
   isNative: boolean;
   /** Called after the Garmin key, the reminder setting or the imported data change. */
   onChanged: () => void;
+  /** Sync now: after Garmin is connected, so the data comes in without a trip to the Dashboard. */
+  onConnected: () => void;
 }
 
 const when = (ms: number | null) => (ms ? new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
@@ -37,11 +40,11 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
 /** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude). */
-export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) {
+export function ConnectionSettings({ db, secrets, isNative, onChanged, onConnected }: Props) {
   return (
     <div>
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
-      <GarminSync db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} />
+      <GarminSync db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />
       <ClaudeConnectionCard db={db} secrets={secrets} />
     </div>
@@ -133,93 +136,109 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
   );
 }
 
-function GarminSync({ db, secrets, isNative, onChanged }: Props) {
+/** Steps the Garmin card shows, in order, like the Claude card's. */
+const GARMIN_STEPS = [
+  "Open Garmin Connect on the web (button below) and sign in.",
+  "Settings → Personal API Key: create one and pick when it expires. It is shown only once.",
+  "Copy it and paste it here. The app checks it with Garmin before saving it in the phone's secure storage.",
+] as const;
+
+function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
+  const [conn, setConn] = useState<GarminConnection | null>(null);
   const [key, setKey] = useState("");
-  const [hasKey, setHasKey] = useState(false);
   const [remind, setRemind] = useState(true);
-  const [sync, setSync] = useState<LastSync | null>(null);
+  const [checking, setChecking] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
 
   const load = useCallback(async () => {
-    setHasKey(Boolean(await loadGarminKey(secrets)));
+    setConn(await garminConnection(db, secrets));
     setRemind(await reminderEnabled(db));
-    setSync(await lastSync(db, GARMIN_SOURCE));
   }, [db, secrets]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function save(e: FormEvent) {
+  async function connect(e: FormEvent) {
     e.preventDefault();
+    setChecking(true);
     try {
-      await saveGarminKey(secrets, key);
+      const res = await connectGarmin(secrets, key, garminKeyVerifier(deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 20_000 })));
+      if (!res.ok) return setMsg({ kind: "error", text: res.message });
       setKey("");
-      setHasKey(true);
-      setMsg({ kind: "ok", text: "Saved. Use the sync button at the top of the Dashboard to test it." });
+      setMsg({ kind: "ok", text: "Connected. Garmin accepted the key; syncing now." });
       onChanged();
+      onConnected();
+      await load();
     } catch (err) {
-      setMsg(failed(err, "settings"));
+      setMsg(failed(err, "settings.garmin"));
+    } finally {
+      setChecking(false);
     }
   }
-
-  async function forget() {
-    await clearGarminKey(secrets);
-    setHasKey(false);
-    setMsg({ kind: "ok", text: "Garmin key removed from this phone. Data already synced stays." });
-    onChanged();
-  }
-
-  const state = !hasKey ? (
-    <StatusBadge status="info">not set up</StatusBadge>
-  ) : sync?.status === "error" ? (
-    <StatusBadge status="warning">last sync failed</StatusBadge>
-  ) : sync?.lastOkMs ? (
-    <StatusBadge status="good">syncing</StatusBadge>
-  ) : (
-    <StatusBadge status="info">not synced yet</StatusBadge>
-  );
 
   return (
     <section className="card">
       <div className="card-head">
         <h2>Garmin sync</h2>
-        {state}
+        {conn?.status === "connected" ? (
+          <StatusBadge status="good">connected</StatusBadge>
+        ) : conn?.status === "needs_attention" ? (
+          <StatusBadge status="warning">needs attention</StatusBadge>
+        ) : (
+          <StatusBadge status="info">not connected</StatusBadge>
+        )}
       </div>
-      <p className="muted small">
-        Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key. Last sync: {when(sync?.lastOkMs ?? null)}.
-      </p>
-      {sync?.status === "error" && sync.error && <p className="warning small">Last attempt: {sync.error}</p>}
-      <form onSubmit={save} className="stack">
-        <label>
-          <span>
-            Personal API key {hasKey && <span className="muted small">stored; paste a new one to replace it</span>}
-          </span>
-          <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" required />
-        </label>
-        <div className="actions">
-          <button type="submit" disabled={!key.trim()}>
-            Save key
-          </button>
-          {hasKey && (
-            <button type="button" className="secondary" onClick={() => void forget()}>
-              Forget key
+      {conn && conn.status !== "not_connected" ? (
+        <>
+          <p className="muted small">
+            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the
+            phone's secure storage.
+          </p>
+          {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
+          <div className="actions">
+            <button
+              className="secondary danger"
+              onClick={async () => {
+                await disconnectGarmin(secrets);
+                setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; synced data stays." });
+                onChanged();
+                await load();
+              }}
+            >
+              Disconnect
             </button>
-          )}
-        </div>
-        <MsgLine msg={msg} />
-      </form>
-      <details className="more">
-        <summary className="small accent">Where do I get the key?</summary>
-        <p className="muted small">
-          In Garmin Connect on the web: Settings → Personal API Key. It is shown once and expires on the date you pick; then make a new one
-          and paste it here.{" "}
-          <a href={GARMIN_KEY_PAGE} target="_blank" rel="noopener noreferrer">
-            Open Garmin Connect
-          </a>
-        </p>
-        {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
-      </details>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="muted small">Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key.</p>
+          <details className="more">
+            <summary className="small accent">How do I get a key?</summary>
+            <ol className="small muted">
+              {GARMIN_STEPS.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ol>
+            <a className="file-button" href={GARMIN_KEY_PAGE} target="_blank" rel="noopener noreferrer">
+              Open Garmin Connect
+            </a>
+            {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
+          </details>
+        </>
+      )}
+      {conn && conn.status !== "connected" && (
+        <form onSubmit={connect} className="stack">
+          <label>
+            {conn.status === "needs_attention" ? "New personal API key" : "Personal API key"}
+            <SecretInput value={key} onChange={setKey} noun="key" autoComplete="off" required />
+          </label>
+          <button type="submit" disabled={checking || !key.trim()}>
+            {checking ? "Checking with Garmin…" : "Connect"}
+          </button>
+        </form>
+      )}
+      <MsgLine msg={msg} />
       <Switch
         checked={remind}
         onChange={async (on) => {
@@ -433,7 +452,7 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
         <form onSubmit={connect} className="stack">
           <label>
             {claude?.status === "needs_attention" ? "New API key" : "API key"}
-            <input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" required />
+            <SecretInput value={claudeKey} onChange={setClaudeKey} noun="key" placeholder="sk-ant-…" autoComplete="off" required />
           </label>
           <button type="submit" disabled={checking || !claudeKey.trim()}>
             {checking ? "Checking with Claude…" : "Connect"}

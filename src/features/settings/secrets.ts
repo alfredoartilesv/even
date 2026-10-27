@@ -21,12 +21,17 @@ export async function loadGarminKey(store: SecretStore): Promise<string | null> 
   return (await store.get(SECRET_KEYS.garminKey))?.trim() || null;
 }
 
-/** The Garmin Connect personal API key. Shape check only: the first sync is the real test. */
-export async function saveGarminKey(store: SecretStore, apiKey: string): Promise<void> {
+/** Trimmed key, or a message safe to show when it cannot be a Garmin Connect personal API key. */
+export function normalizeGarminKey(apiKey: string): string {
   const k = apiKey.trim();
   if (!k) throw new Error("Paste the personal API key from Garmin Connect");
   if (/\s/.test(k) || k.length < 16) throw new Error("That does not look like a Garmin personal API key");
-  await store.set(SECRET_KEYS.garminKey, k);
+  return k;
+}
+
+/** The Garmin Connect personal API key. Shape check only: connectGarmin checks it with Garmin first. */
+export async function saveGarminKey(store: SecretStore, apiKey: string): Promise<void> {
+  await store.set(SECRET_KEYS.garminKey, normalizeGarminKey(apiKey));
   log.info("Garmin API key saved");
 }
 
