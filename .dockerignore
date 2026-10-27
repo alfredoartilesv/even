@@ -1,0 +1,23 @@
+# Keep the build context small, and keep secrets and health data out of every image.
+# tests/docker.test.ts checks the entries marked (required).
+.git
+node_modules
+dist
+android
+ios
+out
+
+# Secrets (required): API keys live in .env, never in an image or its layers.
+.env
+.env.*
+!.env.example
+
+# Health data (required): Garmin exports, import backups and local databases.
+imports
+*.sqlite
+*.sqlite-*
+*.db
+
+# Editor and OS clutter
+.vscode
+*.log

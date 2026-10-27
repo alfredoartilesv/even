@@ -17,13 +17,15 @@ Done and tested (`npm test`, all against Node's SQLite and a fake that copies th
 - Five tabs in a bottom bar: **Dashboard** (steps, calories burned and eaten, balance, meal prep and workouts by day, week or month, with daily averages and totals; sync and the profile with past activity at the top; the journal: daily check-in and manual measurements), **Chat** (Claude, with camera and image attach), **Meal prep** (log what you eat, stock, recipes, shopping, and what the supermarket cost), **Alcohol**, **Settings** (profile, connections, privacy and data, debug logs, about with the version).
 - See every screen in light and dark: [docs/screens/index.html](docs/screens/index.html) (regenerate with `npm run docs:screens`); colors in [docs/screens/palette.html](docs/screens/palette.html).
 
-**Not yet run on a device.**
+**Run on an emulator, not yet on the phone.** The debug build passes the device integration test on a Galaxy S23-shaped Android 16 emulator (`npm run test:device`: encrypted database, migrations, a real Garmin sync, restart). Tests and the APK build also run in Docker (`npm run docker:test`, `npm run docker:apk`), the same as CI.
 
 ## Setup
 
 ```bash
 npm install
 npm test
+npm run docker:test       # the standard check before a PR: typecheck + tests in the pinned Linux toolchain (CI runs the same)
+npm run docker:apk        # debug APK into out/app-debug.apk, no local Android SDK needed
 npm run build
 npm run dev                         # browser: UI only, no local database (native only)
 npm run import:garmin      # Garmin export ZIP in imports/garmin/ -> encrypted backup to restore on the phone
@@ -37,8 +39,11 @@ On the phone (needs Android Studio and the SDK):
 npx cap add android        # once. android/ is git-ignored
 npm run android:sync       # build + cap sync + disable Android backups. Run after every change
 npx cap open android       # run on the S23 from Android Studio
+npm run test:device -- --install android/app/build/outputs/apk/debug/app-debug.apk --fresh   # integration test on the emulator or phone
 ```
+
+Emulator, VS Code tasks and Docker: [docs/dev-setup.md](docs/dev-setup.md).
 
 ## Next steps
 
-1. Run it on the S23: DB opens and migrates, sync works over native HTTP, backup export/restore works (docs/architecture.md risk 7).
+1. Run it on the real S23 (`npm run test:device` with the phone plugged in), then check backup export/share/restore by hand (docs/architecture.md risk 7).

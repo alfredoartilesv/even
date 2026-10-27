@@ -1,6 +1,6 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { createLogger } from "../core/log";
-import { noopNotifier, type Notifier } from "../core/notifier";
+import { noopNotifier, pluginNotification, type Notifier } from "../core/notifier";
 import { isNative } from "./device";
 
 const log = createLogger("platform.notifications");
@@ -20,9 +20,7 @@ export const notifier: Notifier = isNative
         return display === "granted";
       },
       async schedule(n) {
-        await LocalNotifications.schedule({
-          notifications: [{ id: n.id, title: n.title, body: n.body, schedule: { at: new Date(n.atMs), allowWhileIdle: true } }],
-        });
+        await LocalNotifications.schedule({ notifications: [pluginNotification(n)] });
       },
       async cancel(id) {
         await LocalNotifications.cancel({ notifications: [{ id }] });
