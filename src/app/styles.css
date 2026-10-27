@@ -202,7 +202,8 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .menu-desc { display: block; }
 
 /* Sub-tabs read as one light control, under the segmented bar */
-.tabs.sub button { background: var(--surface); min-height: 38px; padding: 0.35rem 0.85rem; border-radius: var(--radius-pill); }
+.tabs.sub { gap: 0.4rem; }
+.tabs.sub button { background: var(--surface); min-height: 38px; padding: 0.35rem 0.75rem; border-radius: var(--radius-pill); }
 .tabs.sub button.active { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {

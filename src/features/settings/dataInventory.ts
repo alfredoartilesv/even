@@ -21,6 +21,7 @@ const ITEMS: { label: string; table: string; live: boolean; day?: string }[] = [
   { label: "Measurements (weight, blood pressure...)", table: "manual_measurements", live: true, day: "local_day" },
   { label: "Day notes", table: "day_notes", live: true, day: "local_day" },
   { label: "Meal prep recipes", table: "meal_preps", live: true },
+  { label: "Supermarket shops (what you paid)", table: "shopping_trips", live: true, day: "local_day" },
   { label: "Claude chats", table: "chat_conversations", live: true },
   { label: "Data sent to Claude (records)", table: "ai_disclosures", live: true },
 ];

@@ -1,9 +1,10 @@
 import { addDays } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
-import { drinkKcalByDay, latestWeight, type Weight } from "../alcohol/alcohol";
+import { drinkKcalByDay, getCurrency, latestWeight, type Weight } from "../alcohol/alcohol";
 import { listDayNotes, type DayNote } from "../journal/entries";
 import { getCalorieGoal, nutritionRange } from "../food/food";
 import { loadStock } from "../mealprep/mealPrep";
+import { spending } from "../mealprep/spending";
 import { listWorkouts } from "../me/workouts";
 import { metricDays } from "../metrics/queries";
 
@@ -64,6 +65,8 @@ export interface Dashboard {
   workouts: { count: number; durationS: number };
   /** Meal prep portions in the fridge and freezer now (not per span). */
   stock: { portions: number; batches: number };
+  /** What the supermarket cost in the span (logged shops), in the app currency. */
+  groceries: { total: number; trips: number; currency: string };
   /** The live daily targets: calories (at most) and steps (at least); null when none is set. */
   targets: { kcal: number | null; steps: number | null };
   /** The check-ins of the span: the notes (newest first), mood and energy (1-5) as figures, and the latest weight on or before its last day. */
@@ -104,7 +107,7 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
   const range = spanRange(span, anchor);
   const from = range.from;
   const to = range.to > today ? today : range.to;
-  const [steps, burned, active, food, drinks, prep, workouts, stock, kcalGoal, stepGoal, notes, weight] = await Promise.all([
+  const [steps, burned, active, food, drinks, prep, workouts, stock, kcalGoal, stepGoal, notes, weight, groceries, currency] = await Promise.all([
     metricDays(db, DASH_METRICS.steps, from, to),
     metricDays(db, DASH_METRICS.burned, from, to),
     metricDays(db, DASH_METRICS.active, from, to),
@@ -117,6 +120,8 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     dailyStepGoal(db, today),
     from <= to ? listDayNotes(db, from, to) : Promise.resolve([]),
     latestWeight(db, from <= to ? to : from),
+    spending(db, from, to),
+    getCurrency(db),
   ]);
   const foodBy = new Map(food.map((f) => [f.day, f]));
 
@@ -156,6 +161,7 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     prep: figure(col("prepPortions")),
     workouts: { count: workouts.length, durationS: workouts.reduce((s, w) => s + (w.durationS ?? 0), 0) },
     stock: { portions: stock.reduce((s, b) => s + b.left, 0), batches: stock.length },
+    groceries: { total: groceries.total, trips: groceries.trips, currency },
     targets: { kcal: kcalGoal?.target ?? null, steps: stepGoal },
     journal: { notes, mood: figure(notes.map((n) => n.mood)), energy: figure(notes.map((n) => n.energy)), weight },
   };

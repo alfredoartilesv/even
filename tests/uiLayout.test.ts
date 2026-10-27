@@ -80,12 +80,12 @@ test("meal prep tab: two groups of three, the food log first", () => {
     MEAL_PREP_GROUPS.map((g) => [g.label, g.views.map((v) => v.id)]),
     [
       ["Food log", ["log", "history", "saved"]],
-      ["Meal prep", ["stock", "recipes", "shopping"]],
+      ["Meal prep", ["stock", "recipes", "shopping", "spending"]],
     ],
   );
   assert.deepEqual(
     MEAL_PREP_VIEWS.map((v) => v.id),
-    ["log", "history", "saved", "stock", "recipes", "shopping"],
+    ["log", "history", "saved", "stock", "recipes", "shopping", "spending"],
   );
 });
 
