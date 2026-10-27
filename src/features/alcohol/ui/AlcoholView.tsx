@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays } from "../../../core/tz";
 import type { SqlDriver } from "../../../db/driver";
-import { failed, fmtDay, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
+import { failed, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../../ui/common";
 import { StatTile } from "../../../ui/charts";
 import { ChipGroup } from "../../../ui/controls";
 import { Icon } from "../../../ui/icons";
@@ -125,13 +125,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
     void load();
   }, [load, version]);
 
-  const fmtMoney = (n: number) => {
-    try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(n);
-    } catch {
-      return `${n.toFixed(2)} ${currency}`;
-    }
-  };
+  const money = (n: number) => fmtMoney(n, currency);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     try {
@@ -180,7 +174,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
             <span>
               + {d.name}
               <span className="muted small block">
-                {servingKcal(d)} kcal{d.price !== null && ` · ${fmtMoney(d.price)}`}
+                {servingKcal(d)} kcal{d.price !== null && ` · ${money(d.price)}`}
               </span>
             </span>
           </button>
@@ -237,7 +231,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
         <div className="viz-tiles">
           <StatTile label="Drinks" value={String(t.drinks)} note={`${t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`} />
           <StatTile label="Calories" value={kcal(t.kcal)} unit="kcal" note={t.kcalEstimated ? "some estimated" : undefined} />
-          <StatTile label="Spent" value={fmtMoney(t.money)} note={t.priced < t.drinks ? `${t.drinks - t.priced} without price` : undefined} />
+          <StatTile label="Spent" value={money(t.money)} note={t.priced < t.drinks ? `${t.drinks - t.priced} without price` : undefined} />
         </div>
       )}
 
@@ -271,7 +265,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
                 <div>{d.name}</div>
                 <div className="muted small">
                   {fmtDay(d.localDay)} {time(d.drunkAtMs)} · {d.volumeMl} ml, {d.abvPercent}% · {kcal(d.kcal)} kcal{d.kcalEstimated ? " (est.)" : ""}
-                  {d.price !== null && ` · ${fmtMoney(d.price)}`}
+                  {d.price !== null && ` · ${money(d.price)}`}
                 </div>
               </div>
               <button className="icon-button ghost" aria-label={`Delete ${d.name}`} onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}>
@@ -319,7 +313,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
                     {d.createdBy === "assistant" && <span className="muted small"> · added by the assistant</span>}
                   </div>
                   <div className="muted small">
-                    {d.volumeMl} ml, {d.abvPercent}% · {servingKcal(d)} kcal{d.calories === null ? " (est.)" : ""} · {d.price === null ? "no price" : fmtMoney(d.price)} · {d.uses}×
+                    {d.volumeMl} ml, {d.abvPercent}% · {servingKcal(d)} kcal{d.calories === null ? " (est.)" : ""} · {d.price === null ? "no price" : money(d.price)} · {d.uses}×
                   </div>
                 </div>
                 <button className="secondary" onClick={() => setEditing(toDraft(d))}>
