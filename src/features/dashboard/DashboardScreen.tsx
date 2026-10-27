@@ -10,6 +10,7 @@ import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
 import { loadDashboard, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
+import { appleHealthSupported } from "../../platform/health";
 
 /** Where the Dashboard's buttons go; the app shell switches tab. */
 export interface DashboardLinks {
@@ -116,7 +117,12 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           {w}
         </p>
       ))}
-      {!configured && !hasAny && <p className="muted small">Add your Garmin key in Settings to bring in steps and calories burned, or import your Garmin export.</p>}
+      {!configured && !hasAny && (
+        <p className="muted small">
+          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in Settings" : "Add your Garmin key in Settings"} to bring in steps and calories burned, or
+          import your Garmin export.
+        </p>
+      )}
 
       <QuickActions
         actions={[

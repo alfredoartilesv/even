@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadCursor } from "../src/features/metrics/samples";
-import { lastSync, runSync } from "../src/features/sync/runSync";
+import { combineSyncs, lastSync, runSync } from "../src/features/sync/runSync";
 import type { Source, SyncResult } from "../src/features/sync/types";
 import { migratedDb } from "./helpers";
 
@@ -84,4 +84,21 @@ test("concurrent syncs of one source share a single run", async () => {
 test("lastSync is null before the first sync", async () => {
   const { db } = await migratedDb();
   assert.equal(await lastSync(db, "garmin"), null);
+});
+
+test("combineSyncs: one header status for several sources, as of the one furthest behind", () => {
+  const base = { status: "ok" as const, startedMs: 100, finishedMs: 110, samplesWritten: 5, warnings: [], error: null, lastOkMs: 110 };
+  assert.equal(combineSyncs([]), null);
+  assert.equal(combineSyncs([null, base]), base, "one source: unchanged");
+  const garminFailing = { ...base, status: "error" as const, error: "Garmin key rejected", startedMs: 200, finishedMs: 205, samplesWritten: 0, lastOkMs: 50 };
+  const apple = { ...base, warnings: ["sleep: not read"], startedMs: 210, finishedMs: 220, lastOkMs: 220 };
+  const c = combineSyncs([garminFailing, apple])!;
+  assert.equal(c.status, "error");
+  assert.equal(c.error, "Garmin key rejected");
+  assert.equal(c.lastOkMs, 50, "the stuck source decides how fresh the data is");
+  assert.equal(c.startedMs, 210);
+  assert.equal(c.samplesWritten, 5);
+  assert.deepEqual(c.warnings, ["sleep: not read"]);
+  assert.equal(combineSyncs([apple, { ...base, lastOkMs: null }])!.lastOkMs, null, "a source never synced is not fresh");
+  assert.equal(combineSyncs([apple, { ...base, status: "running", finishedMs: null }])!.status, "running");
 });

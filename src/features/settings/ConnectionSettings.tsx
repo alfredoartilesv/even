@@ -7,6 +7,8 @@ import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
 import { garminExportCoverage, importGarminZip, MAX_ZIP_BYTES, type ExportCoverage } from "../import/garminImport";
+import { appleHealthSupported, requestAppleHealthAccess } from "../../platform/health";
+import { APPLE_HEALTH_READ, APPLE_HEALTH_SOURCE, appleHealthEnabled, setAppleHealthEnabled } from "../sync/appleHealth";
 import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
 import { reminderEnabled, setReminderEnabled } from "../sync/reminder";
 import { lastSync, type LastSync } from "../sync/runSync";
@@ -33,14 +35,100 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
-/** Where the data comes from (the Garmin sync, the Garmin export) and where questions go (Claude). */
+/** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude). */
 export function ConnectionSettings({ db, secrets, isNative, onChanged }: Props) {
   return (
     <div>
+      {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
       <GarminSync db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} />
       <GarminHistory db={db} onChanged={onChanged} />
       <ClaudeConnectionCard db={db} secrets={secrets} />
     </div>
+  );
+}
+
+/** Apple Health on the iPhone: read-only, nothing leaves the phone. Garmin wins for the same day (migration 0012). */
+function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
+  const [on, setOn] = useState(false);
+  const [sync, setSync] = useState<LastSync | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
+
+  const load = useCallback(async () => {
+    setOn(await appleHealthEnabled(db));
+    setSync(await lastSync(db, APPLE_HEALTH_SOURCE));
+  }, [db]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function connect() {
+    setBusy(true);
+    try {
+      if (!(await requestAppleHealthAccess(APPLE_HEALTH_READ))) {
+        setMsg({ kind: "error", text: "Apple Health is not available on this device." });
+        return;
+      }
+      await setAppleHealthEnabled(db, true);
+      setOn(true);
+      setMsg({ kind: "ok", text: "Connected. Use the sync button at the top of the Dashboard to bring in the last 30 days." });
+      onChanged();
+    } catch (err) {
+      setMsg(failed(err, "settings"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    await setAppleHealthEnabled(db, false);
+    setOn(false);
+    setMsg({ kind: "ok", text: "Disconnected. Data already synced stays." });
+    onChanged();
+  }
+
+  const state = !on ? (
+    <StatusBadge status="info">not connected</StatusBadge>
+  ) : sync?.status === "error" ? (
+    <StatusBadge status="warning">last sync failed</StatusBadge>
+  ) : sync?.lastOkMs ? (
+    <StatusBadge status="good">syncing</StatusBadge>
+  ) : (
+    <StatusBadge status="info">not synced yet</StatusBadge>
+  );
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Apple Health</h2>
+        {state}
+      </div>
+      <p className="muted small">
+        Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where
+        Garmin has the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
+      </p>
+      {on && sync?.warnings.length ? <p className="warning small">Not read last time: {sync.warnings.map((w) => w.split(":")[0]).join(", ")}. Allow them in the Health app.</p> : null}
+      <div className="actions">
+        {on ? (
+          <button type="button" className="secondary" onClick={() => void disconnect()}>
+            Disconnect
+          </button>
+        ) : (
+          <button type="button" onClick={() => void connect()} disabled={busy}>
+            {busy ? "Asking…" : "Connect Apple Health"}
+          </button>
+        )}
+      </div>
+      <MsgLine msg={msg} />
+      <details className="more">
+        <summary className="small accent">Change what Even can read</summary>
+        <p className="muted small">
+          iOS asks only once. After that, choose what Even reads in the Health app: tap your picture, then Apps, then Even. iOS never tells an app
+          what it was refused, so a type you turned off just comes back empty.
+        </p>
+      </details>
+    </section>
   );
 }
 

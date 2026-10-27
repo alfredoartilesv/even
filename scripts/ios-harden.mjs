@@ -4,6 +4,7 @@
  *
  * - Version and build number from package.json, home-screen name from capacitor.config.json
  *   (scripts/ios-project.mjs).
+ * - Apple Health: the HealthKit entitlement and the request text (scripts/ios-project.mjs).
  * - The app icon and launch logo rendered from resources/logo.svg (resources/ios/, made by
  *   `npm run ios:icons`), replacing Capacitor's.
  * - The launch screen on the palette's --bg, light and dark (src/ui/palette.css).
@@ -11,7 +12,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readPalette } from "./palette.mjs";
-import { APP_ICON_CONTENTS, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "./ios-project.mjs";
+import { APP_ICON_CONTENTS, ENTITLEMENTS, ENTITLEMENTS_PATH, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "./ios-project.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const app = join(ROOT, "ios/App");
@@ -26,7 +27,8 @@ const { appName } = JSON.parse(readFileSync(join(ROOT, "capacitor.config.json"),
 writeFileSync(pbxPath, patchPbxproj(readFileSync(pbxPath, "utf8"), version));
 const plistPath = join(app, "App/Info.plist");
 writeFileSync(plistPath, patchInfoPlist(readFileSync(plistPath, "utf8"), appName));
-console.log(`iOS version ${version}, name ${appName}.`);
+writeFileSync(join(app, ENTITLEMENTS_PATH), ENTITLEMENTS);
+console.log(`iOS version ${version}, name ${appName}, HealthKit entitlement and request text.`);
 
 /** An asset catalog folder holding only the given files and Contents.json. */
 function assetSet(name, contents, files = {}) {

@@ -228,7 +228,7 @@ One local SQLite database (`health`), encrypted with SQLCipher. Main groups:
 
 | Group | Tables | Written by |
 |---|---|---|
-| Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync (source `garmin`), Garmin export import (`garmin_export`); older rows from freddy (`freddy`) |
+| Synced data | `health_samples`, `metric_catalog`, `sync_state`, `sync_runs` | Sync (source `garmin`), Apple Health on the iPhone (`apple_health`), Garmin export import (`garmin_export`); older rows from freddy (`freddy`) |
 | Logs written by the owner | `food_entries`, `drink_entries`, `manual_measurements`, `day_notes`, `goals`, `shopping_trips` | UI (Meal prep, Alcohol, Journal, profile) and the agent |
 | Claude | `chat_conversations`, `chat_messages`, `ai_disclosures`, `consents`, `agent_actions` | Agent engine (Chat tab) |
 | Settings | `app_settings` (non-secret) | UI |

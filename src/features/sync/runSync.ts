@@ -119,3 +119,24 @@ export async function lastSync(db: SqlDriver, source: string): Promise<LastSync 
     lastOkMs: ok[0]?.t ?? null,
   };
 }
+
+/**
+ * One status for the header from every connected source: failing if any latest run failed, and
+ * "synced" as of the source that is furthest behind, so a stuck source is never hidden by a
+ * working one.
+ */
+export function combineSyncs(syncs: (LastSync | null)[]): LastSync | null {
+  const s = syncs.filter((x): x is LastSync => x !== null);
+  if (s.length <= 1) return s[0] ?? null;
+  const failed = s.find((x) => x.status === "error");
+  const oks = s.map((x) => x.lastOkMs);
+  return {
+    status: failed ? "error" : s.some((x) => x.status === "running") ? "running" : "ok",
+    startedMs: Math.max(...s.map((x) => x.startedMs)),
+    finishedMs: s.some((x) => x.finishedMs === null) ? null : Math.max(...s.map((x) => x.finishedMs!)),
+    samplesWritten: s.reduce((t, x) => t + (x.samplesWritten ?? 0), 0),
+    warnings: s.flatMap((x) => x.warnings),
+    error: failed?.error ?? null,
+    lastOkMs: oks.some((t) => t === null) ? null : Math.min(...(oks as number[])),
+  };
+}
