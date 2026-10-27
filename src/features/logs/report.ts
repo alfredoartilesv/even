@@ -37,9 +37,9 @@ export function logReport(records: LogRecord[], ctx: ReportContext): string {
   const span = sorted.length ? `${iso(sorted[0].ts)} to ${iso(sorted[sorted.length - 1].ts)} (UTC)` : "no records";
 
   const lines = [
-    "# Health app logs",
+    "# Even logs",
     "",
-    "Logs from my personal health app (React + Capacitor, local SQLite, Garmin sync, Claude agent).",
+    "Logs from Even, my personal health app (React + Capacitor, local SQLite, Garmin sync, Claude agent).",
     "Please find the cause of any errors or warnings, explain it, and suggest a fix.",
     "",
     "## Context",

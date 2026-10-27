@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { BACKUP_TABLES, BackupError, exportBackup, restoreBackup } from "../src/features/backup/backup";
 import { deviceId, getSetting, setSetting } from "../src/db/settings";
@@ -88,8 +89,8 @@ test("wrong password, edited header or edited data are all rejected without touc
   await assert.rejects(restoreBackup(fresh, JSON.stringify({ ...env, kdf: { ...env.kdf, iterations: 1001 } }), PW), /Wrong password/);
   const flipped = env.data[10] === "A" ? "B" : "A";
   await assert.rejects(restoreBackup(fresh, JSON.stringify({ ...env, data: env.data.slice(0, 10) + flipped + env.data.slice(11) }), PW), BackupError);
-  await assert.rejects(restoreBackup(fresh, "{}", PW), /not a Health backup/);
-  await assert.rejects(restoreBackup(fresh, "not json", PW), /not a Health backup/);
+  await assert.rejects(restoreBackup(fresh, "{}", PW), /not an Even backup/);
+  await assert.rejects(restoreBackup(fresh, "not json", PW), /not an Even backup/);
   assert.equal((await fresh.all("SELECT * FROM food_entries")).length, 0);
 });
 
@@ -163,4 +164,17 @@ test("export and restore through the Capacitor driver (plugin transactions, mult
   assert.equal(calls.at(-1), "commit");
   assert.ok(calls.filter((c) => c === "run:false").length >= 5, "samples restored in batches");
   assert.ok(!calls.includes("run:true") && !calls.includes("run:undefined"), "never nests plugin transactions");
+});
+test("a backup made before the app was renamed to Even still restores", async () => {
+  // tests/fixtures/health-app-backup.json: exported by the pre-rename code (format "health-app-backup",
+  // 1000 iterations, password PW), with one food entry.
+  const old = readFileSync(new URL("./fixtures/health-app-backup.json", import.meta.url), "utf8");
+  assert.equal(JSON.parse(old).format, "health-app-backup");
+  const { db } = await migratedDb();
+  await restoreBackup(db, old, PW);
+  const rows = await db.all<{ name: string }>("SELECT name FROM food_entries WHERE id = 'old1'");
+  assert.deepEqual(rows, [{ name: "porridge" }]);
+
+  const { text } = await exportBackup(db, PW, FAST);
+  assert.equal(JSON.parse(text).format, "even-backup", "new backups use the new name");
 });

@@ -219,7 +219,7 @@ const SCREENS: Screen[] = [
   { id: "settings-connections", tab: "Settings", title: "Connections", about: "Garmin sync, the Claude API key, and the Garmin history import.", go: (p) => settings(p, "Connections") },
   { id: "settings-privacy", tab: "Settings", title: "Privacy & data", about: "What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.", go: (p) => settings(p, "Privacy & data") },
   { id: "settings-logs", tab: "Settings", title: "Debug logs", about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.", go: (p) => settings(p, "Debug logs") },
-  { id: "settings-about", tab: "Settings", title: "About", about: "App version, build, platform, database schema and chat model.", go: (p) => settings(p, "About") },
+  { id: "settings-about", tab: "Settings", title: "About", about: "The Even logo and name, app version, build, platform, database schema and chat model.", go: (p) => settings(p, "About") },
 ];
 
 const THEMES = ["light", "dark"] as const;
@@ -301,10 +301,10 @@ function indexHtml(): string {
     ["CalorieMeter, MacroSplit", "src/ui/nutrition.tsx", "Calories against the target, macro shares (Log food)."],
     ["StockSummary, DefrostTimeline, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the defrost plan."],
   ];
-  return `${docHead("Health app screens")}
+  return `${docHead("Even screens")}
 <body data-show="light">
 <main>
-<h1>Health app screens</h1>
+<h1>Even screens</h1>
 <p class="muted">Every tab and view at phone size (390 × 844 pt), captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
 <div class="themes" role="group" aria-label="Theme">
   <button type="button" data-show="light" aria-pressed="true">Light</button>
@@ -374,7 +374,7 @@ function paletteHtml(): string {
     }</td>`;
   };
   const series = Array.from({ length: 8 }, (_, i) => `series-${i + 1}`);
-  return `${docHead("Health app palette")}
+  return `${docHead("Even palette")}
 <body>
 <main>
 <h1>Color palette</h1>

@@ -1,4 +1,4 @@
-# Health App: High-Level Design (HLD)
+# Even: High-Level Design (HLD)
 
 Status as of 26 Oct 2026, phase 1. This document shows the system as a whole: its context, its main components, how data flows between them, and the security and quality properties it is built to have. The reasons behind each choice are in [architecture.md](architecture.md); module-level detail is in [LLD.md](LLD.md).
 
@@ -25,7 +25,7 @@ Status as of 26 Oct 2026, phase 1. This document shows the system as a whole: it
 flowchart LR
   owner([Owner])
   subgraph phone[Owner's phone]
-    app[Health app<br/>Capacitor + React]
+    app[Even<br/>Capacitor + React]
     db[(Encrypted SQLite<br/>SQLCipher)]
     ks[[Keystore / Keychain]]
   end

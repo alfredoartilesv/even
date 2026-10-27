@@ -7,6 +7,7 @@ import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, seg
 import { DefrostTimeline, StockAlerts } from "../src/ui/mealprep/components";
 import { daysCovered, timelineDays } from "../src/ui/mealprep/timeline";
 import { MacroSplit } from "../src/ui/nutrition";
+import { Logo } from "../src/ui/logo";
 
 test("niceTicks: round steps that cover the data, flat and odd ranges included", () => {
   assert.deepEqual(niceTicks(0, 12_499), [0, 5000, 10000, 15000]);
@@ -119,4 +120,12 @@ test("figures: delta direction in arrows and words, macro shares as text", () =>
   const alerts = render(h(StockAlerts, { alerts: [{ id: "1", kind: "expired", text: "Rice passed eat-by." }] }));
   assert.match(alerts, /status critical/);
   assert.match(alerts, /Past eat-by/);
+});
+
+test("logo: named Even, or hidden next to the name; colors from the palette only", () => {
+  const named = renderToStaticMarkup(h(Logo, { size: 32 }));
+  assert.match(named, /^<svg class="logo" width="32" height="32" viewBox="0 0 64 64" role="img" aria-label="Even"/);
+  assert.match(renderToStaticMarkup(h(Logo, { decorative: true })), /aria-hidden="true"/);
+  assert.doesNotMatch(renderToStaticMarkup(h(Logo, { decorative: true })), /role="img"/);
+  for (const c of named.match(/(?:fill|stroke)="[^"]*"/g) ?? []) assert.match(c, /="(none|var\(--(accent|on-accent)\))"/, c);
 });
