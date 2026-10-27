@@ -9,8 +9,8 @@ out/
 
 # Capacitor native projects (regenerate with `npx cap add android|ios`)
 # Remove these two lines if you decide to commit the native projects.
-android/
-ios/
+/android/
+/ios/
 
 # Keep the committed template
 !.env.example
