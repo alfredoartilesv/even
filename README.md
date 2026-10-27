@@ -31,7 +31,7 @@ npm run docker:apk        # debug APK into out/app-debug.apk, no local Android S
 npm run docker:release    # signed, checked release APK into out/app-release.apk (release key outside the repo)
 npm run build
 npm run dev                         # browser: UI only, no local database (native only)
-npm run import:garmin      # Garmin export ZIP in imports/garmin/ -> encrypted backup to restore on the phone
+npm run import:garmin      # on a PC: Garmin export ZIP -> encrypted backup to restore (the app imports the ZIP itself: Settings > Connections)
 npm run sync:garmin        # real Garmin Personal API -> SQLite on this PC (GARMIN_API_KEY in .env); add -- --db file.sqlite to keep it
 node --env-file=.env --import tsx scripts/garmin-probe.ts   # which Garmin endpoints work for the key, field names only
 ```

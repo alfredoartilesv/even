@@ -25,8 +25,8 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
   {
     title: "Data",
     items: [
-      { id: "connections", label: "Connections", description: "Garmin sync, the Claude key, Garmin history import", icon: "link" },
-      { id: "privacy", label: "Privacy & data", description: "What Claude may see, what was sent, backups", icon: "shield" },
+      { id: "connections", label: "Connections", description: "Garmin sync, Garmin history import, the Claude key", icon: "link" },
+      { id: "privacy", label: "Privacy & data", description: "What Claude may see and was sent, what is stored, backup and restore", icon: "shield" },
     ],
   },
   {

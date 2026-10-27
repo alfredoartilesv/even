@@ -209,11 +209,11 @@ code { font-size: 0.9em; }
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-connections.webp" alt="Settings: Connections (light)" loading="lazy"><img class="dark" src="img/dark-settings-connections.webp" alt="Settings: Connections (dark)" loading="lazy"></div>
-  <figcaption><strong>Connections</strong><span class="muted">Garmin sync, the Claude API key, and the Garmin history import.</span></figcaption>
+  <figcaption><strong>Connections</strong><span class="muted">One card per connection: Garmin sync (key, last sync, the 3-day reminder switch), Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude. How-tos fold away.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="Settings: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="Settings: Privacy &amp; data (dark)" loading="lazy"></div>
-  <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see, what was sent, what is stored on the phone, and the encrypted backup.</span></figcaption>
+  <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-logs.webp" alt="Settings: Debug logs (light)" loading="lazy"><img class="dark" src="img/dark-settings-logs.webp" alt="Settings: Debug logs (dark)" loading="lazy"></div>
@@ -231,6 +231,7 @@ code { font-size: 0.9em; }
 <tr><td><code>SectionHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>Section headings with a link (Workouts › Your activity, Meal prep › Open).</td></tr>
 <tr><td><code>QuickActions</code></td><td><code>src/ui/layout.tsx</code></td><td>Log food, Log a drink, Ask Claude, Check-in on the Dashboard.</td></tr>
 <tr><td><code>ScaleRating</code></td><td><code>src/ui/controls.tsx</code></td><td>Mood and energy, 1 to 5 in words, on the check-in.</td></tr>
+<tr><td><code>Switch</code></td><td><code>src/ui/controls.tsx</code></td><td>On/off settings as rows: what Claude may see, the sync reminder.</td></tr>
 <tr><td><code>MenuList</code></td><td><code>src/ui/layout.tsx</code></td><td>The Settings menu.</td></tr>
 <tr><td><code>SubTabs</code></td><td><code>src/ui/layout.tsx</code></td><td>The views inside a Meal prep group.</td></tr>
 <tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard; Food log / Meal prep.</td></tr>

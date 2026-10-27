@@ -9,7 +9,7 @@ import { greeting } from "../src/features/dashboard/greeting";
 import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/features/mealprep/ui/MealPrepScreen";
 import { SETTINGS_MENU } from "../src/features/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
-import { ChipGroup, RangePicker, ScaleRating } from "../src/ui/controls";
+import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
 import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../src/ui/layout";
 
@@ -174,4 +174,13 @@ test("ScaleRating: five named steps, the chosen word shown, steps up to the choi
   assert.match(html, /aria-checked="true" aria-label="4: Good" class="on"/);
   assert.equal((html.match(/class="on"/g) ?? []).length, 4);
   assert.match(renderToStaticMarkup(h(ScaleRating, { label: "Energy", value: null, onChange: noop, words })), /not set/);
+});
+
+test("Switch: a labelled checkbox with role switch, the whole row the tap target", () => {
+  const on = renderToStaticMarkup(h(Switch, { checked: true, onChange: noop, label: "Photos", description: "Send the photos you attach", note: "needed for any chat" }));
+  assert.match(on, /^<label class="switch-row">/);
+  assert.match(on, /<span class="switch-label">Photos<span class="muted small"> needed for any chat<\/span><\/span>/);
+  assert.match(on, /Send the photos you attach/);
+  assert.match(on, /<input type="checkbox" role="switch" class="switch" checked=""/);
+  assert.doesNotMatch(renderToStaticMarkup(h(Switch, { checked: false, onChange: noop, label: "Photos" })), /checked=""/);
 });
