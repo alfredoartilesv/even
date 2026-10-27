@@ -2,6 +2,7 @@
  * Start-up and navigation timings on an Android device or emulator, for comparing two builds.
  *
  *   node scripts/perf-device.mjs --apk <debug apk> --package app.health.personal.perf --label before --runs 7 --out perf-before.json
+ *   node scripts/perf-device.mjs --packages app.health.personal.perf,app.health.personal.perf2 --labels before,after --outs b.json,a.json --runs 15
  *   node scripts/perf-device.mjs --compare perf-before.json perf-after.json
  *
  * Each run is a cold start (force-stop, then am start -W). The WebView's DevTools socket (debug
@@ -11,7 +12,8 @@
  * - dbOpen: the encrypted database open and migrated (mark even:db-open);
  * - dashboard: the Dashboard's first numbers on screen (mark even:dashboard-ready);
  * - heap: JS heap in use once the Dashboard is up;
- * - tabs: tapping each tab until its title is on screen and painted, first visit and second.
+ * - tabs: a second after the Dashboard, tapping each tab until its title is on screen and painted,
+ *   first visit and second.
  * Medians over the runs. Build with VITE_PERF_SEED=1 so the database holds about a real phone's
  * data (src/app/perfSeed.ts); the first launch after install seeds it and is not counted.
  */
@@ -33,7 +35,8 @@ const TABS = [
 ];
 const PORT = 9333;
 
-const adb = (...a) => execFileSync("adb", a, { encoding: "utf8" }).trim();
+// A frozen emulator makes adb hang: fail after a minute instead of waiting forever.
+const adb = (...a) => execFileSync("adb", a, { encoding: "utf8", timeout: 60_000 }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const median = (xs) => {
   const s = xs.filter((x) => typeof x === "number").sort((a, b) => a - b);
@@ -117,6 +120,8 @@ async function coldStart(pkg) {
   const dt = await devtools(pkg);
   try {
     const start = await dt.evaluate(START_TIMINGS);
+    // A person taps a tab a moment after the Dashboard appears, not in the same frame.
+    await sleep(1000);
     const tabs = await dt.evaluate(TAB_TIMINGS);
     return { launch, ...start, tabs };
   } finally {
@@ -124,30 +129,12 @@ async function coldStart(pkg) {
   }
 }
 
-async function measure() {
-  const pkg = args.package ?? "app.health.personal.perf";
-  const runs = Number(args.runs ?? 7);
-  if (args.apk && args.apk !== true) {
-    adb("install", "-r", args.apk);
-    console.log(`installed ${args.apk}`);
-  }
-  // First launch: migrations and the seed. Not counted.
-  adb("shell", "am", "force-stop", pkg);
-  adb("shell", "am", "start", "-W", "-n", `${pkg}/${ACTIVITY}`);
-  const warm = await devtools(pkg);
-  await warm.evaluate(START_TIMINGS);
-  warm.close();
-  const all = [];
-  for (let i = 0; i < runs; i++) {
-    const r = await coldStart(pkg);
-    all.push(r);
-    console.log(`run ${i + 1}: launch ${r.launch} ms, fcp ${r.fcp?.toFixed(0)} ms, db ${r.dbOpen?.toFixed(0)} ms, dashboard ${r.dashboard?.toFixed(0)} ms`);
-  }
+const summary = (label, all) => {
   const tabNames = Object.keys(all[0].tabs);
-  const result = {
-    label: args.label ?? "build",
+  return {
+    label,
     device: `${adb("shell", "getprop", "ro.product.model")}, Android ${adb("shell", "getprop", "ro.build.version.release")}`,
-    runs,
+    runs: all.length,
     median: {
       launch: median(all.map((r) => r.launch)),
       fcp: median(all.map((r) => r.fcp)),
@@ -158,8 +145,48 @@ async function measure() {
     },
     raw: all,
   };
-  if (args.out) writeFileSync(args.out, JSON.stringify(result, null, 2));
-  console.log(JSON.stringify(result.median, null, 2));
+};
+
+/** First launch after install: migrations and the seed. Not counted. */
+async function warmUp(pkg) {
+  adb("shell", "am", "force-stop", pkg);
+  adb("shell", "am", "start", "-W", "-n", `${pkg}/${ACTIVITY}`);
+  const warm = await devtools(pkg);
+  await warm.evaluate(START_TIMINGS);
+  warm.close();
+  adb("shell", "am", "force-stop", pkg);
+}
+
+/**
+ * One build (--package, --apk) or two installed side by side (--packages a,b with --labels and
+ * --outs): two builds alternate cold starts, so the emulator's drift over minutes falls on both.
+ */
+async function measure() {
+  const pkgs = String(args.packages ?? args.package ?? "app.health.personal.perf").split(",");
+  const labels = String(args.labels ?? args.label ?? pkgs.join(",")).split(",");
+  const outs = args.outs ? String(args.outs).split(",") : args.out ? [String(args.out)] : [];
+  const runs = Number(args.runs ?? 7);
+  if (args.apk && args.apk !== true) {
+    adb("install", "-r", args.apk);
+    console.log(`installed ${args.apk}`);
+  }
+  for (const pkg of pkgs) await warmUp(pkg);
+  const all = pkgs.map(() => []);
+  for (let i = 0; i < runs; i++) {
+    for (const [k, pkg] of pkgs.entries()) {
+      const r = await coldStart(pkg);
+      all[k].push(r);
+      console.log(
+        `run ${i + 1} ${labels[k]}: launch ${r.launch} ms, fcp ${r.fcp?.toFixed(0)} ms, db ${r.dbOpen?.toFixed(0)} ms, dashboard ${r.dashboard?.toFixed(0)} ms`,
+      );
+      adb("shell", "am", "force-stop", pkg);
+    }
+  }
+  for (const [k] of pkgs.entries()) {
+    const result = summary(labels[k], all[k]);
+    if (outs[k]) writeFileSync(outs[k], JSON.stringify(result, null, 2));
+    console.log(labels[k], JSON.stringify(result.median));
+  }
 }
 
 function compare(a, b) {
