@@ -142,7 +142,6 @@ test("index.html: the theme-color is --bg in each theme", () => {
 });
 
 test("Android: colors.xml and the splash theme come from the palette", async () => {
-  // @ts-expect-error: plain JS module
   const { ANDROID_STYLES_XML, androidColorsXml, parsePalette } = await import("../scripts/palette.mjs");
   assert.deepEqual(parsePalette(palette), { light, dark });
   const day = androidColorsXml(light);
