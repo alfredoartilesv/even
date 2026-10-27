@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { deviceFetch } from "../../platform/device";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
@@ -6,7 +6,8 @@ import { StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../chat/client";
 import { CLAUDE_KEYS_URL, claudeConnection, connectClaude, CONNECT_STEPS, disconnectClaude, type ClaudeConnection } from "../chat/connect";
 import type { GarminImport, GarminKind } from "../import/garmin";
-import { garminExportCoverage, importGarminZip, MAX_ZIP_BYTES, type ExportCoverage } from "../import/garminImport";
+import { garminExportCoverage, MAX_ZIP_BYTES, storeGarminImport, type ExportCoverage } from "../import/garminImport";
+import { parseGarminZip } from "../import/garminParse";
 import { appleHealthSupported, requestAppleHealthAccess } from "../../platform/health";
 import { APPLE_HEALTH_READ, APPLE_HEALTH_SOURCE, appleHealthEnabled, setAppleHealthEnabled } from "../sync/appleHealth";
 import { GARMIN_KEY_PAGE, GARMIN_SOURCE } from "../sync/garmin";
@@ -234,39 +235,63 @@ function GarminSync({ db, secrets, isNative, onChanged }: Props) {
 }
 
 /** The Garmin export ZIP, imported on the phone: years of history the sync's first 30 days do not reach. */
-function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
-  const [coverage, setCoverage] = useState<ExportCoverage | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [result, setResult] = useState<{ written: number; report: GarminImport["report"] } | null>(null);
-  const [msg, setMsg] = useState<Msg>(null);
+/** The running import outlives the screen: leaving Connections and coming back shows where it is. */
+interface ImportJob {
+  busy: string | null;
+  result: { written: number; report: GarminImport["report"] } | null;
+  msg: Msg;
+}
+let job: ImportJob = { busy: null, result: null, msg: null };
+/** The last count, shown at once when the screen opens again while a fresh one loads. */
+let lastCoverage: ExportCoverage | null = null;
+const jobListeners = new Set<() => void>();
+function setJob(patch: Partial<ImportJob>) {
+  job = { ...job, ...patch };
+  jobListeners.forEach((l) => l());
+}
+function subscribeJob(l: () => void) {
+  jobListeners.add(l);
+  return () => void jobListeners.delete(l);
+}
 
-  const load = useCallback(async () => setCoverage(await garminExportCoverage(db)), [db]);
+function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
+  const [coverage, setCoverage] = useState<ExportCoverage | null>(lastCoverage);
+  const [file, setFile] = useState<File | null>(null);
+  const { busy, result, msg } = useSyncExternalStore(subscribeJob, () => job);
+  const setBusy = (b: string | null) => setJob({ busy: b });
+
+  const load = useCallback(async () => setCoverage((lastCoverage = await garminExportCoverage(db))), [db]);
+  // Also when an import ends, even one started before this screen was opened again.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!busy) void load();
+  }, [busy, load]);
 
   async function run(e: FormEvent) {
     e.preventDefault();
     if (!file) return;
-    setResult(null);
-    setMsg(null);
+    setJob({ result: null, msg: null });
     try {
       if (!/\.zip$/i.test(file.name)) throw new Error("Pick the .zip file Garmin sent (not a folder or a single file from inside it).");
       if (file.size > MAX_ZIP_BYTES) throw new Error("The file is over 1 GB, too big to read on the phone. Use npm run import:garmin on a PC instead.");
       setBusy(`Reading ${(file.size / 1024 / 1024).toFixed(0)} MB…`);
       const bytes = new Uint8Array(await file.arrayBuffer());
-      setBusy("Unpacking and saving. This can take a minute…");
-      // Let the message paint before the synchronous unzip and parse.
-      await new Promise((r) => setTimeout(r, 50));
-      const { written, parsed } = await importGarminZip(db, bytes, { timeZone: timeZone() });
-      setResult({ written, report: parsed.report });
-      setMsg({ kind: "ok", text: `Imported ${written.toLocaleString()} readings. Importing the same file again changes nothing.` });
+      setBusy("Unpacking…");
+      const parsed = await parseGarminZip(bytes, timeZone());
+      let shown = -1;
+      const written = await storeGarminImport(db, parsed, Date.now(), (saved, total) => {
+        const pct = Math.floor((saved / total) * 100);
+        if (pct === shown) return;
+        shown = pct;
+        setBusy(`Saving ${saved.toLocaleString()} of ${total.toLocaleString()} readings (${pct}%)…`);
+      });
+      setJob({
+        result: { written, report: parsed.report },
+        msg: { kind: "ok", text: `Imported ${written.toLocaleString()} readings. Importing the same file again changes nothing.` },
+      });
       setFile(null);
       onChanged();
-      await load();
     } catch (err) {
-      setMsg(failed(err, "settings.import"));
+      setJob({ msg: failed(err, "settings.import") });
     } finally {
       setBusy(null);
     }
@@ -276,7 +301,8 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
     <section className="card">
       <div className="card-head">
         <h2>Garmin history</h2>
-        {coverage && coverage.readings > 0 ? <StatusBadge status="good">imported</StatusBadge> : <StatusBadge status="info">not imported</StatusBadge>}
+        {/* Nothing until the count is in: a "not imported" flash would be wrong. */}
+        {coverage && (coverage.readings > 0 ? <StatusBadge status="good">imported</StatusBadge> : <StatusBadge status="info">not imported</StatusBadge>)}
       </div>
       <p className="muted small">
         The sync starts with the last 30 days. For everything before, import the export Garmin emails you.{" "}

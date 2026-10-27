@@ -39,10 +39,15 @@ export function readGarminZip(bytes: Uint8Array): GarminFile[] {
  * nothing) and catalog rows (their daily aggregation defaults come from classifyMetric).
  * One transaction. Returns the number of samples written.
  */
-export async function storeGarminImport(db: SqlDriver, parsed: GarminImport, nowMs: number = Date.now()): Promise<number> {
+export async function storeGarminImport(
+  db: SqlDriver,
+  parsed: GarminImport,
+  nowMs: number = Date.now(),
+  onProgress?: (saved: number, total: number) => void,
+): Promise<number> {
   const done = log.time("garmin export stored", "info");
   const written = await withTransaction(db, async () => {
-    const n = await upsertSamples(db, parsed.samples, nowMs);
+    const n = await upsertSamples(db, parsed.samples, nowMs, undefined, onProgress);
     await upsertCatalog(db, GARMIN_EXPORT_SOURCE, parsed.catalog, nowMs);
     return n;
   });

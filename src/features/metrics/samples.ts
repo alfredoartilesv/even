@@ -6,11 +6,19 @@ import { createLogger } from "../../core/log";
 
 const log = createLogger("metrics");
 
-const UPSERT = `
+const COLUMNS = 15;
+/**
+ * Rows per INSERT: one bridge call per row made a 40,000-reading Garmin export take minutes on the
+ * phone. 400 x 15 = 6,000 parameters, under the 32,766 SQLite allows since 3.32 (the app's
+ * SQLCipher 4 builds on a newer SQLite on Android and iOS).
+ */
+export const ROWS_PER_INSERT = 400;
+
+const upsert = (rows: number) => `
 INSERT INTO health_samples
   (id, source, device, external_id, metric, start_ms, end_ms, offset_min,
    value_num, value_text, unit, raw_json, local_day, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES ${Array.from({ length: rows }, () => `(${Array(COLUMNS).fill("?").join(", ")})`).join(", ")}
 ON CONFLICT (source, device, metric, external_id) DO UPDATE SET
   start_ms   = excluded.start_ms,
   end_ms     = excluded.end_ms,
@@ -33,12 +41,14 @@ export async function upsertSamples(
   samples: SampleInput[],
   nowMs: number = Date.now(),
   newId: () => string = () => uuidv7(nowMs),
+  onProgress?: (saved: number, total: number) => void,
 ): Promise<number> {
   if (samples.length === 0) return 0;
   const done = log.time("samples upserted");
   await withTransaction(db, async () => {
-    for (const s of samples) {
-      await db.run(UPSERT, [
+    for (let i = 0; i < samples.length; i += ROWS_PER_INSERT) {
+      const chunk = samples.slice(i, i + ROWS_PER_INSERT);
+      const params = chunk.flatMap((s) => [
         newId(),
         s.source,
         s.device,
@@ -55,6 +65,8 @@ export async function upsertSamples(
         nowMs,
         nowMs,
       ]);
+      await db.run(upsert(chunk.length), params);
+      onProgress?.(i + chunk.length, samples.length);
     }
   });
   done({ count: samples.length });
