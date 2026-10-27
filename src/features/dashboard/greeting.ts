@@ -1,6 +1,5 @@
-/** "Good morning, Alex" by the hour, with the first name when the profile has one. */
-export function greeting(hour: number, name: string | null): string {
-  const part = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+/** "Hi, Alex" with the first name when the profile has one; short, so it fits next to the picture and sync. */
+export function greeting(name: string | null): string {
   const first = name?.trim().split(/\s+/)[0];
-  return first ? `${part}, ${first}` : part;
+  return first ? `Hi, ${first}` : "Hi";
 }

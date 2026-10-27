@@ -87,7 +87,7 @@ Since 27 Oct 2026 the **standard check before a PR and the standard APK build ru
 
 1. the app opens and the encrypted database is ready;
 1. the header clears a reported 48 px status bar (edge to edge, see below);
-1. with `--fresh` (no key yet): the sync button says "Set up sync" and opens Settings > Connections;
+1. with `--fresh` (no key yet): the sync button (the ⟳ symbol, labelled "Set up Garmin sync") opens Settings > Connections;
 2. the schema is the latest migration (Settings > About);
 3. the database file has no plain SQLite header (SQLCipher);
 4. the Garmin key from `GARMIN_API_KEY` in `.env` saves in Settings > Connections;

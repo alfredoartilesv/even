@@ -269,13 +269,14 @@ async function main() {
 
   if (flag("--fresh")) {
     await check("without a key, the sync button says so and opens Connections", async () => {
-      const label = await page.eval<string>(`(document.querySelector("button.sync-button")?.innerText ?? "").replace(/[^A-Za-z ]+/g, " ").replace(/\\s+/g, " ").trim()`);
-      if (!label.includes("Set up sync")) throw new Error(`the sync button says "${label}"`);
+      // The button shows the ⟳ symbol only; what it means is its label.
+      const label = await page.eval<string>(`document.querySelector("button.sync-button")?.getAttribute("aria-label") ?? ""`);
+      if (!label.startsWith("Set up Garmin sync")) throw new Error(`the sync button is labelled "${label}"`);
       await page.eval(`__t.click("button.sync-button")`);
       await until("the Connections page", () => page.eval<boolean>(`__t.text().includes("Personal API key")`), 10_000);
       screenshot("setup-sync-connections");
       await page.eval(`__t.click("nav.tabbar button", "Dashboard")`);
-      return `"${label}" opens Settings > Connections`;
+      return `"${label.split(".")[0]}" opens Settings > Connections`;
     });
   }
 
