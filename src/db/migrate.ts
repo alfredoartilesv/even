@@ -1,4 +1,7 @@
 import type { SqlDriver } from "./driver";
+import { createLogger } from "../core/log";
+
+const log = createLogger("db.migrate");
 
 export interface Migration {
   /** Monotonic integer parsed from the file name, e.g. 0001_init.sql -> 1 */
@@ -37,6 +40,7 @@ export async function migrate(db: SqlDriver, migrations: Migration[]): Promise<n
 
   for (const m of migrations) {
     if (m.version <= current) continue;
+    const done = log.time("migration applied", "info");
     await db.exec("BEGIN");
     try {
       await db.exec(m.sql);
@@ -45,10 +49,13 @@ export async function migrate(db: SqlDriver, migrations: Migration[]): Promise<n
       await db.exec("COMMIT");
     } catch (err) {
       await db.exec("ROLLBACK");
+      log.error("migration failed, rolled back", { version: m.version, name: m.name, err });
       throw new Error(`Migration ${m.version}_${m.name} failed: ${(err as Error).message}`);
     }
     current = m.version;
     applied.push(m.version);
+    done({ version: m.version, name: m.name });
   }
+  log.debug("schema up to date", { version: current, applied: applied.length });
   return applied;
 }
