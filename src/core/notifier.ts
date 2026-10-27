@@ -17,6 +17,16 @@ export interface Notifier {
   cancel(id: number): Promise<void>;
 }
 
+/**
+ * The options the Android plugin gets for one notice. `isExactNotification: false` matters: the
+ * plugin defaults to an exact alarm, and on Android 14+ (where exact alarms are off by default) it
+ * then opens the system "Alarms & reminders" screen on every schedule, that is after every sync.
+ * A reminder a few minutes late is fine; allowWhileIdle still lets Doze deliver it.
+ */
+export function pluginNotification(n: LocalNotice) {
+  return { id: n.id, title: n.title, body: n.body, schedule: { at: new Date(n.atMs), allowWhileIdle: true }, isExactNotification: false };
+}
+
 export const noopNotifier: Notifier = {
   ensurePermission: async () => false,
   schedule: async () => {},
