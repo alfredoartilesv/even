@@ -6,6 +6,7 @@ import { failed, fmtDay, MsgLine, numOrNull, today, type Msg } from "../../ui/co
 import { getOwner, releaseOwnership, type Owner } from "../account/account";
 import { signInWithGoogle, signOutOfGoogle } from "../account/service";
 import { latestWeight, type Weight } from "../alcohol/alcohol";
+import { PhotoPicker } from "../me/ui/avatar";
 import { ACTIVITY_LABEL, ACTIVITY_LEVELS, EMPTY_PROFILE, estimates, loadProfile, profileSchema, saveProfile, type Profile } from "./profile";
 
 const BMI_WORD = { underweight: "underweight", healthy: "healthy range", overweight: "overweight", obese: "obese" } as const;
@@ -178,6 +179,7 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
         Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every
         field is optional.
       </p>
+      <PhotoPicker db={db} name={saved.name} onChanged={onChanged} />
       <form onSubmit={save} className="stack">
         <label>
           Name

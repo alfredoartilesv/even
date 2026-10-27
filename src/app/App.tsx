@@ -198,7 +198,7 @@ export function App() {
             <section>
               <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
               {overlay.page === "profile" ? (
-                <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} />
+                <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} onChanged={changed} />
               ) : (
                 <JournalScreen db={ready} version={version} view={overlay.view} initialDay={overlay.day} onView={(view) => setOverlay({ page: "journal", view })} onChanged={changed} />
               )}
@@ -215,6 +215,7 @@ export function App() {
             db={ready}
             secrets={secretStore}
             isNative={isNative}
+            version={version}
             page={settingsPage}
             onPage={setSettingsPage}
             onChanged={() => {
