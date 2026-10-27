@@ -41,8 +41,11 @@ export function patchGradle(gradle, version) {
     if (!/\n    buildTypes \{/.test(g)) throw new Error("build.gradle has no buildTypes block");
     g = g.replace(/\n    buildTypes \{/, `\n${SIGNING}    buildTypes {`);
   }
-  if (!/release \{\n\s*signingConfig signingConfigs\.release/.test(g)) {
-    g = g.replace(/(buildTypes \{\n\s*release \{\n)/, "$1            signingConfig signingConfigs.release\n");
+  // \r?\n: on Windows `cap add` writes CRLF, and a missed match here leaves releases unsigned.
+  if (!/release \{\r?\n\s*signingConfig signingConfigs\.release/.test(g)) {
+    const before = g;
+    g = g.replace(/(buildTypes \{\r?\n\s*release \{(\r?\n))/, "$1            signingConfig signingConfigs.release$2");
+    if (g === before) throw new Error("build.gradle has no buildTypes { release { block to sign");
   }
   return g;
 }

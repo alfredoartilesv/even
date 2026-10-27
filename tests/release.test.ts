@@ -47,6 +47,13 @@ test("the Gradle patch sets the version and signs releases from the environment,
   assert.match(patchGradle(once, "0.4.0"), /versionCode 400\n/);
 });
 
+test("the Gradle patch also signs a build.gradle generated on Windows (CRLF)", () => {
+  const crlf = patchGradle(GENERATED.replace(/\n/g, "\r\n"), "0.3.1");
+  assert.match(crlf, /buildTypes \{\r\n\s+release \{\r\n\s+signingConfig signingConfigs\.release\r\n\s+minifyEnabled false/);
+  assert.equal(patchGradle(crlf, "0.3.1"), crlf, "running it again changes nothing");
+  assert.throws(() => patchGradle("android {\n    buildTypes {\n    }\n}\n", "0.3.1"), /no buildTypes \{ release \{ block/);
+});
+
 test("the package.json version is a releasable version", () => {
   const { version } = JSON.parse(read("package.json"));
   assert.ok(versionCode(version) >= 1);
@@ -89,7 +96,7 @@ test("a push to master builds, checks on an emulator, then tags and publishes th
   assert.match(rel, /target: release-apk/);
   assert.match(rel, /secret-files: \|\n\s+keystore=\$\{\{ runner\.temp \}\}\/release\.jks\n\s+keystore_env=\$\{\{ runner\.temp \}\}\/release\.env/);
   assert.match(rel, /node scripts\/release-check\.mjs --apk out\/app-release\.apk --device/);
-  assert.match(rel, /gh release create "\$TAG" "out\/health-\$TAG\.apk"/);
+  assert.match(rel, /gh release create "\$TAG" "out\/even-\$TAG\.apk"/);
   // Only the publish job can write (tag and release); everything else reads.
   assert.match(rel, /^permissions:\n\s+contents: read$/m);
   assert.equal((rel.match(/contents: write/g) ?? []).length, 1);

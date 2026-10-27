@@ -126,7 +126,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
         run: |
-          cp out/app-release.apk "out/health-$TAG.apk"
-          (cd out && sha256sum "health-$TAG.apk" > "health-$TAG.apk.sha256")
-          gh release create "$TAG" "out/health-$TAG.apk" "out/health-$TAG.apk.sha256" \
-            --target "$GITHUB_SHA" --title "Health $TAG" --generate-notes
+          cp out/app-release.apk "out/even-$TAG.apk"
+          (cd out && sha256sum "even-$TAG.apk" > "even-$TAG.apk.sha256")
+          gh release create "$TAG" "out/even-$TAG.apk" "out/even-$TAG.apk.sha256" \
+            --target "$GITHUB_SHA" --title "Even $TAG" --generate-notes
