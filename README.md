@@ -17,7 +17,7 @@ Done and tested (`npm test`, all against Node's SQLite and a fake that copies th
 - Five tabs in a bottom bar: **Dashboard** (steps, calories burned and eaten, balance, meal prep and workouts by day, week or month, with daily averages and totals; sync and the profile with past activity at the top; the journal: daily check-in and manual measurements), **Chat** (Claude, with camera and image attach), **Meal prep** (log what you eat, stock, recipes, shopping, and what the supermarket cost), **Alcohol**, **Settings** (profile, connections, privacy and data, debug logs, about with the version).
 - See every screen in light and dark: [docs/screens/index.html](docs/screens/index.html) (regenerate with `npm run docs:screens`); colors in [docs/screens/palette.html](docs/screens/palette.html).
 
-**Run on an emulator, not yet on the phone.** The debug build passes the device integration test on a Galaxy S23-shaped Android 16 emulator (`npm run test:device`: encrypted database, migrations, a real Garmin sync, restart). Tests and the APK build also run in Docker (`npm run docker:test`, `npm run docker:apk`), the same as CI.
+**Run on an emulator, not yet on the phone.** The debug build passes the device integration test on a Galaxy S23-shaped Android 16 emulator (`npm run test:device`: encrypted database, migrations, a real Garmin sync, restart). Tests and the APK build also run in Docker (`npm run docker:test`, `npm run docker:apk`), the same as CI. Releases: merge `develop` into `master` and GitHub builds, checks, tags and publishes the signed APK (docs/dev-setup.md section 6).
 
 ## Setup
 
@@ -26,6 +26,7 @@ npm install
 npm test
 npm run docker:test       # the standard check before a PR: typecheck + tests in the pinned Linux toolchain (CI runs the same)
 npm run docker:apk        # debug APK into out/app-debug.apk, no local Android SDK needed
+npm run docker:release    # signed, checked release APK into out/app-release.apk (release key outside the repo)
 npm run build
 npm run dev                         # browser: UI only, no local database (native only)
 npm run import:garmin      # Garmin export ZIP in imports/garmin/ -> encrypted backup to restore on the phone
