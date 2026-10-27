@@ -114,3 +114,9 @@ test("the emulator check uses an image the hosted runner boots, and cannot hold 
   assert.match(rel, /emulator-boot-timeout: 900\n/);
   assert.match(rel, /emulator-options: -no-window -gpu swiftshader_indirect/);
 });
+
+test("the emulator check keeps the device log with its screenshot, pass or fail", () => {
+  const rel = read(".github/workflows/release.yml");
+  assert.match(rel, /--out out\/shots; s=\$\?; adb logcat -d -v time > out\/shots\/logcat\.txt; exit \$s/);
+  assert.match(rel, /name: release-launch-screenshot\n\s+path: out\/shots/);
+});
