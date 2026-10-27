@@ -9,7 +9,7 @@
  * Screenshots and the app log go to --out.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { setTimeout as wait } from "node:timers/promises";
 import { join, resolve } from "node:path";
 
@@ -67,8 +67,11 @@ async function main() {
       return "";
     }
   };
+  // A signed device build has its entitlements in the signature (codesign shows them); a simulator
+  // build embeds them as a plist in the executable instead (__TEXT,__entitlements).
+  const executable = join(resolve(appPath), quiet("plutil", ["-extract", "CFBundleExecutable", "raw", join(resolve(appPath), "Info.plist")]).trim() || "App");
   const bundle = checkBundle(
-    quiet("codesign", ["-d", "--entitlements", "-", "--xml", resolve(appPath)]),
+    quiet("codesign", ["-d", "--entitlements", "-", "--xml", resolve(appPath)]) + readFileSync(executable).toString("latin1"),
     quiet("plutil", ["-extract", "NSHealthShareUsageDescription", "raw", join(resolve(appPath), "Info.plist")]),
   );
   console.log(`${bundle.length ? "FAIL" : "PASS"} HealthKit entitlement and request text in the built app`);
