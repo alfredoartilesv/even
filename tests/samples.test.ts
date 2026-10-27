@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
+import { loadCursor, ROWS_PER_INSERT, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
 import type { SampleInput } from "../src/features/sync/types";
 import { migratedDb } from "./helpers";
 
@@ -97,4 +97,23 @@ test("sync state keeps last success time when a later sync fails", async () => {
   );
   assert.deepEqual(row, { cursor: "2026-10-24", last_synced_ms: T1, last_error: "network down" });
   assert.equal(await loadCursor(db, "garmin"), "2026-10-24");
+});
+
+test("a large import is written in batches, reports progress, and a repeated reading keeps the last value", async () => {
+  const { db } = await migratedDb();
+  const days = Array.from({ length: ROWS_PER_INSERT * 2 + 5 }, (_, i) => new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString().slice(0, 10));
+  // The same reading twice in one batch: like row-by-row writes, the later one wins.
+  const samples = days.map((d) => sample(d, "daily_steps", 1000));
+  samples.splice(1, 0, sample(days[0], "daily_steps", 2000));
+  let runs = 0;
+  const counting = { ...db, run: (sql: string, params?: (string | number | null)[]) => (runs++, db.run(sql, params)) };
+  const progress: number[] = [];
+
+  assert.equal(await upsertSamples(counting, samples, T1, undefined, (saved, total) => (assert.equal(total, samples.length), progress.push(saved))), samples.length);
+
+  assert.equal(runs, 3, "126 rows in batches of 60, not one call per row");
+  assert.deepEqual(progress, [60, 120, 126]);
+  assert.equal((await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM health_samples"))[0].n, days.length);
+  const [first] = await db.all<{ value_num: number }>("SELECT value_num FROM health_samples WHERE external_id = ?", [`${days[0]}#0`]);
+  assert.equal(first.value_num, 2000);
 });

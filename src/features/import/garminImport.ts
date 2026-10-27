@@ -39,10 +39,15 @@ export function readGarminZip(bytes: Uint8Array): GarminFile[] {
  * nothing) and catalog rows (their daily aggregation defaults come from classifyMetric).
  * One transaction. Returns the number of samples written.
  */
-export async function storeGarminImport(db: SqlDriver, parsed: GarminImport, nowMs: number = Date.now()): Promise<number> {
+export async function storeGarminImport(
+  db: SqlDriver,
+  parsed: GarminImport,
+  nowMs: number = Date.now(),
+  onProgress?: (saved: number, total: number) => void,
+): Promise<number> {
   const done = log.time("garmin export stored", "info");
   const written = await withTransaction(db, async () => {
-    const n = await upsertSamples(db, parsed.samples, nowMs);
+    const n = await upsertSamples(db, parsed.samples, nowMs, undefined, onProgress);
     await upsertCatalog(db, GARMIN_EXPORT_SOURCE, parsed.catalog, nowMs);
     return n;
   });
@@ -50,9 +55,13 @@ export async function storeGarminImport(db: SqlDriver, parsed: GarminImport, now
   return written;
 }
 
-export async function importGarminZip(db: SqlDriver, bytes: Uint8Array, opts: { timeZone: string; nowMs?: number }): Promise<{ written: number; parsed: GarminImport }> {
+export async function importGarminZip(
+  db: SqlDriver,
+  bytes: Uint8Array,
+  opts: { timeZone: string; nowMs?: number; onProgress?: (saved: number, total: number) => void },
+): Promise<{ written: number; parsed: GarminImport }> {
   const parsed = parseGarminExport(readGarminZip(bytes), { timeZone: opts.timeZone });
-  const written = await storeGarminImport(db, parsed, opts.nowMs);
+  const written = await storeGarminImport(db, parsed, opts.nowMs, opts.onProgress);
   return { written, parsed };
 }
 
