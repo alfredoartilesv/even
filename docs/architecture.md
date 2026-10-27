@@ -1,4 +1,4 @@
-# Health App: Architecture
+# Even: Architecture
 
 Status as of 26 Oct 2026. This file records **why** the system is built the way it is: the decisions in force, the rules the code must keep, the open risks and the rejected options. When a decision changes, edit it here and note the date.
 
@@ -7,7 +7,7 @@ Status as of 26 Oct 2026. This file records **why** the system is built the way 
 
 ## 1. Product summary
 
-A personal health app, Android first (Samsung S23), iPhone second. It reads the owner's Garmin data from the Garmin Connect Personal API, stores it locally and encrypted on the phone, shows daily screens and trends, keeps manual logs, and lets the owner ask Claude questions about their own data.
+Even is a personal health app, Android first (Samsung S23), iPhone second. It reads the owner's Garmin data from the Garmin Connect Personal API, stores it locally and encrypted on the phone, shows daily screens and trends, keeps manual logs, and lets the owner ask Claude questions about their own data.
 
 - **Phase 1 (now):** phone only. Everything is local.
 - **Phase 2 (later):** server with Postgres, sync between devices, and a web app.

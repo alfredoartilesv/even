@@ -1,6 +1,6 @@
-# Health App documentation
+# Even documentation
 
-A personal health app for Android (then iPhone): Garmin data straight from the Garmin Connect Personal API, kept in an encrypted local database, with daily screens, manual logs and, later, Claude on top. Phase 1 runs entirely on the phone.
+Even is a personal health app for Android (then iPhone): Garmin data straight from the Garmin Connect Personal API, kept in an encrypted local database, with daily screens, manual logs and, later, Claude on top. Phase 1 runs entirely on the phone.
 
 ## Which document to read
 

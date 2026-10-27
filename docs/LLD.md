@@ -1,4 +1,4 @@
-# Health App: Low-Level Design (LLD)
+# Even: Low-Level Design (LLD)
 
 Status as of 26 Oct 2026, phase 1, schema version 7. This document describes the code: modules, interfaces, the full schema, the algorithms and file formats, error handling and tests. It assumes you have read [HLD.md](HLD.md). Reasons for decisions are in [architecture.md](architecture.md).
 
@@ -514,7 +514,7 @@ If samples were written but a later step failed, the next run rewrites them in p
   - *Connections* (`ConnectionSettings`): Garmin (status badge, last successful sync and last error, the personal API key field (paste a new one to replace it), Forget, a link to Garmin Connect's key page, the 3-day reminder); Claude (status, key hint and check time, problem text, disconnect; when not connected the three `CONNECT_STEPS`, a link to the Console and the key field, verified with `claudeKeyVerifier` over native HTTP before saving); how to bring in the Garmin history.
   - *Privacy & data* (`PrivacySettings`): the four consents as switches with their text (each change is a new `consents` row with the device id); what was sent to Claude (count, size, the last 25 with time, size and class); what is stored on this phone (`dataInventory`: live rows per kind with first and last day); backup export and restore.
   - *Debug logs*: `LogsScreen`.
-  - *About* (`AboutSettings`): version (`package.json`, through `vite.config.ts`; `scripts/android-harden.mjs` also writes it as the APK's versionName), build time, platform, database schema (`PRAGMA user_version`), chat model, the end of the device id, and where data goes.
+  - *About* (`AboutSettings`): the Even logo and name, version (`package.json`, through `vite.config.ts`; `scripts/android-harden.mjs` also writes it as the APK's versionName), build time, platform, database schema (`PRAGMA user_version`), chat model, the end of the device id, and where data goes.
 
 - **JournalScreen** (from *Check-in* on the Dashboard, over it with a back button): two views in a `Segmented` bar.
   - *Check-in*: ‹ day › (today by default, or the Dashboard's day); mood and energy as `ScaleRating` (1 to 5, each step named: very low … very good; tap again to clear) and a note; *Save* creates or updates the day's one note (`saveDayNote`; an empty one is deleted; future days refused), *Delete* asks first. A note the chat added says so and edits the same row. Mood and energy over 30 days (`LineChart`, values in words) once two days are rated; the last 30 days of notes (7, then *Show all*), tap one to open it.
@@ -544,6 +544,7 @@ Presentational components shared by every screen. They take plain props and repo
 | `Ring` | Progress toward a target as a ring with the number inside; `goal` (to go, goal met) or `limit` (left, over in the warning color); the arc animates in; the state is also in `aria-valuetext` |
 | `SubTabs` | The views of a tab (Meal prep, Settings) as a row that scrolls sideways; the open one is `aria-current` |
 | `Segmented` | One of a few equal options in one bar (Day / Week / Month, Food log / Meal prep), a radio group |
+| `Logo` | The Even logo (`src/ui/logo.tsx`), drawn from `--accent` and `--on-accent` so it follows the theme; on the About page. `resources/logo.svg` is the fixed-color source of the app icons and the favicon |
 | `Icon` | 24 px line icons in the current color, hidden from screen readers (the button carries the label) |
 
 Rules every chart keeps: a `ChartFrame` with title, a legend only for two or more series, and a Table toggle showing every value as text; text in text colors, never the series color; color never the only signal; status colors only for state. Series colors are the validated categorical palette in `palette.css` (slots 1-8, fixed per series, checked for color-vision deficiency against both app surfaces); one-series charts use the accent. Charts measure their width and draw in real pixels, so text never scales.
@@ -562,7 +563,7 @@ Rules every chart keeps: a `ChartFrame` with title, a legend only for two or mor
 
 ```json
 {
-  "format": "health-app-backup",
+  "format": "even-backup",
   "version": 1,
   "kdf": { "name": "PBKDF2", "hash": "SHA-256", "iterations": 600000, "salt": "<base64, 16 bytes>" },
   "cipher": { "name": "AES-GCM", "iv": "<base64, 12 bytes>" },
@@ -576,24 +577,24 @@ Rules every chart keeps: a `ChartFrame` with title, a legend only for two or mor
 
 ```json
 {
-  "format": "health-app-data",
+  "format": "even-data",
   "schemaVersion": 2,
   "exportedAt": 1761400000000,
   "tables": { "<table>": { "columns": ["..."], "rows": [["..."]] } }
 }
 ```
 
-All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWebView and Node, so the same code runs in tests.
+Backups made before the app was renamed to Even (27 Oct 2026) say `health-app-backup` and `health-app-data`; restore accepts both names (a fixture in `tests/fixtures/` checks it). All of this is WebCrypto and Streams, available in the Android WebView, iOS WKWebView and Node, so the same code runs in tests.
 
 ### 9.2 Export (`exportBackup(db, password, { now, iterations })`)
 
 - Password at least 8 characters, otherwise `BackupError`.
 - For each table in `BACKUP_TABLES` that exists in this schema: columns from `PRAGMA table_info`, rows read in pages of 2000 ordered by `rowid`, stored as arrays in column order.
-- Returns the file text and row counts per table. `src/platform/files.ts` writes it to the app cache and opens the share sheet (or downloads it in the browser). The file name is `health-backup-YYYY-MM-DD.json`.
+- Returns the file text and row counts per table. `src/platform/files.ts` writes it to the app cache and opens the share sheet (or downloads it in the browser). The file name is `even-backup-YYYY-MM-DD.json`.
 
 ### 9.3 Restore (`restoreBackup(db, text, password)`)
 
-1. Parse and validate the envelope with Zod, else "This is not a Health backup file".
+1. Parse and validate the envelope with Zod, else "This is not an Even backup file".
 2. Derive the key, decrypt, gunzip, validate the payload. Any failure -> "Wrong password, or the file is damaged".
 3. If the backup's schema version is newer than the database's -> refuse ("Update the app first"). Older backups are fine.
 3b. If this phone has an owner and the backup's live `account` row names a different `subject` -> refuse ("This backup belongs to another Google account (email)"). A phone without an owner takes the backup's owner with the data.
@@ -826,7 +827,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 25
 | `docker.test.ts` | secrets and health data kept out of the Docker context, digest-pinned base images, Node = `.nvmrc`, JDK 21, checksum-verified SDK download, SDK packages, stages and npm scripts, `out/` ignored |
 | `release.test.ts` | `versionCode` from the version and its limits, the Gradle patch (version, release signing from the environment, idempotent), the committed cert fingerprint, keystores ignored, the Docker release stage (keystore only as BuildKit secrets, the check inside), PRs only test, the release workflow (version gate, build, emulator, publish; only publish can write) |
 | `capacitorDriver.test.ts` | migrations through the plugin fake, CRLF files, rollback via plugin, iOS column row |
-| `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches |
+| `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches; a backup made before the rename (`health-app-backup`) still restores, new ones say `even-backup` |
 | `secrets.test.ts` | Garmin and Claude key validation and storage, old freddy credentials removed |
 | `chat.test.ts` | consent gate and recording, request shape, tool loop with parallel calls, verbatim replay of thinking blocks, disclosures, per-class consent, bad arguments, round cap, fallback, refusal, cut-off tool calls, API errors and retry, conversation list |
 | `chatTools.test.ts` | every tool against a seeded database, `daily_agg` handling, range limits |
@@ -844,7 +845,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 25
 | `journal.test.ts` | measurement kinds refuse wrong shapes, ranges, kinds and future times with safe messages; saved in the owner's zone with the kind's unit; listed newest first, summarised per kind, one point per day; delete and restore; `latestWeight` follows; day notes created then edited in place, emptied ones deleted, future days refused, a chat-added note edited by the owner; the Dashboard's check-in figures and the weight within the span |
 | `dashboard.test.ts` | spans (Monday weeks, months incl. leap February, moving between them), totals and averages over days with data, a seeded week: steps, burned, eaten with drinks, balance, protein, the current week stopping at today, a single day |
 | `chatBubbles.test.ts` | what a stored chat message shows: text and photos, without the clock line, tool calls, tool results or thinking |
-| `uiKit.test.ts` | ticks, compact numbers, label spacing, line gaps, column paths; the defrost timeline mapping; rendered charts keep their accessible name, table view, empty state, "over target" in words, legend rules and fixed slots; tile deltas, macro shares, alert badges |
+| `uiKit.test.ts` | ticks, compact numbers, label spacing, line gaps, column paths; the defrost timeline mapping; rendered charts keep their accessible name, table view, empty state, "over target" in words, legend rules and fixed slots; tile deltas, macro shares, alert badges; the logo is named or hidden and uses palette colors only |
 | `architecture.test.ts` | every relative import resolves; native plugins only in `platform/`; no logic module reaches one at runtime; layers only depend downwards; logic never imports UI |
 | `logReport.test.ts` | the report's brief, context and counts, problems section, oldest-first order, empty buffer, backtick-safe fences, local-time file name, redaction carried through from the logger |
 | `log.test.ts`, `logging.test.ts` | levels and scope overrides, redaction and summaries, timers, ring buffer, broken sinks; nested transactions; stored log level; no data leaks from real flows into logs |
@@ -868,7 +869,7 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
 | `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
 | `scripts/device-test.ts` (`npm run test:device`) | Integration test on the emulator or phone through the WebView DevTools protocol: app opens, schema is the latest migration, the DB file is not plain SQLite, the Garmin key from `.env` saves, a real sync succeeds, the app stays in front, readings stored, steps on the dashboard, data after a restart. `--install <apk>`, `--fresh` (clear data), `--serial`, `--skip-sync`, `--out <dir>` for screenshots. Prints names and counts only |
-| `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain; applies `scripts/android-gradle.mjs` (versionName and versionCode from package.json, release signing from `HEALTH_KEYSTORE*` environment variables). Idempotent |
+| `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain; applies `scripts/android-gradle.mjs` (versionName and versionCode from package.json, release signing from `HEALTH_KEYSTORE*` environment variables, kept from before the rename so existing release setups still work); copies `resources/android/res` over the generated `res/` (the adaptive launcher icon as vectors, with a monochrome layer for themed icons, and PNGs for Android before 8) and sets the launcher label from `appName` in `capacitor.config.json`. Idempotent |
 | `scripts/release-check.mjs` (`npm run release:check -- --apk <apk> [--device]`) | Checks a release APK: release key (`release/cert-sha256.txt`), not debug, package and version, not debuggable, SDK levels, backups off, web app inside; with `--device` a clean install, launch, alive, in front, no crash. No dependencies, so it runs in Docker and on the CI emulator |
 | `scripts/docker-release.mjs` (`npm run docker:release`) | Signed release APK from Docker into `out/app-release.apk`, the keystore and its passwords passed as BuildKit secrets from the env file outside the repo (dev-setup.md section 6) |
 

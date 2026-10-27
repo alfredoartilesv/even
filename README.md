@@ -1,6 +1,8 @@
-# Health
+# <img src="resources/logo.svg" width="36" height="36" alt="" align="top"> Even
 
-Personal health app: wearable data from the Garmin Connect Personal API, local encrypted SQLite, Claude on top. Android first (Samsung S23), iPhone 14 / 14 Plus second. Documentation: [docs/README.md](docs/README.md) (start there), with the [architecture decisions](docs/architecture.md), the [high-level design](docs/HLD.md) and the [low-level design](docs/LLD.md).
+Even is a personal health app: wearable data from the Garmin Connect Personal API, local encrypted SQLite, Claude on top. Android first (Samsung S23), iPhone 14 / 14 Plus second. Documentation: [docs/README.md](docs/README.md) (start there), with the [architecture decisions](docs/architecture.md), the [high-level design](docs/HLD.md) and the [low-level design](docs/LLD.md).
+
+The name is about balance: calories eaten against burned, meal prep in stock against the days ahead, drinks against the weight you would be without them, this month's groceries against the last. The logo, a ring half filled around an equals sign, is [resources/logo.svg](resources/logo.svg), the source of the launcher icon, the favicon and the mark on the About page. The app was called Health until 27 Oct 2026; its Android id (`app.health.personal`) and database name stay as they were, so updates install over the existing app and keep its data, and backups made under the old name still restore.
 
 ## Status (phase 1)
 
