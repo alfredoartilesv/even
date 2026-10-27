@@ -44,7 +44,7 @@ export function TodayView({ db, version, onChanged }: Props) {
   const [lastLogged, setLastLogged] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<MealDraft>(emptyDraft(mealForHour(new Date().getHours())));
+  const [draft, setDraft] = useState<MealDraft>(() => emptyDraft(mealForHour(new Date().getHours())));
   const [photo, setPhoto] = useState<PhotoInput | null>(null);
   const [bookmark, setBookmark] = useState(false);
 

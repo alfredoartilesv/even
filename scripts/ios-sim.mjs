@@ -21,7 +21,7 @@ export function pickDevice(list, name) {
     .filter(([rt]) => /SimRuntime\.iOS-/.test(rt))
     .map(([rt, devices]) => ({
       version: rt.split("iOS-")[1].split("-").map(Number),
-      devices: devices.filter((d) => d.isAvailable !== false && /^iPhone/.test(d.name)),
+      devices: devices.filter((d) => d.isAvailable !== false && d.name.startsWith("iPhone")),
     }))
     .filter((r) => r.devices.length)
     .sort((a, b) => b.version[0] - a.version[0] || (b.version[1] ?? 0) - (a.version[1] ?? 0));

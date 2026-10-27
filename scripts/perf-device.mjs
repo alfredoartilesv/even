@@ -63,7 +63,10 @@ async function devtools(pkg) {
   const pending = new Map();
   ws.onmessage = (m) => {
     const msg = JSON.parse(m.data);
-    if (pending.has(msg.id)) (pending.get(msg.id)(msg), pending.delete(msg.id));
+    if (pending.has(msg.id)) {
+      pending.get(msg.id)(msg);
+      pending.delete(msg.id);
+    }
   };
   const evaluate = async (expression) => {
     const msg = await new Promise((r) => {

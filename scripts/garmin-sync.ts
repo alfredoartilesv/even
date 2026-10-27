@@ -7,23 +7,14 @@
  * Prints counts, ranges and warnings only. It never prints the key, the token, or health values.
  * (*.sqlite is git-ignored.)
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { nodeDb } from "./lib/nodeDb";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { diskMigrations, nodeDb } from "./lib/nodeDb";
+import { migrate } from "../src/db/migrate";
 import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
 import { GarminApi, GarminSource } from "../src/features/sync/garmin";
 import { setLogLevel } from "../src/core/log";
 
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
 setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
-
-function loadMigrations() {
-  const dir = join(import.meta.dirname, "../src/db/migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  return parseMigrations(files);
-}
 
 async function main() {
   const apiKey = process.env.GARMIN_API_KEY?.trim();
@@ -32,7 +23,7 @@ async function main() {
   const dbArg = process.argv.indexOf("--db");
   const dbPath = dbArg > -1 ? process.argv[dbArg + 1] : ":memory:";
   const db = nodeDb(dbPath).db;
-  const applied = await migrate(db, loadMigrations());
+  const applied = await migrate(db, diskMigrations());
   console.log(`database: ${dbPath === ":memory:" ? "in memory" : dbPath}; migrations applied now: ${applied.length}`);
 
   const source = new GarminSource({ api: new GarminApi({ apiKey }) });

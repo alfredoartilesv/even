@@ -1,5 +1,5 @@
 import { localDayStart, addDays } from "../../core/tz";
-import type { CatalogEntry, SampleInput } from "../sync/types";
+import { sampleCollector, type CatalogEntry, type SampleInput } from "../sync/types";
 
 /**
  * Garmin account export ("Export Your Data" ZIP) -> health samples. Pure: no I/O, so it runs in
@@ -114,27 +114,11 @@ export function parseGarminExport(files: GarminFile[], opts: { timeZone: string 
     activities: newReport(),
     weightProfileValuesSkipped: 0,
   };
-  const samples: SampleInput[] = [];
+  const { samples, add } = sampleCollector(GARMIN_EXPORT_SOURCE, DEVICE);
   /** Day offsets from the daily files, reused for sleep and weight on the same day. */
   const offsets = new Map<string, number>();
 
   const byKind = (k: GarminKind) => files.filter((f) => garminKind(f.path) === k);
-
-  const add = (metric: string, value: number | null, unit: string | null, at: { startMs: number; endMs: number; offsetMin: number }, externalId: string) => {
-    if (value === null) return 0;
-    samples.push({
-      source: GARMIN_EXPORT_SOURCE,
-      device: DEVICE,
-      externalId,
-      metric,
-      startMs: at.startMs,
-      endMs: at.endMs,
-      offsetMin: at.offsetMin,
-      valueNum: value,
-      ...(unit ? { unit } : {}),
-    });
-    return 1;
-  };
 
   // Daily summaries first: they give the UTC offset of each day.
   for (const f of byKind("daily")) {

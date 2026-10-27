@@ -8,7 +8,7 @@ import { migratedDb } from "./helpers";
 
 const NOW = 1_800_000_000_000;
 
-async function db() {
+async function setup() {
   const { db } = await migratedDb();
   const sample = (day: string, metric: string, value: number, n = 0, device = "Garmin") => {
     const s = localDayStart(day, "Europe/Madrid");
@@ -57,7 +57,7 @@ async function db() {
 }
 
 const run = async (name: string, input: unknown = {}) => {
-  const d = await db();
+  const d = await setup();
   return (await TOOLS_BY_NAME.get(name)!.run(d, input)).result as Record<string, any>;
 };
 
@@ -121,7 +121,7 @@ test("daily_series returns one point per day; limits protect against huge ranges
     r.series[0].points.map((p: any) => p.value),
     [6000, 8000, 10000, 12000],
   );
-  const d = await db();
+  const d = await setup();
   await assert.rejects(TOOLS_BY_NAME.get("daily_series")!.run(d, { metric: "daily_steps", from: "2024-01-01", to: "2026-01-01" }), /limited to 400 days/);
   await assert.rejects(TOOLS_BY_NAME.get("metric_summary")!.run(d, { metric: "daily_steps", from: "2026-1-1", to: "2026-10-01" }), /YYYY-MM-DD/);
 });

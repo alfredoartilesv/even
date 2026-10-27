@@ -64,16 +64,9 @@ for (const f of all) {
 
 // Mark every line that belongs to a repeated window, per file; then group into runs.
 const dup = new Map(all.map((f) => [f.file, new Set()]));
-const groups = new Map();
-for (const [key, hits] of windows) {
+for (const hits of windows.values()) {
   if (hits.length < 2) continue;
   for (const h of hits) for (let k = 0; k < MIN_LINES; k++) dup.get(h.file).add(h.i + k);
-  const sig = hits
-    .map((h) => h.file)
-    .sort()
-    .join(" + ");
-  groups.set(sig, (groups.get(sig) ?? 0) + 1);
-  void key;
 }
 const total = all.reduce((n, f) => n + f.lines.length, 0);
 const duplicated = [...dup.values()].reduce((n, s) => n + s.size, 0);

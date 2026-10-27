@@ -1,7 +1,7 @@
 import { addDays, localDay, localDayStart } from "../../core/tz";
 import { createLogger } from "../../core/log";
 import { catalogFor } from "../import/garmin";
-import type { SampleInput, Source, SyncResult } from "./types";
+import { sampleCollector, type SampleInput, type Source, type SyncResult } from "./types";
 
 const log = createLogger("sync.garmin");
 
@@ -184,7 +184,7 @@ export class GarminSource implements Source {
     const start = cursor ? (cursor < today ? cursor : today) : addDays(today, -(firstSyncDays - 1));
     log.debug("window", { start, end: today, firstSync: !cursor, tz });
 
-    const samples: SampleInput[] = [];
+    const { samples, add } = sampleCollector(GARMIN_SOURCE, DEVICE);
     const offsets = new Map<string, number>();
     const bounds = (day: string) => {
       const off = offsets.get(day);
@@ -194,21 +194,6 @@ export class GarminSource implements Source {
       }
       const startMs = Date.parse(`${day}T00:00:00Z`) - off * 60_000;
       return { startMs, endMs: startMs + 86_400_000, offsetMin: off };
-    };
-    const add = (metric: string, value: number | null, unit: string | null, at: { startMs: number; endMs: number; offsetMin: number }, externalId: string) => {
-      if (value === null) return 0;
-      samples.push({
-        source: GARMIN_SOURCE,
-        device: DEVICE,
-        externalId,
-        metric,
-        startMs: at.startMs,
-        endMs: at.endMs,
-        offsetMin: at.offsetMin,
-        valueNum: value,
-        ...(unit ? { unit } : {}),
-      });
-      return 1;
     };
     /** One endpoint failing for lack of access (scope, feature) should not stop the others. */
     const read = async (what: string, path: string, query?: Record<string, string | number>) => {
@@ -391,7 +376,7 @@ export class GarminSource implements Source {
       const tz = isObj(s) && typeof s.timeZone === "string" ? s.timeZone : null;
       if (tz) {
         // Throws on a zone name the runtime does not know.
-        new Intl.DateTimeFormat("en", { timeZone: tz });
+        void new Intl.DateTimeFormat("en", { timeZone: tz });
         return tz;
       }
     } catch (e) {
