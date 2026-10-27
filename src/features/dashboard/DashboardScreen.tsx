@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
-import { fmtDay, plural, today } from "../../ui/common";
+import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
+import { Icon } from "../../ui/icons";
 import { PageHeader, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
+import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
 import { loadDashboard, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
@@ -16,6 +18,9 @@ export interface DashboardLinks {
   askClaude: () => void;
   mealPrep: () => void;
   profile: () => void;
+  /** The journal on the check-in of a day (today by default), or on the measurements. */
+  checkIn: (day?: string) => void;
+  measurements: () => void;
 }
 
 interface Props {
@@ -53,9 +58,10 @@ function spanTitle(span: Span, anchor: string): string {
 
 /**
  * The first tab: how the day, week or month went. A greeting and the date; the things done most
- * (log food or a drink, ask Claude, meal prep); rings for calories eaten against the target and
- * steps against the goal; then energy, workouts and meal prep, each as the period's daily
- * average and total, with charts per day. A day also lists every synced number.
+ * (log food or a drink, ask Claude, the daily check-in); rings for calories eaten against the
+ * target and steps against the goal; the check-in (mood, energy, note, latest weight); then
+ * energy, workouts and meal prep, each as the period's daily average and total, with charts per
+ * day. A day also lists every synced number.
  */
 export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
   const [span, setSpan] = useState<Span>("day");
@@ -117,7 +123,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           { id: "food", label: "Log food", icon: "food", onClick: go.logFood },
           { id: "drink", label: "Log a drink", icon: "alcohol", onClick: go.logDrink },
           { id: "chat", label: "Ask Claude", icon: "sparkle", onClick: go.askClaude },
-          { id: "prep", label: "Meal prep", icon: "box", onClick: go.mealPrep },
+          { id: "checkin", label: "Check-in", icon: "note", onClick: () => go.checkIn() },
         ]}
       />
 
@@ -176,6 +182,9 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         )}
       </div>
 
+      <SectionHeader title="Check-in" action="Journal" onAction={() => go.checkIn(many ? undefined : anchor)} />
+      <CheckInCard data={d} many={many} day={anchor} onOpen={() => go.checkIn(many ? undefined : anchor)} onWeight={go.measurements} />
+
       <SectionHeader title="Energy" />
       <div className="viz-tiles pairs">
         <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
@@ -219,6 +228,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <div className="viz-tiles pairs">
         <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
         <StatTile label="In stock now" value={d ? String(d.stock.portions) : null} note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined} />
+        <StatTile label="Groceries" value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null} note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined} />
       </div>
 
       {span === "day" && metrics.length > 0 && (
@@ -243,5 +253,46 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         </details>
       )}
     </section>
+  );
+}
+
+const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
+
+/** The day's note (or a prompt to write one), or for a week or month how many days have one and the average mood and energy; the latest weight. */
+function CheckInCard({ data, many, day, onOpen, onWeight }: { data: Dashboard | null; many: boolean; day: string; onOpen: () => void; onWeight: () => void }) {
+  if (!data) return null;
+  const j = data.journal;
+  const note = many ? null : (j.notes.find((n) => n.day === day) ?? null);
+  const ratings = (mood: number | null, energy: number | null, avg: boolean) =>
+    [mood !== null && `Mood ${avg ? "about " : ""}${word(mood)}`, energy !== null && `energy ${avg ? "about " : ""}${word(energy)}`].filter(Boolean).join(", ");
+  return (
+    <div className="card checkin-card">
+      {many ? (
+        <button type="button" className="link checkin-main" onClick={onOpen}>
+          <strong>{j.notes.length ? `${plural(j.notes.length, "day")} with a note` : "No notes this period"}</strong>
+          {j.notes.length > 0 && <span className="muted small block">{ratings(j.mood.avg, j.energy.avg, true) || "No ratings"}</span>}
+        </button>
+      ) : note ? (
+        <button type="button" className="link checkin-main" onClick={onOpen}>
+          <strong>{ratings(note.mood, note.energy, false) || "Note"}</strong>
+          {note.body && <span className="muted small block clamp">{note.body}</span>}
+        </button>
+      ) : (
+        <button type="button" className="secondary checkin-prompt" onClick={onOpen}>
+          <Icon name="note" size={20} />
+          {day === today() ? "How is the day going? Add a note" : "Add a note for this day"}
+        </button>
+      )}
+      <button type="button" className="link checkin-weight small" onClick={onWeight}>
+        <Icon name="scale" size={18} />
+        {j.weight ? (
+          <span>
+            Weight <strong>{j.weight.kg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong> <span className="muted">· {fmtDay(j.weight.day)}</span>
+          </span>
+        ) : (
+          <span className="muted">Log your weight</span>
+        )}
+      </button>
+    </div>
   );
 }

@@ -34,7 +34,7 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 
 ```bash
 npm install
-npm test                    # 232 tests, no device needed
+npm test                    # 243 tests, no device needed
 npm run docker:test         # the same in the pinned Docker toolchain (standard before a PR; CI runs it)
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database

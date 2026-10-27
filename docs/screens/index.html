@@ -129,7 +129,7 @@ code { font-size: 0.9em; }
 <div class="grid">
 <figure>
   <div class="shot"><img class="light" src="img/light-dashboard-day.webp" alt="Dashboard: Day (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-day.webp" alt="Dashboard: Day (dark)" loading="lazy"></div>
-  <figcaption><strong>Day</strong><span class="muted">A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, meal prep. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; then energy, workouts and meal prep, and every synced number of the day.</span></figcaption>
+  <figcaption><strong>Day</strong><span class="muted">A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-dashboard-week.webp" alt="Dashboard: Week (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-week.webp" alt="Dashboard: Week (dark)" loading="lazy"></div>
@@ -142,6 +142,14 @@ code { font-size: 0.9em; }
 <figure>
   <div class="shot"><img class="light" src="img/light-profile.webp" alt="Dashboard: Profile (light)" loading="lazy"><img class="dark" src="img/dark-profile.webp" alt="Dashboard: Profile (dark)" loading="lazy"></div>
   <figcaption><strong>Profile</strong><span class="muted">Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress, and the past activity imported from the Garmin export or synced: totals per sport, longest sessions, recent workouts.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-journal-checkin.webp" alt="Dashboard: Journal: Check-in (light)" loading="lazy"><img class="dark" src="img/dark-journal-checkin.webp" alt="Dashboard: Journal: Check-in (dark)" loading="lazy"></div>
+  <figcaption><strong>Journal: Check-in</strong><span class="muted">Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-journal-measurements.webp" alt="Dashboard: Journal: Measurements (light)" loading="lazy"><img class="dark" src="img/dark-journal-measurements.webp" alt="Dashboard: Journal: Measurements (dark)" loading="lazy"></div>
+  <figcaption><strong>Journal: Measurements</strong><span class="muted">Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.</span></figcaption>
 </figure>
 </div>
 <h2 id="chat">Chat</h2>
@@ -176,6 +184,10 @@ code { font-size: 0.9em; }
 <figure>
   <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (dark)" loading="lazy"></div>
   <figcaption><strong>Meal prep: Recipes</strong><span class="muted">Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-spending.webp" alt="Meal prep: Meal prep: Spending (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-spending.webp" alt="Meal prep: Meal prep: Spending (dark)" loading="lazy"></div>
+  <figcaption><strong>Meal prep: Spending</strong><span class="muted">What the supermarket cost. Log a shop (supermarket, amount, day; it can clear the ticked shopping list items), then the month's total against the month before, per supermarket, the last six months, and each shop with delete and undo.</span></figcaption>
 </figure>
 </div>
 <h2 id="alcohol">Alcohol</h2>
@@ -217,7 +229,8 @@ code { font-size: 0.9em; }
 <table><thead><tr><th>Component</th><th>File</th><th>Used for</th></tr></thead><tbody>
 <tr><td><code>PageHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>The sticky title row of every tab: back button or profile picture, title and subtitle, actions (sync, History, New).</td></tr>
 <tr><td><code>SectionHeader</code></td><td><code>src/ui/layout.tsx</code></td><td>Section headings with a link (Workouts › Your activity, Meal prep › Open).</td></tr>
-<tr><td><code>QuickActions</code></td><td><code>src/ui/layout.tsx</code></td><td>Log food, Log a drink, Ask Claude, Meal prep on the Dashboard.</td></tr>
+<tr><td><code>QuickActions</code></td><td><code>src/ui/layout.tsx</code></td><td>Log food, Log a drink, Ask Claude, Check-in on the Dashboard.</td></tr>
+<tr><td><code>ScaleRating</code></td><td><code>src/ui/controls.tsx</code></td><td>Mood and energy, 1 to 5 in words, on the check-in.</td></tr>
 <tr><td><code>MenuList</code></td><td><code>src/ui/layout.tsx</code></td><td>The Settings menu.</td></tr>
 <tr><td><code>SubTabs</code></td><td><code>src/ui/layout.tsx</code></td><td>The views inside a Meal prep group.</td></tr>
 <tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard; Food log / Meal prep.</td></tr>
@@ -225,7 +238,7 @@ code { font-size: 0.9em; }
 <tr><td><code>ChipGroup, RangePicker</code></td><td><code>src/ui/controls.tsx</code></td><td>Periods and filters: Alcohol periods, profile activity ranges, chart ranges.</td></tr>
 <tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar icons, the chat's camera and send buttons.</td></tr>
 <tr><td><code>TabBar</code></td><td><code>src/app/TabBar.tsx</code></td><td>The five tabs at the bottom.</td></tr>
-<tr><td><code>StatTile, Meter, BarChart, LineChart, CalendarHeatmap</code></td><td><code>src/ui/charts/</code></td><td>Numbers and charts: Dashboard tiles and charts, goals, food history.</td></tr>
+<tr><td><code>StatTile, Meter, BarChart, LineChart, CalendarHeatmap</code></td><td><code>src/ui/charts/</code></td><td>Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending.</td></tr>
 <tr><td><code>StatusBadge, Stepper</code></td><td><code>src/ui/controls.tsx</code></td><td>States as icon and words; portion counts.</td></tr>
 <tr><td><code>CalorieMeter, MacroSplit</code></td><td><code>src/ui/nutrition.tsx</code></td><td>Calories against the target, macro shares (Log food).</td></tr>
 <tr><td><code>StockSummary, DefrostTimeline, StockAlerts, BatchBar</code></td><td><code>src/ui/mealprep/</code></td><td>Meal prep stock and the defrost plan.</td></tr>
