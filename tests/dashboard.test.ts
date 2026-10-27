@@ -7,6 +7,7 @@ import { logFood, setCalorieGoal } from "../src/features/food/food";
 import { insertGoal } from "../src/features/journal/journal";
 import { upsertCatalog } from "../src/features/metrics/catalog";
 import { upsertSamples } from "../src/features/metrics/samples";
+import { metricDays, metricsDays } from "../src/features/metrics/queries";
 import type { SampleInput } from "../src/features/sync/types";
 import { migratedDb } from "./helpers";
 
@@ -173,4 +174,27 @@ test("overlapping loads: only the newest answer is applied, whatever order they 
   assert.deepEqual(shown, ["day"]);
   await load("week", 1);
   assert.deepEqual(shown, ["day", "week"]);
+});
+
+test("the Dashboard's three daily metrics come from one query, each as metricDays would give it", async () => {
+  const { db } = await migratedDb();
+  await upsertSamples(
+    db,
+    [daily("daily_steps", "2026-10-21", 9000), daily("daily_steps", "2026-10-22", 11000), daily("daily_totalKilocalories", "2026-10-22", 2500)],
+    1,
+  );
+  let queries = 0;
+  const counting = { ...db, all: <T>(sql: string, params?: (string | number | null)[]) => (queries++, db.all<T>(sql, params)) };
+  const both = await metricsDays(counting, ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories"], "2026-10-20", "2026-10-22");
+  assert.equal(queries, 1);
+  for (const m of ["daily_steps", "daily_totalKilocalories", "daily_activeKilocalories"])
+    assert.deepEqual(both.get(m), await metricDays(db, m, "2026-10-20", "2026-10-22"), m);
+  assert.deepEqual(
+    [...both.get("daily_steps")!.values],
+    [
+      ["2026-10-21", 9000],
+      ["2026-10-22", 11000],
+    ],
+  );
+  assert.equal(both.get("daily_activeKilocalories")!.values.size, 0);
 });

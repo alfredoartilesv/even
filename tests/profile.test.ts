@@ -100,3 +100,15 @@ test("data inventory reads every table of the real schema", async () => {
   const readings = (await dataInventory(db)).find((r) => r.label.startsWith("Health readings"))!;
   assert.deepEqual(readings, { label: readings.label, count: 2, from: "2026-10-20", to: "2026-10-23" });
 });
+
+test("profile reads at the same moment share one query; a read after a save sees the save", async () => {
+  const { db } = await migratedDb();
+  let reads = 0;
+  const counting = { ...db, all: <T>(sql: string, params?: (string | number | null)[]) => (sql.includes("app_settings") && reads++, db.all<T>(sql, params)) };
+  const [a, b] = await Promise.all([loadProfile(counting), loadProfile(counting)]);
+  assert.equal(reads, 1);
+  assert.equal(a, b);
+  await saveProfile(counting, { ...a, name: "Sam" }, "2026-10-27");
+  assert.equal((await loadProfile(counting)).name, "Sam");
+  assert.equal(reads, 2);
+});
