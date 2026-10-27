@@ -810,7 +810,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 243 tests, no device needed. `npm run docker:test` runs the same suite in the pinned Docker toolchain (and CI does on every PR). On a device: `npm run test:device` (section 13).
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 250 tests, no device needed. `npm run docker:test` runs the same suite in the pinned Docker toolchain (and CI does on every PR). On a device: `npm run test:device` (section 13).
 
 | File | Covers |
 |---|---|
@@ -824,6 +824,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 24
 | `runSync.test.ts` | success, failure keeps cursor, shared concurrent run, `lastSync` |
 | `syncReminder.test.ts` | freshness thresholds, next reminder time (due, overdue, never), text and days left, "ago" labels, one reminder moved after each sync, failed runs ignored, cancel when not set up or off, no prompt while off, permission denied, notifier errors swallowed, the plugin asked for an inexact alarm (`pluginNotification`) |
 | `docker.test.ts` | secrets and health data kept out of the Docker context, digest-pinned base images, Node = `.nvmrc`, JDK 21, checksum-verified SDK download, SDK packages, stages and npm scripts, `out/` ignored |
+| `release.test.ts` | `versionCode` from the version and its limits, the Gradle patch (version, release signing from the environment, idempotent), the committed cert fingerprint, keystores ignored, the Docker release stage (keystore only as BuildKit secrets, the check inside), PRs only test, the release workflow (version gate, build, emulator, publish; only publish can write) |
 | `capacitorDriver.test.ts` | migrations through the plugin fake, CRLF files, rollback via plugin, iOS column row |
 | `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches |
 | `secrets.test.ts` | Garmin and Claude key validation and storage, old freddy credentials removed |
@@ -867,7 +868,9 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
 | `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
 | `scripts/device-test.ts` (`npm run test:device`) | Integration test on the emulator or phone through the WebView DevTools protocol: app opens, schema is the latest migration, the DB file is not plain SQLite, the Garmin key from `.env` saves, a real sync succeeds, the app stays in front, readings stored, steps on the dashboard, data after a restart. `--install <apk>`, `--fresh` (clear data), `--serial`, `--skip-sync`, `--out <dir>` for screenshots. Prints names and counts only |
-| `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain. Idempotent |
+| `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain; applies `scripts/android-gradle.mjs` (versionName and versionCode from package.json, release signing from `HEALTH_KEYSTORE*` environment variables). Idempotent |
+| `scripts/release-check.mjs` (`npm run release:check -- --apk <apk> [--device]`) | Checks a release APK: release key (`release/cert-sha256.txt`), not debug, package and version, not debuggable, SDK levels, backups off, web app inside; with `--device` a clean install, launch, alive, in front, no crash. No dependencies, so it runs in Docker and on the CI emulator |
+| `scripts/docker-release.mjs` (`npm run docker:release`) | Signed release APK from Docker into `out/app-release.apk`, the keystore and its passwords passed as BuildKit secrets from the env file outside the repo (dev-setup.md section 6) |
 
 ## 14. How to extend
 

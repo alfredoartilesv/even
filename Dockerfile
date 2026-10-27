@@ -4,10 +4,12 @@
 # the same on this PC, another computer and CI. Development and the emulator stay native
 # (docs/dev-setup.md section 4).
 #
-#   npm run docker:test     # typecheck + the whole Node test suite      (docker build --target test .)
-#   npm run docker:apk      # debug APK into out/app-debug.apk            (docker build --target apk --output out .)
+#   npm run docker:test      # typecheck + the whole Node test suite      (docker build --target test .)
+#   npm run docker:apk       # debug APK into out/app-debug.apk            (docker build --target apk --output out .)
+#   npm run docker:release   # signed release APK into out/app-release.apk (target release-apk, keystore as BuildKit secrets)
 #
-# Stages: deps (npm ci) -> test (typecheck, tests, web build) -> android (SDK, Gradle) -> apk (only the file).
+# Stages: deps (npm ci) -> test (typecheck, tests, web build) -> android-base (SDK, android/ project)
+#   -> android (debug) -> apk;  android-base -> release (signed, checked) -> release-apk.
 # Base images are pinned by digest (Node 24.19.0, Temurin 21.0.12.1+1); tests/docker.test.ts keeps the versions in step with .nvmrc.
 
 ARG NODE_VERSION=24.19.0
@@ -25,8 +27,8 @@ FROM deps AS test
 COPY . .
 RUN npm run typecheck && npm test && npx vite build
 
-# ---- Android build (debug APK) ----
-FROM ${JDK_IMAGE} AS android
+# ---- Android SDK and the generated android/ project ----
+FROM ${JDK_IMAGE} AS android-base
 ARG NODE_VERSION
 # Android command-line tools 19.0 (sha1 from Google's repository2-3.xml) and the SDK packages
 # the app compiles against: compileSdk/targetSdk 36 (android/variables.gradle), build-tools 35
@@ -50,7 +52,12 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && l
  && test "$(node -v)" = "v${NODE_VERSION}"
 WORKDIR /app
 COPY --from=test /app /app
-# android/ is generated, never committed: create it, harden it, copy the web build in, build.
+# android/ is generated, never committed: create it, harden it (backups off, version, release
+# signing from the environment), copy the web build in.
+RUN npx cap add android && node scripts/android-harden.mjs && npx cap sync android
+
+# ---- Debug APK ----
+FROM android-base AS android
 # The debug signing key is made once and kept in a named build cache, so every Docker build on one
 # machine signs the same way and can update an installed debug build (a new key each build cannot).
 # Its fingerprint is printed, to compare builds.
@@ -59,9 +66,23 @@ RUN --mount=type=cache,target=/root/.gradle --mount=type=cache,id=health-debug-k
        -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null) \
  && mkdir -p /root/.android && cp /keys/debug.keystore /root/.android/debug.keystore \
  && keytool -list -keystore /root/.android/debug.keystore -storepass android | grep -i "SHA-256" \
- && npx cap add android && node scripts/android-harden.mjs && npx cap sync android \
  && cd android && ./gradlew --no-daemon --console=plain assembleDebug
 
-# ---- Only the APK, for `docker build --output` ----
 FROM scratch AS apk
 COPY --from=android /app/android/app/build/outputs/apk/debug/app-debug.apk /app-debug.apk
+
+# ---- Signed release APK, checked before it leaves the build ----
+# The keystore and its passwords arrive as BuildKit secrets: mounted for this one step, never in a
+# layer, an ENV or the build cache key. keystore_env holds HEALTH_KEYSTORE_PASSWORD, HEALTH_KEY_ALIAS
+# and HEALTH_KEY_PASSWORD lines (the file scripts/docker-release.mjs and CI pass).
+FROM android-base AS release
+RUN --mount=type=cache,target=/root/.gradle \
+    --mount=type=secret,id=keystore,target=/run/secrets/keystore.jks,required=true \
+    --mount=type=secret,id=keystore_env,target=/run/secrets/keystore.env,required=true \
+    set -a && . /run/secrets/keystore.env && set +a \
+ && export HEALTH_KEYSTORE=/run/secrets/keystore.jks \
+ && cd android && ./gradlew --no-daemon --console=plain assembleRelease \
+ && cd .. && node scripts/release-check.mjs --apk android/app/build/outputs/apk/release/app-release.apk --build-tools "$ANDROID_HOME/build-tools/36.0.0"
+
+FROM scratch AS release-apk
+COPY --from=release /app/android/app/build/outputs/apk/release/app-release.apk /app-release.apk

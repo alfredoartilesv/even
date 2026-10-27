@@ -257,7 +257,8 @@ Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hand
 | Target | How | Status |
 |---|---|---|
 | Android (S23) | `npm run android:sync` (build, `cap sync`, hardening script), then `gradlew assembleDebug` or the VS Code tasks; or `npm run docker:apk` (pinned toolchain, also in CI). `npm run test:device` checks the installed build | Passes on a Galaxy S23-shaped Android 16 emulator (27 Oct 2026); not yet on the phone |
-| CI | `.github/workflows/ci.yml`: the Docker test stage on every PR and push to `develop` and `master`, then the debug APK as an artifact | Added 27 Oct 2026 |
+| CI | `.github/workflows/ci.yml`: the Docker test stage on every PR (no APK) | Added 27 Oct 2026 |
+| Release | `.github/workflows/release.yml` on a push to `master` (merging `develop`): signed release APK in Docker, checked (`scripts/release-check.mjs`), installed and launched on an emulator, then tag `v<version>` and a GitHub release with the APK. Release key outside the repo, in GitHub secrets for CI (dev-setup.md section 6) | Added 27 Oct 2026 |
 | iOS (iPhone 14) | Same code; `npx cap add ios` on a Mac | Not started |
 | Browser | `npm run dev`, UI only, no database | Development aid |
 | PC scripts | `scripts/garmin-sync.ts` (`npm run sync:garmin`: real Garmin Personal API -> SQLite file), `scripts/garmin-probe.ts` (which endpoints the key can read, field names only), `scripts/garmin-import.ts` (Garmin account export -> encrypted backup to restore on the phone) | In use |
