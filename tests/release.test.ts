@@ -102,3 +102,11 @@ test("a push to master builds, checks on an emulator, then tags and publishes th
   assert.equal((rel.match(/contents: write/g) ?? []).length, 1);
   assert.match(rel, /publish:[\s\S]*permissions:\n\s+contents: write/);
 });
+
+test("the emulator check uses an image the hosted runner boots, and cannot hold the release for hours", () => {
+  const rel = read(".github/workflows/release.yml");
+  assert.match(rel, /emulator:\n[\s\S]*?timeout-minutes: 30\n/);
+  assert.match(rel, /api-level: 34\n/);
+  assert.match(rel, /emulator-boot-timeout: 900\n/);
+  assert.match(rel, /emulator-options: -no-window -gpu swiftshader_indirect/);
+});

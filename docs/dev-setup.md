@@ -122,7 +122,7 @@ A release is a merge of `develop` into `master`. The push to `master` runs `.git
    - min SDK 24 and target SDK 36;
    - Android backups off;
    - the web app inside.
-3. **Emulator.** An Android 15 emulator on the runner gets a clean install, then the check confirms the app launches, stays alive and in front, and leaves nothing in the crash log. A screenshot is kept as an artifact.
+3. **Emulator.** An Android 14 (API 34) emulator on the runner gets a clean install, then the check confirms the app launches, stays alive and in front, and leaves nothing in the crash log. A screenshot is kept as an artifact.
 4. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
 
 PRs (to `develop` or `master`) only run the tests, with no APK (`ci.yml`). `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.

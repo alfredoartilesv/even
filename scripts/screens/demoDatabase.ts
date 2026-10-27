@@ -86,6 +86,22 @@ async function seed(db: SqlDriver) {
     const day = (metric: string, valueNum: number) => ({ source: "garmin", device: "Garmin Forerunner", externalId: `${d}#0`, metric, valueNum, startMs: s, endMs: s + 86_400_000, offsetMin: 0 });
     const active = Math.round(350 + r() * 600);
     samples.push(day("daily_steps", Math.round(5500 + r() * 9000)), day("daily_activeKilocalories", active), day("daily_totalKilocalories", 1750 + active), day("daily_restingHeartRateInBeatsPerMinute", Math.round(49 + r() * 6)), day("sleep_durationInSeconds", Math.round((6.3 + r() * 1.8) * 3600)));
+    // Today also gets the full set a real Garmin day has (about 29 numbers, with Garmin's long names),
+    // so the "All synced numbers" capture shows the real case that once pushed the page off the phone.
+    if (i === 0) {
+      const full: [string, number][] = [
+        ["daily_bmrKilocalories", 1750], ["daily_distanceInMeters", 7340], ["daily_moderateIntensityDurationInSeconds", 1320],
+        ["daily_vigorousIntensityDurationInSeconds", 960], ["daily_activeDurationInSeconds", 5400], ["daily_highlyActiveDurationInSeconds", 1500],
+        ["daily_maxHeartRateInBeatsPerMinute", 168], ["daily_minHeartRateInBeatsPerMinute", 47], ["daily_averageStressLevel", 31],
+        ["daily_maxStressLevel", 92], ["daily_stressDurationInSeconds", 18_600], ["daily_restStressDurationInSeconds", 31_200],
+        ["dailyBodyBattery_highestValue", 86], ["dailyBodyBattery_lowestValue", 21], ["dailyBodyBattery_chargedValue", 64],
+        ["dailyBodyBattery_drainedValue", 58], ["pulseOx_averageSpO2", 95], ["respiration_avgWakingBreathsPerMinute", 14],
+        ["sleep_deepDurationInSeconds", 5100], ["sleep_lightDurationInSeconds", 12_600], ["sleep_remDurationInSeconds", 5400],
+        ["sleep_awakeDurationInSeconds", 780], ["body_weightInGrams", 82_400], ["userMetrics_vo2MaxRunning", 51],
+        ["someNewGarminMetricWithAVeryLongCamelCaseNameNobodyMapped", 3],
+      ];
+      for (const [metric, v] of full) samples.push(day(metric, v));
+    }
     if (i % 3 === 1 || i % 7 === 5) {
       const run = i % 3 === 1;
       const at = { startMs: s + 7 * H, endMs: s + 8 * H };
