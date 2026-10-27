@@ -33,6 +33,16 @@ type Pending =
 // Native HTTP on the phone; a reply with thinking and tools can take minutes.
 const fetchImpl = deviceFetch({ connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 });
 
+const ERROR_TITLE: Record<string, string> = {
+  billing: "Out of API credits",
+  auth: "API key not accepted",
+  rate_limit: "Too many requests",
+  overloaded: "Claude is busy",
+  network: "No connection",
+  bad_request: "Message not processed",
+  server: "Claude had a problem",
+};
+
 const ACTION_BADGE = { applied: "good", declined: "info", failed: "critical", undone: "info" } as const;
 
 /**
@@ -51,7 +61,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ text: string; retry: boolean } | null>(null);
+  const [error, setError] = useState<{ text: string; retry: boolean; kind: string | null; detail?: string } | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [pickMenu, setPickMenu] = useState(false);
@@ -120,7 +130,9 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
       return "ok";
     } catch (err) {
       const e = err instanceof ChatApiError ? err : null;
-      setError({ text: (err as Error)?.message ?? String(err), retry: Boolean(e?.retryable) });
+      // A new chat's first question is stored before the request fails: adopt that conversation so Try again works.
+      if (e?.conversationId) setCurrent(e.conversationId);
+      setError({ text: (err as Error)?.message ?? String(err), retry: Boolean(e?.retryable), kind: e?.kind ?? null, detail: e?.detail });
       failed(err, "chat.send");
       return e ? "failed" : "unsent";
     } finally {
@@ -316,12 +328,34 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
         )}
 
         {error && (
-          <div className="card">
-            <p className="error small">{error.text}</p>
-            {error.retry && current && (
-              <button className="secondary" onClick={() => void run(() => continueConversation(deps, current))}>
-                Try again
+          <div className="card chat-error" role="alert">
+            <strong>{ERROR_TITLE[error.kind ?? ""] ?? "Something went wrong"}</strong>
+            <p className="small">{error.text}</p>
+            <div className="actions compact">
+              {error.kind === "billing" && (
+                <a className="button" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noreferrer">
+                  Add credits
+                </a>
+              )}
+              {error.retry && current && (
+                <button className={error.kind === "billing" ? "secondary" : undefined} onClick={() => void run(() => continueConversation(deps, current))}>
+                  Try again
+                </button>
+              )}
+              {(error.kind === "auth" || error.kind === "billing") && (
+                <button className="secondary" onClick={onConnect}>
+                  Claude settings
+                </button>
+              )}
+              <button className="secondary" onClick={() => setError(null)}>
+                Dismiss
               </button>
+            </div>
+            {error.detail && (
+              <details className="muted small">
+                <summary>Technical details</summary>
+                <p className="mono">{error.detail}</p>
+              </details>
             )}
           </div>
         )}
