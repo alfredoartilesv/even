@@ -9,7 +9,7 @@ import { greeting } from "../src/features/dashboard/greeting";
 import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/features/mealprep/ui/MealPrepScreen";
 import { SETTINGS_MENU } from "../src/features/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
-import { ChipGroup, RangePicker } from "../src/ui/controls";
+import { ChipGroup, RangePicker, ScaleRating } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
 import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../src/ui/layout";
 
@@ -163,4 +163,15 @@ test("screens switch views with SubTabs and Segmented, not hand-made tab rows", 
 
 test("screens draw icons with <Icon>, not inline SVG", () => {
   assert.deepEqual(screens.filter((f) => /<svg[\s>]/.test(readFileSync(f, "utf8"))).map(rel), []);
+});
+
+test("ScaleRating: five named steps, the chosen word shown, steps up to the choice lit", () => {
+  const words = ["Very low", "Low", "OK", "Good", "Very good"];
+  const html = renderToStaticMarkup(h(ScaleRating, { label: "Mood", value: 4, onChange: noop, words }));
+  assert.match(html, /role="radiogroup" aria-label="Mood"/);
+  assert.match(html, /<span class="muted small">Good<\/span>/);
+  assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 1);
+  assert.match(html, /aria-checked="true" aria-label="4: Good" class="on"/);
+  assert.equal((html.match(/class="on"/g) ?? []).length, 4);
+  assert.match(renderToStaticMarkup(h(ScaleRating, { label: "Energy", value: null, onChange: noop, words })), /not set/);
 });
