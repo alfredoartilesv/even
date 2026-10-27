@@ -2,15 +2,17 @@ import type { SqlDriver } from "../../db/driver";
 import { sportOf, type SportId } from "./sports";
 
 /**
- * Workouts from the activity_* samples, one row per session: from the Garmin sync, the Garmin
- * export, and freddy rows from before 26 Oct 2026.
+ * Workouts from the activity_* samples, one row per session: from the Garmin sync, Apple Health,
+ * the Garmin export, and freddy rows from before 26 Oct 2026.
  *
  * A session is the set of activity metrics sharing (source, external_id): the sync and the export
  * key them "activity:<id>", freddy "<day>#<n>" (the n-th activity of that day). freddy numbered each
  * metric on its own, so only metrics every session has (type, duration, distance, kcal, average
  * heart rate) are read: optional ones such as elevation skip indoor sessions and would shift the
  * numbering. The same watch sessions are stored once per source, so a day is read from one source
- * only, in the order of daily_metric_values (migration 0009): the sync, then freddy, then the export.
+ * only, in the order of daily_metric_values (migration 0012): the Garmin sync, then freddy, then Apple
+ * Health (Garmin Connect can copy the same sessions into it), then the export. Apple Health keys
+ * its sessions "workout:<HealthKit id>".
  */
 
 export interface Workout {
@@ -43,7 +45,9 @@ export async function listWorkouts(db: SqlDriver, from: string, to: string): Pro
        AND NOT (h.source = 'garmin_export' AND EXISTS (
          SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source <> 'garmin_export'))
        AND NOT (h.source = 'freddy' AND EXISTS (
-         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source = 'garmin'))`,
+         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source = 'garmin'))
+       AND NOT (h.source = 'apple_health' AND EXISTS (
+         SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source IN ('garmin', 'freddy')))`,
     [...Object.keys(METRICS), from, to],
   );
   const by = new Map<string, Workout>();

@@ -21,7 +21,7 @@ Even is a personal health app, Android first (Samsung S23), iPhone second. It re
 | Mobile shell | Capacitor 8 (Android first, iOS from the same code) | Decided |
 | Local database | SQLite via `@capacitor-community/sqlite`, encrypted with SQLCipher | Built 25 Oct 2026 |
 | Query layer | Typed raw SQL behind a 3-method `SqlDriver` interface, Zod at untrusted edges (backup files). Drizzle rejected, see risk 4 | Decided 25 Oct 2026 |
-| Data source | Garmin Connect **Personal API**, read directly with the owner's personal API key, behind the `Source` interface (section 4b). Full history from the Garmin account export (section 4c). Replaced freddy | Built 26 Oct 2026 |
+| Data source | Garmin Connect **Personal API**, read directly with the owner's personal API key, behind the `Source` interface (section 4b). Full history from the Garmin account export (section 4c). Replaced freddy. On the iPhone, **Apple Health** too (HealthKit, `src/features/sync/appleHealth.ts`, source `apple_health`) | Built 26 Oct 2026; Apple Health 27 Oct 2026 |
 | Transport to Garmin | Capacitor native HTTP on the phone (not subject to WebView CORS) | Built 26 Oct 2026 |
 | Apple Health / Health Connect | Not read. Garmin is the only wearable source | Decided 26 Oct 2026 |
 | Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; Chat tab 26 Oct 2026 |
@@ -52,7 +52,8 @@ Schema (so phase 2 is cheap):
 - Every new table must be added to `BACKUP_TABLES` (`src/features/backup/backup.ts`). A test fails otherwise.
 
 Data:
-- The same Garmin reading can be stored by several sources (`garmin`, `freddy`, `garmin_export`). Screens read `daily_metric_values`, which shows one per metric and day (migration 0009). Never add sources together.
+- The same Garmin reading can be stored by several sources (`garmin`, `freddy`, `apple_health`, `garmin_export`): Garmin Connect can copy the watch into Apple Health. Screens read `daily_metric_values`, which shows one per metric and day, in the order garmin, freddy, apple_health, garmin_export (migration 0012); the workouts list keeps the same order per day. Never add sources together.
+- **Apple Health** (iPhone only) reads through `@capgo/capacitor-health`, pinned, and left out of Android (`android.includePlugins` in `capacitor.config.json`: Health Connect would need min SDK 26). It writes Garmin metric names, so screens need no change. Daily totals come from HealthKit statistics (iPhone and Watch merged by iOS). Sleep is read per night from the device that recorded the most and assigned to the wake-up day. HRV is SDNN, so it has its own metric `hrv_sdnnAvg` and never joins Garmin's RMSSD series. Read only: the app never writes to Health. iOS does not tell an app what it was refused, so connecting is a setting (`appleHealth.enabled`) and a refused type comes back empty.
 - How a metric's day is aggregated comes from `classifyMetric` (`DAILY_AGG_OVERRIDES` where the name rule is wrong, for example the max training effect of a day with two workouts). A new override needs a migration line too; a test checks the two lists match.
 - Keep the source label (for example "Garmin Forerunner 245") when showing Garmin data (Garmin's attribution rule).
 

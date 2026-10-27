@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
-import { APP_ICON_CONTENTS, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "../scripts/ios-project.mjs";
-import { checkLog, pickDevice } from "../scripts/ios-sim.mjs";
+import { APP_ICON_CONTENTS, ENTITLEMENTS, HEALTH_SHARE_USAGE, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "../scripts/ios-project.mjs";
+import { checkBundle, checkLog, pickDevice } from "../scripts/ios-sim.mjs";
 import { readPalette } from "../scripts/palette.mjs";
 
 // iOS: the patches to the generated Xcode project, the icon and launch images, the simulator
@@ -15,9 +15,11 @@ const read = (f: string) => readFileSync(join(root, f), "utf8").replace(/\r\n/g,
 // The lines `npx cap add ios` generates (Capacitor 8), in both build configurations.
 const PBXPROJ = `
 				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = App/Info.plist;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.health.personal;
 				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = App/Info.plist;
 				MARKETING_VERSION = 1.0;
 `;
 const PLIST = `<dict>
@@ -33,6 +35,7 @@ test("the Xcode project gets package.json's version, with Android's build number
   assert.equal(out.match(/CURRENT_PROJECT_VERSION = 10203;/g)?.length, 2);
   assert.equal(patchPbxproj(out, "1.2.3"), out, "idempotent");
   assert.throws(() => patchPbxproj("nothing here", "1.0.0"), /MARKETING_VERSION/);
+  assert.throws(() => patchPbxproj("MARKETING_VERSION = 1.0;", "1.0.0"), /no app target/);
   assert.throws(() => patchPbxproj(PBXPROJ, "1.0"), /MAJOR\.MINOR\.PATCH/);
 });
 
@@ -41,6 +44,27 @@ test("Info.plist gets the home-screen name, escaped", () => {
   assert.match(patchInfoPlist(PLIST, "A & B"), /<string>A &amp; B<\/string>/);
   assert.match(patchInfoPlist(PLIST, "Even"), /\$\(MARKETING_VERSION\)/, "the version stays a build setting");
   assert.throws(() => patchInfoPlist("<dict></dict>", "Even"), /CFBundleDisplayName/);
+});
+
+test("Apple Health: the HealthKit entitlement on the app target, and the request text in Info.plist", () => {
+  const out = patchPbxproj(PBXPROJ, "1.2.3");
+  assert.equal(out.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;\n\t+INFOPLIST_FILE/g)?.length, 2, "in both app configurations");
+  assert.equal(patchPbxproj(out, "1.2.3"), out, "added once, however often harden runs");
+  assert.match(ENTITLEMENTS, /<key>com\.apple\.developer\.healthkit<\/key>\s*<true\/>/);
+  assert.match(ENTITLEMENTS, /<key>com\.apple\.developer\.healthkit\.access<\/key>\s*<array\/>/, "no clinical records");
+
+  const plist = patchInfoPlist(PLIST, "Even");
+  assert.match(plist, /<key>NSHealthShareUsageDescription<\/key>\s*<string>Even reads [^<]+<\/string>\s*<\/dict>/);
+  assert.equal(patchInfoPlist(plist, "Even"), plist, "idempotent");
+  assert.doesNotMatch(plist, /NSHealthUpdateUsageDescription/, "read only: nothing is written to Health");
+  assert.ok(HEALTH_SHARE_USAGE.length < 200);
+});
+
+test("the simulator check reads the built app's entitlements and request text", () => {
+  const ent = "<plist><dict><key>com.apple.developer.healthkit</key><true/></dict></plist>";
+  assert.deepEqual(checkBundle(ent, "Even reads your steps"), []);
+  assert.match(checkBundle("<plist><dict/></plist>", "Even reads").join(), /HealthKit entitlement/);
+  assert.match(checkBundle(ent, "").join(), /NSHealthShareUsageDescription/);
 });
 
 test("the launch screen is the logo on the palette's --bg, light and dark", () => {
