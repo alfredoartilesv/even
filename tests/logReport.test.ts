@@ -61,9 +61,9 @@ test("what reaches the report went through the logger's redaction", () => {
   configureLogging({ sinks: [buf.sink] });
   setLogLevel("debug");
   try {
-    createLogger("sync").error("request failed", { url: "https://freddy.example/mcp?key=abc", apiKey: "sk-ant-secret", status: 500 });
+    createLogger("sync").error("request failed", { url: "https://personal.connectapi.example/token?key=abc", apiKey: "sk-ant-secret", status: 500 });
     const md = logReport(buf.records(), ctx);
-    assert.doesNotMatch(md, /freddy\.example|sk-ant-secret|abc/);
+    assert.doesNotMatch(md, /connectapi\.example|sk-ant-secret|abc/);
     assert.match(md, /"url":"\[redacted\]"/);
     assert.match(md, /"status":500/);
   } finally {

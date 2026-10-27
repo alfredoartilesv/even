@@ -310,7 +310,7 @@ export function MeScreen({ db, version, onEditProfile }: { db: SqlDriver; versio
         ))}
       </div>
       {totals.length === 0 ? (
-        <p className="muted small">No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch through freddy, or from the Garmin import.</p>
+        <p className="muted small">No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch with the Garmin sync, or from the Garmin import.</p>
       ) : (
         <table className="values">
           <tbody>

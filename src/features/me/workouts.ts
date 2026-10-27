@@ -2,21 +2,22 @@ import type { SqlDriver } from "../../db/driver";
 import { sportOf, type SportId } from "./sports";
 
 /**
- * Workouts from the activity_* samples, one row per session, from freddy and the Garmin export.
+ * Workouts from the activity_* samples, one row per session: from the Garmin sync, the Garmin
+ * export, and freddy rows from before 26 Oct 2026.
  *
- * A session is the set of activity metrics sharing (source, external_id): the export keys them
- * "activity:<id>", freddy "<day>#<n>" (the n-th activity of that day). freddy numbers each metric
- * on its own, so only metrics every session has (type, duration, distance, kcal, average heart
- * rate) are read: optional ones such as elevation skip indoor sessions and would shift the
- * numbering. On a day freddy has sessions, the export's copies of that day are left out
- * (the same watch sessions twice, as in daily_metric_values).
+ * A session is the set of activity metrics sharing (source, external_id): the sync and the export
+ * key them "activity:<id>", freddy "<day>#<n>" (the n-th activity of that day). freddy numbered each
+ * metric on its own, so only metrics every session has (type, duration, distance, kcal, average
+ * heart rate) are read: optional ones such as elevation skip indoor sessions and would shift the
+ * numbering. The same watch sessions are stored once per source, so a day is read from one source
+ * only, in the order of daily_metric_values (migration 0009): the sync, then freddy, then the export.
  */
 
 export interface Workout {
   key: string;
   source: string;
   day: string;
-  /** Start time when the source has it (the export does; freddy gives the day only). */
+  /** Start time when the source has it (the sync and the export do; freddy gave the day only). */
   startMs: number | null;
   type: string | null;
   sport: SportId;
@@ -51,7 +52,7 @@ export async function listWorkouts(db: SqlDriver, from: string, to: string): Pro
     let w = by.get(key);
     if (!w) {
       // freddy rows start at local midnight: not a real start time.
-      w = { key, source: r.source, day: r.local_day, startMs: r.source === "garmin_export" ? r.start_ms : null, type: null, sport: "other", durationS: null, distanceM: null, kcal: null, avgHr: null };
+      w = { key, source: r.source, day: r.local_day, startMs: r.source === "freddy" ? null : r.start_ms, type: null, sport: "other", durationS: null, distanceM: null, kcal: null, avgHr: null };
       by.set(key, w);
     }
     const field = METRICS[r.metric];

@@ -2,7 +2,7 @@ import { uuidv7 } from "../core/uuidv7";
 import type { SqlDriver } from "./driver";
 
 /**
- * Non-secret app settings in app_settings. Secrets (freddy URL and key, Claude key)
+ * Non-secret app settings in app_settings. Secrets (Garmin key, Claude key)
  * never go here: they live in the Keystore, see src/settings/secrets.ts.
  */
 export async function getSetting(db: SqlDriver, key: string): Promise<string | null> {

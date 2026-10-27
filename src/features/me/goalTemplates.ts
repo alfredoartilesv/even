@@ -4,7 +4,7 @@ import { fmtDuration } from "./workouts";
 
 /**
  * Ready-made goals the owner fills with one number, and how goal values read. Metric names are
- * the ones freddy and the Garmin import use (daily_steps, sleep_durationInSeconds,
+ * the ones the Garmin sync and the Garmin import use (daily_steps, sleep_durationInSeconds,
  * body_weightInGrams). Pure.
  */
 
