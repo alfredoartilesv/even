@@ -8,8 +8,9 @@
  * is not created again (the Keychain kept it, so the database opened with the same key).
  * Screenshots and the app log go to --out.
  */
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { setTimeout as wait } from "node:timers/promises";
 import { join, resolve } from "node:path";
 
 export const BUNDLE_ID = "app.health.personal";
@@ -40,7 +41,7 @@ export function checkLog(text, { firstLaunch }) {
   return fail;
 }
 
-function main() {
+async function main() {
   const arg = (k, d) => {
     const i = process.argv.indexOf(`--${k}`);
     return i > 0 ? process.argv[i + 1] : d;
@@ -50,7 +51,6 @@ function main() {
   const out = resolve(arg("out", "ios-sim-out"));
   mkdirSync(out, { recursive: true });
   const sim = (...a) => execFileSync("xcrun", ["simctl", ...a], { encoding: "utf8" });
-  const sleep = (ms) => execFileSync("sleep", [String(ms / 1000)]);
 
   const device = pickDevice(JSON.parse(sim("list", "devices", "available", "-j")), arg("device"));
   console.log(`simulator: ${device.name} (iOS ${device.ios}) ${device.udid}`);
@@ -67,28 +67,34 @@ function main() {
   for (const [i, mode] of ["light", "dark"].entries()) {
     sim("ui", device.udid, "appearance", mode);
     const since = new Date(Date.now() - 1000).toISOString().replace("T", " ").slice(0, 19);
-    const stdout = join(out, `app-${mode}.log`);
-    sim("launch", "--terminate-running-process", `--stdout=${stdout}`, `--stderr=${stdout}`, device.udid, BUNDLE_ID);
-    sleep(20_000);
+    // --console-pty: the app's stdout through a terminal, so it is line-buffered and nothing is
+    // lost when the app is stopped (to a file it is block-buffered). Capacitor prints the WebView
+    // console there.
+    let text = "";
+    const app = spawn("xcrun", ["simctl", "launch", "--console-pty", "--terminate-running-process", device.udid, BUNDLE_ID]);
+    app.stdout.on("data", (d) => (text += d));
+    app.stderr.on("data", (d) => (text += d));
+    await wait(20_000);
     const running = sim("spawn", device.udid, "launchctl", "list").includes(`UIKitApplication:${BUNDLE_ID}`);
     sim("io", device.udid, "screenshot", join(out, `${i + 1}-${mode}.png`));
-    // Capacitor prints the WebView console to stdout; the unified log is a fallback.
-    let text = readFileSync(stdout, "utf8");
     try {
-      text += sim("spawn", device.udid, "log", "show", "--style", "compact", "--start", since, "--predicate", 'process == "App"');
+      sim("terminate", device.udid, BUNDLE_ID);
     } catch {
-      // log show is best effort
+      // already gone (reported below)
     }
-    writeFileSync(join(out, `app-${mode}-full.log`), text);
+    await Promise.race([new Promise((r) => app.once("close", r)), wait(5000)]);
+    app.kill();
+    writeFileSync(join(out, `app-${mode}.log`), text);
+    try {
+      // The system's view of the same launch, for debugging only.
+      writeFileSync(join(out, `system-${mode}.log`), sim("spawn", device.udid, "log", "show", "--style", "compact", "--start", since, "--predicate", 'process == "App"'));
+    } catch {
+      // best effort
+    }
     const f = checkLog(text, { firstLaunch: i === 0 });
     if (!running) f.push("the app is not running after 20 s (crashed?)");
     for (const x of f) failures.push(`${mode}: ${x}`);
     console.log(`${f.length ? "FAIL" : "PASS"} ${i === 0 ? "fresh install" : "relaunch"} in ${mode} mode`);
-    try {
-      sim("terminate", device.udid, BUNDLE_ID);
-    } catch {
-      // already gone (reported above)
-    }
   }
   sim("ui", device.udid, "appearance", "light");
   if (failures.length) {
@@ -98,4 +104,4 @@ function main() {
   console.log(`iOS simulator check passed; screenshots and logs in ${out}`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) main();
+if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) await main();

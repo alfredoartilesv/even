@@ -49,11 +49,13 @@ jobs:
         with:
           path: build/ios/SourcePackages
           key: spm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Ad-hoc signed (no Apple account needed): an unsigned app has no identity, and iOS then
+      # refuses it the Keychain, where the database passphrase lives.
       - name: Compile for the simulator
         run: >
           xcodebuild build -project ios/App/App.xcodeproj -scheme App -configuration Debug
           -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios
-          CODE_SIGNING_ALLOWED=NO -quiet
+          CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= -quiet
       - name: Compile for devices (Release, unsigned)
         run: >
           xcodebuild build -project ios/App/App.xcodeproj -scheme App -configuration Release
