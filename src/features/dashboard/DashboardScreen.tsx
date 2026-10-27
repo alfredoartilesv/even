@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
 import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
@@ -8,7 +9,7 @@ import { fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
 import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
-import { loadDashboard, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
+import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
 
 /** Where the Dashboard's buttons go; the app shell switches tab. */
@@ -65,23 +66,32 @@ function spanTitle(span: Span, anchor: string): string {
  */
 export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
   const [span, setSpan] = useState<Span>("day");
-  const [anchor, setAnchor] = useState(today());
+  // null = the current period, which moves on by itself when the day changes (the app can stay
+  // open overnight); a past period the owner picked stays put.
+  const [picked, setPicked] = useState<string | null>(null);
+  const now = today();
+  const anchor = picked ?? now;
+  const setAnchor = (day: string, sp: Span = span) => setPicked(pinnedAnchor(sp, day, now));
   const [data, setData] = useState<Dashboard | null>(null);
   const [metrics, setMetrics] = useState<DayValue[]>([]);
   const [name, setName] = useState<string | null>(null);
 
+  // Loads overlap (a sync finishing, quick taps on ‹ ›, Day / Week / Month): only the newest may
+  // show, or an older, slower answer would put another period's numbers under this title.
+  const begin = useRef(newestOnly()).current;
   const load = useCallback(async () => {
-    const [d, p] = await Promise.all([loadDashboard(db, span, anchor, today()), loadProfile(db)]);
+    const isNewest = begin();
+    const [d, p, m] = await Promise.all([loadDashboard(db, span, anchor, today()), loadProfile(db), span === "day" ? dayValues(db, anchor) : Promise.resolve([])]);
+    if (!isNewest()) return;
     setData(d);
     setName(p.name);
-    setMetrics(span === "day" ? await dayValues(db, anchor) : []);
-  }, [db, span, anchor]);
+    setMetrics(m);
+  }, [db, span, anchor, begin]);
 
   useEffect(() => {
     void load();
   }, [load, version]);
 
-  const now = today();
   const current = spanRange(span, anchor);
   const isCurrent = current.from <= now && now <= current.to;
   const next = shiftSpan(span, anchor, 1);
@@ -101,7 +111,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const axis = span === "week" ? (day: string) => short(day, { weekday: "narrow" }) : (day: string) => String(Number(day.slice(8)));
   const openDay = (day: string) => {
     setSpan("day");
-    setAnchor(day);
+    setAnchor(day, "day");
   };
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0 || d.prep.total !== null);
   const dateLine = utc(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
@@ -133,7 +143,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         label="Period"
         onChange={(id) => {
           setSpan(id);
-          setAnchor(isCurrent ? now : current.from);
+          setAnchor(isCurrent ? now : current.from, id);
         }}
       />
 

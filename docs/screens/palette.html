@@ -26,12 +26,20 @@
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
  *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
+ *   --shadow-pop  the lift under things that float over the page: chart tooltips
+ *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
+ *   --brand-ring  the logo's ring track
+ *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
  * pass every gate (worst adjacent CVD dE 9.1 light, 8.4 dark). In light mode slots 3, 4 and 5
  * sit below 3:1 on the surface, so every chart that uses them prints its values (legend values
  * or the table view). One-series charts use --accent instead.
+ *
+ * Outside CSS: scripts/palette.mjs reads this file for Android (colors.xml, window, splash), and
+ * the palette test checks that resources/logo.svg, public/favicon.svg, the Android icon and the
+ * theme-color in index.html use these values.
  */
 :root {
   color-scheme: light dark;
@@ -60,6 +68,12 @@
   --viz-axis: #c3c2b7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
+
+  /* The logo: one brand color for both themes (the light accent). */
+  --brand: #0f766e;
+  --brand-ring: #7fd1c6;
+  --on-brand: #ffffff;
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
@@ -84,6 +98,7 @@
     --warning: #facc15;
     --error: #f87171;
     --shadow: none;
+    --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
 
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -132,6 +147,10 @@ code { font-size: 0.9em; }
 <tr><td><code>--warning</code></td><td>needs attention (stale sync, over target)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#a16207;vertical-align:middle"></span> <code>#a16207</code><div class="muted" style="font-size:0.8rem">4.7:1 on bg · 4.9:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#facc15;vertical-align:middle"></span> <code>#facc15</code><div class="muted" style="font-size:0.8rem">12.3:1 on bg · 11.3:1 on surface</div></td></tr>
 <tr><td><code>--error</code></td><td>failures and destructive actions</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#b91c1c;vertical-align:middle"></span> <code>#b91c1c</code><div class="muted" style="font-size:0.8rem">6.2:1 on bg · 6.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f87171;vertical-align:middle"></span> <code>#f87171</code><div class="muted" style="font-size:0.8rem">6.8:1 on bg · 6.2:1 on surface</div></td></tr>
 <tr><td><code>--shadow</code></td><td>the lift under cards and the tab bar (none in dark: surfaces are lighter there)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:none;vertical-align:middle"></span> <code>none</code></td></tr>
+<tr><td><code>--shadow-pop</code></td><td>the lift under things that float over the page: chart tooltips</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 2px 8px rgb(0 0 0 / 0.12);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.12)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:0 2px 8px rgb(0 0 0 / 0.5);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.5)</code></td></tr>
+<tr><td><code>--brand</code></td><td>the Even logo tile: launcher icon, splash icon, favicon (same in both themes)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td></tr>
+<tr><td><code>--brand-ring</code></td><td>the logo's ring track</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td></tr>
+<tr><td><code>--on-brand</code></td><td>the logo's mark (the filled half of the ring, the equals sign)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td></tr>
 </tbody></table>
 <h2>Chart series</h2>
 <p class="muted">The validated categorical palette for charts with several series, in this order. One-series charts use the accent.</p>
