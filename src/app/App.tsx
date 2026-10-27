@@ -103,11 +103,13 @@ export function App() {
     return () => clearInterval(t);
   }, []);
 
-  // Back in front after a while (the app can sit in memory for days): sync again.
+  // Back in front (the app can sit in memory for days): reload the screen, and sync again after a while.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
+      // A new render also moves the Dashboard to a new day; the version makes every screen reload.
       setNow(Date.now());
+      setVersion((v) => v + 1);
       const lastOk = status?.lastOkMs ?? 0;
       if (configured && !syncing && Date.now() - lastOk > RESYNC_ON_RESUME_MS) {
         log.info("app resumed, syncing", { sinceLastOkMin: lastOk ? Math.round((Date.now() - lastOk) / 60_000) : null });
