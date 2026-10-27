@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
@@ -12,6 +13,29 @@ import { loadProfile } from "../settings/profile";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
 import { appleHealthSupported } from "../../platform/health";
+
+const log = createLogger("dashboard");
+
+/**
+ * The last answers, kept for the app's run: the screen remounts on every tab switch, and drawing
+ * the last numbers at once beats a blank screen while the database answers. Every visit still
+ * reloads, so a cached view is at most one load old.
+ */
+interface Shown {
+  data: Dashboard;
+  metrics: DayValue[];
+  name: string | null;
+}
+const shownCache = new Map<string, Shown>();
+const CACHED_VIEWS = 12;
+const cacheKey = (span: Span, anchor: string) => `${span}|${anchor}`;
+function remember(key: string, s: Shown) {
+  shownCache.delete(key);
+  shownCache.set(key, s);
+  if (shownCache.size > CACHED_VIEWS) shownCache.delete(shownCache.keys().next().value!);
+}
+/** Day, week or month: the one last looked at, so coming back to the tab shows the same view. */
+let lastSpan: Span = "day";
 
 /** Where the Dashboard's buttons go; the app shell switches tab. */
 export interface DashboardLinks {
@@ -66,27 +90,42 @@ function spanTitle(span: Span, anchor: string): string {
  * day. A day also lists every synced number.
  */
 export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
-  const [span, setSpan] = useState<Span>("day");
+  const [span, setSpanState] = useState<Span>(lastSpan);
+  const setSpan = (s: Span) => setSpanState((lastSpan = s));
   // null = the current period, which moves on by itself when the day changes (the app can stay
   // open overnight); a past period the owner picked stays put.
   const [picked, setPicked] = useState<string | null>(null);
   const now = today();
   const anchor = picked ?? now;
   const setAnchor = (day: string, sp: Span = span) => setPicked(pinnedAnchor(sp, day, now));
-  const [data, setData] = useState<Dashboard | null>(null);
-  const [metrics, setMetrics] = useState<DayValue[]>([]);
-  const [name, setName] = useState<string | null>(null);
+  const [shown, setShown] = useState<Shown | null>(() => shownCache.get(cacheKey(span, anchor)) ?? null);
+  const data = shown?.data ?? null;
+  const metrics = shown?.metrics ?? [];
+  const name = shown?.name ?? null;
 
   // Loads overlap (a sync finishing, quick taps on ‹ ›, Day / Week / Month): only the newest may
   // show, or an older, slower answer would put another period's numbers under this title.
   const begin = useRef(newestOnly()).current;
   const load = useCallback(async () => {
     const isNewest = begin();
-    const [d, p, m] = await Promise.all([loadDashboard(db, span, anchor, today()), loadProfile(db), span === "day" ? dayValues(db, anchor) : Promise.resolve([])]);
-    if (!isNewest()) return;
-    setData(d);
-    setName(p.name);
-    setMetrics(m);
+    const key = cacheKey(span, anchor);
+    const cached = shownCache.get(key);
+    if (cached) setShown(cached);
+    // Debug logs at Info: how long the figures and the day's metric list each take on this phone.
+    const timed = <T,>(what: string, p: Promise<T>) => {
+      const done = log.time(`${what} loaded`, "info");
+      return p.then((v) => (done({ span }), v));
+    };
+    const all = log.time("dashboard loaded", "info");
+    const [d, p, m] = await Promise.all([
+      timed("figures", loadDashboard(db, span, anchor, today())),
+      loadProfile(db),
+      span === "day" ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
+    ]);
+    all({ span, cached: Boolean(cached) });
+    const fresh = { data: d, metrics: m, name: p.name };
+    remember(key, fresh);
+    if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
 
   useEffect(() => {
