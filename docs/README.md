@@ -22,7 +22,8 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Garmin Personal API sync in the app (personal API key in the Keystore, sync on launch and on demand, native HTTP) | Built, tested; real sync verified from a PC. Replaced the freddy sync on 26 Oct 2026 |
 | Encrypted backup export and restore | Built, tested |
 | Android auto-backup disabled | Built (patch script) |
-| Run on the S23 | **Not done yet** |
+| Run on Android | Debug build passes the device integration test (`npm run test:device`, 9 checks) on a Galaxy S23-shaped Android 16 emulator. **Not yet on the real phone** |
+| Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/ci.yml` |
 | Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
 | Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/features/chat/`, `npm run chat` on a PC); Chat tab with camera and image attach |
 | Connect Claude (verified API key; there is no "Sign in with Claude" for Android apps, see architecture.md section 5) | Built and tested (`connect.ts`); screen in Settings > Connections |
@@ -33,7 +34,8 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 
 ```bash
 npm install
-npm test                    # 226 tests, no device needed
+npm test                    # 232 tests, no device needed
+npm run docker:test         # the same in the pinned Docker toolchain (standard before a PR; CI runs it)
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
 ```

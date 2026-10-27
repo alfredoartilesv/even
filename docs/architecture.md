@@ -30,6 +30,7 @@ A personal health app, Android first (Samsung S23), iPhone second. It reads the 
 | Account | Optional Google sign-in (Android Credential Manager via `@capgo/capacitor-social-login`, no Firebase). One owner per install: the first account to sign in owns the phone's data. See section 5b | Built 26 Oct 2026; needs the Google Cloud setup |
 | Capacitor config | `capacitor.config.json`, not `.ts`: the Capacitor CLI compiles a `.ts` config with the TypeScript JS API, which TypeScript 7 no longer ships | 25 Oct 2026 |
 | Native projects | `android/` and `ios/` are generated (`npx cap add`) and git-ignored. Anything we change in them is a script (`scripts/android-harden.mjs`) | 25 Oct 2026 |
+| Builds and CI | Docker is the standard way to test and build (`Dockerfile`: Node from `.nvmrc`, Temurin 21, Android SDK 36, digests and checksum pinned); CI runs the same image. Development and the emulator stay native, because an emulator cannot run in Docker on Windows (docs/dev-setup.md section 4) | 27 Oct 2026 |
 
 ### Why these choices
 
@@ -81,7 +82,7 @@ Privacy and security:
 4. **[RESOLVED 25 Oct 2026] Drizzle with Capacitor SQLite: rejected.** `sqlite-proxy` maps rows by position, but the plugin returns objects keyed by column name. Single-table queries work, but a join that selects two `id` columns silently puts values in the wrong fields (`npm run spike:drizzle` shows it). Making it safe means aliasing every joined column by hand, which defeats the point. Decision: typed raw SQL. The plugin quirks the driver handles are listed in [LLD.md section 3](LLD.md#3-database-access).
 5. **[LOW] Android background sync is unreliable** (Doze, battery optimisation). Main path: sync on app open, when the app comes back to the front after an hour, and with the header sync button. A local notification reminds the owner 3 days after the last successful sync (then daily), which usually means the Garmin key expired; it can be switched off in Settings. Nothing is lost by syncing late. Periodic background sync is a bonus for later.
 6. **[MEDIUM] The Garmin personal API key expires** on a date the owner picks when making it (30 days to 1 year), and Garmin shows it only once. When it expires, syncs fail with a message that says so, the banner and the 3-day reminder appear, and the owner pastes a new key in Settings → Connections. Not built yet: a reminder before the expiry date.
-7. **[MEDIUM] Not yet run on a device.** Everything is tested in Node against a fake that copies the Android plugin's behaviour, and a real Garmin sync has been run from a PC. The first run on the S23 must confirm: encrypted DB opens and migrates, the Garmin sync over native HTTP, backup share and restore.
+7. **[MEDIUM, mostly answered 27 Oct 2026] Not yet run on the phone.** On a Galaxy S23-shaped Android 16 emulator the debug build passes `npm run test:device`: the encrypted database opens and migrates (the file has no SQLite header), the Garmin sync works over native HTTP, data survives a restart. That run found that scheduling the sync reminder opened Android's *Alarms & reminders* screen after every sync (fixed: the reminder asks for an inexact alarm). Still to check on the phone: One UI specifics (battery optimisation), backup share and restore.
 
 ## 4b. Decision 26 Oct 2026: read Garmin directly through the Garmin Connect Personal API
 
@@ -176,7 +177,7 @@ Which 2-3 screens will be opened every day (for example today's sleep and recove
 
 ## 9. Next steps
 
-1. **Run on the S23** (needs Android Studio): `npm run android:sync`, `npx cap open android`. Check that the DB opens encrypted and migrates, that the Garmin sync works over native HTTP, and that backup export/share/restore works.
+1. **Run on the real S23**: USB debugging on, then `npm run test:device -- --install android/app/build/outputs/apk/debug/app-debug.apk --fresh` (the same 9 checks as on the emulator), and backup export/share/restore by hand.
 2. Answer the open question in section 8, then build those screens on the existing schema.
 3. Try the Chat tab on the phone (camera, consent, confirmations, undo); the agent can also be tried from the PC with `npm run chat`.
 4. Remind the owner before the Garmin key expires (risk 6): ask for the expiry date with the key.

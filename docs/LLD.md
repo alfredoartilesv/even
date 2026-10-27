@@ -473,7 +473,7 @@ If samples were written but a later step failed, the next run rewrites them in p
 - `nextReminderAt(lastOkMs, now)`: last success + 3 days, or now + 1 day once that has passed (repeats daily until a sync succeeds). Never synced: now + 3 days.
 - `reminderText`: "No Garmin sync for N days", and that the Garmin key may have expired.
 - `refreshSyncReminder(db, notifier, { configured })` keeps exactly one pending notification (id `SYNC_REMINDER_ID` = 1001, replaced on every call): it cancels it when no Garmin key is stored or `sync.reminder` is `off`, asks for the notification permission otherwise (Android 13+ shows the prompt the first time), and schedules it. Called at start, after every sync attempt and after any settings change. It never throws; failures are logged as `sync.reminder` warnings.
-- The `Notifier` interface is in `src/core/notifier.ts`; `src/platform/notifications.ts` implements it with `LocalNotifications.schedule({ at, allowWhileIdle: true })`, which Doze delivers close to the time. Tapping the notification opens the app, which syncs on launch.
+- The `Notifier` interface is in `src/core/notifier.ts`; `src/platform/notifications.ts` implements it with `LocalNotifications.schedule` and the options from `pluginNotification` (`allowWhileIdle: true`, `isExactNotification: false`: an exact alarm would make the plugin open Android 14+'s *Alarms & reminders* screen on every schedule), which Doze delivers close to the time. Tapping the notification opens the app, which syncs on launch.
 
 ## 7. Secrets and settings
 
@@ -804,7 +804,7 @@ Times: `day` + `time` (HH:MM local) become UTC ms + offset with `localDateTimeTo
 
 ## 12. Tests
 
-Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 226 tests, no device needed.
+Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 232 tests, no device needed. `npm run docker:test` runs the same suite in the pinned Docker toolchain (and CI does on every PR). On a device: `npm run test:device` (section 13).
 
 | File | Covers |
 |---|---|
@@ -816,7 +816,8 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 22
 | `garminSource.test.ts` | token shapes and reuse, renewal before expiry, 401 retry, errors without the key, endpoint mapping and units, privacy, 28-day chunks, paging, 403 as a warning, time zone from the profile, skipped no-data values, `runSync` end to end and idempotent, export and API overlap in both orders, freddy rows giving way |
 | `nativeFetch.test.ts` | JSON bodies, re-serialised replies, empty 202/204, network errors without the URL, `GarminApi` end to end over the adapter |
 | `runSync.test.ts` | success, failure keeps cursor, shared concurrent run, `lastSync` |
-| `syncReminder.test.ts` | freshness thresholds, next reminder time (due, overdue, never), text and days left, "ago" labels, one reminder moved after each sync, failed runs ignored, cancel when not set up or off, no prompt while off, permission denied, notifier errors swallowed |
+| `syncReminder.test.ts` | freshness thresholds, next reminder time (due, overdue, never), text and days left, "ago" labels, one reminder moved after each sync, failed runs ignored, cancel when not set up or off, no prompt while off, permission denied, notifier errors swallowed, the plugin asked for an inexact alarm (`pluginNotification`) |
+| `docker.test.ts` | secrets and health data kept out of the Docker context, digest-pinned base images, Node = `.nvmrc`, JDK 21, checksum-verified SDK download, SDK packages, stages and npm scripts, `out/` ignored |
 | `capacitorDriver.test.ts` | migrations through the plugin fake, CRLF files, rollback via plugin, iOS column row |
 | `backup.test.ts` | table coverage, round trip, merge rules, wrong password and tampering, schema versions, rollback mid-restore, restore through the plugin fake in batches |
 | `secrets.test.ts` | Garmin and Claude key validation and storage, old freddy credentials removed |
@@ -857,6 +858,7 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 | `scripts/garmin-sync.ts` (`npm run sync:garmin`) | Real Garmin Personal API (`GARMIN_API_KEY` from `.env`) -> real migrations -> SQLite (memory or `-- --db file`), then a re-sync to check no rows are added. Prints counts only |
 | `scripts/drizzle-spike.ts` (`npm run spike:drizzle`) | Reproduces why Drizzle was rejected |
 | `scripts/claude-chat.ts` (`npm run chat -- --db health.sqlite "question"`) | The agent against a local SQLite file, with `ANTHROPIC_API_KEY` from `.env`. `--photo meal.jpg`, `--allow raw,notes,photos`, `--continue <id>`, `--yes` (otherwise each change asks y/n). Prints the answer, tools, changes, tokens and what was sent. Costs API usage |
+| `scripts/device-test.ts` (`npm run test:device`) | Integration test on the emulator or phone through the WebView DevTools protocol: app opens, schema is the latest migration, the DB file is not plain SQLite, the Garmin key from `.env` saves, a real sync succeeds, the app stays in front, readings stored, steps on the dashboard, data after a restart. `--install <apk>`, `--fresh` (clear data), `--serial`, `--skip-sync`, `--out <dir>` for screenshots. Prints names and counts only |
 | `scripts/android-harden.mjs` (part of `npm run android:sync`) | Sets `allowBackup="false"`, `fullBackupContent="false"`, and data extraction rules excluding every domain. Idempotent |
 
 ## 14. How to extend
@@ -880,7 +882,7 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 
 ## 15. Known limitations
 
-- Not yet run on a device (see [architecture.md risk 7](architecture.md#4-open-risks-and-spikes)).
+- Run on a Galaxy S23-shaped emulator, not yet on the phone (see [architecture.md risk 7](architecture.md#4-open-risks-and-spikes)).
 - Backups are manual and the whole file is built in memory. Fine for years of personal data, but it grows with every sample.
 - No screens yet for drinks, manual measurements, notes, goals or the chat.
 - The chat is non-streaming (native HTTP returns the whole reply), so a long answer shows up all at once after the wait.

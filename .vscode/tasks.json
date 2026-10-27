@@ -70,6 +70,27 @@
       "type": "npm",
       "script": "typecheck",
       "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Docker: test",
+      "detail": "Typecheck and every Node test in the pinned Linux toolchain (the standard check before a PR)",
+      "type": "npm",
+      "script": "docker:test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: build debug APK",
+      "detail": "Debug APK from the pinned toolchain into out/app-debug.apk",
+      "type": "npm",
+      "script": "docker:apk",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: device integration test",
+      "detail": "Drives the installed debug build on the emulator or phone: database, encryption, a real Garmin sync (GARMIN_API_KEY in .env), restart",
+      "type": "npm",
+      "script": "test:device",
+      "problemMatcher": []
     }
   ]
 }
