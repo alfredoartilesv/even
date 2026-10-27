@@ -38,10 +38,20 @@ const METRICS = {
 } as const;
 
 export async function listWorkouts(db: SqlDriver, from: string, to: string): Promise<Workout[]> {
-  const rows = await db.all<{ source: string; external_id: string; metric: keyof typeof METRICS; local_day: string; start_ms: number; value_num: number | null; value_text: string | null }>(
+  const rows = await db.all<{
+    source: string;
+    external_id: string;
+    metric: keyof typeof METRICS;
+    local_day: string;
+    start_ms: number;
+    value_num: number | null;
+    value_text: string | null;
+  }>(
     `SELECT h.source, h.external_id, h.metric, h.local_day, h.start_ms, h.value_num, h.value_text
      FROM health_samples h
-     WHERE h.metric IN (${Object.keys(METRICS).map(() => "?").join(", ")}) AND h.local_day BETWEEN ? AND ?
+     WHERE h.metric IN (${Object.keys(METRICS)
+       .map(() => "?")
+       .join(", ")}) AND h.local_day BETWEEN ? AND ?
        AND NOT (h.source = 'garmin_export' AND EXISTS (
          SELECT 1 FROM health_samples f WHERE f.metric = 'activity_activityType' AND f.local_day = h.local_day AND f.source <> 'garmin_export'))
        AND NOT (h.source = 'freddy' AND EXISTS (
@@ -56,7 +66,18 @@ export async function listWorkouts(db: SqlDriver, from: string, to: string): Pro
     let w = by.get(key);
     if (!w) {
       // freddy rows start at local midnight: not a real start time.
-      w = { key, source: r.source, day: r.local_day, startMs: r.source === "freddy" ? null : r.start_ms, type: null, sport: "other", durationS: null, distanceM: null, kcal: null, avgHr: null };
+      w = {
+        key,
+        source: r.source,
+        day: r.local_day,
+        startMs: r.source === "freddy" ? null : r.start_ms,
+        type: null,
+        sport: "other",
+        durationS: null,
+        distanceM: null,
+        kcal: null,
+        avgHr: null,
+      };
       by.set(key, w);
     }
     const field = METRICS[r.metric];

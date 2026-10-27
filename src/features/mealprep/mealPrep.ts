@@ -61,7 +61,6 @@ const posInt = (n: number, what: string, min = 1) => {
   return n;
 };
 
-
 function validate(input: MealPrepInput): void {
   if (!input.name.trim()) throw new Error("Give the meal prep a name");
   posInt(input.portions, "Portions");
@@ -111,10 +110,7 @@ export async function saveMealPrep(db: SqlDriver, input: MealPrepInput, nowMs: n
     }
 
     // Tags: soft-delete the ones removed, insert the new ones.
-    const liveTags = await db.all<{ id: string; tag: string }>(
-      "SELECT id, tag FROM meal_prep_tags WHERE meal_prep_id = ? AND deleted_at IS NULL",
-      [id],
-    );
+    const liveTags = await db.all<{ id: string; tag: string }>("SELECT id, tag FROM meal_prep_tags WHERE meal_prep_id = ? AND deleted_at IS NULL", [id]);
     for (const t of liveTags) {
       if (!tags.includes(t.tag)) {
         await db.run("UPDATE meal_prep_tags SET deleted_at = ?, updated_at = ? WHERE id = ?", [nowMs, nowMs, t.id]);
@@ -122,17 +118,18 @@ export async function saveMealPrep(db: SqlDriver, input: MealPrepInput, nowMs: n
     }
     for (const tag of tags) {
       if (liveTags.some((t) => t.tag === tag)) continue;
-      await db.run(
-        `INSERT INTO meal_prep_tags (id, meal_prep_id, tag, created_at, updated_at, origin_device_id) VALUES (?, ?, ?, ?, ?, ?)`,
-        [uuidv7(nowMs), id, tag, nowMs, nowMs, dev],
-      );
+      await db.run(`INSERT INTO meal_prep_tags (id, meal_prep_id, tag, created_at, updated_at, origin_device_id) VALUES (?, ?, ?, ?, ?, ?)`, [
+        uuidv7(nowMs),
+        id,
+        tag,
+        nowMs,
+        nowMs,
+        dev,
+      ]);
     }
 
     // Ingredients: update by id, soft-delete the missing ones, insert the rest.
-    const liveIngredients = await db.all<{ id: string }>(
-      "SELECT id FROM meal_prep_ingredients WHERE meal_prep_id = ? AND deleted_at IS NULL",
-      [id],
-    );
+    const liveIngredients = await db.all<{ id: string }>("SELECT id FROM meal_prep_ingredients WHERE meal_prep_id = ? AND deleted_at IS NULL", [id]);
     const keep = new Set(input.ingredients.map((i) => i.id).filter(Boolean));
     for (const row of liveIngredients) {
       if (!keep.has(row.id)) {
@@ -142,10 +139,7 @@ export async function saveMealPrep(db: SqlDriver, input: MealPrepInput, nowMs: n
     for (const [n, i] of input.ingredients.entries()) {
       const vals: SqlValue[] = [n, i.name.trim(), i.quantity, i.unit?.trim() || null];
       if (i.id && liveIngredients.some((r) => r.id === i.id)) {
-        await db.run(
-          "UPDATE meal_prep_ingredients SET sort_order = ?, name = ?, quantity = ?, unit = ?, updated_at = ? WHERE id = ?",
-          [...vals, nowMs, i.id],
-        );
+        await db.run("UPDATE meal_prep_ingredients SET sort_order = ?, name = ?, quantity = ?, unit = ?, updated_at = ? WHERE id = ?", [...vals, nowMs, i.id]);
       } else {
         await db.run(
           `INSERT INTO meal_prep_ingredients (id, meal_prep_id, sort_order, name, quantity, unit, created_at, updated_at, origin_device_id)
@@ -168,6 +162,25 @@ export async function deleteMealPrep(db: SqlDriver, id: string, nowMs: number = 
     await db.run("UPDATE meal_preps SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", [nowMs, nowMs, id]);
   });
   log.info("recipe deleted", { id });
+}
+
+/** A recipe's own fields in their stored, snake_case names: a meal_preps row, or the chat tool's input. */
+export type PrepColumns = Omit<PrepRow, "id">;
+
+/** Those fields in the app's names (MealPrepInput without id, tags and ingredients). */
+export function prepFromColumns(p: PrepColumns) {
+  return {
+    name: p.name,
+    portions: p.portions,
+    fridgeDays: p.fridge_days,
+    freezerDays: p.freezer_days,
+    thawHours: p.thaw_hours,
+    calories: p.calories,
+    proteinG: p.protein_g,
+    carbsG: p.carbs_g,
+    fatG: p.fat_g,
+    notes: p.notes,
+  };
 }
 
 interface PrepRow {
@@ -222,16 +235,7 @@ export async function listMealPreps(db: SqlDriver, tag?: string | null): Promise
   }
   return preps.map((p) => ({
     id: p.id,
-    name: p.name,
-    portions: p.portions,
-    fridgeDays: p.fridge_days,
-    freezerDays: p.freezer_days,
-    thawHours: p.thaw_hours,
-    calories: p.calories,
-    proteinG: p.protein_g,
-    carbsG: p.carbs_g,
-    fatG: p.fat_g,
-    notes: p.notes,
+    ...prepFromColumns(p),
     tags: tags.get(p.id) ?? [],
     ingredients: ingredients.get(p.id) ?? [],
   }));
@@ -340,10 +344,7 @@ export type StockEntry = BatchStock & { lastMove: Move | null };
  * Stock per batch, for batches that still have portions (unless includeFinished).
  * Recipe settings are read even from a deleted recipe, so its leftovers stay visible.
  */
-export async function loadStock(
-  db: SqlDriver,
-  opts: { tag?: string | null; batchId?: string; includeFinished?: boolean } = {},
-): Promise<StockEntry[]> {
+export async function loadStock(db: SqlDriver, opts: { tag?: string | null; batchId?: string; includeFinished?: boolean } = {}): Promise<StockEntry[]> {
   const t = opts.tag ? normalizeTag(opts.tag) : null;
   const batches = await db.all<BatchRow>(
     `SELECT b.id, b.meal_prep_id, p.name, b.cooked_at_ms, b.local_day, b.portions, p.fridge_days, p.freezer_days, p.thaw_hours

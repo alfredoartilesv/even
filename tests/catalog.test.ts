@@ -48,7 +48,12 @@ for (const source of ["garmin", "garmin_export"]) {
     const samples = twoWorkouts(source);
     await upsertSamples(db, samples, NOW);
     const metrics = [...new Set(samples.map((s) => s.metric))];
-    await upsertCatalog(db, source, metrics.map((metric) => ({ metric })), NOW);
+    await upsertCatalog(
+      db,
+      source,
+      metrics.map((metric) => ({ metric })),
+      NOW,
+    );
 
     const day = await dayValues(db, "2026-10-24");
     const v = (m: string) => day.find((d) => d.metric === m)!.value;
@@ -62,7 +67,10 @@ for (const source of ["garmin", "garmin_export"]) {
 test("migration 0010 fixes catalog rows that still hold the old guess, and keeps the owner's choices", async () => {
   const { db } = memoryDriver();
   const all = realMigrations();
-  await migrate(db, all.filter((m) => m.version < 10));
+  await migrate(
+    db,
+    all.filter((m) => m.version < 10),
+  );
   const row = (source: string, metric: string, agg: string) =>
     db.run("INSERT INTO metric_catalog (source, metric, category, daily_agg, updated_at) VALUES (?, ?, 'activity', ?, 0)", [source, metric, agg]);
   await row("garmin", "activity_aerobicTrainingEffect", "sum"); // old guess
@@ -73,7 +81,9 @@ test("migration 0010 fixes catalog rows that still hold the old guess, and keeps
   await db.run("INSERT INTO app_settings (key, value, updated_at) VALUES ('freddy.transport', 'native', 0), ('sync.reminder', 'on', 0)");
 
   await migrate(db, all);
-  const aggs = await db.all<{ source: string; metric: string; daily_agg: string }>("SELECT source, metric, daily_agg FROM metric_catalog ORDER BY source, metric");
+  const aggs = await db.all<{ source: string; metric: string; daily_agg: string }>(
+    "SELECT source, metric, daily_agg FROM metric_catalog ORDER BY source, metric",
+  );
   assert.deepEqual(aggs, [
     { source: "freddy", metric: "activity_vo2Max", daily_agg: "max" },
     { source: "garmin", metric: "activity_aerobicTrainingEffect", daily_agg: "max" },
@@ -82,7 +92,11 @@ test("migration 0010 fixes catalog rows that still hold the old guess, and keeps
     { source: "garmin", metric: "daily_steps", daily_agg: "sum" },
   ]);
   const settings = await db.all<{ key: string }>("SELECT key FROM app_settings ORDER BY key");
-  assert.deepEqual(settings.map((s) => s.key), ["sync.reminder"], "the freddy transport setting is gone");
+  assert.deepEqual(
+    settings.map((s) => s.key),
+    ["sync.reminder"],
+    "the freddy transport setting is gone",
+  );
 });
 
 test("every override is fixed by migration 0010 (the two lists stay in step)", () => {
@@ -93,9 +107,7 @@ test("every override is fixed by migration 0010 (the two lists stay in step)", (
 test("catalog refresh updates source facts but keeps the user's display choices", async () => {
   const { db } = await migratedDb();
   await upsertCatalog(db, "garmin", [{ metric: "daily_steps", firstDay: "2026-09-24", lastDay: "2026-10-24", records: 31 }], NOW);
-  await db.run(
-    "UPDATE metric_catalog SET label = 'Steps', pinned = 1, daily_agg = 'max', category = 'activity' WHERE metric = 'daily_steps'",
-  );
+  await db.run("UPDATE metric_catalog SET label = 'Steps', pinned = 1, daily_agg = 'max', category = 'activity' WHERE metric = 'daily_steps'");
   await upsertCatalog(db, "garmin", [{ metric: "daily_steps", firstDay: "2026-09-24", lastDay: "2026-10-25", records: 32 }], NOW + 1);
   const [r] = await db.all<Record<string, unknown>>("SELECT * FROM metric_catalog");
   assert.equal(r.label, "Steps");

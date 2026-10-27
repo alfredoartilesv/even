@@ -3,7 +3,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
-import { APP_ICON_CONTENTS, ENTITLEMENTS, HEALTH_SHARE_USAGE, LAUNCH_STORYBOARD, SPLASH_CONTENTS, launchBackgroundColorset, patchInfoPlist, patchPbxproj } from "../scripts/ios-project.mjs";
+import {
+  APP_ICON_CONTENTS,
+  ENTITLEMENTS,
+  HEALTH_SHARE_USAGE,
+  LAUNCH_STORYBOARD,
+  SPLASH_CONTENTS,
+  launchBackgroundColorset,
+  patchInfoPlist,
+  patchPbxproj,
+} from "../scripts/ios-project.mjs";
 import { checkBundle, checkLog, pickDevice } from "../scripts/ios-sim.mjs";
 import { readPalette } from "../scripts/palette.mjs";
 
@@ -94,7 +103,7 @@ function png(file: string) {
   const b = readFileSync(join(root, file));
   assert.equal(b.subarray(1, 4).toString(), "PNG", file);
   const idat: Buffer[] = [];
-  for (let at = 8; at < b.length; ) {
+  for (let at = 8; at < b.length;) {
     const len = b.readUInt32BE(at);
     if (b.subarray(at + 4, at + 8).toString() === "IDAT") idat.push(b.subarray(at + 8, at + 8 + len));
     at += 12 + len;

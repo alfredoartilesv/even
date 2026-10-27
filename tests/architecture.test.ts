@@ -25,7 +25,10 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const files = walk(SRC);
 const rel = (p: string) => relative(SRC, p).split("\\").join("/");
-const layer = (p: string) => rel(p).split("/")[0].replace(/\.tsx?$/, "");
+const layer = (p: string) =>
+  rel(p)
+    .split("/")[0]
+    .replace(/\.tsx?$/, "");
 
 interface Imp {
   spec: string;
@@ -75,7 +78,9 @@ function nativePath(file: string, seen = new Set<string>()): string[] | null {
 }
 
 test("every relative import resolves", () => {
-  const broken = [...graph].flatMap(([f, imps]) => imps.filter((i) => i.spec.startsWith(".") && !i.target && !i.spec.endsWith(".css") && !i.spec.includes("?")).map((i) => `${rel(f)} -> ${i.spec}`));
+  const broken = [...graph].flatMap(([f, imps]) =>
+    imps.filter((i) => i.spec.startsWith(".") && !i.target && !i.spec.endsWith(".css") && !i.spec.includes("?")).map((i) => `${rel(f)} -> ${i.spec}`),
+  );
   assert.deepEqual(broken, []);
 });
 
@@ -89,7 +94,9 @@ test("logic outside platform and app never reaches a native plugin at runtime", 
 });
 
 test("native plugins are imported only in platform/", () => {
-  const bad = [...graph].flatMap(([f, imps]) => (layer(f) === "platform" ? [] : imps.filter((i) => !i.typeOnly && NATIVE.test(i.spec)).map((i) => `${rel(f)} -> ${i.spec}`)));
+  const bad = [...graph].flatMap(([f, imps]) =>
+    layer(f) === "platform" ? [] : imps.filter((i) => !i.typeOnly && NATIVE.test(i.spec)).map((i) => `${rel(f)} -> ${i.spec}`),
+  );
   assert.deepEqual(bad, []);
 });
 

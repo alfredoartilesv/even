@@ -15,7 +15,16 @@ function idToken(claims: Record<string, unknown>): string {
   return `${b64url({ alg: "RS256", typ: "JWT" })}.${b64url(claims)}.sig`;
 }
 const good = (over: Record<string, unknown> = {}) =>
-  idToken({ iss: "https://accounts.google.com", aud: CLIENT, sub: "1001", email: "ana@example.com", email_verified: true, name: "Ana", exp: NOW / 1000 + 3600, ...over });
+  idToken({
+    iss: "https://accounts.google.com",
+    aud: CLIENT,
+    sub: "1001",
+    email: "ana@example.com",
+    email_verified: true,
+    name: "Ana",
+    exp: NOW / 1000 + 3600,
+    ...over,
+  });
 
 const ana: GoogleIdentity = { subject: "1001", email: "ana@example.com", emailVerified: true, name: "Ana" };
 const ben: GoogleIdentity = { subject: "2002", email: "ben@example.com", emailVerified: true, name: "Ben" };

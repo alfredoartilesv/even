@@ -20,7 +20,10 @@ export function AboutSettings({ db }: { db: SqlDriver }) {
 
   const rows: [string, string][] = [
     ["Version", APP_VERSION],
-    ["Build", `${BUILD_TIME ? new Date(BUILD_TIME).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "–"}${import.meta.env.DEV ? " (development)" : ""}`],
+    [
+      "Build",
+      `${BUILD_TIME ? new Date(BUILD_TIME).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "–"}${import.meta.env.DEV ? " (development)" : ""}`,
+    ],
     ["Platform", PLATFORM[platformName] ?? platformName],
     ["Database schema", schema === null ? "–" : `v${schema}`],
     ["Chat model", CHAT_MODEL],
@@ -47,8 +50,8 @@ export function AboutSettings({ db }: { db: SqlDriver }) {
         </tbody>
       </table>
       <p className="muted small">
-        A personal health app. Your data stays in an encrypted database on this phone. It leaves only when you sync with Garmin, ask Claude in the chat (with your
-        permission for each kind of data), or export a backup or the debug logs.
+        A personal health app. Your data stays in an encrypted database on this phone. It leaves only when you sync with Garmin, ask Claude in the chat (with
+        your permission for each kind of data), or export a backup or the debug logs.
       </p>
     </section>
   );

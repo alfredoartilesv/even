@@ -31,10 +31,12 @@ function fakeNotifier(allowed = true) {
 }
 
 async function withRun(db: Awaited<ReturnType<typeof migratedDb>>["db"], finishedMs: number, status: "ok" | "error" = "ok") {
-  await db.run(
-    "INSERT INTO sync_runs (id, source, started_ms, finished_ms, status) VALUES (?, 'garmin', ?, ?, ?)",
-    [`r${finishedMs}${status}`, finishedMs - 1000, finishedMs, status],
-  );
+  await db.run("INSERT INTO sync_runs (id, source, started_ms, finished_ms, status) VALUES (?, 'garmin', ?, ?, ?)", [
+    `r${finishedMs}${status}`,
+    finishedMs - 1000,
+    finishedMs,
+    status,
+  ]);
 }
 
 test("freshness: fresh under 3 days, stale from 3 days, never without a success", () => {

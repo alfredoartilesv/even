@@ -148,7 +148,10 @@ test("dashboard check-in: the span's notes, average mood and energy, and the lat
   await addMeasurement(db, { kind: "weight", value: 79.9, atMs: at("2026-10-26", "07:00"), timeZone: TZ }, "user", NOW);
 
   const week = await loadDashboard(db, "week", "2026-10-22", TODAY);
-  assert.deepEqual(week.journal.notes.map((n) => n.day), ["2026-10-22", "2026-10-20"]);
+  assert.deepEqual(
+    week.journal.notes.map((n) => n.day),
+    ["2026-10-22", "2026-10-20"],
+  );
   assert.deepEqual(week.journal.mood, { total: 6, avg: 3, daysWithData: 2 });
   assert.deepEqual(week.journal.energy, { total: 3, avg: 3, daysWithData: 1 });
   assert.deepEqual(week.journal.weight, { kg: 80.5, day: "2026-10-21", source: "manual" }, "the latest weight within the week, not after it");

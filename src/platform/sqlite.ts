@@ -2,10 +2,7 @@ import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import type { SqlDriver, SqlValue } from "../db/driver";
 
 /** The slice of the plugin connection the driver uses; tests fake exactly this. */
-export type PluginConnection = Pick<
-  SQLiteDBConnection,
-  "execute" | "run" | "query" | "beginTransaction" | "commitTransaction" | "rollbackTransaction"
->;
+export type PluginConnection = Pick<SQLiteDBConnection, "execute" | "run" | "query" | "beginTransaction" | "commitTransaction" | "rollbackTransaction">;
 
 const TXN = /^(BEGIN|COMMIT|END|ROLLBACK)(\s+TRANSACTION)?\s*;?$/i;
 

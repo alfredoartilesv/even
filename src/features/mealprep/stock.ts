@@ -89,9 +89,7 @@ function take<L extends { portions: number }>(lots: L[], n: number, order: (a: L
  * the oldest freezer lot. Eating prefers lots that are ready (already defrosted).
  */
 export function foldBatch(batch: BatchInfo, moves: Move[]): BatchStock {
-  let fridge: FridgeLot[] = [
-    { portions: batch.portions, readyAtMs: batch.cookedAtMs, eatBy: addDays(batch.localDay, batch.fridgeDays), thawed: false },
-  ];
+  let fridge: FridgeLot[] = [{ portions: batch.portions, readyAtMs: batch.cookedAtMs, eatBy: addDays(batch.localDay, batch.fridgeDays), thawed: false }];
   let freezer: FreezerLot[] = [];
   let eaten = 0;
   let discarded = 0;
@@ -124,8 +122,7 @@ export function foldBatch(batch: BatchInfo, moves: Move[]): BatchStock {
       eaten += m.portions - missing;
       overdrawn += missing;
     } else {
-      const { missing } =
-        m.fromLoc === "freezer" ? take(freezer, m.portions, byFrozen) : take(fridge, m.portions, byEatBy);
+      const { missing } = m.fromLoc === "freezer" ? take(freezer, m.portions, byFrozen) : take(fridge, m.portions, byEatBy);
       discarded += m.portions - missing;
       overdrawn += missing;
     }

@@ -53,7 +53,9 @@ async function main() {
 
   const T = 1_800_000_000_000;
   await orm.insert(conversations).values({ id: "c1", title: "Sleep", createdAt: T, updatedAt: T, originDeviceId: "d" });
-  await orm.insert(messages).values({ id: "m1", conversationId: "c1", seq: 0, role: "user", contentJson: "[]", createdAt: T + 1, updatedAt: T + 1, originDeviceId: "d" });
+  await orm
+    .insert(messages)
+    .values({ id: "m1", conversationId: "c1", seq: 0, role: "user", contentJson: "[]", createdAt: T + 1, updatedAt: T + 1, originDeviceId: "d" });
 
   const simple = await orm.select().from(conversations).where(eq(conversations.id, "c1"));
   const simpleOk = simple[0]?.title === "Sleep" && simple[0]?.createdAt === T;

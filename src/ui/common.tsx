@@ -15,6 +15,68 @@ export function failed(err: unknown, scope: string): Msg {
   return { kind: "error", text: (err as Error)?.message ?? String(err) };
 }
 
+/**
+ * A change made from a screen: do it, say so (or say why it failed), reload the screen and tell
+ * the app. Resolves to whether it worked, so a form can close only on success.
+ */
+export function changeRunner(o: { setMsg: (m: Msg) => void; load: () => Promise<unknown>; onChanged: () => void; scope: string }) {
+  return async (fn: () => Promise<unknown>, ok: string): Promise<boolean> => {
+    try {
+      await fn();
+      o.setMsg({ kind: "ok", text: ok });
+      await o.load();
+      o.onChanged();
+      return true;
+    } catch (err) {
+      o.setMsg(failed(err, o.scope));
+      return false;
+    }
+  };
+}
+
+/** Save and Cancel under an edit form, and Remove (after a confirmation) when the item exists already. */
+export function EditActions({ onCancel, onRemove, confirmRemove }: { onCancel: () => void; onRemove?: () => void; confirmRemove: string }) {
+  return (
+    <div className="actions">
+      <button type="submit">Save</button>
+      <button type="button" className="secondary" onClick={onCancel}>
+        Cancel
+      </button>
+      {onRemove && (
+        <button type="button" className="secondary danger" onClick={() => confirm(confirmRemove) && onRemove()}>
+          Remove
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The short optional note on a logged entry (a measurement, a shop). */
+export function NoteField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label>
+      <span>
+        Note <span className="muted small">optional</span>
+      </span>
+      <input value={value} maxLength={200} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
+
+/** The result of a save, with Undo next to it while the last entry can still be taken back. */
+export function MsgWithUndo({ msg, onUndo }: { msg: Msg; onUndo: (() => void) | null }) {
+  return (
+    <div className="row">
+      <MsgLine msg={msg} />
+      {onUndo && (
+        <button type="button" className="link small accent" onClick={onUndo}>
+          Undo
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function MsgLine({ msg }: { msg: Msg }) {
   if (!msg) return null;
   return <p className={msg.kind === "error" ? "error small" : "muted small"}>{msg.text}</p>;

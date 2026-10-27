@@ -21,7 +21,14 @@ const tokenFetch = (status: number, body = "eyJhbGciOiJIUzI1NiJ9.token-not-real.
 };
 
 const run = (db: Awaited<ReturnType<typeof migratedDb>>["db"], id: string, at: number, status: "ok" | "error", error: string | null = null) =>
-  db.run("INSERT INTO sync_runs (id, source, started_ms, finished_ms, status, error) VALUES (?, ?, ?, ?, ?, ?)", [id, GARMIN_SOURCE, at, at + 1000, status, error]);
+  db.run("INSERT INTO sync_runs (id, source, started_ms, finished_ms, status, error) VALUES (?, ?, ?, ?, ?, ?)", [
+    id,
+    GARMIN_SOURCE,
+    at,
+    at + 1000,
+    status,
+    error,
+  ]);
 
 test("connect checks the key with Garmin (a token request) before saving it", async () => {
   const secrets = memorySecretStore();

@@ -41,10 +41,14 @@ export async function createConversation(
 ): Promise<string> {
   const now = opts.now ?? Date.now();
   const id = uuidv7(now);
-  await db.run(
-    `INSERT INTO chat_conversations (id, title, model, created_at, updated_at, origin_device_id) VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, opts.title ?? null, opts.model ?? null, now, now, deviceId],
-  );
+  await db.run(`INSERT INTO chat_conversations (id, title, model, created_at, updated_at, origin_device_id) VALUES (?, ?, ?, ?, ?, ?)`, [
+    id,
+    opts.title ?? null,
+    opts.model ?? null,
+    now,
+    now,
+    deviceId,
+  ]);
   log.debug("conversation created", { id });
   return id;
 }
@@ -65,10 +69,9 @@ export async function appendMessage(
 ): Promise<string> {
   const now = m.now ?? Date.now();
   const id = uuidv7(now);
-  const [{ next }] = await db.all<{ next: number }>(
-    "SELECT COALESCE(MAX(seq), -1) + 1 AS next FROM chat_messages WHERE conversation_id = ?",
-    [m.conversationId],
-  );
+  const [{ next }] = await db.all<{ next: number }>("SELECT COALESCE(MAX(seq), -1) + 1 AS next FROM chat_messages WHERE conversation_id = ?", [
+    m.conversationId,
+  ]);
   await db.run(
     `INSERT INTO chat_messages
        (id, conversation_id, seq, role, content_json, model, stop_reason, input_tokens, output_tokens,

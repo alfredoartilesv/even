@@ -7,11 +7,8 @@
  * Prints counts, ranges and warnings only. It never prints the key, the token, or health values.
  * (*.sqlite is git-ignored.)
  */
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import type { SqlDriver, SqlValue } from "../src/db/driver";
-import { migrate, parseMigrations } from "../src/db/migrate";
+import { diskMigrations, nodeDb } from "./lib/nodeDb";
+import { migrate } from "../src/db/migrate";
 import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
 import { GarminApi, GarminSource } from "../src/features/sync/garmin";
 import { setLogLevel } from "../src/core/log";
@@ -19,36 +16,14 @@ import { setLogLevel } from "../src/core/log";
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.
 setLogLevel((process.env.LOG_LEVEL as never) ?? "info");
 
-function openDb(path: string): SqlDriver {
-  const raw = new DatabaseSync(path);
-  return {
-    async exec(sql) {
-      raw.exec(sql);
-    },
-    async run(sql, params = []) {
-      raw.prepare(sql).run(...(params as SqlValue[]));
-    },
-    async all<T>(sql: string, params: SqlValue[] = []) {
-      return raw.prepare(sql).all(...params).map((r) => ({ ...r })) as T[];
-    },
-  };
-}
-
-function loadMigrations() {
-  const dir = join(import.meta.dirname, "../src/db/migrations");
-  const files: Record<string, string> = {};
-  for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql"))) files[`./migrations/${f}`] = readFileSync(join(dir, f), "utf8");
-  return parseMigrations(files);
-}
-
 async function main() {
   const apiKey = process.env.GARMIN_API_KEY?.trim();
   if (!apiKey) throw new Error("GARMIN_API_KEY is empty. Fill .env and run with --env-file=.env");
 
   const dbArg = process.argv.indexOf("--db");
   const dbPath = dbArg > -1 ? process.argv[dbArg + 1] : ":memory:";
-  const db = openDb(dbPath);
-  const applied = await migrate(db, loadMigrations());
+  const db = nodeDb(dbPath).db;
+  const applied = await migrate(db, diskMigrations());
   console.log(`database: ${dbPath === ":memory:" ? "in memory" : dbPath}; migrations applied now: ${applied.length}`);
 
   const source = new GarminSource({ api: new GarminApi({ apiKey }) });

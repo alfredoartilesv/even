@@ -87,7 +87,16 @@ export async function listTrips(db: SqlDriver, from: string, to: string): Promis
      WHERE deleted_at IS NULL AND local_day BETWEEN ? AND ? ORDER BY paid_at_ms DESC, id DESC`,
     [from, to],
   );
-  return rows.map((r) => ({ id: r.id, shop: r.shop, amount: r.amount, day: r.local_day, atMs: r.paid_at_ms, items: r.items, notes: r.notes, createdBy: r.created_by }));
+  return rows.map((r) => ({
+    id: r.id,
+    shop: r.shop,
+    amount: r.amount,
+    day: r.local_day,
+    atMs: r.paid_at_ms,
+    items: r.items,
+    notes: r.notes,
+    createdBy: r.created_by,
+  }));
 }
 
 export async function deleteTrip(db: SqlDriver, id: string, nowMs: number = Date.now()): Promise<void> {

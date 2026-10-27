@@ -48,7 +48,10 @@ export function fakePlugin(opts: { iosColumns?: boolean } = {}) {
       });
     },
     async query(statement, values) {
-      const rows = raw.prepare(statement).all(...((values ?? []) as SqlValue[])).map((r) => ({ ...r }));
+      const rows = raw
+        .prepare(statement)
+        .all(...((values ?? []) as SqlValue[]))
+        .map((r) => ({ ...r }));
       return { values: opts.iosColumns ? [{ ios_columns: Object.keys(rows[0] ?? {}) }, ...rows] : rows };
     },
     async beginTransaction() {
