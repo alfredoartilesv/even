@@ -1,0 +1,155 @@
+/**
+ * Changes to the generated ios/ project, as pure functions (tests/ios.test.ts). Applied by
+ * scripts/ios-harden.mjs after every `cap add ios` / `cap sync ios`.
+ *
+ * - MARKETING_VERSION = package.json version; CURRENT_PROJECT_VERSION = the same number Android
+ *   uses as versionCode (1.2.3 -> 10203), so both platforms order builds the same way.
+ * - The home-screen name from capacitor.config.json's appName.
+ * - The launch screen from the palette: the logo in the middle of --bg (light and dark), instead
+ *   of Capacitor's white splash.
+ * - Apple Health: the HealthKit entitlement (App/App.entitlements, CODE_SIGN_ENTITLEMENTS) and the
+ *   sentence iOS shows when asking (NSHealthShareUsageDescription). Without either, iOS stops the
+ *   app the moment it asks for Health data. Read only, so no NSHealthUpdateUsageDescription.
+ */
+import { versionCode } from "./android-gradle.mjs";
+
+export const ENTITLEMENTS_PATH = "App/App.entitlements";
+
+/** project.pbxproj with the app version and the entitlements file in every app build configuration. */
+export function patchPbxproj(pbxproj, version) {
+  if (!/MARKETING_VERSION = /.test(pbxproj)) throw new Error("project.pbxproj: no MARKETING_VERSION (not a Capacitor iOS project?)");
+  if (!/INFOPLIST_FILE = App\/Info\.plist;/.test(pbxproj)) throw new Error("project.pbxproj: no app target (INFOPLIST_FILE = App/Info.plist)");
+  return pbxproj
+    .replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`)
+    .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${versionCode(version)};`)
+    .replace(/\n[ \t]*CODE_SIGN_ENTITLEMENTS = [^;]+;/g, "")
+    .replace(/^([ \t]*)INFOPLIST_FILE = App\/Info\.plist;/gm, `$1CODE_SIGN_ENTITLEMENTS = ${ENTITLEMENTS_PATH};\n$1INFOPLIST_FILE = App/Info.plist;`);
+}
+
+/** App/App.entitlements: HealthKit, reading only (no clinical records). */
+export const ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+</dict>
+</plist>
+`;
+
+/** Shown by iOS above the Health permission list. */
+export const HEALTH_SHARE_USAGE =
+  "Even reads your steps, calories, heart rate, sleep, weight and workouts from Apple Health to show them next to your food and journal. They stay on this iPhone.";
+
+const xmlText = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** A string entry in the top-level dict: replaced if there, added before the end if not. */
+function setPlistString(plist, key, value) {
+  const re = new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`);
+  if (re.test(plist)) return plist.replace(re, `$1${xmlText(value)}$2`);
+  const end = plist.lastIndexOf("</dict>");
+  if (end < 0) throw new Error("Info.plist: no top-level dict");
+  return `${plist.slice(0, end)}\t<key>${key}</key>\n\t<string>${xmlText(value)}</string>\n${plist.slice(end)}`;
+}
+
+/** Info.plist with the home-screen name and the Apple Health request text. */
+export function patchInfoPlist(plist, appName) {
+  if (!/<key>CFBundleDisplayName<\/key>/.test(plist)) throw new Error("Info.plist: no CFBundleDisplayName");
+  return setPlistString(setPlistString(plist, "CFBundleDisplayName", appName), "NSHealthShareUsageDescription", HEALTH_SHARE_USAGE);
+}
+
+/** "#0f766e" -> { red: "0x0F", green: "0x76", blue: "0x6E", alpha: "1.000" } (asset catalog form). */
+function components(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex ?? "")) throw new Error(`palette: iOS colors must be #rrggbb, got ${hex}`);
+  const [red, green, blue] = [1, 3, 5].map((i) => `0x${hex.slice(i, i + 2).toUpperCase()}`);
+  return { red, green, blue, alpha: "1.000" };
+}
+
+/** Assets.xcassets/LaunchBackground.colorset/Contents.json: --bg, with the dark value for Dark Mode. */
+export function launchBackgroundColorset(light, dark) {
+  const color = (hex) => ({ "color-space": "srgb", components: components(hex) });
+  return `${JSON.stringify(
+    {
+      colors: [
+        { color: color(light.bg), idiom: "universal" },
+        { appearances: [{ appearance: "luminosity", value: "dark" }], color: color(dark.bg), idiom: "universal" },
+      ],
+      info: { author: "xcode", version: 1 },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/** AppIcon.appiconset/Contents.json: one 1024 px icon, iOS makes every other size from it. */
+export const APP_ICON_CONTENTS = `${JSON.stringify(
+  { images: [{ filename: "AppIcon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024" }], info: { author: "xcode", version: 1 } },
+  null,
+  2,
+)}\n`;
+
+/** Splash.imageset/Contents.json: the logo at 120 pt, drawn @3x (smaller screens scale it down). */
+export const SPLASH_CONTENTS = `${JSON.stringify(
+  {
+    images: [
+      { idiom: "universal", scale: "1x" },
+      { idiom: "universal", scale: "2x" },
+      { filename: "Splash.png", idiom: "universal", scale: "3x" },
+    ],
+    info: { author: "xcode", version: 1 },
+  },
+  null,
+  2,
+)}\n`;
+
+/**
+ * LaunchScreen.storyboard: the 120 pt logo centred on the LaunchBackground color. Nothing may come
+ * between the XML declaration and <document>, not even a comment: ibtool then cannot tell the type.
+ */
+export const LAUNCH_STORYBOARD = `<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17105"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="snD-IY-ifK">
+                                <rect key="frame" x="147" y="388" width="120" height="120"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="120" id="Wd1-aa-a01"/>
+                                    <constraint firstAttribute="height" constant="120" id="Ht1-aa-a02"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
+                        <color key="backgroundColor" name="LaunchBackground"/>
+                        <constraints>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Cx1-aa-a03"/>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="Cy1-aa-a04"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="53" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="Splash" width="120" height="120"/>
+        <namedColor name="LaunchBackground">
+            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>
+`;

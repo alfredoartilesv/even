@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Even palette</title>
+<style>
+/*
+ * The app's color palette: every color the app uses, by role, for light and dark. Screens and
+ * the UI kit use these tokens only, never a literal color. Loaded first by main.tsx.
+ *
+ * Neutrals are warm stone, the accent is teal. tests/palette.test.ts checks the contrast of
+ * every text role against both surfaces (WCAG AA, 4.5:1) in both themes, so a change here that
+ * makes text hard to read fails the build. docs/screens/palette.html shows the swatches.
+ *
+ * Roles
+ *   --bg          page background
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar
+ *   --fg          main text
+ *   --muted       secondary text, icons at rest
+ *   --line        borders and dividers
+ *   --accent      primary actions, the selected tab, links
+ *   --on-accent   text and icons on an accent fill
+ *   --accent-soft tinted fill: the owner's chat bubbles, meter tracks, the avatar
+ *   --good        good news (met, within target), as text
+ *   --warning     needs attention (stale sync, over target)
+ *   --error       failures and destructive actions
+ *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
+ *   --shadow-pop  the lift under things that float over the page: chart tooltips
+ *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
+ *   --brand-ring  the logo's ring track
+ *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
+ *
+ * Series colors are the validated categorical palette (dataviz reference instance), checked with
+ * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
+ * pass every gate (worst adjacent CVD dE 9.1 light, 8.4 dark). In light mode slots 3, 4 and 5
+ * sit below 3:1 on the surface, so every chart that uses them prints its values (legend values
+ * or the table view). One-series charts use --accent instead.
+ *
+ * Outside CSS: scripts/palette.mjs reads this file for Android (colors.xml, window, splash), and
+ * the palette test checks that resources/logo.svg, public/favicon.svg, the Android icon and the
+ * theme-color in index.html use these values.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --fg: #1c1917;
+  --muted: #6b6460;
+  --line: #e7e5e4;
+  --accent: #0f766e;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  --good: #006300;
+  --warning: #a16207;
+  --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
+  --error: #b91c1c;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --viz-grid: #e7e5e4;
+  --viz-axis: #c3c2b7;
+
+  --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
+
+  /* The logo: one brand color for both themes (the light accent). */
+  --brand: #0f766e;
+  --brand-ring: #7fd1c6;
+  --on-brand: #ffffff;
+
+  /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-pill: 999px;
+
+  /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --normal: 220ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14110f;
+    --surface: #1e1a17;
+    --fg: #f5f5f4;
+    --muted: #a8a29e;
+    --line: #292524;
+    --accent: #2dd4bf;
+    --on-accent: #14110f;
+    --good: #0ca30c;
+    --warning: #facc15;
+    --error: #f87171;
+    --shadow: none;
+    --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --viz-grid: #2c2a27;
+    --viz-axis: #44403c;
+  }
+}
+
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+main { max-width: 72rem; margin: 0 auto; padding: 2rem 16px 4rem; }
+h1 { margin: 0 0 0.25rem; } h2 { margin: 2.5rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.muted { color: var(--muted); } a { color: var(--accent); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+nav.toc a, .themes button { border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 0.3rem 0.8rem; text-decoration: none; background: var(--surface); color: var(--fg); font: inherit; cursor: pointer; }
+.themes { display: flex; gap: 0.4rem; margin: 0.5rem 0 1rem; } .themes button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1.5rem; align-items: start; }
+figure { margin: 0; } figcaption { margin-top: 0.5rem; font-size: 0.9rem; } figcaption strong { display: block; }
+.shot { display: flex; gap: 0.5rem; } .shot img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+body[data-show="light"] .shot img.dark, body[data-show="dark"] .shot img.light { display: none; }
+body[data-show="both"] .grid { grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr)); }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; } th { color: var(--muted); font-weight: normal; }
+code { font-size: 0.9em; }
+</style>
+</head>
+<body>
+<main>
+<h1>Color palette</h1>
+<p class="muted">Every color the app uses, by role, from <code>src/ui/palette.css</code>. Screens and the UI kit use these tokens only; <code>tests/palette.test.ts</code> fails the build on a literal color elsewhere and checks that every text role reaches 4.5:1 (WCAG AA) on both surfaces in both themes. <a href="index.html">Screens</a>.</p>
+<h2>Roles</h2>
+<table><thead><tr><th>Token</th><th>Used for</th><th>Light</th><th>Dark</th></tr></thead><tbody>
+<tr><td><code>--bg</code></td><td>page background</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#fafaf9;vertical-align:middle"></span> <code>#fafaf9</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code></td></tr>
+<tr><td><code>--surface</code></td><td>raised things on it: cards, tiles, charts, the tab bar</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#1e1a17;vertical-align:middle"></span> <code>#1e1a17</code></td></tr>
+<tr><td><code>--fg</code></td><td>main text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#1c1917;vertical-align:middle"></span> <code>#1c1917</code><div class="muted" style="font-size:0.8rem">16.7:1 on bg · 17.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f5f5f4;vertical-align:middle"></span> <code>#f5f5f4</code><div class="muted" style="font-size:0.8rem">17.2:1 on bg · 15.8:1 on surface</div></td></tr>
+<tr><td><code>--muted</code></td><td>secondary text, icons at rest</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#6b6460;vertical-align:middle"></span> <code>#6b6460</code><div class="muted" style="font-size:0.8rem">5.6:1 on bg · 5.8:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#a8a29e;vertical-align:middle"></span> <code>#a8a29e</code><div class="muted" style="font-size:0.8rem">7.5:1 on bg · 6.9:1 on surface</div></td></tr>
+<tr><td><code>--line</code></td><td>borders and dividers</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e7e5e4;vertical-align:middle"></span> <code>#e7e5e4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#292524;vertical-align:middle"></span> <code>#292524</code></td></tr>
+<tr><td><code>--accent</code></td><td>primary actions, the selected tab, links</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code><div class="muted" style="font-size:0.8rem">5.2:1 on bg · 5.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#2dd4bf;vertical-align:middle"></span> <code>#2dd4bf</code><div class="muted" style="font-size:0.8rem">10.1:1 on bg · 9.3:1 on surface</div></td></tr>
+<tr><td><code>--on-accent</code></td><td>text and icons on an accent fill</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code><div class="muted" style="font-size:0.8rem">5.5:1 on accent</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code><div class="muted" style="font-size:0.8rem">10.1:1 on accent</div></td></tr>
+<tr><td><code>--accent-soft</code></td><td>tinted fill: the owner's chat bubbles, meter tracks, the avatar</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:color-mix(in srgb, #0f766e 14%, #fafaf9);vertical-align:middle"></span> <code>mix</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:color-mix(in srgb, #2dd4bf 14%, #14110f);vertical-align:middle"></span> <code>mix</code></td></tr>
+<tr><td><code>--good</code></td><td>good news (met, within target), as text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#006300;vertical-align:middle"></span> <code>#006300</code><div class="muted" style="font-size:0.8rem">7.2:1 on bg · 7.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0ca30c;vertical-align:middle"></span> <code>#0ca30c</code><div class="muted" style="font-size:0.8rem">5.6:1 on bg · 5.2:1 on surface</div></td></tr>
+<tr><td><code>--warning</code></td><td>needs attention (stale sync, over target)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#a16207;vertical-align:middle"></span> <code>#a16207</code><div class="muted" style="font-size:0.8rem">4.7:1 on bg · 4.9:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#facc15;vertical-align:middle"></span> <code>#facc15</code><div class="muted" style="font-size:0.8rem">12.3:1 on bg · 11.3:1 on surface</div></td></tr>
+<tr><td><code>--error</code></td><td>failures and destructive actions</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#b91c1c;vertical-align:middle"></span> <code>#b91c1c</code><div class="muted" style="font-size:0.8rem">6.2:1 on bg · 6.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f87171;vertical-align:middle"></span> <code>#f87171</code><div class="muted" style="font-size:0.8rem">6.8:1 on bg · 6.2:1 on surface</div></td></tr>
+<tr><td><code>--shadow</code></td><td>the lift under cards and the tab bar (none in dark: surfaces are lighter there)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:none;vertical-align:middle"></span> <code>none</code></td></tr>
+<tr><td><code>--shadow-pop</code></td><td>the lift under things that float over the page: chart tooltips</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 2px 8px rgb(0 0 0 / 0.12);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.12)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:0 2px 8px rgb(0 0 0 / 0.5);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.5)</code></td></tr>
+<tr><td><code>--brand</code></td><td>the Even logo tile: launcher icon, splash icon, favicon (same in both themes)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td></tr>
+<tr><td><code>--brand-ring</code></td><td>the logo's ring track</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td></tr>
+<tr><td><code>--on-brand</code></td><td>the logo's mark (the filled half of the ring, the equals sign)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td></tr>
+</tbody></table>
+<h2>Chart series</h2>
+<p class="muted">The validated categorical palette for charts with several series, in this order. One-series charts use the accent.</p>
+<table><thead><tr><th>Token</th><th>Light</th><th>Dark</th></tr></thead><tbody>
+<tr><td><code>--series-1</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#2a78d6;vertical-align:middle"></span> <code>#2a78d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#3987e5;vertical-align:middle"></span> <code>#3987e5</code></td></tr>
+<tr><td><code>--series-2</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#eb6834;vertical-align:middle"></span> <code>#eb6834</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d95926;vertical-align:middle"></span> <code>#d95926</code></td></tr>
+<tr><td><code>--series-3</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#1baf7a;vertical-align:middle"></span> <code>#1baf7a</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#199e70;vertical-align:middle"></span> <code>#199e70</code></td></tr>
+<tr><td><code>--series-4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#eda100;vertical-align:middle"></span> <code>#eda100</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#c98500;vertical-align:middle"></span> <code>#c98500</code></td></tr>
+<tr><td><code>--series-5</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e87ba4;vertical-align:middle"></span> <code>#e87ba4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d55181;vertical-align:middle"></span> <code>#d55181</code></td></tr>
+<tr><td><code>--series-6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#008300;vertical-align:middle"></span> <code>#008300</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#008300;vertical-align:middle"></span> <code>#008300</code></td></tr>
+<tr><td><code>--series-7</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#6250d6;vertical-align:middle"></span> <code>#6250d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#9085e9;vertical-align:middle"></span> <code>#9085e9</code></td></tr>
+<tr><td><code>--series-8</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e34948;vertical-align:middle"></span> <code>#e34948</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#e66767;vertical-align:middle"></span> <code>#e66767</code></td></tr>
+</tbody></table>
+<h2>Shape</h2>
+<table><tbody>
+<tr><td><code>--radius-sm</code></td><td><code>8px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-sm)"></span></td></tr>
+<tr><td><code>--radius</code></td><td><code>12px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius)"></span></td></tr>
+<tr><td><code>--radius-pill</code></td><td><code>999px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-pill)"></span></td></tr>
+</tbody></table>
+</main>
+</body>
+</html>

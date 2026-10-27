@@ -1,0 +1,74 @@
+# iOS: compile the app for the simulator and for devices, then run it in the iOS Simulator
+# (scripts/ios-sim.mjs). Needs macOS, so it runs on GitHub's Macs: on demand (Actions > iOS >
+# Run workflow) and on pull requests that touch the native side. The repo is private, so macOS
+# minutes count 10x; the paths filter keeps it off pure web changes.
+name: iOS
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop, master]
+    paths:
+      - package.json
+      - package-lock.json
+      - capacitor.config.json
+      - resources/**
+      - scripts/ios-*.mjs
+      - scripts/palette.mjs
+      - src/platform/**
+      - src/ui/palette.css
+      - .github/workflows/ios.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Build and run in the iOS Simulator
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Web build and iOS project
+        run: |
+          npm run build
+          npx cap add ios --packagemanager SPM
+          node scripts/ios-harden.mjs
+          npx cap sync ios
+      - name: Swift packages cache
+        uses: actions/cache@v4
+        with:
+          path: build/ios/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # Ad-hoc signed (no Apple account needed): an unsigned app has no identity, and iOS then
+      # refuses it the Keychain, where the database passphrase lives.
+      - name: Compile for the simulator
+        run: >
+          xcodebuild build -project ios/App/App.xcodeproj -scheme App -configuration Debug
+          -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios
+          CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= -quiet
+      - name: Compile for devices (Release, unsigned)
+        run: >
+          xcodebuild build -project ios/App/App.xcodeproj -scheme App -configuration Release
+          -destination 'generic/platform=iOS' -derivedDataPath build/ios
+          CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Run in the iOS Simulator
+        run: node scripts/ios-sim.mjs --app build/ios/Build/Products/Debug-iphonesimulator/App.app --out ios-sim-out
+      - name: Zip the simulator build
+        if: always()
+        run: cd build/ios/Build/Products/Debug-iphonesimulator && zip -qr "$GITHUB_WORKSPACE/ios-sim-out/Even-simulator.app.zip" App.app || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator
+          path: ios-sim-out
+          retention-days: 14

@@ -29,7 +29,7 @@ test("expected tables exist", async () => {
   );
   assert.deepEqual(
     rows.map((r) => r.name),
-    ["app_settings", "drink_entries", "food_entries", "health_samples", "sync_state"],
+    ["account", "agent_actions", "ai_disclosures", "app_settings", "chat_conversations", "chat_messages", "consents", "day_notes", "drink_entries", "drink_types", "food_entries", "food_photos", "goals", "health_samples", "manual_measurements", "meal_prep_batches", "meal_prep_ingredients", "meal_prep_moves", "meal_prep_tags", "meal_preps", "metric_catalog", "saved_meals", "shopping_list_items", "shopping_trips", "sync_runs", "sync_state"],
   );
 });
 
@@ -38,13 +38,13 @@ test("health_samples re-sync is idempotent via unique key", async () => {
   await migrate(db, realMigrations());
   const insert = `INSERT INTO health_samples
     (id, source, device, external_id, metric, start_ms, value_num, created_at, updated_at)
-    VALUES (?, 'freddy', 'Forerunner 245', '2026-10-24', 'daily_steps', ?, 10806, ?, ?)`;
+    VALUES (?, 'garmin', 'Forerunner 245', '2026-10-24', 'daily_steps', ?, 10806, ?, ?)`;
   await db.run(insert, ["a", NOW, NOW, NOW]);
   assert.throws(() => raw.prepare(insert).run("b", NOW, NOW, NOW), /UNIQUE/);
   // The adapter upserts instead:
   await db.run(
     `INSERT INTO health_samples (id, source, device, external_id, metric, start_ms, value_num, created_at, updated_at)
-     VALUES ('c', 'freddy', 'Forerunner 245', '2026-10-24', 'daily_steps', ?, 11000, ?, ?)
+     VALUES ('c', 'garmin', 'Forerunner 245', '2026-10-24', 'daily_steps', ?, 11000, ?, ?)
      ON CONFLICT (source, device, metric, external_id) DO UPDATE SET value_num = excluded.value_num, updated_at = excluded.updated_at`,
     [NOW, NOW, NOW + 1],
   );
