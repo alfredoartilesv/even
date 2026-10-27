@@ -180,7 +180,7 @@ test("network failures and non-JSON replies are GarminApiErrors without the URL"
 
 // ---- Mapping ----
 
-test("a sync maps every endpoint to the metric names the export import and freddy use", async () => {
+test("a sync maps every endpoint to the metric names the export import uses", async () => {
   const f = fakeGarmin();
   const res = await source(f).fetchSince(null);
   const get = (metric: string, ext = "2026-10-24#0") => res.samples.find((s) => s.metric === metric && s.externalId === ext);

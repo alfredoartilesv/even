@@ -91,7 +91,7 @@ export function ringBuffer(size = 500): { sink: Sink; records: () => LogRecord[]
 
 interface Config {
   threshold: Threshold;
-  /** Per-scope overrides by prefix, e.g. { "sync": "debug" } also covers "sync.freddy". */
+  /** Per-scope overrides by prefix, e.g. { "sync": "debug" } also covers "sync.garmin". */
   scopes: Record<string, Threshold>;
   sinks: Sink[];
   now: () => number;

@@ -7,7 +7,7 @@ import { exportBackup } from "../src/features/backup/backup";
 import { logFood, saveEntryAsMeal, setCalorieGoal } from "../src/features/food/food";
 import { addMove, DEFAULT_MEAL_PREP, logBatch, saveMealPrep } from "../src/features/mealprep/mealPrep";
 import { applyStoredLogLevel, loadLogLevel, saveLogLevel } from "../src/features/settings/logLevel";
-import { saveClaudeKey, saveFreddyCredentials } from "../src/features/settings/secrets";
+import { saveClaudeKey, saveGarminKey } from "../src/features/settings/secrets";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";
@@ -59,7 +59,7 @@ test("logs from real flows carry no health values, food names, notes, URLs or ke
   const { db } = await migratedDb();
   const records = capture();
   const secrets = memorySecretStore();
-  await saveFreddyCredentials(secrets, "https://freddy.example/mcp/SECRET-PATH", "freddy-key-XYZ");
+  await saveGarminKey(secrets, "garmin-key-XYZ-0123456789");
   await saveClaudeKey(secrets, "sk-ant-ABCDEFGHIJKLMNOPQRSTUVWXYZ");
   const id = await logFood(db, { name: "Grandma's lasagne", meal: "dinner", calories: 1234.5, proteinG: 56.5, carbsG: null, fatG: null, notes: "felt bloated", atMs: NOW, timeZone: TZ });
   await saveEntryAsMeal(db, id, { mime: "image/jpeg", dataB64: "/9j/4AAQ", width: 1, height: 1 }, NOW + 1);
@@ -71,7 +71,7 @@ test("logs from real flows carry no health values, food names, notes, URLs or ke
 
   assert.ok(records.length >= 8, "the flows are logged");
   const text = JSON.stringify(records);
-  for (const leak of ["lasagne", "1234.5", "56.5", "bloated", "Secret chili", "777.25", "family recipe", "SECRET-PATH", "freddy-key", "sk-ant", "/9j/"]) {
+  for (const leak of ["lasagne", "1234.5", "56.5", "bloated", "Secret chili", "777.25", "family recipe", "garmin-key", "sk-ant", "/9j/"]) {
     assert.ok(!text.includes(leak), `log contains ${leak}`);
   }
   // The calorie target is the owner's setting, not a reading; it is fine to log.

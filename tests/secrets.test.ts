@@ -2,14 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clearClaudeKey,
-  clearFreddyCredentials,
   clearGarminKey,
   loadClaudeKey,
-  loadFreddyCredentials,
   loadGarminKey,
   memorySecretStore,
+  removeLegacySecrets,
   saveClaudeKey,
-  saveFreddyCredentials,
   saveGarminKey,
   SECRET_KEYS,
 } from "../src/features/settings/secrets";
@@ -27,20 +25,19 @@ test("Garmin personal API key: shape check, trim, store, clear", async () => {
   assert.equal(await loadGarminKey(store), null);
 });
 
-test("freddy credentials: validate, trim, store, and clear", async () => {
+test("the freddy URL and key a phone still holds are removed, and nothing else", async () => {
   const store = memorySecretStore();
-  assert.equal(await loadFreddyCredentials(store), null);
-  await assert.rejects(saveFreddyCredentials(store, "not a url", "k"), /not a valid URL/);
-  await assert.rejects(saveFreddyCredentials(store, "http://freddy.coach/mcp/x", "k"), /https/);
+  await store.set("freddy.mcp_url", "https://freddy.coach/mcp/x");
+  await store.set("freddy.mcp_key", "fk_1");
+  await saveGarminKey(store, "gpk_abcdefghijklmnopqrstuvwxyz");
+  await saveClaudeKey(store, "sk-ant-api03-abcdefghijklmnopqrstuvwxyz");
 
-  await saveFreddyCredentials(store, "  https://freddy.coach/mcp/x  ", " fk_1 ");
-  assert.deepEqual(await loadFreddyCredentials(store), { url: "https://freddy.coach/mcp/x", apiKey: "fk_1" });
-
-  await saveFreddyCredentials(store, "https://freddy.coach/mcp/x", "");
-  assert.deepEqual(await loadFreddyCredentials(store), { url: "https://freddy.coach/mcp/x", apiKey: null });
-
-  await clearFreddyCredentials(store);
-  assert.equal(await loadFreddyCredentials(store), null);
+  await removeLegacySecrets(store);
+  assert.equal(await store.get("freddy.mcp_url"), null);
+  assert.equal(await store.get("freddy.mcp_key"), null);
+  assert.equal(await loadGarminKey(store), "gpk_abcdefghijklmnopqrstuvwxyz");
+  assert.equal(await loadClaudeKey(store), "sk-ant-api03-abcdefghijklmnopqrstuvwxyz");
+  await removeLegacySecrets(store); // again: nothing to do, no error
 });
 
 test("Claude API key: shape check, trim, store, clear", async () => {

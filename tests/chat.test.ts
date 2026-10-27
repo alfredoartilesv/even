@@ -60,7 +60,7 @@ async function seededDb() {
   await upsertSamples(
     db,
     days.map((d, i) => ({
-      source: "freddy",
+      source: "garmin",
       device: "Garmin",
       externalId: `${d}#0`,
       metric: "daily_steps",
