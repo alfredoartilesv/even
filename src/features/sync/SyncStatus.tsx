@@ -9,22 +9,29 @@ interface Props {
   onSync: () => void;
 }
 
-/** Header sync button: when Garmin last synced, and a tap to sync now. */
-export function SyncButton({ status, configured, syncing, nowMs, onSync }: Props) {
+/**
+ * Header sync button: the ⟳ symbol only, so the header keeps room for the greeting. What it would
+ * say ("Synced 5 min ago") is its tooltip and screen-reader label; it spins while syncing and turns
+ * amber when the last sync is old or failed. Without a Garmin key it opens Settings > Connections
+ * (onSetup) instead of sitting there disabled.
+ */
+export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup }: Props & { onSetup: () => void }) {
   const f = freshness(status?.lastOkMs ?? null, nowMs);
-  const label = syncing ? "Syncing…" : f.state === "never" ? "Sync" : `Synced ${ago(f.ageMs)}`;
+  const label = !configured ? "Set up Garmin sync" : syncing ? "Syncing…" : f.state === "never" ? "Not synced yet" : `Synced ${ago(f.ageMs)}`;
+  const action = configured ? "Sync with Garmin now" : "Add your Garmin key in Settings";
+  const stale = configured && (f.state === "stale" || status?.status === "error");
   return (
     <button
-      className={f.state === "stale" || status?.status === "error" ? "sync-button stale" : "sync-button secondary"}
-      onClick={onSync}
-      disabled={!configured || syncing}
-      title={configured ? "Sync with Garmin now" : "Add your Garmin key in Settings first"}
-      aria-label={`${label}. Sync with Garmin now`}
+      type="button"
+      className={`sync-button icon-button ${stale ? "stale" : "secondary"}`}
+      onClick={configured ? onSync : onSetup}
+      disabled={syncing}
+      title={`${label}. ${action}`}
+      aria-label={`${label}. ${action}`}
     >
       <span aria-hidden className={syncing ? "spin" : ""}>
         ⟳
-      </span>{" "}
-      {label}
+      </span>
     </button>
   );
 }

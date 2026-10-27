@@ -109,7 +109,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
 
   return (
     <section>
-      <PageHeader title={greeting(new Date().getHours(), name)} subtitle={dateLine} leading={profile} actions={sync} />
+      <PageHeader title={greeting(name)} subtitle={dateLine} leading={profile} actions={sync} />
 
       {syncWarnings.map((w) => (
         <p key={w} className="warning small">
