@@ -7,24 +7,57 @@
  * - The home-screen name from capacitor.config.json's appName.
  * - The launch screen from the palette: the logo in the middle of --bg (light and dark), instead
  *   of Capacitor's white splash.
+ * - Apple Health: the HealthKit entitlement (App/App.entitlements, CODE_SIGN_ENTITLEMENTS) and the
+ *   sentence iOS shows when asking (NSHealthShareUsageDescription). Without either, iOS stops the
+ *   app the moment it asks for Health data. Read only, so no NSHealthUpdateUsageDescription.
  */
 import { versionCode } from "./android-gradle.mjs";
 
-/** project.pbxproj with the app version in every build configuration. */
+export const ENTITLEMENTS_PATH = "App/App.entitlements";
+
+/** project.pbxproj with the app version and the entitlements file in every app build configuration. */
 export function patchPbxproj(pbxproj, version) {
   if (!/MARKETING_VERSION = /.test(pbxproj)) throw new Error("project.pbxproj: no MARKETING_VERSION (not a Capacitor iOS project?)");
+  if (!/INFOPLIST_FILE = App\/Info\.plist;/.test(pbxproj)) throw new Error("project.pbxproj: no app target (INFOPLIST_FILE = App/Info.plist)");
   return pbxproj
     .replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`)
-    .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${versionCode(version)};`);
+    .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${versionCode(version)};`)
+    .replace(/\n[ \t]*CODE_SIGN_ENTITLEMENTS = [^;]+;/g, "")
+    .replace(/^([ \t]*)INFOPLIST_FILE = App\/Info\.plist;/gm, `$1CODE_SIGN_ENTITLEMENTS = ${ENTITLEMENTS_PATH};\n$1INFOPLIST_FILE = App/Info.plist;`);
 }
+
+/** App/App.entitlements: HealthKit, reading only (no clinical records). */
+export const ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+</dict>
+</plist>
+`;
+
+/** Shown by iOS above the Health permission list. */
+export const HEALTH_SHARE_USAGE =
+  "Even reads your steps, calories, heart rate, sleep, weight and workouts from Apple Health to show them next to your food and journal. They stay on this iPhone.";
 
 const xmlText = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Info.plist with the home-screen name. */
+/** A string entry in the top-level dict: replaced if there, added before the end if not. */
+function setPlistString(plist, key, value) {
+  const re = new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`);
+  if (re.test(plist)) return plist.replace(re, `$1${xmlText(value)}$2`);
+  const end = plist.lastIndexOf("</dict>");
+  if (end < 0) throw new Error("Info.plist: no top-level dict");
+  return `${plist.slice(0, end)}\t<key>${key}</key>\n\t<string>${xmlText(value)}</string>\n${plist.slice(end)}`;
+}
+
+/** Info.plist with the home-screen name and the Apple Health request text. */
 export function patchInfoPlist(plist, appName) {
-  const re = /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/;
-  if (!re.test(plist)) throw new Error("Info.plist: no CFBundleDisplayName");
-  return plist.replace(re, `$1${xmlText(appName)}$2`);
+  if (!/<key>CFBundleDisplayName<\/key>/.test(plist)) throw new Error("Info.plist: no CFBundleDisplayName");
+  return setPlistString(setPlistString(plist, "CFBundleDisplayName", appName), "NSHealthShareUsageDescription", HEALTH_SHARE_USAGE);
 }
 
 /** "#0f766e" -> { red: "0x0F", green: "0x76", blue: "0x6E", alpha: "1.000" } (asset catalog form). */

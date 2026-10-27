@@ -14,7 +14,9 @@ import { JournalScreen, type JournalView } from "../features/journal/ui/JournalS
 import { loadGarminKey, removeLegacySecrets } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
-import { lastSync, runSync, type LastSync } from "../features/sync/runSync";
+import { combineSyncs, lastSync, runSync, type LastSync } from "../features/sync/runSync";
+import { APPLE_HEALTH_SOURCE, AppleHealthSource, appleHealthEnabled } from "../features/sync/appleHealth";
+import { appleHealthSupported, healthStore } from "../platform/health";
 import { refreshSyncReminder, RESYNC_ON_RESUME_MS } from "../features/sync/reminder";
 import { SyncBanner, SyncButton } from "../features/sync/SyncStatus";
 import { notifier } from "../platform/notifications";
@@ -63,24 +65,31 @@ export function App() {
   /** Reload the header status and move the "not synced for 3 days" reminder to match. */
   const refreshStatus = useCallback(async () => {
     if (!db) return;
-    const isConfigured = Boolean(await loadGarminKey(secretStore));
-    setConfigured(isConfigured);
-    setStatus(await lastSync(db, GARMIN_SOURCE));
+    const garmin = Boolean(await loadGarminKey(secretStore));
+    const apple = appleHealthSupported && (await appleHealthEnabled(db));
+    setConfigured(garmin || apple);
+    setStatus(combineSyncs([garmin ? await lastSync(db, GARMIN_SOURCE) : null, apple ? await lastSync(db, APPLE_HEALTH_SOURCE) : null]));
     setNow(Date.now());
-    await refreshSyncReminder(db, notifier, { configured: isConfigured, source: GARMIN_SOURCE });
+    // The reminder is about the Garmin key expiring; Apple Health has no key.
+    await refreshSyncReminder(db, notifier, { configured: garmin, source: GARMIN_SOURCE });
   }, [db]);
 
   const sync = useCallback(async () => {
     if (!db) return;
     const apiKey = await loadGarminKey(secretStore);
-    setConfigured(Boolean(apiKey));
-    if (!apiKey) return log.info("sync skipped: Garmin not configured");
+    const apple = appleHealthSupported && (await appleHealthEnabled(db));
+    setConfigured(Boolean(apiKey) || apple);
+    if (!apiKey) log.info("sync skipped: Garmin not configured");
+    if (!apiKey && !apple) return;
     setSyncing(true);
     try {
-      // Native HTTP on the phone: no WebView CORS in the way.
-      const api = new GarminApi({ apiKey, fetch: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
-      const source = new GarminSource({ api });
-      await runSync(db, source); // never throws; the outcome is in sync_runs
+      // runSync never throws; each outcome is in sync_runs.
+      if (apiKey) {
+        // Native HTTP on the phone: no WebView CORS in the way.
+        const api = new GarminApi({ apiKey, fetch: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
+        await runSync(db, new GarminSource({ api }));
+      }
+      if (apple) await runSync(db, new AppleHealthSource({ store: healthStore }));
     } finally {
       setSyncing(false);
       setVersion((v) => v + 1);
@@ -109,7 +118,7 @@ export function App() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [configured, syncing, status, sync]);
 
-  // Sync on open, so the latest Garmin day is there when the app is.
+  // Sync on open, so the latest day (Garmin, Apple Health) is there when the app is.
   useEffect(() => {
     if (!db || autoSynced.current) return;
     autoSynced.current = true;

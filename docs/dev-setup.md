@@ -165,6 +165,8 @@ The run:
 
 On a Mac: `npm ci`, `npx cap add ios --packagemanager SPM`, `npm run ios:sync`, then `npx cap open ios` (Xcode) or `npx cap run ios`. To check a simulator build the way CI does: `node scripts/ios-sim.mjs --app <App.app>`.
 
+**Apple Health.** Settings > Connections > Apple Health asks iOS for read access; after that every sync also reads the recent days from HealthKit. `ios-harden.mjs` adds the HealthKit entitlement (`App/App.entitlements`) and the request text (`NSHealthShareUsageDescription`), and the simulator check fails if the built app lacks either. The simulator cannot press "Allow" on the permission sheet, so reading real Health data has to be checked on an iPhone. Installing on one with HealthKit needs signing: a paid Apple Developer account works; a free Apple ID personal team may not offer the HealthKit capability.
+
 **Not yet on iOS:**
 - **Installing on an iPhone** needs signing with an Apple Developer account (99 USD a year), plus TestFlight or a registered device. The device build in CI is unsigned and proves only that it compiles.
 - **Google sign-in** is hidden on iOS (`googleSignInAvailable`) until there is an iOS OAuth client and its URL scheme in `Info.plist`.
