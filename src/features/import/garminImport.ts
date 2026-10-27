@@ -7,8 +7,8 @@ import { upsertSamples } from "../metrics/samples";
 import { GARMIN_EXPORT_SOURCE, garminKind, parseGarminExport, type GarminFile, type GarminImport } from "./garmin";
 
 /**
- * Read a Garmin export ZIP and store it. fflate runs in Node and in the WebView, so this can move
- * into the app later; for now scripts/garmin-import.ts runs it on the PC.
+ * Read a Garmin export ZIP and store it. fflate runs in Node and in the WebView: the app imports the
+ * ZIP from Settings > Connections, and scripts/garmin-import.ts does the same on the PC.
  */
 
 const log = createLogger("import.garmin");
@@ -54,4 +54,22 @@ export async function importGarminZip(db: SqlDriver, bytes: Uint8Array, opts: { 
   const parsed = parseGarminExport(readGarminZip(bytes), { timeZone: opts.timeZone });
   const written = await storeGarminImport(db, parsed, opts.nowMs);
   return { written, parsed };
+}
+
+/** Largest ZIP the phone reads in one go (it is held in memory while the JSON files are unpacked). */
+export const MAX_ZIP_BYTES = 1024 * 1024 * 1024;
+
+export interface ExportCoverage {
+  readings: number;
+  from: string | null;
+  to: string | null;
+}
+
+/** What the Garmin export import has stored so far: readings, first and last day. */
+export async function garminExportCoverage(db: SqlDriver): Promise<ExportCoverage> {
+  const [r] = await db.all<{ n: number; f: string | null; t: string | null }>(
+    "SELECT COUNT(*) AS n, MIN(local_day) AS f, MAX(local_day) AS t FROM health_samples WHERE source = ?",
+    [GARMIN_EXPORT_SOURCE],
+  );
+  return { readings: r.n, from: r.f, to: r.t };
 }
