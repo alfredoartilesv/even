@@ -13,7 +13,7 @@ import { fmtGoalValue, GOAL_TEMPLATES } from "./goalTemplates";
 import { deleteGoal, goalProgress, listGoals, type Goal, type Progress, type Status } from "./goals";
 import { activityLabel, SPORT_LABEL, SPORTS, type SportId } from "./sports";
 import { Avatar, squarePhoto } from "./ui/avatar";
-import { fmtDistance, fmtDuration, listWorkouts, personalBests, sportTotals, type Workout } from "./workouts";
+import { fmtDistance, fmtDuration, fmtPace, fmtSpeed, listWorkouts, personalBests, sportTotals, type Workout } from "./workouts";
 
 const STATUS: Record<Status, { badge: BadgeStatus; word: string }> = {
   met: { badge: "good", word: "met" },
@@ -314,23 +314,32 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
       {totals.length === 0 ? (
         <p className="muted small">No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch with the Garmin sync, or from the Garmin import.</p>
       ) : (
-        <table className="values">
-          <tbody>
-            {totals.map((t) => (
-              <tr key={t.sport}>
-                <td>
-                  {SPORT_LABEL[t.sport]}
-                  {mine(t.sport) >= 0 && <span className="muted small"> · yours</span>}
-                  <div className="muted small">{plural(t.sessions, "session")}</div>
-                </td>
-                <td className="num">
-                  {fmtDuration(t.durationS)}
-                  {t.distanceM > 0 && <div className="muted small">{fmtDistance(t.distanceM)}</div>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="stack tight">
+          {totals.map((t) => (
+            <div key={t.sport} className="card sport-total">
+              <div className="row">
+                <strong className="grow">{SPORT_LABEL[t.sport]}</strong>
+                {mine(t.sport) >= 0 && <span className="muted small">your sport</span>}
+              </div>
+              <dl className="stat-row">
+                <div>
+                  <dt>Sessions</dt>
+                  <dd>{t.sessions}</dd>
+                </div>
+                <div>
+                  <dt>Time</dt>
+                  <dd>{fmtDuration(t.durationS)}</dd>
+                </div>
+                {t.distanceM > 0 && (
+                  <div>
+                    <dt>Distance</dt>
+                    <dd>{fmtDistance(t.distanceM)}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          ))}
+        </div>
       )}
 
       {bests.length > 0 && (
@@ -340,7 +349,7 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
             {bests.map((b) => (
               <li key={b.sport} className="small">
                 <strong>{SPORT_LABEL[b.sport]}</strong>: {fmtDistance(b.longestDistance!.distanceM!)}
-                <span className="muted"> on {fmtDay(b.longestDistance!.day)}</span>
+                <span className="muted"> · {fmtDayYear(b.longestDistance!.day)}</span>
                 {b.longestTime && b.longestTime !== b.longestDistance && <span className="muted"> · longest time {fmtDuration(b.longestTime.durationS!)}</span>}
               </li>
             ))}
@@ -351,24 +360,52 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
       {workouts.length > 0 && (
         <>
           <h3 className="group-head">Recent workouts</h3>
-          <ul className="entries">
+          <ul className="workouts">
             {workouts.slice(0, 8).map((w) => (
               <li key={w.key}>
-                <div className="grow">
-                  <div>{activityLabel(w.type)}</div>
-                  <div className="muted small">
-                    {fmtDay(w.day)}
-                    {w.durationS ? ` · ${fmtDuration(w.durationS)}` : ""}
-                    {w.distanceM ? ` · ${fmtDistance(w.distanceM)}` : ""}
-                    {w.avgHr ? ` · ${Math.round(w.avgHr)} bpm avg` : ""}
-                    {w.kcal ? ` · ${Math.round(w.kcal)} kcal` : ""}
-                  </div>
-                </div>
+                <WorkoutRow w={w} />
               </li>
             ))}
           </ul>
         </>
       )}
     </section>
+  );
+}
+
+/** "Sat 17 Oct", with the year added when it is not this year. */
+function fmtDayYear(day: string): string {
+  const d = fmtDay(day);
+  return day.slice(0, 4) === today().slice(0, 4) ? d : `${d} ${day.slice(0, 4)}`;
+}
+
+/** One session: what and when on top, then its numbers in labelled columns. */
+function WorkoutRow({ w }: { w: Workout }) {
+  const speed = w.sport === "cycling" ? fmtSpeed(w.durationS, w.distanceM) : fmtPace(w.durationS, w.distanceM);
+  const stats = [
+    w.distanceM ? { k: "Distance", v: fmtDistance(w.distanceM) } : null,
+    w.durationS ? { k: "Time", v: fmtDuration(w.durationS) } : null,
+    speed ? { k: w.sport === "cycling" ? "Speed" : "Pace", v: speed } : null,
+    w.avgHr ? { k: "Avg HR", v: `${Math.round(w.avgHr)} bpm` } : null,
+    !speed && w.kcal ? { k: "Calories", v: `${Math.round(w.kcal)} kcal` } : null,
+  ].filter((x): x is { k: string; v: string } => x !== null);
+  return (
+    <>
+      <div className="row">
+        <strong className="grow">{activityLabel(w.type)}</strong>
+        <span className="muted small">{fmtDayYear(w.day)}</span>
+      </div>
+      {stats.length > 0 && (
+        <dl className="stat-row">
+          {stats.map((s) => (
+            <div key={s.k}>
+              <dt>{s.k}</dt>
+              <dd>{s.v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {speed && w.kcal ? <div className="muted small">{Math.round(w.kcal)} kcal</div> : null}
+    </>
   );
 }

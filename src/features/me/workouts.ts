@@ -116,3 +116,16 @@ export function fmtDuration(seconds: number): string {
 
 /** "10.2 km", "850 m". */
 export const fmtDistance = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 100_000 ? 0 : 1)} km` : `${Math.round(m)} m`);
+
+/** Running/walking pace as "6:58 /km", or null without both time and a real distance. */
+export function fmtPace(durationS: number | null, distanceM: number | null): string | null {
+  if (!durationS || !distanceM || distanceM < 100) return null;
+  const perKm = Math.round(durationS / (distanceM / 1000));
+  return `${Math.floor(perKm / 60)}:${String(perKm % 60).padStart(2, "0")} /km`;
+}
+
+/** Cycling speed as "24.3 km/h", or null. */
+export function fmtSpeed(durationS: number | null, distanceM: number | null): string | null {
+  if (!durationS || !distanceM) return null;
+  return `${(distanceM / 1000 / (durationS / 3600)).toFixed(1)} km/h`;
+}

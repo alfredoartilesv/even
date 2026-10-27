@@ -142,7 +142,7 @@ const settings = async (p: Page, label: string) => {
 };
 
 const SCREENS: Screen[] = [
-  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day.", go: (p) => tab(p, "Dashboard") },
+  { id: "dashboard-day", tab: "Dashboard", title: "Day", about: "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).", go: async (p) => { await tab(p, "Dashboard"); await p.click("details.synced > summary"); } },
   {
     id: "dashboard-week",
     tab: "Dashboard",
@@ -198,6 +198,21 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    id: "chat-billing-error",
+    tab: "Chat",
+    title: "Error: out of API credits",
+    about: "When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.",
+    go: async (p) => {
+      await p.click(".topbar button", "New");
+      await p.evaluate<boolean>(
+        `(() => { const t = document.querySelector('textarea[aria-label="Message"]'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set; set.call(t, "How did I sleep this week?"); t.dispatchEvent(new Event("input", { bubbles: true })); return true; })()`,
+      );
+      await p.click('[aria-label="Send"]');
+      await p.waitFor("!!document.querySelector('.card.chat-error')", "the chat error card");
+      await p.click(".card.chat-error summary", "Technical details");
+    },
+  },
+  {
     id: "chat-photo",
     tab: "Chat",
     title: "New chat, adding a photo",
@@ -224,6 +239,16 @@ const SCREENS: Screen[] = [
 
 const THEMES = ["light", "dark"] as const;
 
+const ANTHROPIC_STUB = `(() => {
+  const real = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (!url.includes("api.anthropic.com")) return real(input, init);
+    const body = { type: "error", error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits." }, request_id: "req_demo_screens_0000000000" };
+    return Promise.resolve(new Response(JSON.stringify(body), { status: 400, headers: { "content-type": "application/json", "request-id": "req_demo_screens_0000000000" } }));
+  };
+})();`;
+
 async function capture(url: string) {
   rmSync(IMG, { recursive: true, force: true });
   mkdirSync(IMG, { recursive: true });
@@ -231,6 +256,9 @@ async function capture(url: string) {
   try {
     await chrome.send("Runtime.enable");
     await chrome.send("Page.enable");
+    // Claude is never contacted: before the app loads, any request to the Anthropic API gets the
+    // "credit balance is too low" 400 a real account returned, so the chat error card can be captured.
+    await chrome.send("Page.addScriptToEvaluateOnNewDocument", { source: ANTHROPIC_STUB });
     for (const theme of THEMES) {
       await chrome.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: theme }] });
       await chrome.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
