@@ -33,6 +33,9 @@ const TOKEN_MARGIN_MS = 5 * 60_000;
 /** When the token reply has no expiry: Garmin documents 24 h. */
 const DEFAULT_TOKEN_MS = 23 * 3_600_000;
 
+/** How a rejected key starts its message: the connection card asks for a new key on this, not on a network failure. */
+export const KEY_REJECTED = "Garmin rejected the personal API key";
+
 export class GarminApiError extends Error {
   constructor(
     message: string,
@@ -102,7 +105,7 @@ export class GarminApi {
     }
     const text = await res.text();
     if (res.status === 401 || res.status === 403) {
-      throw new GarminApiError(`Garmin rejected the personal API key (HTTP ${res.status}). It may have expired: make a new one in Garmin Connect.`, res.status);
+      throw new GarminApiError(`${KEY_REJECTED} (HTTP ${res.status}). It may have expired: make a new one in Garmin Connect.`, res.status);
     }
     if (!res.ok) throw new GarminApiError(`Garmin token request failed (HTTP ${res.status})`, res.status);
     const parsed = parseTokenReply(text, this.now());
@@ -110,6 +113,12 @@ export class GarminApi {
     log.debug("access token obtained", { validMin: Math.round((parsed.expiresAtMs - this.now()) / 60_000) });
     this.token = parsed;
     return parsed.token;
+  }
+
+  /** Check the key: trade it for a token, the cheapest call that needs a valid key. */
+  async verify(): Promise<void> {
+    this.token = null;
+    await this.accessToken();
   }
 
   async get(path: string, query: Record<string, string | number> = {}): Promise<unknown> {
