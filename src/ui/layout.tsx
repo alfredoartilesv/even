@@ -113,6 +113,49 @@ export function Segmented<T extends string>({ items, value, onChange, label }: {
   );
 }
 
+/**
+ * ‹ title › between periods (a day, a week, a month), with a link back to the current one when
+ * another is open. The next button is disabled past today.
+ */
+export function PeriodNav({
+  title,
+  unit,
+  onPrev,
+  onNext,
+  nextDisabled,
+  onCurrent,
+  currentLabel,
+}: {
+  title: string;
+  /** "day", "week", "month": read out on the arrows. */
+  unit: string;
+  onPrev: () => void;
+  onNext: () => void;
+  nextDisabled: boolean;
+  /** Shown as a link when set: back to today, this week... */
+  onCurrent?: (() => void) | null;
+  currentLabel?: string;
+}) {
+  return (
+    <div className="period-nav">
+      <button type="button" className="secondary icon-button" aria-label={`Previous ${unit}`} onClick={onPrev}>
+        ‹
+      </button>
+      <div className="grow center">
+        <strong>{title}</strong>
+        {onCurrent && (
+          <button type="button" className="link small accent" onClick={onCurrent}>
+            {currentLabel}
+          </button>
+        )}
+      </div>
+      <button type="button" className="secondary icon-button" aria-label={`Next ${unit}`} disabled={nextDisabled} onClick={onNext}>
+        ›
+      </button>
+    </div>
+  );
+}
+
 export interface QuickAction {
   id: string;
   label: string;

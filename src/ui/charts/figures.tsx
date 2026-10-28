@@ -80,13 +80,29 @@ export function StatTile({
  * A value against a limit. The track is a light step of the fill's own hue; past the limit the
  * fill turns to the warning color and the text says how far over.
  */
-export function Meter({ value, max, label, children }: { value: number; max: number; label: string; children?: ReactNode }) {
-  const over = value > max;
+export function Meter({
+  value,
+  max,
+  label,
+  children,
+  slot,
+  overIsFine = false,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  children?: ReactNode;
+  /** Categorical slot for the fill (protein's color, say); the accent without one. */
+  slot?: number;
+  /** A floor, not a limit (protein): going past it is not a warning. */
+  overIsFine?: boolean;
+}) {
+  const over = value > max && !overIsFine;
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <>
       <div className={over ? "viz-meter over" : "viz-meter"} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-label={label}>
-        <div className="fill" style={{ width: `${pct}%` }} />
+        <div className="fill" style={{ width: `${pct}%`, ...(slot && !over ? { background: seriesColor(slot) } : {}) }} />
       </div>
       {children}
     </>

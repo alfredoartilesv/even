@@ -2,7 +2,7 @@ import { addDays } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { drinkKcalByDay, getCurrency, latestWeight, type Weight } from "../alcohol/alcohol";
 import { listDayNotes, type DayNote } from "../journal/entries";
-import { getCalorieGoal, nutritionRange } from "../food/food";
+import { getNutritionTargets, nutritionRange } from "../food/food";
 import { loadStock } from "../mealprep/mealPrep";
 import { spending } from "../mealprep/spending";
 import { listWorkouts } from "../me/workouts";
@@ -24,6 +24,35 @@ export const DASH_METRICS = {
   burned: "daily_totalKilocalories",
   active: "daily_activeKilocalories",
 } as const;
+
+/**
+ * Recovery and body numbers from the watch, as the Garmin sync, the export and Apple Health store
+ * them. HRV is Garmin's overnight average, else Apple's SDNN; intensity minutes count vigorous
+ * twice, as Garmin does.
+ */
+export const BODY_METRICS = {
+  restingHr: "daily_restingHeartRateInBeatsPerMinute",
+  sleep: "sleep_durationInSeconds",
+  sleepScore: "sleep_overallSleepScore",
+  hrv: "hrv_lastNightAvg",
+  hrvSdnn: "hrv_sdnnAvg",
+  bodyBatteryHigh: "dailyBodyBattery_highestValue",
+  bodyBatteryLow: "dailyBodyBattery_lowestValue",
+  stress: "daily_averageStressLevel",
+  moderate: "daily_moderateIntensityDurationInSeconds",
+  vigorous: "daily_vigorousIntensityDurationInSeconds",
+  distance: "daily_distanceInMeters",
+} as const;
+
+export type BodyKey = "restingHr" | "sleep" | "sleepScore" | "hrv" | "bodyBatteryHigh" | "bodyBatteryLow" | "stress" | "intensityMin" | "distance";
+
+/** A body number over the span (total and daily average), and one value a day for its trend line. */
+export interface BodyFigure extends Figure {
+  trend: (number | null)[];
+}
+
+/** Days of trend a single day shows: the two weeks up to it. */
+export const DAY_TREND_DAYS = 14;
 
 export interface DashDay {
   day: string;
@@ -67,14 +96,18 @@ export interface Dashboard {
   stock: { portions: number; batches: number };
   /** What the supermarket cost in the span (logged shops), in the app currency. */
   groceries: { total: number; trips: number; currency: string };
-  /** The live daily targets: calories (at most) and steps (at least); null when none is set. */
-  targets: { kcal: number | null; steps: number | null };
+  /** The live daily targets: calories (at most), protein and steps (at least); null when none is set. */
+  targets: { kcal: number | null; protein: number | null; steps: number | null };
   /** The check-ins of the span: the notes (newest first), mood and energy (1-5) as figures, and the latest weight on or before its last day. */
   journal: { notes: DayNote[]; mood: Figure; energy: Figure; weight: Weight | null };
+  /** Recovery and body numbers. Trends run over the span, or for a day over the 14 days up to it. */
+  body: Record<BodyKey, BodyFigure>;
+  /** The days the trends cover. */
+  trendDays: string[];
 }
 
 /** Monday of the week, first of the month, or the day itself. */
-export function spanStart(span: Span, day: string): string {
+function spanStart(span: Span, day: string): string {
   if (span === "day") return day;
   if (span === "month") return `${day.slice(0, 8)}01`;
   const dow = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
@@ -116,14 +149,16 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
   const range = spanRange(span, anchor);
   const from = range.from;
   const to = range.to > today ? today : range.to;
-  const [daily, food, drinks, prep, workouts, stock, kcalGoal, stepGoal, notes, weight, groceries, currency] = await Promise.all([
-    metricsDays(db, [DASH_METRICS.steps, DASH_METRICS.burned, DASH_METRICS.active], from, to),
+  const trendFrom = span === "day" ? addDays(from, -(DAY_TREND_DAYS - 1)) : from;
+  const [daily, food, drinks, prep, workouts, stock, nutrition, stepGoal, notes, weight, groceries, currency] = await Promise.all([
+    // One query for every synced number: each is a call to the native plugin.
+    metricsDays(db, [...Object.values(DASH_METRICS), ...Object.values(BODY_METRICS)], trendFrom, to),
     from <= to ? nutritionRange(db, from, to) : Promise.resolve([]),
     drinkKcalByDay(db, from, to),
     prepPortionsByDay(db, from, to),
     listWorkouts(db, from, to),
     loadStock(db),
-    getCalorieGoal(db),
+    getNutritionTargets(db),
     dailyStepGoal(db, today),
     from <= to ? listDayNotes(db, from, to) : Promise.resolve([]),
     latestWeight(db, from <= to ? to : from),
@@ -156,6 +191,29 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
   }
 
   const col = <K extends keyof DashDay>(k: K) => days.map((d) => d[k] as number | null);
+
+  const trendDays: string[] = [];
+  for (let d = trendFrom; d <= to; d = addDays(d, 1)) trendDays.push(d);
+  const m = (k: keyof typeof BODY_METRICS) => daily.get(BODY_METRICS[k])!.values;
+  const perDay: Record<BodyKey, (day: string) => number | null> = {
+    restingHr: (d) => m("restingHr").get(d) ?? null,
+    sleep: (d) => m("sleep").get(d) ?? null,
+    sleepScore: (d) => m("sleepScore").get(d) ?? null,
+    hrv: (d) => m("hrv").get(d) ?? m("hrvSdnn").get(d) ?? null,
+    bodyBatteryHigh: (d) => m("bodyBatteryHigh").get(d) ?? null,
+    bodyBatteryLow: (d) => m("bodyBatteryLow").get(d) ?? null,
+    stress: (d) => m("stress").get(d) ?? null,
+    intensityMin: (d) => {
+      const mod = m("moderate").get(d);
+      const vig = m("vigorous").get(d);
+      return mod === undefined && vig === undefined ? null : ((mod ?? 0) + 2 * (vig ?? 0)) / 60;
+    },
+    distance: (d) => m("distance").get(d) ?? null,
+  };
+  const body = Object.fromEntries(
+    (Object.keys(perDay) as BodyKey[]).map((k) => [k, { ...figure(days.map((d) => perDay[k](d.day))), trend: trendDays.map(perDay[k]) }]),
+  ) as Record<BodyKey, BodyFigure>;
+
   return {
     span,
     from,
@@ -172,8 +230,10 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     workouts: { count: workouts.length, durationS: workouts.reduce((s, w) => s + (w.durationS ?? 0), 0) },
     stock: { portions: stock.reduce((s, b) => s + b.left, 0), batches: stock.length },
     groceries: { total: groceries.total, trips: groceries.trips, currency },
-    targets: { kcal: kcalGoal?.target ?? null, steps: stepGoal },
+    targets: { kcal: nutrition.calories, protein: nutrition.proteinG, steps: stepGoal },
     journal: { notes, mood: figure(notes.map((n) => n.mood)), energy: figure(notes.map((n) => n.energy)), weight },
+    body,
+    trendDays,
   };
 }
 

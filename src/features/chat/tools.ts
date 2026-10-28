@@ -42,7 +42,7 @@ const range = z
   .refine((r) => r.from <= r.to, "from must not be after to")
   .refine((r) => daysBetween(r.from, r.to) <= MAX_RANGE_DAYS, `ranges are limited to ${MAX_RANGE_DAYS} days`);
 
-export function daysBetween(from: string, to: string): number {
+function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
 }
 
@@ -59,7 +59,7 @@ export function tool(name: string, description: string, properties: Record<strin
 }
 
 /** Summary statistics of one series: what "aggregate" means in this app. */
-export function summarise(s: MetricSeries) {
+function summarise(s: MetricSeries) {
   const values = s.points.map((p) => p.value);
   const n = values.length;
   const first = s.points[0];

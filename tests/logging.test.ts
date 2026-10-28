@@ -84,6 +84,6 @@ test("logs from real flows carry no health values, food names, notes, URLs or ke
   for (const leak of ["lasagne", "1234.5", "56.5", "bloated", "Secret chili", "777.25", "family recipe", "garmin-key", "sk-ant", "/9j/"]) {
     assert.ok(!text.includes(leak), `log contains ${leak}`);
   }
-  // The calorie target is the owner's setting, not a reading; it is fine to log.
-  assert.ok(records.some((r) => r.msg === "calorie target set"));
+  // Nutrition targets are the owner's settings, not readings; they are fine to log.
+  assert.ok(records.some((r) => r.msg === "nutrition target set"));
 });

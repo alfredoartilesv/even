@@ -98,6 +98,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       # API 34: the API 35 image never came up on the hosted runner (adb found no device for the
       # whole wait, first release run, 27 Oct 2026). The app's min SDK is 24, so 34 still checks it.
+      # The device log goes with the screenshot (artifact release-launch-screenshot): on 27 Oct 2026
+      # the app was gone 20 s after launch with nothing in the crash buffer, and a re-run passed 9/9.
       - name: Release check on the emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -107,7 +109,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: node scripts/release-check.mjs --apk out/app-release.apk --device --build-tools "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)" --out out/shots
+          script: node scripts/release-check.mjs --apk out/app-release.apk --device --build-tools "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)" --out out/shots; s=$?; adb logcat -d -v time > out/shots/logcat.txt; exit $s
       - uses: actions/upload-artifact@v4
         if: always()
         with:
