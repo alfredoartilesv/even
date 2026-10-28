@@ -3,6 +3,8 @@ import { addDays } from "../../core/tz";
 import { BarChart } from "../../ui/charts";
 import { fmtDay, plural, today } from "../../ui/common";
 import { ChipGroup } from "../../ui/controls";
+import { seriesColor } from "../../ui/charts";
+import { Icon, type IconName } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
 import { activityLabel, SPORT_LABEL, type SportId } from "./sports";
 import {
@@ -225,61 +227,105 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
 }
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-const te = (v: number | null) => (v === null ? null : v.toFixed(1));
 
-/** One session: what and when on top, its main numbers in columns; tap for everything the watch measured. */
+/** Each sport's badge: an icon and a fixed color slot, so running looks the same in every list. */
+const SPORT_MARK: Record<SportId, { icon: IconName; slot: number }> = {
+  running: { icon: "steps", slot: 1 },
+  walking: { icon: "steps", slot: 3 },
+  hiking: { icon: "steps", slot: 6 },
+  cycling: { icon: "bike", slot: 2 },
+  swimming: { icon: "wave", slot: 7 },
+  strength: { icon: "workout", slot: 4 },
+  yoga: { icon: "sparkle", slot: 5 },
+  cardio: { icon: "flame", slot: 8 },
+  team: { icon: "flame", slot: 2 },
+  winter: { icon: "wave", slot: 7 },
+  other: { icon: "workout", slot: 4 },
+};
+
+/** Garmin's training effect, 0 to 5, as five steps filled to the value, with its number and word. */
+function TrainingEffect({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="te">
+      <div className="row">
+        <span className="small muted grow">{label}</span>
+        <strong className="small">
+          {value.toFixed(1)} <span className="muted">{trainingEffectLabel(value)}</span>
+        </strong>
+      </div>
+      <div className="te-steps" role="meter" aria-label={`${label} ${value.toFixed(1)} of 5`} aria-valuemin={0} aria-valuemax={5} aria-valuenow={value}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} style={{ ["--fill" as string]: `${Math.max(0, Math.min(1, value - (n - 1))) * 100}%` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One session as a card: the sport's badge, what and when, the headline number (distance, or time
+ * without one) large with time, pace or speed and heart rate beside it. Tap it for the rest the
+ * watch measured, as small tiles, and training effect as a 0-5 scale.
+ */
 export function WorkoutRow({ w }: { w: Workout }) {
+  const mark = SPORT_MARK[w.sport];
   const speed = w.sport === "cycling" ? fmtSpeed(w.durationS, w.distanceM) : fmtPace(w.durationS, w.distanceM);
-  const stats = [
-    w.distanceM ? { k: "Distance", v: fmtDistance(w.distanceM) } : null,
-    w.durationS ? { k: "Time", v: fmtDuration(w.durationS) } : null,
-    speed ? { k: w.sport === "cycling" ? "Speed" : "Pace", v: speed } : null,
-    w.avgHr ? { k: "Avg HR", v: `${Math.round(w.avgHr)} bpm` } : null,
-    !speed && w.kcal ? { k: "Calories", v: `${Math.round(w.kcal)} kcal` } : null,
-  ].filter((x): x is { k: string; v: string } => x !== null);
+  const hero = w.distanceM ? fmtDistance(w.distanceM) : w.durationS ? fmtDuration(w.durationS) : null;
+  const side = [
+    w.distanceM && w.durationS ? fmtDuration(w.durationS) : null,
+    speed,
+    w.avgHr ? `♥ ${Math.round(w.avgHr)} bpm` : null,
+    !w.distanceM && w.kcal ? `${Math.round(w.kcal)} kcal` : null,
+  ].filter(Boolean);
   const more = [
     w.maxHr ? { k: "Max HR", v: `${Math.round(w.maxHr)} bpm` } : null,
-    speed && w.kcal ? { k: "Calories", v: `${Math.round(w.kcal)} kcal` } : null,
+    w.distanceM && w.kcal ? { k: "Calories", v: `${Math.round(w.kcal)} kcal` } : null,
     w.movingS && w.durationS && w.movingS < w.durationS - 30 ? { k: "Moving", v: fmtDuration(w.movingS) } : null,
     w.elevationM ? { k: "Climb", v: `${Math.round(w.elevationM)} m` } : null,
     w.steps ? { k: "Steps", v: Math.round(w.steps).toLocaleString() } : null,
-    w.aerobicTe !== null ? { k: "Aerobic TE", v: `${te(w.aerobicTe)} ${trainingEffectLabel(w.aerobicTe)}` } : null,
-    w.anaerobicTe !== null ? { k: "Anaerobic TE", v: te(w.anaerobicTe)! } : null,
     w.vo2Max ? { k: "VO2 max", v: String(Math.round(w.vo2Max)) } : null,
   ].filter((x): x is { k: string; v: string } => x !== null);
+  const hasMore = more.length > 0 || w.aerobicTe !== null || w.anaerobicTe !== null;
+
   const head = (
-    <>
-      <div className="row">
-        <strong className="grow">{activityLabel(w.type)}</strong>
-        <span className="muted small">
-          {fmtDayYear(w.day)}
-          {w.startMs !== null && `, ${clock(w.startMs)}`}
-        </span>
+    <div className="workout">
+      <span className="sport-badge" style={{ ["--sport" as string]: seriesColor(mark.slot) }} aria-hidden>
+        <Icon name={mark.icon} size={20} />
+      </span>
+      <div className="grow workout-body">
+        <div className="row">
+          <strong className="grow">{activityLabel(w.type)}</strong>
+          <span className="muted small">
+            {fmtDayYear(w.day)}
+            {w.startMs !== null && ` · ${clock(w.startMs)}`}
+          </span>
+        </div>
+        <div className="workout-main">
+          {hero && <span className="workout-hero">{hero}</span>}
+          {side.length > 0 && <span className="muted small">{side.join(" · ")}</span>}
+        </div>
       </div>
-      {stats.length > 0 && (
-        <dl className="stat-row">
-          {stats.map((s) => (
-            <div key={s.k}>
-              <dt>{s.k}</dt>
-              <dd>{s.v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </>
+      {hasMore && <Icon name="chevron" size={18} />}
+    </div>
   );
-  if (!more.length) return head;
+  if (!hasMore) return head;
   return (
     <details className="workout-more">
       <summary>{head}</summary>
-      <dl className="stat-row">
-        {more.map((s) => (
-          <div key={s.k}>
-            <dt>{s.k}</dt>
-            <dd>{s.v}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="workout-extra">
+        {more.length > 0 && (
+          <dl className="workout-tiles">
+            {more.map((s) => (
+              <div key={s.k}>
+                <dt className="small muted">{s.k}</dt>
+                <dd>{s.v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {w.aerobicTe !== null && <TrainingEffect label="Aerobic training effect" value={w.aerobicTe} />}
+        {w.anaerobicTe !== null && <TrainingEffect label="Anaerobic training effect" value={w.anaerobicTe} />}
+      </div>
     </details>
   );
 }

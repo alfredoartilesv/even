@@ -393,9 +393,7 @@ pre.logs {
   padding: 0.35rem 0.7rem;
 }
 .sync-button.stale {
-  background: transparent;
   color: var(--warning);
-  border-color: var(--warning);
 }
 .spin {
   display: inline-block;
@@ -699,9 +697,25 @@ details.card > summary {
   justify-content: center;
   flex: none;
 }
+/* Just the symbol: no frame or fill, a 48px target. */
 .sync-button.icon-button {
-  font-size: 1.3rem;
-  line-height: 1;
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  border-radius: 50%;
+}
+.sync-button.icon-button:active:not(:disabled) {
+  background: var(--accent-soft);
+}
+.sync-button.icon-button:disabled {
+  opacity: 1;
+}
+.sync-button .spin,
+.sync-button span {
+  display: inline-flex;
 }
 .composer-photos {
   display: flex;
@@ -1403,17 +1417,79 @@ details.workout-more > summary {
 details.workout-more > summary::-webkit-details-marker {
   display: none;
 }
-details.workout-more > summary .grow::after {
-  content: " ›";
+/* A session: sport badge, what and when, the headline number large. */
+.workout {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.workout > .icon {
   color: var(--muted);
+  transition: transform 0.15s ease;
 }
-details.workout-more[open] > summary .grow::after {
-  content: " ⌄";
+details.workout-more[open] .workout > .icon {
+  transform: rotate(90deg);
 }
-details.workout-more > dl {
-  padding-top: 0.35rem;
-  border-top: 1px dashed var(--line);
-  margin-top: 0.5rem;
+.sport-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--sport);
+  background: color-mix(in srgb, var(--sport) 16%, transparent);
+}
+.workout-body {
+  min-width: 0;
+}
+.workout-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.1rem;
+}
+.workout-hero {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.workout-extra {
+  margin: 0.6rem 0 0 calc(40px + 0.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.workout-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+}
+.workout-tiles > div {
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  min-width: 0;
+}
+.workout-tiles dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Training effect, 0-5: five steps, each filled as far as the value reaches into it. */
+.te-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  margin-top: 0.25rem;
+}
+.te-steps span {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--accent-soft) var(--fill));
 }
 .month-head {
   margin: 0.9rem 0 0.1rem;
@@ -1554,4 +1630,36 @@ button.pressed {
 }
 button.pressed .muted {
   color: var(--accent);
+}
+/* Pull to refresh: the gap the page is pulled down by, with the sync symbol and what letting go does. */
+.ptr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+.ptr.pulling {
+  transition: none;
+}
+.ptr-mark {
+  display: inline-flex;
+  color: var(--muted);
+}
+.ptr-mark.ready {
+  color: var(--accent);
+}
+/* The browser's own pull (reload, glow) would fight the app's. */
+html {
+  overscroll-behavior-y: contain;
+}
+.ingredient select {
+  min-width: 0;
+  padding-left: 0.4rem;
+  padding-right: 0.2rem;
+}
+.cook-card .row .chips {
+  margin: 0;
 }
