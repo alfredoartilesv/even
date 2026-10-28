@@ -105,8 +105,14 @@ Auth changes: sessions from a Google ID token (`jose` against Google's keys) iss
 5. Chat on the web with the owner's key.
 6. Friends and shares (daily summaries per kind).
 
-## 6. Open questions
+## 6. Decided (28 Oct 2026)
 
-- Friends see 90 days back, or from the day of sharing on? (Draft: 90 days back.)
-- Should a friend's shared kinds also go to the owner's Claude chat when asked about the friend? (Draft: no.)
-- Argon2id (WASM, about 200 KB, lazy) or PBKDF2 for the passphrase? (Draft: PBKDF2 at 600k, as backups, revisit.)
+- Friends see 90 days back from the day a kind is shared.
+- A friend's shared data never goes to the owner's Claude chat.
+- The passphrase uses PBKDF2-SHA256 at 600k iterations, as backups do; Argon2id to be revisited.
+
+## 7. Claude with the owner's Claude Pro plan (asked 28 Oct 2026)
+
+The owner would rather use their Claude Pro subscription than a paid API key for the phone's chat. A Pro plan covers Anthropic's own apps (claude.ai, the Claude desktop and mobile apps, Claude Code). A third-party app like Even cannot sign in with it or send requests on it: there is no "Sign in with Claude" for apps (section 5 of architecture.md), and borrowing a subscription login token from another app is against Anthropic's terms and can get the account suspended. So the in-app chat keeps the API key (pay per use; Haiku keeps it to cents a day).
+
+The way to use the Pro plan is the other direction: **Claude's apps come to Even's data**, as a custom connector (a remote MCP server, which Pro can add in Settings > Connectors). The owner then asks Claude on claude.ai or the Claude phone app, on the Pro plan, and Claude calls Even's tools. The catch: the server only holds ciphertext, so the connector needs its own readable copy. Shape that keeps the rules: Claude is treated like a friend, with its own share key, held by the MCP server, receiving only the kinds the owner ticks, as daily summaries, every call in the disclosure log. Readable on the server, but only that stream. Not built; needs the owner's yes, as it is the first plaintext on the server (architecture.md section 3).
