@@ -5,17 +5,21 @@ import type { Pg } from "./pg";
 export interface Device {
   id: string;
   ownerId: string;
+  /** The account is suspended by an admin: the device is known, but may not act. */
+  suspended?: boolean;
 }
 
 /** The sync server's storage: devices and their tokens, and the sealed rows. */
 export function syncStore(pg: Pg) {
   return {
     async deviceFor(token: string, nowMs = Date.now()): Promise<Device | null> {
-      const [row] = await pg.query<{ id: string; owner_id: string }>(
-        "UPDATE devices SET last_seen_at = $2 WHERE token_hash = $1 AND revoked_at IS NULL RETURNING id, owner_id",
+      const [row] = await pg.query<{ id: string; owner_id: string; suspended: boolean }>(
+        `UPDATE devices d SET last_seen_at = $2 FROM accounts a
+          WHERE d.token_hash = $1 AND d.revoked_at IS NULL AND a.id = d.owner_id
+          RETURNING d.id, d.owner_id, (a.suspended_at IS NOT NULL) AS suspended`,
         [await sha256Hex(token), nowMs],
       );
-      return row ? { id: row.id, ownerId: row.owner_id } : null;
+      return row ? { id: row.id, ownerId: row.owner_id, suspended: row.suspended } : null;
     },
 
     /**

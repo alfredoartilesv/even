@@ -110,6 +110,7 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
 | `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
 | `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
+| `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): Settings > Admin then appears on its devices. Only the CLI grants admin |
 | `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
 | `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
 

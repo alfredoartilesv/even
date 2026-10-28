@@ -1,4 +1,5 @@
 import { accountStore } from "./accounts";
+import { adminStore } from "./admin";
 import type { Stores } from "./app";
 import { friendStore } from "./friends";
 import { googleVerifier, type GoogleVerifier } from "./google";
@@ -12,7 +13,7 @@ import { syncStore } from "./store";
  */
 export function createStores(
   pg: Pg,
-  env: { SERVER_SECRET?: string; GOOGLE_CLIENT_ID?: string; VERCEL?: string },
+  env: { SERVER_SECRET?: string; GOOGLE_CLIENT_ID?: string; VERCEL?: string; VERCEL_GIT_COMMIT_SHA?: string },
   opts: { google?: GoogleVerifier; rateLimits?: boolean } = {},
 ): Stores {
   const serverSecret = env.SERVER_SECRET ?? (env.VERCEL ? undefined : "even-local-only");
@@ -21,6 +22,7 @@ export function createStores(
     sync: syncStore(pg),
     accounts: accountStore(pg, { serverSecret, rateLimits: opts.rateLimits }),
     friends: friendStore(pg),
+    admin: adminStore(pg, { build: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) }),
     google: opts.google ?? googleVerifier(env.GOOGLE_CLIENT_ID),
   };
 }

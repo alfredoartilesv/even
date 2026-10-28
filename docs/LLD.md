@@ -51,7 +51,7 @@ src/
     ui.css                         kit styles
   domain/<name>/                   shared by every target: logic and SQL per feature, no UI, no platform (runs in Node)
                                    (the list names each feature's screens too: they sit in screens/<name>/)
-    cloudsync/                     sync session, keys and sealing, server API, friends; screens: SyncSettings, FriendsSettings, ConnectPanel
+    cloudsync/                     sync session, keys and sealing, server API (admin calls too), friends; screens: SyncSettings, FriendsSettings, ConnectPanel, admin/AdminSettings
     metrics/                       samples, catalog, queries
     dashboard/                     dashboard.ts (spans, per-day figures, totals and averages); DashboardScreen, ProfileButton
     sync/                          runSync, GarminApi + GarminSource, staleness and reminder, Source types

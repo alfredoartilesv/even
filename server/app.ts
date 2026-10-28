@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { createLogger } from "../src/core/log";
 import {
+  adminInviteBody,
   friendAcceptBody,
   googleLinkBody,
   MAX_PUSH_BYTES,
@@ -9,6 +10,7 @@ import {
   pairingStartBody,
   profileBody,
   pushBody,
+  quotaBody,
   recoveryFinishBody,
   recoveryStartBody,
   recoveryUpdateBody,
@@ -16,9 +18,11 @@ import {
   shareBody,
   shareRowsBody,
   signupBody,
+  suspendBody,
   SYNC_PAGE,
 } from "../src/core/syncWire";
-import { AuthError, type AccountStore } from "./accounts";
+import { AuthError, SUSPENDED, type AccountStore } from "./accounts";
+import type { Actor, AdminStore } from "./admin";
 import type { FriendStore } from "./friends";
 import type { GoogleVerifier } from "./google";
 import type { Device, SyncStore } from "./store";
@@ -29,6 +33,7 @@ export interface Stores {
   sync: SyncStore;
   accounts: AccountStore;
   friends: FriendStore;
+  admin: AdminStore;
   google: GoogleVerifier;
 }
 
@@ -38,7 +43,8 @@ export interface Stores {
  *
  * No auth:   GET /health, POST /v1/auth/signup | recovery/start | recovery/finish, POST /v1/pairings,
  *            GET /v1/pairings/:id (with the new device's own token in x-pairing-token)
- * Device:    everything else, `Authorization: Bearer <device token>`
+ * Device:    everything else, `Authorization: Bearer <device token>`; a suspended account's devices get 403
+ * Admin:     /v1/admin/*, a device of an admin account (docs/users.md section 2.6)
  */
 type Env = { Variables: { device: Device } };
 
@@ -89,6 +95,7 @@ export function createApp(s: Stores) {
     const token = /^Bearer (\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
     const device = token ? await s.sync.deviceFor(token) : null;
     if (!device) return c.json({ error: "unauthorized" }, 401);
+    if (device.suspended) return c.json({ error: SUSPENDED }, 403);
     c.set("device", device);
     await next();
   });
@@ -173,6 +180,38 @@ export function createApp(s: Stores) {
     const { after, limit } = cursor(c);
     return c.json(await s.friends.pullRows(c.get("device").ownerId, c.req.param("id"), after, limit));
   });
+
+  // ---- Admin: who and when, never data ----
+  app.use("/v1/admin/*", async (c, next) => {
+    if (!(await s.admin.isAdmin(c.get("device").ownerId))) return c.json({ error: "Only an admin can do this" }, 403);
+    await next();
+  });
+  const actor = (c: Context<Env>): Actor => ({ id: c.get("device").ownerId, via: "app" });
+  app.get("/v1/admin/health", async (c) => c.json(await s.admin.health()));
+  app.get("/v1/admin/invites", async (c) => c.json(await s.admin.listInvites()));
+  app.post("/v1/admin/invites", async (c) => {
+    const b = await parse(c, adminInviteBody);
+    return c.json(await s.admin.createInvite(actor(c), b.email, b.days));
+  });
+  app.delete("/v1/admin/invites/:id", async (c) => {
+    await s.admin.cancelInvite(actor(c), c.req.param("id"));
+    return c.json({ ok: true });
+  });
+  app.get("/v1/admin/accounts", async (c) => c.json(await s.admin.listAccounts()));
+  app.put("/v1/admin/accounts/:id/quota", async (c) => {
+    await s.admin.setQuota(actor(c), c.req.param("id"), (await parse(c, quotaBody)).bytes);
+    return c.json({ ok: true });
+  });
+  app.put("/v1/admin/accounts/:id/suspended", async (c) => {
+    await s.admin.setSuspended(actor(c), c.req.param("id"), (await parse(c, suspendBody)).suspended);
+    return c.json({ ok: true });
+  });
+  app.get("/v1/admin/accounts/:id/devices", async (c) => c.json(await s.admin.listDevices(c.req.param("id"))));
+  app.delete("/v1/admin/accounts/:id/devices/:device", async (c) => {
+    await s.admin.revokeDevice(actor(c), c.req.param("id"), c.req.param("device"));
+    return c.json({ ok: true });
+  });
+  app.get("/v1/admin/audit", async (c) => c.json(await s.admin.auditLog()));
 
   app.onError((err, c) => {
     if (err instanceof AuthError) return c.json({ error: err.message }, err.status);

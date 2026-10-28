@@ -39,7 +39,8 @@
     "perf:device": "node scripts/perf-device.mjs",
     "sync:invite": "node --env-file-if-exists=.env --import tsx server/cli.ts invite",
     "sync:accounts": "node --env-file-if-exists=.env --import tsx server/cli.ts accounts",
-    "dev:web": "node scripts/dev-web.mjs"
+    "dev:web": "node scripts/dev-web.mjs",
+    "sync:admin": "node --env-file-if-exists=.env --import tsx server/cli.ts admin"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
