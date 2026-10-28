@@ -8,7 +8,9 @@ import type { MeView } from "../features/me/MeScreen";
 import type { SettingsPage } from "../features/settings/SettingsScreen";
 import { ProfileButton } from "../features/dashboard/ProfileButton";
 import type { JournalView } from "../features/journal/ui/JournalScreen";
-import { AlcoholScreen, ChatScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, SettingsScreen } from "./screens";
+import { AlcoholScreen, ChatScreen, ConnectPanel, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, SettingsScreen } from "./screens";
+import { loadSession, type SyncSession } from "../features/cloudsync/session";
+import { today } from "../ui/common";
 import { loadGarminKey, removeLegacySecrets } from "../features/settings/secrets";
 import { secretStore } from "../platform/secureStore";
 import { GARMIN_SOURCE, GarminApi, GarminSource } from "../features/sync/garmin";
@@ -44,6 +46,10 @@ export function App() {
   const [status, setStatus] = useState<LastSync | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const autoSynced = useRef(false);
+  // This device's sync connection (docs/users.md): undefined while it loads, null when not connected.
+  const [session, setSession] = useState<SyncSession | null | undefined>(undefined);
+  // What the syncs read, so a sync started right after connecting already sees the new session.
+  const sessionRef = useRef<SyncSession | null>(null);
 
   useEffect(() => {
     openDatabase().then(
@@ -54,6 +60,16 @@ export function App() {
         // Not awaited: the Dashboard's queries need not wait for the log level.
         void applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
         void removeLegacySecrets(secretStore).catch((err) => log.warn("old secrets not removed", { err }));
+        void loadSession(secretStore).then(
+          (s) => {
+            sessionRef.current = s;
+            setSession(s);
+          },
+          (err) => {
+            log.warn("sync session not read", { err });
+            setSession(null);
+          },
+        );
         setDbStatus({ state: "ready", db });
         preloadScreens();
       },
@@ -71,20 +87,24 @@ export function App() {
     if (!db) return;
     const garmin = Boolean(await loadGarminKey(secretStore));
     const apple = appleHealthSupported && (await appleHealthEnabled(db));
-    setConfigured(garmin || apple);
-    setStatus(combineSyncs([garmin ? await lastSync(db, GARMIN_SOURCE) : null, apple ? await lastSync(db, APPLE_HEALTH_SOURCE) : null]));
+    const connected = sessionRef.current;
+    const cloud = connected ? await (await import("../features/cloudsync/syncNow")).cloudSyncStatus(db) : null;
+    setConfigured(garmin || apple || Boolean(connected));
+    setStatus(combineSyncs([garmin ? await lastSync(db, GARMIN_SOURCE) : null, apple ? await lastSync(db, APPLE_HEALTH_SOURCE) : null, cloud]));
     setNow(Date.now());
     // The reminder is about the Garmin key expiring; Apple Health has no key.
     await refreshSyncReminder(db, notifier, { configured: garmin, source: GARMIN_SOURCE });
   }, [db]);
 
+  /** Garmin and Apple Health into this device, then the cloud sync. */
   const sync = useCallback(async () => {
     if (!db) return;
+    const cloud = sessionRef.current;
     const apiKey = await loadGarminKey(secretStore);
     const apple = appleHealthSupported && (await appleHealthEnabled(db));
-    setConfigured(Boolean(apiKey) || apple);
+    setConfigured(Boolean(apiKey) || apple || Boolean(cloud));
     if (!apiKey) log.info("sync skipped: Garmin not configured");
-    if (!apiKey && !apple) return;
+    if (!apiKey && !apple && !cloud) return;
     setSyncing(true);
     try {
       // runSync never throws; each outcome is in sync_runs.
@@ -94,6 +114,13 @@ export function App() {
         await runSync(db, new GarminSource({ api }));
       }
       if (apple) await runSync(db, new AppleHealthSource({ store: healthStore }));
+      // Last, so what Garmin just brought in goes up in the same sync. A failure is kept for Settings > Sync.
+      if (cloud) {
+        const { syncNow } = await import("../features/cloudsync/syncNow");
+        await syncNow(db, cloud, { fetchFn: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 }), today: today() }).catch((err) =>
+          log.warn("cloud sync failed", { err }),
+        );
+      }
     } finally {
       setSyncing(false);
       setVersion((v) => v + 1);
@@ -126,10 +153,10 @@ export function App() {
 
   // Sync on open, so the latest day (Garmin, Apple Health) is there when the app is.
   useEffect(() => {
-    if (!db || autoSynced.current) return;
+    if (!db || session === undefined || autoSynced.current) return;
     autoSynced.current = true;
-    void refreshStatus().then(sync);
-  }, [db, sync, refreshStatus]);
+    void refreshStatus().then(() => sync());
+  }, [db, session, sync, refreshStatus]);
 
   if (dbStatus.state !== "ready") {
     return (
@@ -149,6 +176,38 @@ export function App() {
   }
 
   const ready = dbStatus.db;
+  const connect = (s: SyncSession | null) => {
+    sessionRef.current = s;
+    setSession(s);
+    void (s ? sync() : refreshStatus());
+  };
+
+  // The web app holds a copy of the account's data, so it starts by connecting (docs/users.md section 2.2).
+  if (!isNative && session === undefined) {
+    return (
+      <main className="shell">
+        <PageHeader title="Even" />
+        <p className="muted">Opening…</p>
+      </main>
+    );
+  }
+  if (!isNative && session === null) {
+    return (
+      <main className="shell">
+        <PageHeader title="Even" subtitle="Your health data, on the web" />
+        <section className="card">
+          <h2>Connect</h2>
+          <p className="muted small">
+            The web app is a copy of what your phone holds: sign in with your recovery passphrase, pair with your phone, or start a new account with an invite.
+            Everything arrives sealed and is opened here, in this browser.
+          </p>
+          <Suspense>
+            <ConnectPanel secrets={secretStore} isNative={false} onConnected={connect} />
+          </Suspense>
+        </section>
+      </main>
+    );
+  }
   const changed = () => setVersion((v) => v + 1);
   const go = (t: Tab) => {
     setTab(t);
@@ -244,7 +303,9 @@ export function App() {
                   void refreshStatus();
                   changed();
                 }}
-                onSync={() => void sync()}
+                onSync={() => sync()}
+                session={session ?? null}
+                onSession={connect}
               />
             )}
           </Suspense>

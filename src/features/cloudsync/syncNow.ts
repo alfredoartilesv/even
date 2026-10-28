@@ -1,6 +1,7 @@
 import { createLogger } from "../../core/log";
 import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
+import type { LastSync } from "../sync/runSync";
 import { transportOf } from "./api";
 import { cloudSync, type CloudSyncReport } from "./cloudSync";
 import { pushShares } from "./friends";
@@ -42,4 +43,12 @@ export async function syncNow(db: SqlDriver, session: SyncSession, opts: { fetch
 export async function lastCloudSync(db: SqlDriver): Promise<{ at: number | null; error: string | null }> {
   const [at, error] = await Promise.all([getSetting(db, LAST_CLOUD_SYNC_KEY), getSetting(db, LAST_CLOUD_ERROR_KEY)]);
   return { at: at ? Number(at) : null, error: error || null };
+}
+
+/** The cloud sync in the shape of the other syncs, so the header button and banner can show it with them. */
+export async function cloudSyncStatus(db: SqlDriver): Promise<LastSync | null> {
+  const { at, error } = await lastCloudSync(db);
+  if (at === null && error === null) return null;
+  const ms = at ?? Date.now();
+  return { status: error ? "error" : "ok", startedMs: ms, finishedMs: ms, samplesWritten: null, warnings: [], error, lastOkMs: at };
 }

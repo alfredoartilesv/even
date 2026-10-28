@@ -171,7 +171,9 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 **Users, devices, friends and the order of work for 0.4:** [users.md](users.md).
 
-**Open for 0.4:** wire `cloudSync` into the app (the sync secret and device token in the Keystore, a Settings > Sync screen, sync after the Garmin sync); how a second device gets the sync secret (QR code from the first phone, or a passphrase); Google ID token instead of a hand-made device token; rows over 1 MB (food photos) need splitting or object storage; the web app's own data layer (the `web` container serves the demo-data build until then).
+**Built 28 Oct 2026 (users, PR #53):** accounts from invites, the recovery passphrase, pairing codes, device management, friends and shares per kind, the Sync & devices and Friends screens on phone and web, and the web app with its own database in the browser (sql.js, sealed in IndexedDB, one tab at a time). Push now reads an outbox the triggers of migration 0016 fill, not `updated_at` (clock skew cannot hide an edit); rows up to 3.5 MB (a full food photo) sync, bigger ones stay on the device; a row that will not open or merge is set aside instead of stopping the sync. Details in [users.md](users.md).
+
+**Open:** Google sign-in on the web (linking works on the phone and the server; the web button needs the Web client id and its origin in Google Cloud); a QR scanner for pairing codes (typed for now); rows over 3.5 MB (chat PDFs) need object storage; rotating the account data key after a lost device; deploying to Vercel and Neon.
 
 **Still parked:**
 

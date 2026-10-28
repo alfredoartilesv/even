@@ -1,9 +1,10 @@
 import { accountStore } from "./accounts";
 import { migrateServer } from "./migrate";
-import { postgresJs } from "./pg";
+import { openDb } from "./db";
 
 /**
- * Operator chores against DATABASE_URL (the Docker `db` service, or Neon for Vercel):
+ * Operator chores against DATABASE_URL (the Docker `db` service, or Neon for Vercel), or without it
+ * the PGlite database of npm run dev:web (stop the dev server first: one process at a time):
  *
  *   npm run sync:migrate                               apply server/migrations
  *   npm run sync:invite -- --email you@example.com     an invite code for one account (14 days), printed once
@@ -11,8 +12,6 @@ import { postgresJs } from "./pg";
  *
  * In Docker: docker compose run --rm sync npm run sync:invite -- --email ...
  */
-const url = process.env.DATABASE_URL;
-if (!url) throw new Error("DATABASE_URL is not set");
 const [command, ...rest] = process.argv.slice(2);
 const flag = (name: string) => {
   const i = rest.indexOf(`--${name}`);
@@ -20,7 +19,7 @@ const flag = (name: string) => {
 };
 const out = (line: string) => process.stdout.write(`${line}\n`);
 
-const pg = postgresJs(url, { max: 1 });
+const pg = await openDb(process.env, { max: 1 });
 try {
   const applied = await migrateServer(pg);
   if (command === "migrate") {
