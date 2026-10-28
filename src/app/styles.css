@@ -1363,7 +1363,8 @@ input.switch:disabled {
 /* Labelled numbers in a row (workouts, sport totals). */
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  /* Four even columns on a phone; a long value ("13 h 06 min") wraps in its own cell instead of running into the next. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.25rem 0.75rem;
   margin: 0.35rem 0 0;
 }
@@ -1378,7 +1379,6 @@ input.switch:disabled {
   margin: 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 .card.sport-total {
   margin-bottom: 0;
@@ -1409,9 +1409,6 @@ details.workout-more > summary .grow::after {
 }
 details.workout-more[open] > summary .grow::after {
   content: " ⌄";
-}
-details.workout-more > dl dd {
-  white-space: normal;
 }
 details.workout-more > dl {
   padding-top: 0.35rem;
@@ -1504,4 +1501,28 @@ a.button {
   min-height: 36px;
   padding: 0.25rem 0.7rem;
   font-size: 0.85rem;
+}
+.sports-line {
+  margin: 0.25rem 0 0.5rem;
+}
+.goal-card .row {
+  gap: 0.5rem;
+}
+/* The four nutrition targets as label / value lines in one card. */
+.goal-lines {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0.5rem 0 0;
+}
+.goal-lines > div {
+  display: contents;
+}
+.goal-lines dt {
+  font-weight: 600;
+}
+.goal-lines dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
