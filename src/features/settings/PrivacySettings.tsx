@@ -15,9 +15,10 @@ const SCOPE_TITLE: Record<ConsentScope, string> = {
   "claude.raw_series": "Detailed records",
   "claude.notes": "Your notes",
   "claude.photos": "Photos",
+  "claude.files": "Files",
 };
 
-const CLASS_WORD: Record<Disclosure["dataClass"], string> = { aggregate: "summary", raw: "detailed", note: "notes", photo: "photo" };
+const CLASS_WORD: Record<Disclosure["dataClass"], string> = { aggregate: "summary", raw: "detailed", note: "notes", photo: "photo", file: "file" };
 const SHOWN = 5;
 /** A backup older than this gets a reminder: notes, logs and chats exist only on the phone. */
 const STALE_DAYS = 30;

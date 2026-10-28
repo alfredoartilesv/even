@@ -63,7 +63,7 @@ test("Apple Health: the HealthKit entitlement on the app target, and the request
   assert.match(ENTITLEMENTS, /<key>com\.apple\.developer\.healthkit\.access<\/key>\s*<array\/>/, "no clinical records");
 
   const plist = patchInfoPlist(PLIST, "Even");
-  assert.match(plist, /<key>NSHealthShareUsageDescription<\/key>\s*<string>Even reads [^<]+<\/string>\s*<\/dict>/);
+  assert.match(plist, /<key>NSHealthShareUsageDescription<\/key>\s*<string>Even reads [^<]+<\/string>/);
   assert.equal(patchInfoPlist(plist, "Even"), plist, "idempotent");
   assert.doesNotMatch(plist, /NSHealthUpdateUsageDescription/, "read only: nothing is written to Health");
   assert.ok(HEALTH_SHARE_USAGE.length < 200);

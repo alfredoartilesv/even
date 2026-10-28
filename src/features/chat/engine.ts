@@ -3,6 +3,8 @@ import type { SqlDriver } from "../../db/driver";
 import { uuidv7 } from "../../core/uuidv7";
 import { logAgentAction, WRITE_TOOLS, WRITE_TOOLS_BY_NAME, type ActionProposal } from "./actions";
 import { CONSENT_TEXT, hasConsent, recordConsent, SCOPE_FOR, type ConsentScope, type DataClass } from "./consent";
+import { contextSnapshot } from "./context";
+import { documentBlock, fileBytes, validateFiles, type FileAttachment } from "./files";
 import { imageBytes, validateAttachments, type ImageAttachment } from "./images";
 import { dateContext, SYSTEM_PROMPT } from "./prompt";
 import { appendMessage, createConversation, loadApiMessages, loadMessages, renameConversation } from "./store";
@@ -17,9 +19,18 @@ type ContentBlockParam = Anthropic.Beta.Messages.BetaContentBlockParam;
 type ToolResultBlockParam = Anthropic.Beta.Messages.BetaToolResultBlockParam;
 type ToolUseBlock = Anthropic.Beta.Messages.BetaToolUseBlock;
 
-export const CHAT_MODEL = "claude-opus-5-5";
+/**
+ * Claude Haiku 5.5: about 40x cheaper than Opus 5.5 per token ($0.10 / $0.50 per MTok up to 100K
+ * prompt tokens), and strong at tool use, which is most of what this chat does. The context
+ * snapshot (context.ts) saves the extra lookup rounds a small model would otherwise make.
+ */
+export const CHAT_MODEL = "claude-haiku-5-5";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
-/** Claude Opus 5.5 defaults to medium; set explicitly so a default change upstream does not move cost silently. */
+/**
+ * medium, Haiku 5.5's own default, set explicitly so an upstream change does not move cost
+ * silently. low skips lookups and checks in long tool loops (meal prep plans, logging after
+ * checking what is already there); high costs more thinking on questions that rarely need it.
+ */
 export const DEFAULT_EFFORT: Effort = "medium";
 const MAX_TOKENS = 16000; // non-streaming: native HTTP reads the whole reply at once
 const DEFAULT_MAX_TOOL_ROUNDS = 10;
@@ -88,12 +99,20 @@ export interface ChatTurnResult {
 export interface AskOptions {
   /** Photos to send with the question (needs the claude.photos consent). */
   images?: ImageAttachment[];
+  /** PDFs and text files to send with the question (needs the claude.files consent). */
+  files?: FileAttachment[];
 }
 
 /** No consent to send something: show CONSENT_TEXT[scope] and record the answer first. Nothing was sent or stored. */
 export class ConsentRequiredError extends Error {
   constructor(readonly scope: ConsentScope) {
-    super(scope === "claude.photos" ? "Allow sending photos to Claude first" : "Allow sending your questions and data summaries to Claude first");
+    super(
+      scope === "claude.photos"
+        ? "Allow sending photos to Claude first"
+        : scope === "claude.files"
+          ? "Allow sending files to Claude first"
+          : "Allow sending your questions and data summaries to Claude first",
+    );
     this.name = "ConsentRequiredError";
   }
 }
@@ -171,21 +190,52 @@ export async function startConversation(deps: ChatDeps, text: string, opts: AskO
 export async function askClaude(deps: ChatDeps, conversationId: string, text: string, opts: AskOptions = {}): Promise<ChatTurnResult> {
   const question = text.trim();
   const images = validateAttachments(opts.images ?? []);
-  if (!question && images.length === 0) throw new Error("Empty message");
+  const files = validateFiles(opts.files ?? []);
+  if (!question && images.length === 0 && files.length === 0) throw new Error("Empty message");
   await requireConsents(deps, opts);
   const now = deps.now ?? Date.now;
   const timeZone = deps.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const history = await loadMessages(deps.db, conversationId);
   if (history.length === 0) await renameConversation(deps.db, conversationId, titleFrom(question, opts), now());
 
-  // Photos first, then the question, then the app's clock line. Stored as sent, so the cache prefix stays stable.
+  // The first message of a chat carries the snapshot of the owner's data (context.ts).
+  const snapshot = history.length === 0 ? await contextSnapshot(deps.db, now(), timeZone) : null;
+
+  // Photos and files first, then the question, then the app's lines. Stored as sent, so the cache prefix stays stable.
   const content: ContentBlockParam[] = [
     ...images.map((i) => ({ type: "image" as const, source: { type: "base64" as const, media_type: i.mediaType, data: i.data } })),
+    ...files.map(documentBlock),
     ...(question ? [{ type: "text" as const, text: question }] : []),
     { type: "text", text: `[App] ${dateContext(now(), timeZone)}` },
+    ...(snapshot ? [{ type: "text" as const, text: snapshot.text }] : []),
   ];
   const t = now();
   const messageId = await appendMessage(deps.db, deps.deviceId, { conversationId, role: "user", content, now: t });
+  if (snapshot) {
+    await insertDisclosure(deps, {
+      conversationId,
+      messageId,
+      at: t,
+      toolName: null,
+      dataClass: "aggregate",
+      summary: snapshot.summary,
+      payload: snapshot.payload,
+      bytes: utf8Bytes(snapshot.payload),
+    });
+  }
+  for (const f of files) {
+    const bytes = fileBytes(f);
+    await insertDisclosure(deps, {
+      conversationId,
+      messageId,
+      at: t,
+      toolName: null,
+      dataClass: "file",
+      summary: `File ${f.name} (${f.kind === "pdf" ? "PDF" : "text"}, ${Math.max(1, Math.round(bytes / 1024))} KB)`,
+      payload: JSON.stringify({ name: f.name, media_type: f.mediaType, bytes, stored_in: "chat_messages" }),
+      bytes,
+    });
+  }
   for (const img of images) {
     const bytes = imageBytes(img.data);
     await insertDisclosure(deps, {
@@ -216,6 +266,7 @@ export async function continueConversation(deps: ChatDeps, conversationId: strin
 async function requireConsents(deps: ChatDeps, opts: AskOptions): Promise<void> {
   if (!(await consentFor(deps, "claude.aggregates"))) throw new ConsentRequiredError("claude.aggregates");
   if ((opts.images?.length ?? 0) > 0 && !(await consentFor(deps, "claude.photos"))) throw new ConsentRequiredError("claude.photos");
+  if ((opts.files?.length ?? 0) > 0 && !(await consentFor(deps, "claude.files"))) throw new ConsentRequiredError("claude.files");
 }
 
 async function consentFor(deps: ChatDeps, scope: ConsentScope): Promise<boolean> {
@@ -249,10 +300,11 @@ async function runLoop(deps: ChatDeps, conversationId: string): Promise<ChatTurn
       tool_choice: { type: toolRounds >= maxRounds ? "none" : "auto" },
       messages,
       output_config: { effort: deps.effort ?? DEFAULT_EFFORT },
+      // No server-side fallback: Haiku 5.5 has none (a model list is rejected). A refusal comes back as status "refusal".
       cache_control: { type: "ephemeral" },
-      // A safety classifier can decline a benign health question; re-run it on the recommended fallback model.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      // A chat from before 0.3.0 can hold `fallback` blocks from an Opus fallback; they are replayed
+      // unchanged (append-only), and only that beta knows the block type.
+      ...(hasFallbackBlocks(messages) ? { betas: ["server-side-fallback-2026-07-01"] } : {}),
     };
 
     let res: BetaMessage;
@@ -456,11 +508,15 @@ function errorText(err: unknown): string {
   return `Tool failed: ${(err as Error)?.message ?? String(err)}`;
 }
 
+function hasFallbackBlocks(messages: CreateParams["messages"]): boolean {
+  return messages.some((m) => m.role === "assistant" && Array.isArray(m.content) && m.content.some((b) => (b as { type: string }).type === "fallback"));
+}
+
 function utf8Bytes(s: string): number {
   return new TextEncoder().encode(s).length;
 }
 
 function titleFrom(text: string, opts: AskOptions = {}): string {
-  const t = text.trim().replace(/\s+/g, " ") || ((opts.images?.length ?? 0) > 0 ? "Photo" : "Chat");
+  const t = text.trim().replace(/\s+/g, " ") || ((opts.images?.length ?? 0) > 0 ? "Photo" : (opts.files?.[0]?.name ?? "Chat"));
   return t.length > 60 ? `${t.slice(0, 57)}...` : t;
 }

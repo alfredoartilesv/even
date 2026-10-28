@@ -120,19 +120,22 @@ test("consent given under an older policy wording no longer counts", async () =>
   await assert.rejects(startConversation(deps(db, scripted().create), "Q"), ConsentRequiredError);
 });
 
-test("request shape: model, effort, fallbacks, caching, stable prefix, strict tools", async () => {
+/** Disclosures of tool results (the chat's opening snapshot has no tool name). */
+const toolDisclosures = async (db: Parameters<typeof listDisclosures>[0]) => (await listDisclosures(db)).filter((d) => d.toolName !== null);
+
+test("request shape: Haiku 5.5, medium effort, no fallbacks, caching, stable prefix, strict tools", async () => {
   const db = await consented();
   const api = scripted(reply([text("Hello")], "end_turn"));
   await startConversation(deps(db, api.create), "Hola");
   const p = api.calls[0];
-  assert.equal(p.model, "claude-opus-5-5");
+  assert.equal(p.model, "claude-haiku-5-5");
   assert.equal(p.max_tokens, 16000);
   assert.deepEqual(p.output_config, { effort: "medium" });
-  assert.equal(p.fallbacks, "default");
-  assert.deepEqual(p.betas, ["server-side-fallback-2026-07-01"]);
+  assert.equal("fallbacks" in p, false, "Haiku 5.5 has no server-side fallback; a model list would be rejected");
+  assert.equal("betas" in p, false);
   assert.deepEqual(p.cache_control, { type: "ephemeral" });
   assert.deepEqual(p.tool_choice, { type: "auto" });
-  assert.equal("thinking" in p, false, "thinking stays at the model default (always on for Opus 5.5)");
+  assert.equal("thinking" in p, false, "thinking stays at the model default (adaptive, on)");
   assert.deepEqual(p.system, [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }], "system is fixed: no clock in it");
   const tools = p.tools as Anthropic.Beta.Messages.BetaTool[];
   assert.deepEqual(
@@ -155,6 +158,9 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
       "day_notes",
       "drink_types",
       "alcohol_impact",
+      "workout_summary",
+      "list_workouts",
+      "grocery_spending",
       "log_food",
       "log_saved_meal",
       "save_meal",
@@ -174,16 +180,12 @@ test("request shape: model, effort, fallbacks, caching, stable prefix, strict to
     assert.equal(t.strict, true);
     assert.equal((t.input_schema as { additionalProperties?: boolean }).additionalProperties, false);
   }
-  // The clock travels in the stored user message, so earlier turns never change.
-  assert.deepEqual(p.messages, [
-    {
-      role: "user",
-      content: [
-        { type: "text", text: "Hola" },
-        { type: "text", text: "[App] Now: Sunday 2026-10-25, 19:00 (time zone Europe/Madrid)." },
-      ],
-    },
-  ]);
+  // The clock and the data snapshot travel in the stored user message, so earlier turns never change.
+  assert.equal(p.messages.length, 1);
+  const [question, clock, snapshot] = p.messages[0].content as Anthropic.Beta.Messages.BetaTextBlockParam[];
+  assert.deepEqual(question, { type: "text", text: "Hola" });
+  assert.deepEqual(clock, { type: "text", text: "[App] Now: Sunday 2026-10-25, 19:00 (time zone Europe/Madrid)." });
+  assert.match(snapshot.text, /^\[App\] Snapshot of the owner's data/);
 });
 
 test("tool loop: parallel calls answered in one message, history replayed verbatim, disclosures logged", async () => {
@@ -231,7 +233,7 @@ test("tool loop: parallel calls answered in one message, history replayed verbat
   );
   assert.equal(stored[1].stopReason, "tool_use");
 
-  const disclosures = await listDisclosures(db, res.conversationId);
+  const disclosures = (await listDisclosures(db, res.conversationId)).filter((d) => d.toolName !== null);
   assert.equal(disclosures.length, 2);
   assert.ok(disclosures.every((d) => d.dataClass === "aggregate" && d.messageId === stored[2].id && d.bytes > 0));
   assert.ok(disclosures.some((d) => d.summary === "Summary of daily_steps, 2026-10-19 to 2026-10-24"));
@@ -255,7 +257,7 @@ test("raw series and notes need their own consent; refused calls send nothing", 
     res.toolCalls.map((c) => c.allowed),
     [false, false],
   );
-  assert.equal((await listDisclosures(db)).length, 0);
+  assert.equal((await toolDisclosures(db)).length, 0);
 
   const api2 = scripted(reply(calls, "tool_use"), reply([text("ok")], "end_turn"));
   const asked: string[] = [];
@@ -266,7 +268,7 @@ test("raw series and notes need their own consent; refused calls send nothing", 
   assert.equal(results2[0].is_error, undefined);
   assert.equal(JSON.parse(results2[0].content as string).series[0].points.length, 6);
   assert.equal(results2[1].is_error, true);
-  const d = await listDisclosures(db);
+  const d = await toolDisclosures(db);
   assert.deepEqual(
     d.map((x) => x.dataClass),
     ["raw"],
@@ -287,7 +289,7 @@ test("bad tool arguments come back as errors Claude can fix, and nothing is disc
   const r2 = api.calls[2].messages[4].content as Anthropic.Beta.Messages.BetaToolResultBlockParam[];
   assert.match(String(r2[0].content), /Unknown tool nope/);
   assert.equal(res.status, "ok");
-  assert.equal((await listDisclosures(db)).length, 0);
+  assert.equal((await toolDisclosures(db)).length, 0);
 });
 
 test("after maxToolRounds the last request forbids tools, and the result says so", async () => {
