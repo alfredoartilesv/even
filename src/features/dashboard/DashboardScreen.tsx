@@ -5,14 +5,14 @@ import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
 import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
-import { PageHeader, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
-import { fmtDuration } from "../me/workouts";
+import { PageHeader, PeriodNav, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
+import { fmtDistance, fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
-import { CATEGORY_LABEL, CATEGORY_ORDER, displayCategory, metricLabel, metricValue } from "../metrics/display";
 import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
-import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Figure, type Span } from "./dashboard";
+import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type BodyFigure, type BodyKey, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
+import { SyncedNumbers } from "./SyncedNumbers";
 import { appleHealthSupported } from "../../platform/health";
 
 const log = createLogger("dashboard");
@@ -203,22 +203,15 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         }}
       />
 
-      <div className="period-nav">
-        <button type="button" className="secondary icon-button" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-          ‹
-        </button>
-        <div className="grow center">
-          <strong>{spanTitle(span, anchor)}</strong>
-          {!isCurrent && (
-            <button type="button" className="link small accent" onClick={() => setAnchor(now)}>
-              Back to {span === "day" ? "today" : `this ${span}`}
-            </button>
-          )}
-        </div>
-        <button type="button" className="secondary icon-button" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-          ›
-        </button>
-      </div>
+      <PeriodNav
+        title={spanTitle(span, anchor)}
+        unit={span}
+        onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
+        onNext={() => setAnchor(next)}
+        nextDisabled={next > now}
+        onCurrent={isCurrent ? null : () => setAnchor(now)}
+        currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+      />
 
       {/* Keyed by period so the card animates in when the period changes. */}
       <div key={`${span}|${anchor}`} className="card hero-card fade-in">
@@ -237,7 +230,10 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           </div>
           <div>
             <dt className="muted small">Protein</dt>
-            <dd>{headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}</dd>
+            <dd>
+              {headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}
+              {d?.targets.protein != null && <span className="muted small"> / {int(d.targets.protein)}</span>}
+            </dd>
           </div>
         </dl>
         {d && d.balance.total !== null && (
@@ -251,10 +247,14 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <SectionHeader title="Check-in" action="Journal" onAction={() => go.checkIn(many ? undefined : anchor)} />
       <CheckInCard data={d} many={many} day={anchor} onOpen={() => go.checkIn(many ? undefined : anchor)} onWeight={go.measurements} />
 
-      <SectionHeader title="Energy" />
+      <SectionHeader title="Activity" />
       <div className="viz-tiles pairs">
         <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
         <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
+        {d && d.body.distance.total !== null && (
+          <StatTile label="Distance" {...tile(d.body.distance, fmtDistance)} trend={many ? undefined : d.body.distance.trend} />
+        )}
+        {d && d.body.intensityMin.total !== null && <IntensityTile f={d.body.intensityMin} span={span} />}
         {/* A day's eaten and steps are in the rings; a week or month adds their totals here. */}
         {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
         {many && <StatTile label="Steps" {...tile(d?.steps)} />}
@@ -288,6 +288,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           />
         </>
       )}
+
+      {d && <Recovery d={d} many={many} />}
 
       <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
       {d && d.workouts.count > 0 ? (
@@ -323,49 +325,60 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 }
 
+const bpm = (n: number) => `${Math.round(n)} bpm`;
+const whole = (n: number) => String(Math.round(n));
+
+/** Each recovery number: label, format, and which way is good (for the words under it). */
+const RECOVERY: { key: BodyKey; label: string; fmt: (n: number) => string; note?: string }[] = [
+  { key: "sleep", label: "Sleep", fmt: fmtDuration },
+  { key: "restingHr", label: "Resting heart rate", fmt: bpm, note: "lower is fitter" },
+  { key: "hrv", label: "HRV overnight", fmt: (n) => `${Math.round(n)} ms`, note: "higher is better rested" },
+  { key: "bodyBatteryHigh", label: "Body Battery", fmt: whole },
+  { key: "stress", label: "Stress", fmt: whole, note: "0-100, under 25 is rest" },
+];
+
 /**
- * Every number synced for the day, grouped by kind (activity, heart, sleep...), with plain names
- * and readable units. The source is named once, and per row only when a metric has several.
+ * How rested the body is, from the watch: sleep (with its score), resting heart rate, overnight
+ * HRV, Body Battery (high and low) and stress. A day shows its numbers with the two weeks before as
+ * a trend; a week or month its daily averages, trend per day. Only numbers the watch sends appear.
  */
-function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
-  const devices = [...new Set(metrics.map((v) => v.device).filter(Boolean))];
-  const perMetric = new Map<string, number>();
-  for (const v of metrics) perMetric.set(v.metric, (perMetric.get(v.metric) ?? 0) + 1);
-  const groups = CATEGORY_ORDER.map((c) => ({ category: c, rows: metrics.filter((v) => displayCategory(v.metric, v.category) === c) })).filter(
-    (g) => g.rows.length,
-  );
+function Recovery({ d, many }: { d: Dashboard; many: boolean }) {
+  // A tile shows while its trend has data, so a day the watch missed reads as a dash, not a gap in the grid.
+  const shown = RECOVERY.filter((r) => d.body[r.key].trend.some((v) => v !== null));
+  if (!shown.length) return null;
+  const value = (f: BodyFigure) => (many ? f.avg : f.total);
+  const extra = (k: BodyKey): string | undefined => {
+    const score = value(d.body.sleepScore);
+    const low = value(d.body.bodyBatteryLow);
+    if (k === "sleep" && score !== null) return `score ${whole(score)}${many ? " on average" : ""}`;
+    if (k === "bodyBatteryHigh" && low !== null) return `high · low ${whole(low)}`;
+    return undefined;
+  };
   return (
-    <details className="card synced">
-      <summary>
-        All synced numbers{" "}
-        <span className="muted small">
-          · {metrics.length}
-          {devices.length === 1 ? ` from ${devices[0]}` : ""}
-        </span>
-      </summary>
-      {groups.map((g) => (
-        <div key={g.category}>
-          <h4 className="synced-head">{CATEGORY_LABEL[g.category]}</h4>
-          <table className="values">
-            <tbody>
-              {g.rows.map((v) => (
-                <tr key={`${v.metric}|${v.device}`}>
-                  <td>
-                    {v.label === v.metric ? metricLabel(v.metric) : v.label}
-                    {(devices.length > 1 || (perMetric.get(v.metric) ?? 0) > 1) && <div className="muted small">{v.device}</div>}
-                  </td>
-                  <td className="num">
-                    {metricValue(v.metric, v.value, v.unit)}
-                    {v.partial && <div className="muted small">so far today</div>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </details>
+    <>
+      <SectionHeader title="Recovery" />
+      <div className="viz-tiles pairs">
+        {shown.map((r) => {
+          const f = d.body[r.key];
+          const notes = [many ? "a day on average" : null, extra(r.key) ?? (many ? null : r.note)].filter(Boolean);
+          const v = value(f);
+          return <StatTile key={r.key} label={r.label} value={v === null ? null : r.fmt(v)} note={notes.join(" · ") || undefined} trend={f.trend} />;
+        })}
+      </div>
+    </>
   );
+}
+
+/** Garmin's intensity minutes (vigorous count double) against the WHO's 150 a week: the day's, or the period's total. */
+function IntensityTile({ f, span }: { f: BodyFigure; span: Span }) {
+  const total = Math.round(f.total!);
+  const note =
+    span === "day"
+      ? "minutes today"
+      : span === "week"
+        ? `of 150 a week${total >= 150 ? " · met" : ` · ${150 - total} to go`}`
+        : `${Math.round(f.avg! * 7)} a week on average`;
+  return <StatTile label="Intensity minutes" value={String(total)} note={note} trend={span === "day" ? f.trend : undefined} />;
 }
 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
