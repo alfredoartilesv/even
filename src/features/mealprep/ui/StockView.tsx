@@ -30,6 +30,17 @@ interface Props {
 }
 
 const MOVE_LABEL: Record<MoveKind, string> = { freeze: "froze", thaw: "started defrosting", eat: "ate", discard: "threw out" };
+/** A move button once pressed: what it did, in a word. */
+const DONE: Record<MoveKind, string> = { eat: "Ate", freeze: "Froze", thaw: "Defrosting", discard: "Tossed" };
+
+/** A move made from this screen just now: its button stays pressed, and tapping it again undoes it. */
+interface Done {
+  batchId: string;
+  moveId: string;
+  kind: MoveKind;
+  fromLoc?: Location;
+  portions: number;
+}
 
 function alertText(a: Alert): string {
   const what = `${plural(a.portions, "portion")} of ${a.name}`;
@@ -57,6 +68,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const [preps, setPreps] = useState<MealPrep[]>([]);
   const [msg, setMsg] = useState<Msg>(null);
   const [amount, setAmount] = useState<Record<string, number>>({});
+  const [done, setDone] = useState<Done | null>(null);
 
   const [cookId, setCookId] = useState("");
   const [cookPortions, setCookPortions] = useState("");
@@ -86,11 +98,44 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
     }
   }
 
+  const pressed = (s: StockEntry, kind: MoveKind, fromLoc?: Location) =>
+    done !== null && done.batchId === s.batch.id && done.kind === kind && done.fromLoc === fromLoc ? done : null;
+
+  /** Make the move, or, when its button is still pressed from just now, take it back. */
   const move = (s: StockEntry, kind: MoveKind, fromLoc?: Location) => {
+    const was = pressed(s, kind, fromLoc);
+    if (was) {
+      return act(
+        async () => {
+          await undoMove(db, was.moveId);
+          setDone(null);
+        },
+        `Undone: ${MOVE_LABEL[kind]} ${plural(was.portions, "portion")} of ${s.batch.name}.`,
+      );
+    }
     const n = amount[s.batch.id] ?? 1;
     return act(
-      () => addMove(db, { batchId: s.batch.id, kind, fromLoc, portions: n, timeZone: timeZone() }),
-      `${MOVE_LABEL[kind][0].toUpperCase()}${MOVE_LABEL[kind].slice(1)} ${plural(n, "portion")} of ${s.batch.name}.`,
+      async () => {
+        const moveId = await addMove(db, { batchId: s.batch.id, kind, fromLoc, portions: n, timeZone: timeZone() });
+        setDone({ batchId: s.batch.id, moveId, kind, fromLoc, portions: n });
+      },
+      `${MOVE_LABEL[kind][0].toUpperCase()}${MOVE_LABEL[kind].slice(1)} ${plural(n, "portion")} of ${s.batch.name}. Tap again to undo.`,
+    );
+  };
+
+  /** A move button: its verb, or pressed with what it did (tap again to undo). */
+  const moveButton = (s: StockEntry, kind: MoveKind, verb: string, available: number, primary = false, fromLoc?: Location) => {
+    const p = pressed(s, kind, fromLoc);
+    return (
+      <button
+        className={p ? "pressed" : primary ? undefined : "secondary"}
+        aria-pressed={Boolean(p)}
+        disabled={!p && !available}
+        title={p ? "Tap again to undo" : undefined}
+        onClick={() => move(s, kind, fromLoc)}
+      >
+        {p ? `✓ ${DONE[kind]} ${p.portions}` : verb}
+      </button>
     );
   };
 
@@ -200,31 +245,21 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
               />
             </div>
             <div className="actions">
-              <button disabled={!s.fridgeCount} onClick={() => move(s, "eat")}>
-                Eat
-              </button>
-              <button className="secondary" disabled={!s.fridgeCount} onClick={() => move(s, "freeze")}>
-                Freeze
-              </button>
-              <button className="secondary" disabled={!s.freezerCount} onClick={() => move(s, "thaw")}>
-                Defrost
-              </button>
-              {s.lastMove && (
-                <button className="secondary" onClick={() => act(() => undoMove(db, s.lastMove!.id), "Undone.")}>
-                  Undo {MOVE_LABEL[s.lastMove.kind]} {s.lastMove.portions}
-                </button>
-              )}
+              {moveButton(s, "eat", "Eat", s.fridgeCount, true)}
+              {moveButton(s, "freeze", "Freeze", s.fridgeCount)}
+              {moveButton(s, "thaw", "Defrost", s.freezerCount)}
             </div>
             {/* Rarer moves stay one tap away, so the everyday ones lead. */}
             <details className="more">
               <summary className="small muted">More</summary>
               <div className="actions compact">
-                <button className="secondary" disabled={!s.fridgeCount} onClick={() => move(s, "discard", "fridge")}>
-                  Toss (fridge)
-                </button>
-                <button className="secondary" disabled={!s.freezerCount} onClick={() => move(s, "discard", "freezer")}>
-                  Toss (freezer)
-                </button>
+                {moveButton(s, "discard", "Toss (fridge)", s.fridgeCount, false, "fridge")}
+                {moveButton(s, "discard", "Toss (freezer)", s.freezerCount, false, "freezer")}
+                {s.lastMove && s.lastMove.id !== done?.moveId && (
+                  <button className="secondary" onClick={() => act(() => undoMove(db, s.lastMove!.id), "Undone.")}>
+                    Undo last: {MOVE_LABEL[s.lastMove.kind]} {s.lastMove.portions}
+                  </button>
+                )}
                 <button
                   className="secondary danger"
                   onClick={() => {
