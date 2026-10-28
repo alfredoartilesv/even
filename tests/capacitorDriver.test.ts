@@ -31,6 +31,7 @@ test("real migrations apply through the plugin driver, using plugin transactions
     "app_settings",
     "chat_conversations",
     "chat_messages",
+    "cloud_sync_cursors",
     "consents",
     "day_notes",
     "drink_entries",
@@ -63,7 +64,7 @@ test("CRLF migration files still create every table", async () => {
   const { conn, raw } = fakePlugin();
   const crlf = realMigrations().map((m) => ({ ...m, sql: m.sql.replace(/\n/g, "\r\n") }));
   await migrate(capacitorDriver(conn), crlf);
-  assert.equal(tables(raw).length, 26);
+  assert.equal(tables(raw).length, 27);
 });
 
 test("a failing migration rolls back via the plugin", async () => {

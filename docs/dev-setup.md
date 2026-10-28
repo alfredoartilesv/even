@@ -94,6 +94,28 @@ Since 27 Oct 2026 the **standard check before a PR and the standard APK build ru
 
 **Docker Desktop on this PC:** if `docker version` shows no server, or the backend log (`%LOCALAPPDATA%\Docker\log\host\com.docker.backend*.log`) repeats "connect tcp 192.168.65.7:2375: no route to host", the engine VM lost its network: quit Docker Desktop, run `wsl --terminate docker-desktop`, and start it again (seen on 27 Oct 2026).
 
+## 4b. Sync environment: Postgres, the sync server, the web app
+
+Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](architecture.md#6-phase-2-server-sync-web)), `docker-compose.yml` runs the server side on this PC, as it will later run for free on Vercel and Neon:
+
+| Container | What | Here | Later, free |
+|---|---|---|---|
+| `db` | Postgres 17, volume `even_db-data` | `127.0.0.1:5432`, user and database `even` | Neon free plan (Vercel's Neon integration sets `DATABASE_URL`) |
+| `sync` | the phone sync API (`server/`, Dockerfile target `sync`), migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/push`, `/v1/pull`) | the Vercel function `api/[[...route]].ts` |
+| `web` | the web build (target `web`), with the demo database until the web app has its own data | `http://127.0.0.1:4173` | Vercel static hosting (`vercel.json`, `dist/`) |
+
+| Command | Does |
+|---|---|
+| `npm run docker:up` | builds and starts all three, waits until each is healthy |
+| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
+| `docker compose run --rm sync npm run sync:device -- --owner <id> --name s23` | registers a device and prints its token once (the server keeps its SHA-256 only); `-- --revoke <device id>` revokes one |
+| `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server; needs `SYNC_TOKEN` and `SYNC_SECRET` in `.env` (`.env.example`). Two files with two tokens and one secret are two phones |
+| `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
+
+Without Docker, `npm test` still covers the server: `tests/cloudSync.test.ts` runs the real Hono app on PGlite (Postgres in WebAssembly). To run the server natively against the `db` container: `npm run sync:server` (reads `DATABASE_URL` from `.env`).
+
+**Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Then register devices with `DATABASE_URL=<Neon URL> npm run sync:device -- ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
+
 ## 5. Integration test on the emulator or phone
 
 `npm run test:device` (task *Android: device integration test*) drives the installed debug build through the WebView's DevTools protocol (debug builds expose it) and checks, end to end:

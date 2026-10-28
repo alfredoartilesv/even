@@ -29,3 +29,6 @@ imports/*
 
 # Worktrees for parallel sessions (CLAUDE.md, Workflow)
 /.worktrees/
+
+# Vercel CLI link and local builds (vercel.json is committed)
+.vercel/
