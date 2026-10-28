@@ -1,8 +1,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { memorySecretStore } from "../src/core/secretStore";
-import { syncApi, SyncHttpError } from "../src/features/cloudsync/api";
-import { friendData, shareKind, summaries } from "../src/features/cloudsync/friends";
+import { syncApi, SyncHttpError } from "../src/domain/cloudsync/api";
+import { friendData, shareKind, summaries } from "../src/domain/cloudsync/friends";
 import {
   approvePairing,
   changePassphrase,
@@ -12,8 +12,8 @@ import {
   loadSession,
   sessionApi,
   startPairing,
-} from "../src/features/cloudsync/session";
-import { upsertSamples } from "../src/features/metrics/samples";
+} from "../src/domain/cloudsync/session";
+import { upsertSamples } from "../src/domain/metrics/samples";
 import { addFood, byPairing, byPassphrase, firstPhone, foods, roundTrip, TEST_ITERATIONS, TEST_PASSPHRASE, type Phone } from "../scripts/lib/syncScenario";
 import { testServer } from "./serverHelpers";
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
-import { GarminApi } from "../src/features/sync/garmin";
+import { GarminApi } from "../src/domain/sync/garmin";
 import { makeNativeFetch } from "../src/platform/nativeFetch";
 
 const URL_ = "https://example.test/api/secret-path";

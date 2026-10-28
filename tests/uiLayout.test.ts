@@ -4,10 +4,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TabBar, TABS } from "../src/app/TabBar";
-import { greeting } from "../src/features/dashboard/greeting";
-import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/features/mealprep/ui/MealPrepScreen";
-import { SETTINGS_MENU } from "../src/features/settings/SettingsScreen";
+import { TabBar, TABS } from "../src/shell/TabBar";
+import { greeting } from "../src/domain/dashboard/greeting";
+import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
+import { SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
 import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
@@ -235,7 +235,7 @@ test("menu rows show a picture in place of the icon when given one", () => {
 });
 
 test("profile pictures come from the phone's picker: no input forces the camera", () => {
-  for (const f of ["src/features/me/MeScreen.tsx", "src/features/me/ui/avatar.tsx"]) {
+  for (const f of ["src/screens/me/MeScreen.tsx", "src/screens/me/avatar.tsx"]) {
     const src = readFileSync(resolve(import.meta.dirname, "..", f), "utf8");
     assert.match(src, /type="file" accept="image\/\*"/, f);
     assert.doesNotMatch(src, /capture=/, `${f}: with capture Android opens only the camera`);

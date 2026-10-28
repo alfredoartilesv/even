@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { loadDashboard } from "../src/features/dashboard/dashboard";
+import { loadDashboard } from "../src/domain/dashboard/dashboard";
 import {
   dayFood,
   deleteFood,
@@ -13,16 +13,16 @@ import {
   macrosFromCalories,
   setNutritionTarget,
   updateFood,
-} from "../src/features/food/food";
-import { DEFAULT_MEAL_PREP, eatPortions, loadStock, logBatch, saveMealPrep } from "../src/features/mealprep/mealPrep";
-import { listGoals } from "../src/features/me/goals";
-import { byMonth, listWorkouts, trainingEffectLabel, weeklyVolume, weekOf, type Workout } from "../src/features/me/workouts";
-import { upsertCatalog } from "../src/features/metrics/catalog";
-import { upsertSamples } from "../src/features/metrics/samples";
-import type { SampleInput } from "../src/features/sync/types";
+} from "../src/domain/food/food";
+import { DEFAULT_MEAL_PREP, eatPortions, loadStock, logBatch, saveMealPrep } from "../src/domain/mealprep/mealPrep";
+import { listGoals } from "../src/domain/me/goals";
+import { byMonth, listWorkouts, trainingEffectLabel, weeklyVolume, weekOf, type Workout } from "../src/domain/me/workouts";
+import { upsertCatalog } from "../src/domain/metrics/catalog";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import type { SampleInput } from "../src/domain/sync/types";
 import { budgetText, MacroBudget } from "../src/ui/nutrition";
-import { SyncedNumbers } from "../src/features/dashboard/SyncedNumbers";
-import type { DayValue } from "../src/features/metrics/queries";
+import { SyncedNumbers } from "../src/screens/dashboard/SyncedNumbers";
+import type { DayValue } from "../src/domain/metrics/queries";
 import { migratedDb } from "./helpers";
 
 /**

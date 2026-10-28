@@ -10,8 +10,8 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { memorySecretStore } from "../src/core/secretStore";
-import { disconnect, signInWithPassphrase } from "../src/features/cloudsync/session";
-import { syncNow } from "../src/features/cloudsync/syncNow";
+import { disconnect, signInWithPassphrase } from "../src/domain/cloudsync/session";
+import { syncNow } from "../src/domain/cloudsync/syncNow";
 import { migratedNodeDb } from "./lib/nodeDb";
 
 const args = process.argv.slice(2);

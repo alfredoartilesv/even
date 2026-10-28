@@ -449,7 +449,7 @@ function indexHtml(): string {
     ["Ring", "src/ui/charts/figures.tsx", "Calories eaten against the target and steps against the goal."],
     ["ChipGroup, RangePicker", "src/ui/controls.tsx", "Periods and filters: Alcohol periods, profile activity ranges, chart ranges."],
     ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's attach, microphone and send buttons."],
-    ["TabBar", "src/app/TabBar.tsx", "The five tabs at the bottom."],
+    ["TabBar", "src/shell/TabBar.tsx", "The five tabs at the bottom."],
     [
       "StatTile, Meter, BarChart, LineChart, CalendarHeatmap",
       "src/ui/charts/",

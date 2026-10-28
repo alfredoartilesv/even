@@ -4,7 +4,7 @@ import { platformName } from "./device";
 /**
  * Apple Health through @capgo/capacitor-health, on the iPhone only. The plugin is left out of the
  * Android build (capacitor.config.json android.includePlugins): Health Connect would need min SDK
- * 26 and its own permissions. What is read, and how, is features/sync/appleHealth.ts.
+ * 26 and its own permissions. What is read, and how, is domain/sync/appleHealth.ts.
  */
 export const appleHealthSupported = platformName === "ios";
 

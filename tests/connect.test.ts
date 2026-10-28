@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
-import { claudeKeyVerifier } from "../src/features/chat/client";
-import { claudeConnection, connectClaude, disconnectClaude, watchConnection } from "../src/features/chat/connect";
-import { CHAT_MODEL, ChatApiError, type ClaudeCreate } from "../src/features/chat/engine";
-import { loadClaudeKey, memorySecretStore } from "../src/features/settings/secrets";
+import { claudeKeyVerifier } from "../src/domain/chat/client";
+import { claudeConnection, connectClaude, disconnectClaude, watchConnection } from "../src/domain/chat/connect";
+import { CHAT_MODEL, ChatApiError, type ClaudeCreate } from "../src/domain/chat/engine";
+import { loadClaudeKey, memorySecretStore } from "../src/domain/settings/secrets";
 import { makeNativeFetch } from "../src/platform/nativeFetch";
 import { migratedDb } from "./helpers";
 

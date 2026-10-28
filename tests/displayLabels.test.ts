@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Anthropic from "@anthropic-ai/sdk";
-import { displayCategory, metricLabel, metricValue } from "../src/features/metrics/display";
-import { fmtPace } from "../src/features/me/workouts";
-import { ChatApiError, startConversation, toChatError } from "../src/features/chat/engine";
-import { recordConsent } from "../src/features/chat/consent";
-import { listConversations } from "../src/features/chat/store";
+import { displayCategory, metricLabel, metricValue } from "../src/domain/metrics/display";
+import { fmtPace } from "../src/domain/me/workouts";
+import { ChatApiError, startConversation, toChatError } from "../src/domain/chat/engine";
+import { recordConsent } from "../src/domain/chat/consent";
+import { listConversations } from "../src/domain/chat/store";
 import { migratedDb } from "./helpers";
 
-/** Day metrics the Garmin API sync and the export import write (see src/features/import/garmin.ts). */
+/** Day metrics the Garmin API sync and the export import write (see src/domain/import/garmin.ts). */
 const GARMIN_METRICS = [
   "daily_steps",
   "daily_distanceInMeters",
