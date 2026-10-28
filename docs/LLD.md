@@ -340,7 +340,7 @@ Prices are in the currency in `app_settings` key `currency` (ISO code, default E
 |---|---|---|
 | `chat_conversations` | `id`, `title`, `model` | Index on `updated_at`, live rows |
 | `chat_messages` | `id`, `conversation_id` FK, `seq`, `role`, `content_json`, `model`, `stop_reason`, `input_tokens`, `output_tokens` | `role` in user, assistant. Unique (conversation_id, seq). `content_json` = the Anthropic content blocks array, verbatim |
-| `ai_disclosures` | `id`, `conversation_id` FK, `message_id` FK, `sent_at_ms`, `tool_name`, `data_class`, `summary`, `payload_json`, `bytes` | `data_class` in aggregate, raw, note, photo (photo added in 0005 by rebuilding the table; rows kept). Index on `sent_at_ms` |
+| `ai_disclosures` | `id`, `conversation_id` FK, `message_id` FK, `sent_at_ms`, `tool_name`, `data_class`, `summary`, `payload_json`, `bytes` | `data_class` in aggregate, raw, note, photo, file (photo added in 0005, file in 0015, each by rebuilding the table; rows kept). Index on `sent_at_ms` |
 | `consents` | `id`, `scope`, `granted` (0/1), `decided_at_ms`, `policy_version` | Index (scope, decided_at_ms). Newest row per scope is in force |
 | `agent_actions` (0005) | `id`, `conversation_id` FK, `tool_name`, `summary`, `input_json`, `status`, `rows_json`, `error`, `decided_at_ms` | `status` in applied, declined, failed, undone. `rows_json` = the effects to reverse (`{op, table, id}`, plus `before`/`after` for a shopping-list merge). Index (conversation_id, decided_at_ms) |
 
@@ -626,9 +626,9 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
 
-Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (attachment checks), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring), `ui/ChatScreen.tsx` (the Chat tab).
+Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (photo checks), `files.ts` (PDF and text file checks, document blocks), `context.ts` (the opening data snapshot), `dictation.ts` (dictation text and errors), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring), `ui/ChatScreen.tsx` (the Chat tab), `ui/attach.ts` (reads a picked file). Dictation itself is `src/platform/speech.ts`.
 
-**Connecting.** There is no "Sign in with Claude" for a third-party Android app (architecture.md section 5), so the connect screen follows `CONNECT_STEPS`: open `CLAUDE_KEYS_URL` in the browser, create a personal key with an expiration, paste it. `connectClaude` checks its shape, verifies it with `claudeKeyVerifier` (`GET /v1/models/claude-opus-5-5` over the same native fetch as the chat: free, proves the key works and its workspace can use the model), and only then saves it. 401 → "rejected the API key", 404 → "workspace cannot use claude-opus-5-5", other errors as in 9b.6. `chatDeps` wraps the Messages call in `watchConnection`, so a 401/403 during chat sets `claude.problem` (status `needs_attention`, the screen asks to reconnect) and the next successful reply clears it.
+**Connecting.** There is no "Sign in with Claude" for a third-party Android app (architecture.md section 5), so the connect screen follows `CONNECT_STEPS`: open `CLAUDE_KEYS_URL` in the browser, create a personal key with an expiration, paste it. `connectClaude` checks its shape, verifies it with `claudeKeyVerifier` (`GET /v1/models/claude-haiku-5-5` over the same native fetch as the chat: free, proves the key works and its workspace can use the model), and only then saves it. 401 → "rejected the API key", 404 → "workspace cannot use claude-haiku-5-5", other errors as in 9b.6. `chatDeps` wraps the Messages call in `watchConnection`, so a 401/403 during chat sets `claude.problem` (status `needs_attention`, the screen asks to reconnect) and the next successful reply clears it.
 
 ### 9b.1 Entry points
 
@@ -639,17 +639,19 @@ const deps = await chatDeps(db, {
   confirmAction: (p) => showConfirmSheet(p.summary, p.lines),   // every change the agent wants to save
 });
 
-startConversation(deps, question, { images })        // new conversation, titled from the question
-askClaude(deps, conversationId, question, { images }) // follow-up; images optional (max 4, 5 MB each)
+startConversation(deps, question, { images, files }) // new conversation, titled from the question (or the first file)
+askClaude(deps, conversationId, question, { images, files }) // follow-up; images (max 4, 5 MB each), files (max 3: PDF 5 MB, text 300,000 chars)
 continueConversation(deps, conversationId)            // retry after a ChatApiError; the question is already stored
 attachmentFromPhoto(await downscalePhoto(file))       // a photo from the app's picker as an attachment
+await readAttachment(file)                            // ui/attach.ts: a picked PDF or text file as a FileAttachment
+dictation.start({ language, onText, onEnd })          // platform/speech.ts; withDictation(typed, heard) builds the box text
 QUICK_PROMPTS                                         // starters, each with the permission it needs
 listConversations / loadMessages / renameConversation / deleteConversation (soft)
 listDisclosures(db, conversationId?) / disclosurePayload(db, id)   // "What was sent to Claude"
 listAgentActions(db, conversationId?) / undoAgentAction(db, id)    // "Assistant activity" + undo
 consentStatus(db) / recordConsent(db, scope, granted, deviceId)    // permission toggles
 CONNECT_STEPS / CLAUDE_KEYS_URL                       // connect.ts: what the connect screen shows, the Console key page
-connectClaude(db, secrets, key, claudeKeyVerifier(fetch)) // verify with GET /v1/models/claude-opus-5-5 (free), then save
+connectClaude(db, secrets, key, claudeKeyVerifier(fetch)) // verify with GET /v1/models/claude-haiku-5-5 (free), then save
 claudeConnection(db, secrets)                         // not_connected | connected | needs_attention, key hint, verified at, problem
 disconnectClaude(db, secrets)                         // forget the key and its facts
 loadEffort / saveEffort (service.ts)
@@ -661,29 +663,29 @@ All of them return a `ChatTurnResult`: `status` (`ok`, `refusal`, `max_tokens`, 
 
 ```ts
 client.beta.messages.create({
-  model: "claude-opus-5-5",
+  model: "claude-haiku-5-5",
   max_tokens: 16000,                                   // non-streaming
   system: [ { text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } } ],   // fixed text, no clock
-  tools: 14 read + 12 write tools (fixed order, strict: true, additionalProperties: false),
+  tools: 20 read + 13 write tools (fixed order, strict: true, additionalProperties: false),
   tool_choice: { type: "auto" }                        // "none" on the last allowed round
   messages: <stored history, verbatim>,
   output_config: { effort: "medium" },                 // setting claude.effort
   cache_control: { type: "ephemeral" },                // automatic breakpoint at the end of the history
-  betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
 })
 ```
 
-`thinking` is not sent: on Claude Opus 5.5 it is always on, and `disabled` would be rejected. `tool_choice` `any`/`tool` are not used (rejected on this model).
+`thinking` is not sent: Claude Haiku 5.5 runs adaptive thinking by default, and `budget_tokens` would be rejected. No sampling parameters (rejected on this model). No `fallbacks`: Haiku 5.5 has no server-side fallback (a model list is rejected), so a refusal is reported as status `refusal`. A chat from before 0.3.0 whose history holds `fallback` blocks (from an Opus fallback) is sent with `betas: ["server-side-fallback-2026-07-01"]` only, so those replayed blocks stay valid. `tool_choice` is only `auto` or `none`: a forced tool call would skip thinking.
 
-Transport: `claudeCreate(key, fetchImpl)` builds the SDK client with `dangerouslyAllowBrowser: true` (the key is the owner's own, on their own phone), `maxRetries: 2`, a 5-minute timeout, and on the phone `makeNativeFetch(CapacitorHttp.request, { connectTimeoutMs: 30000, readTimeoutMs: 300000 })`. SDK 1.x sends the key as `Authorization: Bearer`, and the beta list as the `anthropic-beta` header.
+Transport: `claudeCreate(key, fetchImpl)` builds the SDK client with `dangerouslyAllowBrowser: true` (the key is the owner's own, on their own phone), `maxRetries: 2`, a 5-minute timeout, and on the phone `makeNativeFetch(CapacitorHttp.request, { connectTimeoutMs: 30000, readTimeoutMs: 300000 })`. SDK 1.x sends the key as `Authorization: Bearer`. No beta header is sent.
 
 ### 9b.3 Loop
 
 ```
-require consent claude.aggregates, and claude.photos if images are attached (ask if askConsent is given;
-  record the answer) else ConsentRequiredError, nothing stored
-append user message [image blocks..., {text: question}, {text: "[App] Now: Sunday 2026-10-25, 19:00 (time zone ...)"}]
-log one "photo" disclosure per image
+require consent claude.aggregates, claude.photos if images are attached, claude.files if files are (ask if askConsent
+  is given; record the answer) else ConsentRequiredError, nothing stored
+first message of the chat only: build the context snapshot (context.ts)
+append user message [image blocks..., document blocks..., {text: question}, {text: "[App] Now: ..."}, {text: "[App] Snapshot ..."}]
+log the snapshot (aggregate, no tool name), one "photo" disclosure per image, one "file" disclosure per file
 loop:
   res = create(params(history))           errors -> ChatApiError
   append assistant message = res.content verbatim (thinking, fallback, tool_use blocks), model, stop_reason, tokens
@@ -703,7 +705,8 @@ For each **write** tool call (9b.7): `prepare` validates and describes. Invalid 
 Rules this keeps:
 - **Append-only.** Nothing rewrites or drops an earlier message. Edited history would invalidate thinking blocks and the cache.
 - **The history is always valid to resend.** It never ends with an unanswered `tool_use`; after an API error it ends with a user message, which `continueConversation` resends. A new question after that is a second consecutive user message, which the API merges.
-- **Fallback detection:** a `fallback` content block or a `fallback_message` entry in `usage.iterations`. `servedBy` is `res.model`.
+- **Fallback detection:** a `fallback` content block or a `fallback_message` entry in `usage.iterations`. Kept for replies of conversations from before 0.3.0 and a future model that has one; Haiku 5.5 never sends them. `servedBy` is `res.model`.
+- **The snapshot is sent once.** It sits in the first stored message, so it stays the same on every later request of the chat (cached prefix); fresh numbers come from the tools. A part that fails (an empty or older database) is left out, never fails the question.
 
 ### 9b.4 Read tools
 
@@ -725,16 +728,19 @@ Rules this keeps:
 | `list_food_entries` | raw | from, to (max 31 days) | Food log entries (`dayFood`): id, day, time, meal, name, macros, notes, from meal prep, saved meal, logged by |
 | `day_notes` | note | from, to (max 92 days) | Day, mood, energy, note text |
 | `drink_types` | aggregate | none | Currency; saved drink types with serving ml, ABV, kcal per serving (and whether estimated), price, times logged |
+| `workout_summary` | aggregate | from, to | Sessions; per sport the sessions, minutes, km and kcal; per Monday week the sessions, minutes and km (`listWorkouts`, `sportTotals`, `weeklyVolume` in `me/workouts.ts`) |
+| `list_workouts` | raw | from, to (max 92 days) | Single sessions, newest first: day, start time, sport, type, minutes, km, pace, speed, kcal, average and max heart rate, elevation, training effect, VO2 max, source |
+| `grocery_spending` | aggregate | from, to | Currency, total, trips and per supermarket total and trips (`spending` in `mealprep/spending.ts`) |
 | `alcohol_impact` | aggregate | from, to | Drinks, drinking days, alcohol g, standard drinks, kcal (and how many estimated), kcal per calendar day, money (and how many priced), currency, latest weight, kg from alcohol, expected weight without alcohol |
 
 A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/features/metrics/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
 
 ### 9b.5 Consent and disclosures
 
-- Scopes: `claude.aggregates` (questions, summaries, goals, meal prep, saved meals, shopping list; needed for any chat, since the question itself is sent), `claude.raw_series` (day-by-day values and individual food entries), `claude.notes`, `claude.photos`. UI wording in `CONSENT_TEXT`.
-- `CONSENT_POLICY_VERSION[scope]` (all `2026-10-25`): a consent recorded under another version of that scope's text does not count, so changing one wording asks again for that scope only.
+- Scopes: `claude.aggregates` (questions, summaries, goals, meal prep, saved meals, shopping list; needed for any chat, since the question itself is sent), `claude.raw_series` (day-by-day values and individual food entries), `claude.notes`, `claude.photos`, `claude.files` (PDF and text files attached in the chat). UI wording in `CONSENT_TEXT`.
+- `CONSENT_POLICY_VERSION[scope]` (`2026-10-25`, `claude.files` `2026-10-28`): a consent recorded under another version of that scope's text does not count, so changing one wording asks again for that scope only.
 - In force = newest row per scope (`decided_at_ms`, then insertion order). Refusals are recorded too.
-- `ai_disclosures` rows are written when the tool results are stored, just before the request that sends them. If that request fails, the retry sends the same payload. Photos: one `photo` row per image (type and size; the image itself is in `chat_messages`).
+- `ai_disclosures` rows are written when the tool results are stored, just before the request that sends them. If that request fails, the retry sends the same payload. Photos: one `photo` row per image (type and size; the image itself is in `chat_messages`). Files: one `file` row per file (name, type and size; the file itself is in `chat_messages`). The opening snapshot: one `aggregate` row with no tool name, summary `Chat context: <tools>`, and the exact payload.
 
 ### 9b.6 Errors (`toChatError`)
 

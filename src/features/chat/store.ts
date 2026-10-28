@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { SqlDriver } from "../../db/driver";
 import { uuidv7 } from "../../core/uuidv7";
 import { createLogger } from "../../core/log";
+import type { DataClass } from "./consent";
 
 const log = createLogger("chat.store");
 
@@ -150,7 +151,7 @@ export interface Disclosure {
   messageId: string | null;
   sentAtMs: number;
   toolName: string | null;
-  dataClass: "aggregate" | "raw" | "note" | "photo";
+  dataClass: DataClass;
   summary: string;
   bytes: number;
 }
