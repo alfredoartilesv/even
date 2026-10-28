@@ -74,7 +74,7 @@ export interface Dashboard {
 }
 
 /** Monday of the week, first of the month, or the day itself. */
-export function spanStart(span: Span, day: string): string {
+function spanStart(span: Span, day: string): string {
   if (span === "day") return day;
   if (span === "month") return `${day.slice(0, 8)}01`;
   const dow = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;

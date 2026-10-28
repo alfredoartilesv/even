@@ -78,7 +78,7 @@ export async function listDrinkTypes(db: SqlDriver): Promise<DrinkType[]> {
   return (await db.all<TypeRow>(`${TYPE_SELECT} ORDER BY uses DESC, last_ms DESC, t.name COLLATE NOCASE`)).map(toType);
 }
 
-export async function getDrinkType(db: SqlDriver, id: string): Promise<DrinkType | null> {
+async function getDrinkType(db: SqlDriver, id: string): Promise<DrinkType | null> {
   const [r] = await db.all<TypeRow>(`${TYPE_SELECT} AND t.id = ?`, [id]);
   return r ? toType(r) : null;
 }

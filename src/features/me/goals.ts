@@ -79,7 +79,7 @@ export async function deleteGoal(db: SqlDriver, id: string, nowMs: number = Date
 export type Combine = "sum" | "avg" | "last";
 
 /** The goal's daily numbers between two days, and how to combine them. */
-export async function goalDays(db: SqlDriver, g: Goal, from: string, to: string): Promise<{ values: Map<string, number>; combine: Combine }> {
+async function goalDays(db: SqlDriver, g: Goal, from: string, to: string): Promise<{ values: Map<string, number>; combine: Combine }> {
   const values = new Map<string, number>();
   const put = (rows: { day: string; v: number | null }[]) => rows.forEach((r) => r.v !== null && values.set(r.day, r.v));
   switch (g.targetKind) {

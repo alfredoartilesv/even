@@ -9,7 +9,7 @@ export const isNative = Capacitor.isNativePlatform();
 export const platformName = Capacitor.getPlatform();
 
 /** One HTTP request through the native stack (no WebView CORS). */
-export const nativeRequest = (o: HttpOptions): Promise<HttpResponse> => CapacitorHttp.request(o);
+const nativeRequest = (o: HttpOptions): Promise<HttpResponse> => CapacitorHttp.request(o);
 
 /** A fetch over native HTTP on the phone; undefined in the browser so callers use the global fetch. */
 export function deviceFetch(opts?: Parameters<typeof makeNativeFetch>[1]): typeof fetch | undefined {

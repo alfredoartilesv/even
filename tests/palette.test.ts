@@ -92,6 +92,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 const files = walk(SRC).filter((f) => /\.(css|tsx?)$/.test(f) && !f.endsWith("palette.css"));
+// Read once: two tests scan every file.
+const source = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
 
 /** The code without its comments, line numbers kept. */
 function code(text: string): string[] {
@@ -111,7 +113,7 @@ const isLiteral = (line: string) => LITERAL.test(line) || NAMED.test(line);
 
 test("no literal colors outside the palette", () => {
   const bad = files.flatMap((f) =>
-    code(readFileSync(f, "utf8"))
+    code(source.get(f)!)
       .map((line, i) => ({ line, i }))
       .filter(({ line }) => isLiteral(line))
       .map(({ i }) => `${f.slice(SRC.length + 1)}:${i + 1}`),
@@ -207,10 +209,10 @@ test("every var(--token) the app uses is defined", () => {
   // Defined in CSS ("--x: …") or set inline from a component (style={{ ["--x"]: … }}).
   const defined = new Set([
     ...Object.keys(light),
-    ...files.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/(--[\w-]+):|["'](--[\w-]+)["']/g)].map((m) => (m[1] ?? m[2]).slice(2))),
+    ...files.flatMap((f) => [...source.get(f)!.matchAll(/(--[\w-]+):|["'](--[\w-]+)["']/g)].map((m) => (m[1] ?? m[2]).slice(2))),
   ]);
   const used = files
-    .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/var\(--([\w-]+)/g)].map((m) => ({ token: m[1], file: f.slice(SRC.length + 1) })))
+    .flatMap((f) => [...source.get(f)!.matchAll(/var\(--([\w-]+)/g)].map((m) => ({ token: m[1], file: f.slice(SRC.length + 1) })))
     .filter((u) => !u.token.endsWith("-")); // --series-${slot}: checked above
   assert.deepEqual(
     used.filter((u) => !defined.has(u.token)).map((u) => `${u.file}: --${u.token}`),

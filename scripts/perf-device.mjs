@@ -18,7 +18,9 @@
  * data (src/app/perfSeed.ts); the first launch after install seeds it and is not counted.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { assertPerfPackage, badgingPackage } from "./lib/perfPackage.mjs";
 
 const args = Object.fromEntries(
   process.argv
@@ -147,6 +149,23 @@ const summary = (label, all) => {
   };
 };
 
+/** The APK's own package name, from aapt2 in the Android SDK (--build-tools, or the newest one installed). */
+function apkPackage(apk) {
+  const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? join(process.env.LOCALAPPDATA ?? "", "Android", "Sdk");
+  const dir =
+    args["build-tools"] && args["build-tools"] !== true
+      ? String(args["build-tools"])
+      : join(
+          sdk,
+          "build-tools",
+          readdirSync(join(sdk, "build-tools"))
+            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+            .pop(),
+        );
+  const aapt2 = join(dir, process.platform === "win32" ? "aapt2.exe" : "aapt2");
+  return badgingPackage(execFileSync(aapt2, ["dump", "badging", apk], { encoding: "utf8", timeout: 60_000 }));
+}
+
 /** First launch after install: migrations and the seed. Not counted. */
 async function warmUp(pkg) {
   adb("shell", "am", "force-stop", pkg);
@@ -166,7 +185,10 @@ async function measure() {
   const labels = String(args.labels ?? args.label ?? pkgs.join(",")).split(",");
   const outs = args.outs ? String(args.outs).split(",") : args.out ? [String(args.out)] : [];
   const runs = Number(args.runs ?? 7);
+  // Only timing builds: never install or seed over a real app (scripts/lib/perfPackage.mjs).
+  for (const pkg of pkgs) assertPerfPackage(pkg, "--package");
   if (args.apk && args.apk !== true) {
+    assertPerfPackage(apkPackage(String(args.apk)), args.apk);
     adb("install", "-r", args.apk);
     console.log(`installed ${args.apk}`);
   }
