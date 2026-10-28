@@ -9,10 +9,12 @@ The tree follows the three layers in [HLD section 3](HLD.md#3-components): UI, c
 ```
 src/
   apps/<target>/main.tsx           one entry per target: android (the APK), web (Vercel); never imports another target
+    web/connectGate.tsx            the web's start: connect to the account before the app shows (Target.gate)
                                    the Vite mode picks it: `vite build --mode web` is the web app, any other mode Android
   shell/                           the app frame both targets share for now (the composition root)
-    start.tsx                      startApp(): initLogging(), start the DB open, render <App />
-    App.tsx                        DB open, stored log level, auto sync, tabs and the pages over the Dashboard; the web's connect gate
+    start.tsx                      startApp(target): initLogging(), start the DB open, render <App />
+    target.ts                      Target: what an entry adds to the shared shell (today a gate)
+    App.tsx                        DB open, stored log level, auto sync, tabs and the pages over the Dashboard; the target's gate if it has one
     TabBar.tsx                     the bottom tab bar (five tabs, icons and labels)
     screens.tsx                    every screen but the Dashboard, lazy; preloadScreens
     logging.ts                     default level (debug in dev, info built), uncaught-error hooks
