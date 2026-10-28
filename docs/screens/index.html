@@ -15,7 +15,7 @@
  *
  * Roles
  *   --bg          page background
- *   --surface     raised things on it: cards, tiles, charts, the side menu
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar, the side menu
  *   --fg          main text
  *   --muted       secondary text, icons at rest
  *   --line        borders and dividers
@@ -25,7 +25,7 @@
  *   --good        good news (met, within target), as text
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
- *   --shadow      the lift under cards (none in dark: surfaces are lighter there)
+ *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
  *   --shadow-pop  the lift under things that float over the page: chart tooltips, the open side menu
  *   --scrim       dims the page under the side menu's drawer
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
@@ -135,14 +135,14 @@ code { font-size: 0.9em; }
 <body data-show="light">
 <main>
 <h1>Even screens</h1>
-<p class="muted">Every tab and view at phone size (390 × 844 pt), then the menu and a few wide screens, captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
+<p class="muted">Every tab and view of the Android app at phone size (390 × 844 pt), then the web app's menu and a few wide screens, captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
 <div class="themes" role="group" aria-label="Theme">
   <button type="button" data-show="light" aria-pressed="true">Light</button>
   <button type="button" data-show="dark" aria-pressed="false">Dark</button>
   <button type="button" data-show="both" aria-pressed="false">Side by side</button>
 </div>
-<nav class="toc"><a href="#dashboard">Dashboard</a><a href="#chat">Chat</a><a href="#meal-prep">Meal prep</a><a href="#alcohol">Alcohol</a><a href="#settings">Settings</a><a href="#menu-and-wide-screens">Menu and wide screens</a><a href="#components">Components</a></nav>
-<p>Five sections in a side menu: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. On a phone held upright the menu button at the top of each tab opens it; on a wider screen it stays docked on the left (last section). Sync and the profile sit at the top of the Dashboard.</p>
+<nav class="toc"><a href="#dashboard">Dashboard</a><a href="#chat">Chat</a><a href="#meal-prep">Meal prep</a><a href="#alcohol">Alcohol</a><a href="#settings">Settings</a><a href="#web-app">Web app</a><a href="#components">Components</a></nav>
+<p>Five sections: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. On Android they are tabs in a bar at the bottom; the web app has a side menu instead, opened from the menu button on a phone held upright and docked on the left on a wider screen (last section). Sync and the profile sit at the top of the Dashboard.</p>
 <h2 id="dashboard">Dashboard</h2>
 <div class="grid">
 <figure>
@@ -250,30 +250,30 @@ code { font-size: 0.9em; }
   <figcaption><strong>About</strong><span class="muted">The Even logo and name, app version, build, platform, database schema and chat model.</span></figcaption>
 </figure>
 </div>
-<h2 id="menu-and-wide-screens">Menu and wide screens</h2>
+<h2 id="web-app">Web app</h2>
 <div class="grid">
 <figure>
-  <div class="shot"><img class="light" src="img/light-menu.webp" alt="Menu and wide screens: Side menu (phone) (light)" loading="lazy"><img class="dark" src="img/dark-menu.webp" alt="Menu and wide screens: Side menu (phone) (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-menu.webp" alt="Web app: Side menu (phone) (light)" loading="lazy"><img class="dark" src="img/dark-menu.webp" alt="Web app: Side menu (phone) (dark)" loading="lazy"></div>
   <figcaption><strong>Side menu (phone)</strong><span class="muted">The five sections in a side menu. On a phone held upright it is out of sight: the menu button at the top of each tab slides it in over the page, and a choice, a tap outside or Escape closes it.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-dashboard-day.webp" alt="Menu and wide screens: Dashboard on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-day.webp" alt="Menu and wide screens: Dashboard on a computer (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-wide-dashboard-day.webp" alt="Web app: Dashboard on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-day.webp" alt="Web app: Dashboard on a computer (dark)" loading="lazy"></div>
   <figcaption><strong>Dashboard on a computer</strong><span class="muted">From 48rem wide the menu stays docked on the left, with its labels from 75rem; the button at its top narrows it to icons and back, and the choice is kept. The Dashboard sets the period controls in one row and its sections in two columns.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-dashboard-week.webp" alt="Menu and wide screens: Week on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-week.webp" alt="Menu and wide screens: Week on a computer (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-wide-dashboard-week.webp" alt="Web app: Week on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-week.webp" alt="Web app: Week on a computer (dark)" loading="lazy"></div>
   <figcaption><strong>Week on a computer</strong><span class="muted">The week's charts sit in the first column under the rings, recovery and the rest beside them.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-chat.webp" alt="Menu and wide screens: Chat on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-chat.webp" alt="Menu and wide screens: Chat on a computer (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-wide-chat.webp" alt="Web app: Chat on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-chat.webp" alt="Web app: Chat on a computer (dark)" loading="lazy"></div>
   <figcaption><strong>Chat on a computer</strong><span class="muted">Screens other than the Dashboard keep a readable width beside the menu.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-tablet-dashboard.webp" alt="Menu and wide screens: Dashboard on a tablet (light)" loading="lazy"><img class="dark" src="img/dark-tablet-dashboard.webp" alt="Menu and wide screens: Dashboard on a tablet (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-tablet-dashboard.webp" alt="Web app: Dashboard on a tablet (light)" loading="lazy"><img class="dark" src="img/dark-tablet-dashboard.webp" alt="Web app: Dashboard on a tablet (dark)" loading="lazy"></div>
   <figcaption><strong>Dashboard on a tablet</strong><span class="muted">Between 48rem and 75rem the docked menu shows icons only (the labels stay for screen readers and show on hover); from 60rem the Dashboard has two columns.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-landscape-dashboard.webp" alt="Menu and wide screens: Phone on its side (light)" loading="lazy"><img class="dark" src="img/dark-landscape-dashboard.webp" alt="Menu and wide screens: Phone on its side (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-landscape-dashboard.webp" alt="Web app: Phone on its side (light)" loading="lazy"><img class="dark" src="img/dark-landscape-dashboard.webp" alt="Web app: Phone on its side (dark)" loading="lazy"></div>
   <figcaption><strong>Phone on its side</strong><span class="muted">A phone turned on its side is wide enough for the docked menu as icons; the Dashboard stays in one column.</span></figcaption>
 </figure>
 </div>
@@ -290,8 +290,9 @@ code { font-size: 0.9em; }
 <tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard; Food log / Meal prep.</td></tr>
 <tr><td><code>Ring</code></td><td><code>src/ui/charts/figures.tsx</code></td><td>Calories eaten against the target and steps against the goal.</td></tr>
 <tr><td><code>ChipGroup, RangePicker</code></td><td><code>src/ui/controls.tsx</code></td><td>Periods and filters: Alcohol periods, profile activity ranges, chart ranges.</td></tr>
-<tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Side menu icons, the chat's attach, microphone and send buttons.</td></tr>
-<tr><td><code>SideNav</code></td><td><code>src/shell/SideNav.tsx</code></td><td>The five sections in a side menu: a drawer on a phone held upright, docked on the left on a wider screen.</td></tr>
+<tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar and side menu icons, the chat's attach, microphone and send buttons.</td></tr>
+<tr><td><code>TabBar</code></td><td><code>src/apps/android/TabBar.tsx</code></td><td>Android: the five tabs at the bottom.</td></tr>
+<tr><td><code>SideNav</code></td><td><code>src/apps/web/SideNav.tsx</code></td><td>Web app: the five sections in a side menu, a drawer on a phone held upright, docked on the left on a wider screen.</td></tr>
 <tr><td><code>StatTile, Meter, BarChart, LineChart, CalendarHeatmap</code></td><td><code>src/ui/charts/</code></td><td>Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending.</td></tr>
 <tr><td><code>StatusBadge, Stepper</code></td><td><code>src/ui/controls.tsx</code></td><td>States as icon and words; portion counts.</td></tr>
 <tr><td><code>CalorieMeter, MacroSplit</code></td><td><code>src/ui/nutrition.tsx</code></td><td>Calories against the target, macro shares (Log food).</td></tr>
