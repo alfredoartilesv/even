@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TabBar, TABS } from "../src/shell/TabBar";
+import { connectGate } from "../src/apps/web/connectGate";
+import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
 import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
 import { SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
@@ -240,4 +242,19 @@ test("profile pictures come from the phone's picker: no input forces the camera"
     assert.match(src, /type="file" accept="image\/\*"/, f);
     assert.doesNotMatch(src, /capture=/, `${f}: with capture Android opens only the camera`);
   }
+});
+
+test("web app: waits for the sync session, asks to connect without one, and lets the app through with one", () => {
+  const opening = renderToStaticMarkup(h(() => connectGate({ session: undefined, connect: noop })));
+  assert.match(opening, /Opening…/);
+  const connect = renderToStaticMarkup(h(() => connectGate({ session: null, connect: noop })));
+  assert.match(connect, /<h2>Connect<\/h2>/);
+  assert.match(connect, /recovery passphrase/);
+  assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
+});
+
+test("only the web app is gated: the Android entry starts the shell without a gate", () => {
+  const entry = (t: string) => readFileSync(resolve(import.meta.dirname, "../src/apps", t, "main.tsx"), "utf8");
+  assert.match(entry("web"), /startApp\(\{ gate: connectGate \}\)/);
+  assert.match(entry("android"), /startApp\(\);/);
 });

@@ -107,12 +107,17 @@ function page(c: Chrome) {
     }
     throw new Error(`Timed out waiting for ${what}`);
   };
-  /** Click the first element matching selector whose text contains text (or the first match when text is empty). */
+  /**
+   * Click the first element matching selector whose text contains text (or the first match when text
+   * is empty). Waits up to 3 s for it: a screen's data (the Dashboard's synced numbers) can arrive
+   * after the tab is shown.
+   */
   const click = async (selector: string, text = "") => {
-    const ok = await evaluate<boolean>(
-      `(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(e => e.textContent.includes(${JSON.stringify(text)})); if (!el) return false; el.click(); return true; })()`,
-    );
-    if (!ok) throw new Error(`Nothing to click: ${selector} "${text}"`);
+    const expr = `(() => { const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find(e => e.textContent.includes(${JSON.stringify(text)})); if (!el) return false; el.click(); return true; })()`;
+    for (let i = 0; !(await evaluate<boolean>(expr)); i++) {
+      if (i === 30) throw new Error(`Nothing to click: ${selector} "${text}"`);
+      await sleep(100);
+    }
     await sleep(450);
   };
   const shot = async (file: string) => {
