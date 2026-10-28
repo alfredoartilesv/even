@@ -68,10 +68,16 @@ Every grant and removal is a row in the owner's (synced) audit log, as `consents
 - **Lost every device:** sign in + passphrase. Lost the passphrase too: the server copy is unreadable by design; a backup file is the only way back.
 - **Delete account:** from any device; server deletes every row of the account (rows, devices, shares to and from it, invites, wraps) in one transaction; local data stays on devices until the owner deletes it.
 
-### 2.6 Operator
+### 2.6 Operator and admins
 
-- `npm run sync:invite -- --email ...` (new, replaces hand-made device tokens), `sync:device --revoke`, migrations in the Vercel build.
-- Sees per account: devices and last seen, row counts, bytes (Neon free has 0.5 GB: about 1 GB-year of samples for one person, so a quota per account, default 100 MB, with a clear error).
+Decided 28 Oct 2026: the operator works through an **admin account**, a role on an ordinary account granted only from the CLI (`npm run sync:admin -- --email ...`; no endpoint grants it).
+
+- **Settings > Admin** (phone and web, shown only to admins; the server checks the role on every `/v1/admin` request): make an invite for an email (3 to 30 days, the code shown once and sent through the share sheet), list and cancel invites, list accounts (devices, last seen, storage against the quota, friend count), change a quota (10 MB to 2 GB), see and revoke an account's devices, suspend or reactivate an account.
+- **Suspended** means: its devices get 403 on every request, passphrase sign-in is refused (only after the passphrase matched, so a stranger learns nothing), nothing is deleted. An admin cannot suspend themselves. Deleting an account stays with its owner.
+- **Never:** an admin reads no row, key or share, and does not see who is friends with whom (a count only). The server could not read the data anyway.
+- **Audit log** (`admin_audit`): every admin action with who (account id, or `cli`), through what (`app`, `mcp`, `cli`), on which account or invite, when. Ids and numbers only, never an email or a code.
+- The same actions are tools of the admin MCP server, for Claude (section 9).
+- CLI: `sync:invite`, `sync:accounts`, `sync:admin`, migrations in the Vercel build.
 - Logs: device ids, counts, durations. Never emails in logs (the account id instead), never blobs.
 
 ## 3. What the server needs (on top of PR #53)
