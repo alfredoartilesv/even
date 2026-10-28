@@ -4,7 +4,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SideNav, TABS, type SideNavState } from "../src/shell/SideNav";
+import { TabBar } from "../src/apps/android/TabBar";
+import { SideNav, type SideNavState } from "../src/apps/web/SideNav";
+import { TABS } from "../src/shell/tabs";
 import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
@@ -101,11 +103,18 @@ test("icons: every one is a hidden 24 px line drawing in the current color", () 
 
 const navState = (over: Partial<SideNavState>): SideNavState => ({ docked: false, open: false, rail: false, setOpen: noop, toggleRail: noop, ...over });
 
-test("side menu: the five sections in order, each with an icon and a label, the open one aria-current", () => {
+test("Android tab bar: the five tabs in order, each with an icon and a label, the open one aria-current", () => {
   assert.deepEqual(
     TABS.map((t) => t.label),
     ["Dashboard", "Chat", "Meal prep", "Alcohol", "Settings"],
   );
+  const html = renderToStaticMarkup(h(TabBar, { tab: "alcohol", onTab: noop }));
+  assert.equal((html.match(/<button/g) ?? []).length, 5);
+  assert.equal((html.match(/<svg/g) ?? []).length, 5);
+  assert.match(html, /class="active" aria-current="page"><svg[^]*?<span>Alcohol<\/span>/);
+});
+
+test("web side menu: the same five sections, each with an icon and a label, the open one aria-current", () => {
   const html = renderToStaticMarkup(h(SideNav, { tab: "alcohol", onTab: noop, nav: navState({ open: true }) }));
   assert.equal((html.match(/class="sidenav-item/g) ?? []).length, 5);
   assert.match(html, /class="sidenav-item active" aria-current="page"><svg[^]*?<span class="sidenav-label">Alcohol<\/span>/);
@@ -113,7 +122,7 @@ test("side menu: the five sections in order, each with an icon and a label, the 
   assert.match(html, /class="nav-scrim"/);
 });
 
-test("side menu: a closed drawer is inert and has no scrim; docked it never is, and as icons it offers to expand", () => {
+test("web side menu: a closed drawer is inert and has no scrim; docked it never is, and as icons it offers to expand", () => {
   const closed = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({}) }));
   assert.match(closed, /<nav[^>]*inert=""/);
   assert.doesNotMatch(closed, /nav-scrim/);
@@ -127,7 +136,7 @@ test("side menu: a closed drawer is inert and has no scrim; docked it never is, 
   assert.match(rail, /title="Settings"[^>]*>[^]*?<span class="sidenav-label">Settings<\/span>/);
 });
 
-test("PageHeader: the shell's menu button opens the side menu at the top of a tab, not on a page with a way back", () => {
+test("PageHeader: a frame's menu button opens the side menu at the top of a tab, not on a page with a way back; without one there is none", () => {
   const menu = (props: Parameters<typeof PageHeader>[0], open = false) =>
     renderToStaticMarkup(h(NavMenu, { value: { open, onOpen: noop } }, h(PageHeader, props)));
   assert.match(
@@ -282,8 +291,11 @@ test("web app: waits for the sync session, asks to connect without one, and lets
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
 });
 
-test("only the web app is gated: the Android entry starts the shell without a gate", () => {
+test("each target brings its navigation: Android the tab bar without a gate, the web app the side menu behind its gate", () => {
   const entry = (t: string) => readFileSync(resolve(import.meta.dirname, "../src/apps", t, "main.tsx"), "utf8");
-  assert.match(entry("web"), /startApp\(\{ gate: connectGate \}\)/);
-  assert.match(entry("android"), /startApp\(\);/);
+  assert.match(entry("web"), /startApp\(\{ gate: connectGate, Frame: SideNavFrame \}\)/);
+  assert.match(entry("android"), /startApp\(\{ Frame: TabBarFrame \}\);/);
+  // The other target's navigation (and its styles) never reach a build.
+  assert.doesNotMatch(entry("android"), /SideNav|web\.css/);
+  assert.doesNotMatch(entry("web"), /TabBar|android\.css/);
 });

@@ -1,18 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon, type IconName } from "../ui/icons";
-import { Logo } from "../ui/logo";
-import { DOCKED, ROOMY, useMedia } from "../ui/media";
-import { createLogger } from "../core/log";
-
-export type Tab = "dashboard" | "chat" | "mealprep" | "alcohol" | "settings";
-
-export const TABS: { id: Tab; label: string; icon: IconName }[] = [
-  { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-  { id: "chat", label: "Chat", icon: "chat" },
-  { id: "mealprep", label: "Meal prep", icon: "mealprep" },
-  { id: "alcohol", label: "Alcohol", icon: "alcohol" },
-  { id: "settings", label: "Settings", icon: "settings" },
-];
+import { createLogger } from "../../core/log";
+import type { FrameProps } from "../../shell/target";
+import { TABS, type Tab } from "../../shell/tabs";
+import { Icon } from "../../ui/icons";
+import { NavMenu } from "../../ui/layout";
+import { Logo } from "../../ui/logo";
+import { DOCKED, ROOMY, useMedia } from "./media";
 
 const log = createLogger("nav");
 
@@ -130,5 +123,19 @@ export function SideNav({ tab, onTab, nav }: { tab: Tab; onTab: (t: Tab) => void
         </ul>
       </nav>
     </>
+  );
+}
+
+/**
+ * The web app's frame: the side menu beside the page, and the menu button for PageHeader. Docked,
+ * the page moves over by the menu's width (web.css).
+ */
+export function SideNavFrame({ tab, onTab, children }: FrameProps) {
+  const nav = useSideNav();
+  return (
+    <div className={`app-frame${nav.rail ? " rail" : ""}`}>
+      <SideNav nav={nav} tab={tab} onTab={onTab} />
+      <NavMenu value={{ open: nav.open, onOpen: () => nav.setOpen(true) }}>{children}</NavMenu>
+    </div>
   );
 }

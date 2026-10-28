@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { SyncSession } from "../domain/cloudsync/session";
+import type { Tab } from "./tabs";
 
 /** What the shared shell knows about this device's sync connection, for a target's gate. */
 export interface GateState {
@@ -7,6 +8,14 @@ export interface GateState {
   session: SyncSession | null | undefined;
   /** Adopt a new session (or none): the shell keeps it and syncs. */
   connect: (session: SyncSession | null) => void;
+}
+
+/** What the shell gives a target's navigation: the open section, a way to change it, and the page. */
+export interface FrameProps {
+  tab: Tab;
+  onTab: (tab: Tab) => void;
+  /** The page (<main className="shell">), placed by the frame beside or above its navigation. */
+  children: ReactNode;
 }
 
 /**
@@ -19,4 +28,9 @@ export interface Target {
    * starts by connecting, because its data is a copy of the account's. Null lets the app through.
    */
   gate?: (state: GateState) => ReactNode | null;
+  /**
+   * The navigation between the five sections, around the page: Android has a tab bar at the bottom
+   * (thumb reach on the phone), the web app a side menu that docks on a wide screen.
+   */
+  Frame: ComponentType<FrameProps>;
 }

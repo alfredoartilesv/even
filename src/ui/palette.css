@@ -8,7 +8,7 @@
  *
  * Roles
  *   --bg          page background
- *   --surface     raised things on it: cards, tiles, charts, the side menu
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar, the side menu
  *   --fg          main text
  *   --muted       secondary text, icons at rest
  *   --line        borders and dividers
@@ -18,7 +18,7 @@
  *   --good        good news (met, within target), as text
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
- *   --shadow      the lift under cards (none in dark: surfaces are lighter there)
+ *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
  *   --shadow-pop  the lift under things that float over the page: chart tooltips, the open side menu
  *   --scrim       dims the page under the side menu's drawer
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
