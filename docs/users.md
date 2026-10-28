@@ -113,6 +113,9 @@ Auth changes: sessions from a Google ID token (`jose` against Google's keys) iss
 
 ## 6. Decided (28 Oct 2026)
 
+- **One identity: the sync account is the user.** Google is an optional way into it (Settings > Sync & devices > Google, `POST /v1/me/google`; the server's `GOOGLE_CLIENT_ID` must be the same Web client id as the app's `VITE_GOOGLE_WEB_CLIENT_ID`). A connected device's backups name its sync account, and a connected device restores only backups of the same account, whatever Google account owns the phone locally. The local Google owner (migration 0007, Settings > Profile) stays only for phones that never connect, and for backups made before connecting. Its row syncs like any other, so the devices of one account agree on it.
+- Sign-in for 0.4 is invite + email + passphrase, with pairing for more devices; "Sign in with Google" comes after the deploy. Admins make invites (section 2.6), and Claude can too, through the admin MCP server (section 9).
+
 - Friends see 90 days back from the day a kind is shared.
 - A friend's shared data never goes to the owner's Claude chat.
 - The passphrase uses PBKDF2-SHA256 at 600k iterations, as backups do; Argon2id to be revisited.
