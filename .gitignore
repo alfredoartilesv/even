@@ -26,3 +26,6 @@ imports/*
 # Signing keys (the release key lives outside the repo: docs/dev-setup.md section 6)
 *.jks
 *.keystore
+
+# Worktrees for parallel sessions (CLAUDE.md, Workflow)
+/.worktrees/
