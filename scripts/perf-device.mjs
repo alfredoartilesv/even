@@ -99,7 +99,7 @@ const TAB_TIMINGS = `(async (tabs) => {
   const out = {};
   for (const round of [1, 2]) {
     for (const t of tabs) {
-      const button = [...document.querySelectorAll("nav.tabbar button")].find((b) => b.textContent.trim() === t.label);
+      const button = [...document.querySelectorAll("nav.sidenav button")].find((b) => b.textContent.trim() === t.label);
       const t0 = performance.now();
       button.click();
       const re = new RegExp(t.title);

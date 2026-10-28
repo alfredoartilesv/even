@@ -24,8 +24,8 @@ import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../domain/settings/logLevel";
 import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
-import { TabBar, type Tab } from "./TabBar";
-import { PageHeader } from "../ui/layout";
+import { SideNav, useSideNav, type Tab } from "./SideNav";
+import { NavMenu, PageHeader } from "../ui/layout";
 import { PullToRefresh } from "../ui/PullToRefresh";
 import "../ui/ui.css";
 
@@ -51,6 +51,7 @@ export function App({ target }: { target: Target }) {
   const [session, setSession] = useState<SyncSession | null | undefined>(undefined);
   // What the syncs read, so a sync started right after connecting already sees the new session.
   const sessionRef = useRef<SyncSession | null>(null);
+  const nav = useSideNav();
 
   useEffect(() => {
     openDatabase().then(
@@ -212,92 +213,98 @@ export function App({ target }: { target: Target }) {
           ? `mealprep|${mealPrepView}`
           : tab;
 
+  // The Dashboard spreads into columns on a wide screen; other screens keep a readable width.
+  const wide = tab === "dashboard" && !overlay;
+
   return (
-    <>
-      <main className="shell with-tabbar">
-        <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
-        <div key={screenKey} className="screen">
-          <Suspense>
-            {tab === "dashboard" ? (
-              !overlay ? (
-                // Pulling the Dashboard down syncs, as the button does (without a Garmin key it just reloads the numbers).
-                <PullToRefresh onRefresh={configured ? () => void sync() : changed} busy={syncing} label={configured ? "sync" : "refresh"}>
-                  <DashboardScreen
-                    db={ready}
-                    version={version}
-                    configured={configured}
-                    syncWarnings={status?.warnings ?? []}
-                    profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
-                    sync={syncButton}
-                    go={{
-                      logFood: () => {
-                        setMealPrepView("log");
-                        go("mealprep");
-                      },
-                      logDrink: () => go("alcohol"),
-                      askClaude: () => go("chat"),
-                      mealPrep: () => {
-                        setMealPrepView("stock");
-                        go("mealprep");
-                      },
-                      profile: () => open({ page: "profile", view: "activity" }),
-                      checkIn: (day) => open({ page: "journal", view: "checkin", day }),
-                      measurements: () => open({ page: "journal", view: "measurements" }),
-                    }}
-                  />
-                </PullToRefresh>
-              ) : (
-                <section>
-                  <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
-                  {overlay.page === "profile" ? (
-                    <MeScreen db={ready} version={version} view={overlay.view} onEditProfile={() => openSettings("profile")} onChanged={changed} />
-                  ) : (
-                    <JournalScreen
-                      db={ready}
-                      version={version}
-                      view={overlay.view}
-                      initialDay={overlay.day}
-                      onView={(view) => setOverlay({ page: "journal", view })}
-                      onChanged={changed}
-                    />
-                  )}
-                </section>
-              )
-            ) : tab === "chat" ? (
-              <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
-            ) : tab === "mealprep" ? (
-              <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
-            ) : tab === "alcohol" ? (
-              <AlcoholScreen db={ready} version={version} onChanged={changed} />
-            ) : (
-              <SettingsScreen
-                db={ready}
-                secrets={secretStore}
-                isNative={isNative}
-                version={version}
-                page={settingsPage}
-                onPage={setSettingsPage}
-                onChanged={() => {
-                  void refreshStatus();
-                  changed();
-                }}
-                onSync={() => sync()}
-                session={session ?? null}
-                onSession={connect}
-              />
-            )}
-          </Suspense>
-        </div>
-      </main>
-      <TabBar
+    <div className={`app-frame${nav.rail ? " rail" : ""}`}>
+      <SideNav
+        nav={nav}
         tab={tab}
         onTab={(t) => {
-          // Tapping a tab goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
+          // A section goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
           if (t === "dashboard") setOverlay(null);
           if (t === "settings") setSettingsPage(null);
           go(t);
         }}
       />
-    </>
+      <main className={`shell with-nav${wide ? " wide" : ""}`}>
+        <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
+        <div key={screenKey} className="screen">
+          <NavMenu value={{ open: nav.open, onOpen: () => nav.setOpen(true) }}>
+            <Suspense>
+              {tab === "dashboard" ? (
+                !overlay ? (
+                  // Pulling the Dashboard down syncs, as the button does (without a Garmin key it just reloads the numbers).
+                  <PullToRefresh onRefresh={configured ? () => void sync() : changed} busy={syncing} label={configured ? "sync" : "refresh"}>
+                    <DashboardScreen
+                      db={ready}
+                      version={version}
+                      configured={configured}
+                      syncWarnings={status?.warnings ?? []}
+                      profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
+                      sync={syncButton}
+                      go={{
+                        logFood: () => {
+                          setMealPrepView("log");
+                          go("mealprep");
+                        },
+                        logDrink: () => go("alcohol"),
+                        askClaude: () => go("chat"),
+                        mealPrep: () => {
+                          setMealPrepView("stock");
+                          go("mealprep");
+                        },
+                        profile: () => open({ page: "profile", view: "activity" }),
+                        checkIn: (day) => open({ page: "journal", view: "checkin", day }),
+                        measurements: () => open({ page: "journal", view: "measurements" }),
+                      }}
+                    />
+                  </PullToRefresh>
+                ) : (
+                  <section>
+                    <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
+                    {overlay.page === "profile" ? (
+                      <MeScreen db={ready} version={version} view={overlay.view} onEditProfile={() => openSettings("profile")} onChanged={changed} />
+                    ) : (
+                      <JournalScreen
+                        db={ready}
+                        version={version}
+                        view={overlay.view}
+                        initialDay={overlay.day}
+                        onView={(view) => setOverlay({ page: "journal", view })}
+                        onChanged={changed}
+                      />
+                    )}
+                  </section>
+                )
+              ) : tab === "chat" ? (
+                <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
+              ) : tab === "mealprep" ? (
+                <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
+              ) : tab === "alcohol" ? (
+                <AlcoholScreen db={ready} version={version} onChanged={changed} />
+              ) : (
+                <SettingsScreen
+                  db={ready}
+                  secrets={secretStore}
+                  isNative={isNative}
+                  version={version}
+                  page={settingsPage}
+                  onPage={setSettingsPage}
+                  onChanged={() => {
+                    void refreshStatus();
+                    changed();
+                  }}
+                  onSync={() => sync()}
+                  session={session ?? null}
+                  onSession={connect}
+                />
+              )}
+            </Suspense>
+          </NavMenu>
+        </div>
+      </main>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 
 /**
@@ -11,6 +11,12 @@ export interface Choice<T extends string> {
   id: T;
   label: string;
 }
+
+/**
+ * The side menu's button, given by the shell: PageHeader shows it at the top of a tab, where a
+ * phone held upright keeps the menu out of sight (styles.css hides it where the menu stays open).
+ */
+export const NavMenu = createContext<{ open: boolean; onOpen: () => void } | null>(null);
 
 /**
  * Title row: an optional back button ("‹ Dashboard") or leading element (the profile picture),
@@ -31,8 +37,15 @@ export function PageHeader({
   onBack?: () => void;
   backLabel?: string;
 }) {
+  const menu = useContext(NavMenu);
   return (
     <header className="topbar">
+      {/* A page with a way back keeps just that, so the corner holds one button. */}
+      {menu && !onBack && (
+        <button type="button" className="menu-button" aria-label="Menu" aria-controls="sidenav" aria-expanded={menu.open} onClick={menu.onOpen}>
+          <Icon name="menu" />
+        </button>
+      )}
       {onBack && (
         <button type="button" className="back-button" onClick={onBack} aria-label={`Back to ${backLabel}`}>
           <Icon name="back" size={20} />
