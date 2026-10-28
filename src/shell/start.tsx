@@ -11,7 +11,7 @@ import "../screens/styles.css";
  * Start the app: logging, the database open (before React renders, App picks up the same promise),
  * then the shell. Each target's main.tsx calls it; what a target does differently goes there.
  */
-export function startApp(target: Target = {}): void {
+export function startApp(target: Target): void {
   initLogging();
   startOpeningDatabase();
 

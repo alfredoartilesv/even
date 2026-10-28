@@ -1,5 +1,7 @@
 import { startApp } from "../../shell/start";
+import { TabBarFrame } from "./TabBar";
+import "./android.css";
 
-// The Android app (Capacitor). It shares the shell with the web app for now; Android-only
-// start-up and screens go in this folder (docs/phases.md).
-startApp();
+// The Android app (Capacitor): the shared shell with the tab bar at the bottom, in thumb reach.
+// Android-only start-up and screens go in this folder (docs/phases.md).
+startApp({ Frame: TabBarFrame });

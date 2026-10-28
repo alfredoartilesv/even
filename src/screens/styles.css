@@ -484,6 +484,8 @@ fieldset .chips {
    and --safe-area-inset-*; older WebViews (the API 36 emulator image has 133) get native padding and
    both read 0. Taking the larger covers both. */
 :root {
+  /* A target with a bar at the bottom (Android) sets its height; what sticks to the bottom stays above it. */
+  --tabbar-h: 0px;
   /* Capacitor overrides these on <html> at runtime (an inline style beats this rule). */
   --safe-area-inset-top: 0px;
   --safe-area-inset-bottom: 0px;
@@ -505,9 +507,9 @@ body::before {
   z-index: 20;
   pointer-events: none;
 }
-/* Below the last thing on a page: room above the phone's gesture area */
+/* Below the last thing on a page: room above the tab bar, if any, and the phone's gesture area */
 .shell.with-nav {
-  padding-bottom: calc(var(--safe-bottom) + 1.5rem);
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 1.5rem);
 }
 
 /* Top of a tab */
@@ -591,7 +593,7 @@ details.card > summary {
 .chat {
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 2.5rem);
+  min-height: calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 2.5rem);
 }
 .chat-log {
   display: flex;
@@ -633,9 +635,9 @@ details.card > summary {
 }
 .composer {
   position: sticky;
-  bottom: 0;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom));
   background: var(--bg);
-  padding: 0.5rem 0 calc(0.5rem + var(--safe-bottom));
+  padding: 0.5rem 0;
   margin-top: 0.5rem;
   border-top: 1px solid var(--line);
 }
@@ -1086,9 +1088,7 @@ button:active:not(:disabled) {
     animation: none;
   }
   button,
-  .ring-fill,
-  .sidenav,
-  .app-frame {
+  .ring-fill {
     transition: none;
   }
   button:active:not(:disabled) {
@@ -1518,10 +1518,10 @@ button.link-card {
   padding-top: 0.5rem;
   border-top: 1px dashed var(--line);
 }
-/* The one button a list leads to, kept in sight while the list scrolls. */
+/* The one button a list leads to, kept above the tab bar while the list scrolls. */
 .sticky-action {
   position: sticky;
-  bottom: calc(var(--safe-bottom, 0px) + 0.5rem);
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom, 0px) + 0.5rem);
   z-index: 3;
   margin-top: 0.75rem;
 }
@@ -1712,217 +1712,4 @@ html {
 .friend-table th {
   color: var(--muted);
   font-weight: 500;
-}
-
-/*
- * Side menu (src/shell/SideNav.tsx). A phone held upright keeps it out of sight: the menu button at
- * the top of a tab slides it in over the page. From 48rem on (a phone on its side, a tablet, a
- * computer) it stays docked on the left, as icons only until 75rem unless the owner chose. The
- * widths match DOCKED and ROOMY in src/ui/media.ts.
- */
-.app-frame {
-  --nav-w: 15rem;
-}
-.app-frame.rail {
-  --nav-w: 4.75rem;
-}
-.sidenav {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 30;
-  box-sizing: border-box;
-  width: min(17.5rem, 84vw);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: calc(0.75rem + var(--safe-top)) 0.6rem calc(0.75rem + var(--safe-bottom));
-  background: var(--surface);
-  border-right: 1px solid var(--line);
-  overflow-x: hidden;
-  overflow-y: auto;
-  transform: translateX(-100%);
-  transition:
-    transform var(--normal) var(--ease),
-    width var(--normal) var(--ease);
-}
-.sidenav.open {
-  transform: none;
-  box-shadow: var(--shadow-pop);
-}
-.nav-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 25;
-  background: var(--scrim);
-  animation: scrim-in var(--normal) var(--ease);
-}
-@keyframes scrim-in {
-  from {
-    opacity: 0;
-  }
-}
-/* The page under an open drawer stays put. */
-body.nav-open {
-  overflow: hidden;
-}
-.sidenav-head {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-height: 48px;
-  padding: 0 0 0.5rem 0.4rem;
-  margin-bottom: 0.25rem;
-  border-bottom: 1px solid var(--line);
-}
-.sidenav-name {
-  flex: 1;
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-.sidenav ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.sidenav-item,
-.sidenav-toggle,
-.menu-button {
-  display: flex;
-  align-items: center;
-  border: none;
-  background: transparent;
-  color: var(--fg);
-}
-.sidenav-item {
-  width: 100%;
-  gap: 0.9rem;
-  min-height: 48px;
-  padding: 0 0.85rem;
-  border-radius: var(--radius-pill);
-  font-weight: 500;
-  text-align: left;
-  white-space: nowrap;
-  transition: background-color var(--fast);
-}
-.sidenav-item .icon {
-  color: var(--muted);
-}
-.sidenav-item:hover {
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
-}
-.sidenav-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
-.sidenav-item.active .icon {
-  color: var(--accent);
-}
-.sidenav-toggle,
-.menu-button {
-  justify-content: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 50%;
-  color: var(--muted);
-}
-.menu-button {
-  margin-left: -0.5rem;
-  color: var(--fg);
-}
-.sidenav-toggle:hover,
-.menu-button:hover {
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
-}
-.sidenav-item:focus-visible,
-.sidenav-toggle:focus-visible,
-.menu-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-@media (min-width: 48rem) {
-  .app-frame {
-    padding-left: var(--nav-w);
-    transition: padding-left var(--normal) var(--ease);
-  }
-  .sidenav {
-    width: var(--nav-w);
-    transform: none;
-  }
-  .menu-button,
-  .nav-scrim {
-    display: none;
-  }
-  /* Icons only: the labels stay for screen readers, the tooltip (title) for the mouse. */
-  .sidenav.rail .sidenav-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-  }
-  .sidenav.rail .logo,
-  .sidenav.rail .sidenav-name {
-    display: none;
-  }
-  .sidenav.rail .sidenav-head {
-    justify-content: center;
-    padding-left: 0;
-  }
-  .sidenav.rail .sidenav-item {
-    justify-content: center;
-    padding: 0;
-  }
-  /* More room beside the menu: a wider margin, and the Dashboard's tiles in wider rows. */
-  .shell {
-    --gutter: 2rem;
-    max-width: 52rem;
-    padding-top: calc(1.5rem + var(--safe-top));
-  }
-  .shell.wide {
-    max-width: 76rem;
-  }
-  .quick-action {
-    flex-direction: row;
-    justify-content: center;
-    padding: 0.85rem 0.5rem;
-    font-size: 0.9rem;
-  }
-}
-
-/*
- * The Dashboard on a wide screen: the period controls in one row, and its sections in two columns
- * (the rings and check-in first, recovery and the rest beside them). A phone keeps one column.
- */
-@media (min-width: 60rem) {
-  .dash-controls {
-    display: grid;
-    grid-template-columns: minmax(16rem, 22rem) 1fr;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-  }
-  .dash-controls > * {
-    margin-bottom: 0;
-  }
-  .dash-columns {
-    columns: 2;
-    column-gap: 1.5rem;
-  }
-  .dash-block {
-    break-inside: avoid;
-    display: flow-root;
-  }
-  .dash-block > .section-head:first-child {
-    margin-top: 0.4rem;
-  }
 }
