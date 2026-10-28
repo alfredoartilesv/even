@@ -1,4 +1,4 @@
-import { uuidv7 } from "../src/core/uuidv7";
+import { sha256Hex } from "../src/core/hash";
 import type { PullResult, PushResult, SyncRow } from "../src/core/syncWire";
 import type { Pg } from "./pg";
 
@@ -7,32 +7,9 @@ export interface Device {
   ownerId: string;
 }
 
-export async function sha256Hex(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 /** The sync server's storage: devices and their tokens, and the sealed rows. */
 export function syncStore(pg: Pg) {
   return {
-    /** A new device for an owner. The token is returned once and only its hash is kept. */
-    async addDevice(ownerId: string, name: string, nowMs = Date.now()): Promise<{ id: string; token: string }> {
-      const id = uuidv7(nowMs);
-      const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
-      await pg.query("INSERT INTO devices (id, owner_id, name, token_hash, created_at) VALUES ($1, $2, $3, $4, $5)", [
-        id,
-        ownerId,
-        name,
-        await sha256Hex(token),
-        nowMs,
-      ]);
-      return { id, token };
-    },
-
-    async revokeDevice(id: string, nowMs = Date.now()): Promise<void> {
-      await pg.query("UPDATE devices SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL", [id, nowMs]);
-    },
-
     async deviceFor(token: string, nowMs = Date.now()): Promise<Device | null> {
       const [row] = await pg.query<{ id: string; owner_id: string }>(
         "UPDATE devices SET last_seen_at = $2 WHERE token_hash = $1 AND revoked_at IS NULL RETURNING id, owner_id",

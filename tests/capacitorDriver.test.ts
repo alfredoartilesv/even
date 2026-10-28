@@ -32,6 +32,8 @@ test("real migrations apply through the plugin driver, using plugin transactions
     "chat_conversations",
     "chat_messages",
     "cloud_sync_cursors",
+    "cloud_sync_outbox",
+    "cloud_sync_pulling",
     "consents",
     "day_notes",
     "drink_entries",
@@ -64,7 +66,7 @@ test("CRLF migration files still create every table", async () => {
   const { conn, raw } = fakePlugin();
   const crlf = realMigrations().map((m) => ({ ...m, sql: m.sql.replace(/\n/g, "\r\n") }));
   await migrate(capacitorDriver(conn), crlf);
-  assert.equal(tables(raw).length, 27);
+  assert.equal(tables(raw).length, 29);
 });
 
 test("a failing migration rolls back via the plugin", async () => {
@@ -94,4 +96,11 @@ test("upserts and sync state work end to end, with iOS column headers stripped",
   await saveSyncState(db, "garmin", "c1", NOW);
   assert.equal(await loadCursor(db, "garmin"), "c1");
   assert.equal(await loadCursor(db, "nope"), null);
+});
+
+test("the cloud sync triggers survive the plugin splitting scripts on a semicolon at a line end", async () => {
+  const { conn, raw } = fakePlugin();
+  await migrate(capacitorDriver(conn), realMigrations());
+  const n = raw.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'cloud_sync_%'").get() as { n: number };
+  assert.equal(n.n, 46);
 });

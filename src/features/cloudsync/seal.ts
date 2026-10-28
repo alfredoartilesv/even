@@ -56,12 +56,12 @@ export async function open(keys: SyncKeys, tbl: string, key: string, blob: strin
   return JSON.parse(new TextDecoder().decode(plain)) as PlainRow;
 }
 
-function toB64(bytes: Uint8Array): string {
+export function toB64(bytes: Uint8Array): string {
   let s = "";
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 }
 
-function fromB64(s: string): Uint8Array<ArrayBuffer> {
+export function fromB64(s: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }

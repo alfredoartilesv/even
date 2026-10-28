@@ -55,6 +55,8 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "shopping_trips", key: ["id"], lastWriteWins: true },
   { name: "sync_runs", key: ["id"], lastWriteWins: false },
   { name: "cloud_sync_cursors", key: ["name"], lastWriteWins: false, deviceLocal: true },
+  { name: "cloud_sync_outbox", key: ["tbl", "row_id"], lastWriteWins: false, deviceLocal: true },
+  { name: "cloud_sync_pulling", key: ["started_at"], lastWriteWins: false, deviceLocal: true },
 ];
 
 const FORMAT = "even-backup";

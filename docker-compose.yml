@@ -30,6 +30,8 @@ services:
     build: { context: ., target: sync }
     environment:
       DATABASE_URL: postgres://even:${POSTGRES_PASSWORD:-even-local}@db:5432/even
+      SERVER_SECRET: ${SERVER_SECRET:-even-local-only}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       # For docker compose run --rm sync npm run test:sync: the running service, by its compose name.
       SYNC_URL: http://sync:8787
       LOG_LEVEL: ${LOG_LEVEL:-info}

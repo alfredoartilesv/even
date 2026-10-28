@@ -9,8 +9,8 @@ import * as z from "zod/mini";
 
 /** Rows per push or pull page. The server refuses bigger pushes. */
 export const SYNC_PAGE = 500;
-/** A sealed row is a few hundred bytes; photos are the big ones. */
-export const MAX_BLOB_CHARS = 1_000_000;
+/** A sealed row is a few hundred bytes; a food photo (up to 1.5 MB, MAX_PHOTO_BYTES) seals to about 2.7 MB. */
+export const MAX_BLOB_CHARS = 3_500_000;
 /** Vercel refuses request bodies over 4.5 MB, so the phone splits a push page to stay under this. */
 export const MAX_PUSH_BYTES = 4_000_000;
 
@@ -39,6 +39,129 @@ export interface PulledRow extends SyncRow {
 export interface PullResult {
   rows: PulledRow[];
   /** Pass as `after` next time. */
+  next: number;
+  more: boolean;
+}
+
+// ---- Accounts, devices, pairing (docs/users.md section 2) ----
+
+const b64 = (max: number) => z.string().check(z.minLength(1), z.maxLength(max), z.regex(/^[A-Za-z0-9+/_=-]+$/));
+const email = z.string().check(z.trim(), z.toLowerCase(), z.minLength(3), z.maxLength(254), z.regex(/^[^\s@]+@[^\s@]+$/));
+const label = z.string().check(z.trim(), z.minLength(1), z.maxLength(60));
+export const DEVICE_KINDS = ["phone", "web", "pc"] as const;
+export type DeviceKind = (typeof DEVICE_KINDS)[number];
+const device = z.object({ name: label, kind: z.enum(DEVICE_KINDS) });
+
+/** The account's keys as the server keeps them: all sealed or public (src/features/cloudsync/keys.ts). */
+export const accountKeys = z.object({
+  identityPublic: z.string().check(z.minLength(1), z.maxLength(2_000)),
+  identityPrivate: b64(4_000),
+  adkWrapped: b64(1_000),
+  wrapSalt: b64(100),
+  wrapIterations: z.int().check(z.gte(100_000), z.lte(10_000_000)),
+  /** The passphrase's auth key (not the key that unwraps adkWrapped); the server stores its SHA-256. */
+  recoveryVerifier: b64(200),
+  keyCheck: b64(200),
+});
+export type AccountKeys = z.infer<typeof accountKeys>;
+
+export const signupBody = z.object({
+  inviteCode: z.string().check(z.trim(), z.minLength(6), z.maxLength(40)),
+  email,
+  displayName: label,
+  device,
+  keys: accountKeys,
+});
+export type SignupBody = z.infer<typeof signupBody>;
+
+export const recoveryStartBody = z.object({ email });
+export interface RecoveryStart {
+  salt: string;
+  iterations: number;
+}
+export const recoveryFinishBody = z.object({ email, verifier: b64(200), device });
+export type RecoveryFinishBody = z.infer<typeof recoveryFinishBody>;
+
+export const recoveryUpdateBody = z.object({
+  adkWrapped: b64(1_000),
+  wrapSalt: b64(100),
+  wrapIterations: accountKeys.shape.wrapIterations,
+  recoveryVerifier: b64(200),
+});
+export type RecoveryUpdateBody = z.infer<typeof recoveryUpdateBody>;
+
+/** What a device gets when it joins: its token (shown once) and the account's sealed keys. */
+export interface Joined {
+  accountId: string;
+  deviceId: string;
+  token: string;
+  keys: Pick<AccountKeys, "identityPublic" | "identityPrivate" | "adkWrapped" | "keyCheck">;
+}
+
+export const pairingStartBody = z.object({
+  ephemeralPublic: z.string().check(z.minLength(1), z.maxLength(2_000)),
+  tokenHash: z.string().check(z.regex(/^[0-9a-f]{64}$/)),
+  device,
+});
+export const pairingApproveBody = z.object({ sealed: b64(20_000) });
+export interface PairingStatus {
+  status: "pending" | "approved" | "expired";
+  accountId?: string;
+  deviceId?: string;
+  sealed?: string;
+  keyCheck?: string;
+}
+
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  kind: string;
+  addedBy: string;
+  createdAt: number;
+  lastSeenAt: number | null;
+  current: boolean;
+}
+
+export interface Me {
+  account: { id: string; email: string; displayName: string; googleLinked: boolean; createdAt: number };
+  devices: DeviceInfo[];
+  usage: { bytes: number; quotaBytes: number; rows: number };
+}
+
+export const profileBody = z.object({ displayName: label });
+export const googleLinkBody = z.object({ idToken: z.string().check(z.minLength(20), z.maxLength(5_000)) });
+
+// ---- Friends and shares (docs/users.md section 2.4) ----
+
+/** What a friend can be shown, as daily summaries. Never notes, chats, photos or food names. */
+export const SHARE_KINDS = ["activity", "sleep", "recovery", "weight", "nutrition", "alcohol"] as const;
+export type ShareKind = (typeof SHARE_KINDS)[number];
+/** How far back a friend sees (decided 28 Oct 2026). */
+export const SHARE_DAYS = 90;
+
+export const friendAcceptBody = z.object({ code: z.string().check(z.trim(), z.minLength(6), z.maxLength(40)) });
+export interface Friend {
+  accountId: string;
+  displayName: string;
+  identityPublic: string;
+  since: number;
+}
+
+export const shareBody = z.object({ friendId: z.string().check(z.minLength(1), z.maxLength(64)), kind: z.enum(SHARE_KINDS), wrappedKey: b64(1_000) });
+export interface Share {
+  id: string;
+  ownerId: string;
+  friendId: string;
+  kind: ShareKind;
+  wrappedKey: string;
+  createdAt: number;
+}
+
+export const shareRow = z.object({ day: z.string().check(z.regex(/^\d{4}-\d{2}-\d{2}$/)), updatedAt: z.int().check(z.nonnegative()), blob: b64(20_000) });
+export type ShareRow = z.infer<typeof shareRow>;
+export const shareRowsBody = z.object({ rows: z.array(shareRow).check(z.maxLength(SHARE_DAYS * 2)) });
+export interface ShareRowsResult {
+  rows: (ShareRow & { seq: number })[];
   next: number;
   more: boolean;
 }
