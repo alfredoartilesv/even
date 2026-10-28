@@ -253,11 +253,12 @@ const SCREENS: Screen[] = [
   {
     id: "chat-photo",
     tab: "Chat",
-    title: "New chat, adding a photo",
-    about: "Quick prompts to start from. The camera button offers Take a photo (the camera) or Attach an image (the gallery, several at once).",
+    title: "New chat, adding a photo or a file",
+    about:
+      "Quick prompts to start from. The paperclip offers Take a photo (the camera), Attach an image (the gallery, several at once) or Attach a file (a PDF or a CSV, TXT or JSON file). The microphone dictates into the message box where the phone has a speech recognizer.",
     go: async (p) => {
       await p.click(".topbar button", "New");
-      await p.click('[aria-label="Add a photo"]');
+      await p.click('[aria-label="Add a photo or a file"]');
     },
   },
   {
@@ -447,7 +448,7 @@ function indexHtml(): string {
     ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard; Food log / Meal prep."],
     ["Ring", "src/ui/charts/figures.tsx", "Calories eaten against the target and steps against the goal."],
     ["ChipGroup, RangePicker", "src/ui/controls.tsx", "Periods and filters: Alcohol periods, profile activity ranges, chart ranges."],
-    ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's camera and send buttons."],
+    ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's attach, microphone and send buttons."],
     ["TabBar", "src/app/TabBar.tsx", "The five tabs at the bottom."],
     [
       "StatTile, Meter, BarChart, LineChart, CalendarHeatmap",
