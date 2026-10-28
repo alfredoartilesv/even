@@ -7,6 +7,7 @@ Even is a personal health app for Android (then iPhone): Garmin data straight fr
 | Document | Read it when you want to know | Contents |
 |---|---|---|
 | [architecture.md](architecture.md) | **Why** it is built this way | Decisions in force, rules the code must keep, open risks, rejected options, the open question for the owner, next steps |
+| [users.md](users.md) | **Who** uses Even in phase 2 | Accounts, devices, friends, the operator; each case step by step (first phone, adding the web, recovery, friends and shares); server tables; order of work for 0.4 |
 | [HLD.md](HLD.md) | **What** the system is and how data moves | Context, components, main flows (start, sync, backup, Claude), data groups, security, deployment, quality attributes |
 | [LLD.md](LLD.md) | **How** a part works in the code | Repo layout, interfaces, database driver and its quirks, the full schema, the Garmin Personal API client and mapping, sync algorithm, backup file format and merge rules, tests, how to extend |
 | [dev-setup.md](dev-setup.md) | **How to build and run** on this PC | JDK 21 and Android SDK install, environment variables, emulator acceleration, VS Code extensions and tasks, debugging the WebView, when Docker helps |

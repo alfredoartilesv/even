@@ -169,6 +169,8 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 | Synced tables | `SYNC_TABLES`: the backed-up tables minus this install's own (`app_settings`, `sync_state`, `sync_runs`, `cloud_sync_cursors`). The phone's cursors (migration 0016) are `deviceLocal` in `BACKUP_TABLES`: never in a backup |
 | Tests | `tests/cloudSync.test.ts`: two phone databases (node:sqlite, the real migrations) through the real Hono app on **PGlite** (Postgres in WebAssembly), so `npm test` needs no Docker. `npm run test:sync`: the same round trip against the running containers (CI job *Sync environment*) or a Vercel deployment |
 
+**Users, devices, friends and the order of work for 0.4:** [users.md](users.md).
+
 **Open for 0.4:** wire `cloudSync` into the app (the sync secret and device token in the Keystore, a Settings > Sync screen, sync after the Garmin sync); how a second device gets the sync secret (QR code from the first phone, or a passphrase); Google ID token instead of a hand-made device token; rows over 1 MB (food photos) need splitting or object storage; the web app's own data layer (the `web` container serves the demo-data build until then).
 
 **Still parked:**
