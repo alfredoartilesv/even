@@ -12,7 +12,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
-const DIRS = ["src", "scripts"];
+const DIRS = ["src", "scripts", "server", "api"];
 const EXT = /\.(ts|tsx|mjs)$/;
 const MIN_LINES = 8;
 

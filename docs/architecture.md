@@ -10,7 +10,7 @@ Status as of 26 Oct 2026. This file records **why** the system is built the way 
 Even is a personal health app, Android first (Samsung S23), iPhone second. It reads the owner's Garmin data from the Garmin Connect Personal API, stores it locally and encrypted on the phone, shows daily screens and trends, keeps manual logs, and lets the owner ask Claude questions about their own data.
 
 - **Phase 1 (now):** phone only. Everything is local.
-- **Phase 2 (later):** server with Postgres, sync between devices, and a web app.
+- **Phase 2 (started 28 Oct 2026, for 0.4):** server with Postgres, sync between devices, and a web app. The environment is in place (section 6); the phone does not sync yet.
 
 ## 2. Decisions (phase 1)
 
@@ -71,6 +71,7 @@ Privacy and security:
 - Secrets only in the Keystore/Keychain. Never in SQLite, logs, error messages or the repo.
 - Error messages from the network layer never contain a URL, key or token.
 - The phone only reads from Garmin. Health data leaves the phone only to Claude, with recorded consent and a disclosure log, and in backup files the owner shares.
+- Cloud sync (phase 2) sends rows **sealed on the phone** (AES-256-GCM with a key the server never has, section 6). The server sees table names, opaque row keys, updated_at and ciphertext; nothing it stores is readable health data. Any server feature that needs plaintext (search, the MCP server) is a new decision here first.
 
 ## 4. Open risks and spikes
 
@@ -152,11 +153,28 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 **Setup the owner does once (Google Cloud Console):** a project; the OAuth consent screen (Testing mode, add your own Google account as a test user; scopes `email`, `profile`); a **Web application** OAuth client, whose id goes in `.env` as `VITE_GOOGLE_WEB_CLIENT_ID` (public, not a secret); an **Android** OAuth client for package `app.health.personal` with the SHA-1 of the signing key (debug key from Android Studio, Gradle `signingReport`; later also the release / Play App Signing key). Credential Manager needs the **Web** client id in the app; using the Android one is the usual cause of "Developer console is not set up correctly".
 
-## 6. Phase 2 parking lot (noted, not built)
+## 6. Phase 2: server, sync, web
 
-- **Server:** Node + TypeScript API (Fastify or Hono), Postgres in Docker, same setup in dev and production. No SQLite on the server.
-- **Sync:** health samples are append-only and one-directional, so a simple cursor sync (server-assigned sequence number, client asks for everything after N). User-authored tables use last-write-wins per row on `updated_at`, which the schema rules already support. If multi-device editing becomes real, adopt PowerSync (syncs Postgres to client SQLite with a local-write upload queue). Verify its licensing and self-hosting terms first.
-- **Web:** React build using SQLite WASM.
+**Built 28 Oct 2026 (the environment, PR for 0.4):**
+
+| Area | Decision |
+|---|---|
+| Server | Hono + TypeScript in `server/`, one app (`server/app.ts`) run two ways: the `sync` Docker container (`server/node.ts`) and a Vercel function (`api/[[...route]].ts`). Postgres through postgres.js, `prepare: false` for Neon's pooler. No SQLite on the server |
+| Hosting, free only | **Vercel Hobby** (free, personal non-commercial use: this app) for the web build and the sync function; **Neon free** (0.5 GB, Postgres 17) through Vercel's Neon integration, which sets `DATABASE_URL`. Vercel caps a request body at 4.5 MB, so a push stays under 4 MB (`MAX_PUSH_BYTES`) |
+| Local environment | `docker-compose.yml`: `db` (Postgres 17, as Neon), `sync` (the one container for phone sync), `web` (the web build). Ports on 127.0.0.1 only. dev-setup.md section 4b |
+| Server schema | `server/migrations/`, numbered like the phone's and applied by `npm run sync:migrate`, at container start, and in the Vercel build (never on a request). Two tables: `devices` (token hash only) and `sync_rows` (newest sealed copy per owner, table and row key, with a server sequence number) |
+| Sync protocol | `src/core/syncWire.ts`. Push: rows changed since this install's cursor per table ((`updated_at`, `rowid`) order, so equal timestamps at a page edge are not lost); the server keeps a row only when its `updated_at` is newer (last write wins). Pull: everything after the sequence number this install has read. A per-owner advisory lock makes sequence numbers commit in order, so a pull never skips a late commit. Pulled rows merge with the backup restore's `mergeRows` (natural keys, newer `updated_at` wins), parents before children |
+| Encryption | One 32-byte sync secret per owner gives, through HKDF, an HMAC key (row key = HMAC of table and natural key, the same on every device) and an AES-256-GCM key (the row, with table and row key as additional data, so blobs cannot be swapped) |
+| Auth | Per-device bearer tokens (`npm run sync:device`), only their SHA-256 on the server, revocable |
+| Synced tables | `SYNC_TABLES`: the backed-up tables minus this install's own (`app_settings`, `sync_state`, `sync_runs`, `cloud_sync_cursors`). The phone's cursors (migration 0016) are `deviceLocal` in `BACKUP_TABLES`: never in a backup |
+| Tests | `tests/cloudSync.test.ts`: two phone databases (node:sqlite, the real migrations) through the real Hono app on **PGlite** (Postgres in WebAssembly), so `npm test` needs no Docker. `npm run test:sync`: the same round trip against the running containers (CI job *Sync environment*) or a Vercel deployment |
+
+**Open for 0.4:** wire `cloudSync` into the app (the sync secret and device token in the Keystore, a Settings > Sync screen, sync after the Garmin sync); how a second device gets the sync secret (QR code from the first phone, or a passphrase); Google ID token instead of a hand-made device token; rows over 1 MB (food photos) need splitting or object storage; the web app's own data layer (the `web` container serves the demo-data build until then).
+
+**Still parked:**
+
+- **Sync at scale:** if multi-device editing becomes real, adopt PowerSync (syncs Postgres to client SQLite with a local-write upload queue). Verify its licensing and self-hosting terms first.
+- **Web:** React build using SQLite WASM, filled by the same pull.
 - **Claude:** move the API key behind a server proxy; add a remote MCP server (TypeScript SDK, OAuth) so Claude.ai can query derived data.
 - **Postgres details:** plain Postgres with partitioned time-series tables. TimescaleDB only if needed. `pg_dump` backups to encrypted storage.
 

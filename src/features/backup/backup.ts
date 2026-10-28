@@ -22,6 +22,8 @@ export interface BackupTable {
   key: string[];
   /** Restore keeps whichever row has the newer updated_at. Otherwise existing rows win. */
   lastWriteWins: boolean;
+  /** About this install only (cloud sync cursors): never exported, never restored. */
+  deviceLocal?: true;
 }
 
 /** Every table, in restore order (parents before children). A test keeps this in step with the schema. */
@@ -52,6 +54,7 @@ export const BACKUP_TABLES: BackupTable[] = [
   { name: "shopping_list_items", key: ["id"], lastWriteWins: true },
   { name: "shopping_trips", key: ["id"], lastWriteWins: true },
   { name: "sync_runs", key: ["id"], lastWriteWins: false },
+  { name: "cloud_sync_cursors", key: ["name"], lastWriteWins: false, deviceLocal: true },
 ];
 
 const FORMAT = "even-backup";
@@ -106,6 +109,7 @@ export async function exportBackup(
   };
   const counts: Record<string, number> = {};
   for (const t of BACKUP_TABLES) {
+    if (t.deviceLocal) continue;
     const columns = await tableColumns(db, t.name);
     if (columns.length === 0) continue; // not in this schema version yet
     const rows: SqlValue[][] = [];
@@ -194,8 +198,8 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
   try {
     for (const t of BACKUP_TABLES) {
       const part = payload.tables[t.name];
-      if (!part) continue;
-      counts[t.name] = await restoreTable(db, t, part.columns, part.rows);
+      if (!part || t.deviceLocal) continue;
+      counts[t.name] = await mergeRows(db, t, part.columns, part.rows);
     }
     await db.exec("COMMIT");
   } catch (err) {
@@ -207,7 +211,11 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
   return { schemaVersion: payload.schemaVersion, exportedAt: payload.exportedAt, rows: counts };
 }
 
-async function restoreTable(db: SqlDriver, t: BackupTable, fileColumns: string[], rows: SqlValue[][]): Promise<number> {
+/**
+ * Upserts rows given as (columns, values) into one table: newer updated_at wins on lastWriteWins
+ * tables, existing rows win on the rest. Restore and cloud sync (src/features/cloudsync) both use it.
+ */
+export async function mergeRows(db: SqlDriver, t: BackupTable, fileColumns: string[], rows: SqlValue[][]): Promise<number> {
   // Only columns this schema has: guards against SQL injection through column names, and lets
   // an older backup (fewer columns) restore into a newer schema.
   const known = new Set(await tableColumns(db, t.name));

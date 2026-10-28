@@ -1,0 +1,19 @@
+import { Hono } from "hono";
+import { handle } from "hono/vercel";
+import { createApp } from "../server/app";
+import { postgresJs } from "../server/pg";
+import { syncStore } from "../server/store";
+
+/**
+ * The sync API as one Vercel function (vercel.json routes /health and /v1/* here). DATABASE_URL is
+ * Neon's pooled URL, set by the Neon integration on the free plan. Migrations run in the Vercel
+ * build (npm run vercel-build), never on a request.
+ */
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error("DATABASE_URL is not set");
+const api = createApp(syncStore(postgresJs(url, { max: 1 })));
+// Mounted twice: vercel.json rewrites /v1/* and /health to /api/..., and either path may arrive.
+const app = new Hono().route("/api", api).route("/", api);
+
+export const GET = handle(app);
+export const POST = handle(app);
