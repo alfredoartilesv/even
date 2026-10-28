@@ -66,6 +66,14 @@ const PATHS = {
   ),
   flame: <path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z" />,
   workout: <path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12" />,
+  bike: (
+    <>
+      <circle cx="6" cy="16" r="3.5" />
+      <circle cx="18" cy="16" r="3.5" />
+      <path d="M6 16l4-7h5l3 7M10 9l3 7h-1M14 5h2l-1 4" />
+    </>
+  ),
+  wave: <path d="M3 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />,
   user: (
     <>
       <circle cx="12" cy="8" r="4" />
@@ -117,6 +125,7 @@ const PATHS = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  sync: <path d="M20 12a8 8 0 0 1-14.5 4.6M4 12a8 8 0 0 1 14.5-4.6M18.5 3v4.4h-4.4M5.5 21v-4.4h4.4" />,
   box: (
     <>
       <path d="M3 8l9-5 9 5v8l-9 5-9-5z" />
