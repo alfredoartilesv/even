@@ -38,6 +38,8 @@ test("expected tables exist", async () => {
       "chat_conversations",
       "chat_messages",
       "cloud_sync_cursors",
+      "cloud_sync_outbox",
+      "cloud_sync_pulling",
       "consents",
       "day_notes",
       "drink_entries",

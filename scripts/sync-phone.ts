@@ -1,28 +1,34 @@
 /**
- * A phone database on the PC, synced with the sync server: the same migrations and sync code as
- * the app, in a node:sqlite file instead of SQLCipher on the phone. For trying sync by hand.
+ * A phone database on the PC, synced with the sync server: the same migrations, keys and sync code
+ * as the app, in a node:sqlite file instead of SQLCipher on the phone. For trying sync by hand.
  *
  *   npm run sync:phone -- --db out/phone-a.sqlite
  *
- * Reads from .env: SYNC_URL (default http://localhost:8787), SYNC_TOKEN (npm run sync:device) and
- * SYNC_SECRET (64 hex characters, the same on every device of one owner; make one with
- * `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`). Prints counts only.
+ * Reads from .env: SYNC_URL (default http://localhost:8787), SYNC_EMAIL and SYNC_PASSPHRASE of an
+ * account made in the app or the web (docs/users.md). Joins as a "pc" device each run. Prints counts only.
  */
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { cloudSync } from "../src/features/cloudsync/cloudSync";
-import { syncKeys } from "../src/features/cloudsync/seal";
-import { httpTransport } from "../src/features/cloudsync/transport";
+import { memorySecretStore } from "../src/core/secretStore";
+import { disconnect, signInWithPassphrase } from "../src/features/cloudsync/session";
+import { syncNow } from "../src/features/cloudsync/syncNow";
 import { migratedNodeDb } from "./lib/nodeDb";
 
 const args = process.argv.slice(2);
 const path = args.includes("--db") ? args[args.indexOf("--db") + 1] : "out/phone.sqlite";
-const { SYNC_URL = "http://localhost:8787", SYNC_TOKEN, SYNC_SECRET } = process.env;
-if (!SYNC_TOKEN) throw new Error("SYNC_TOKEN is not set: npm run sync:device -- --owner <id> --name pc");
-if (!SYNC_SECRET || !/^[0-9a-f]{64}$/i.test(SYNC_SECRET)) throw new Error("SYNC_SECRET must be 64 hex characters");
+const { SYNC_URL = "http://localhost:8787", SYNC_EMAIL, SYNC_PASSPHRASE } = process.env;
+if (!SYNC_EMAIL || !SYNC_PASSPHRASE) throw new Error("Set SYNC_EMAIL and SYNC_PASSPHRASE in .env (an account made in the app or on the web)");
 
 mkdirSync(dirname(path), { recursive: true });
 const { db } = await migratedNodeDb(path, { foreignKeys: true });
-const secret = Uint8Array.from(SYNC_SECRET.match(/../g)!.map((h) => parseInt(h, 16)));
-const report = await cloudSync(db, httpTransport(SYNC_URL, SYNC_TOKEN), await syncKeys(secret));
-process.stdout.write(`${path}: pushed ${report.pushed} (${report.accepted} new on the server), pulled ${report.pulled}, skipped ${report.skipped}\n`);
+const store = memorySecretStore();
+const session = await signInWithPassphrase(SYNC_URL, store, { email: SYNC_EMAIL, passphrase: SYNC_PASSPHRASE, device: { name: `PC (${path})`, kind: "pc" } });
+try {
+  const r = await syncNow(db, session, { today: new Date().toISOString().slice(0, 10) });
+  process.stdout.write(
+    `${path}: pushed ${r.pushed} (${r.accepted} new), pulled ${r.pulled}, too large ${r.tooLarge}, rejected ${r.rejected}, friend days ${r.shared}\n`,
+  );
+} finally {
+  // One device per run would pile up: this one leaves again.
+  await disconnect(store, session);
+}

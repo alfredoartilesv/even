@@ -3,7 +3,7 @@ import { createLogger, setLogLevel } from "../src/core/log";
 import { createApp } from "./app";
 import { migrateServer } from "./migrate";
 import { postgresJs } from "./pg";
-import { syncStore } from "./store";
+import { createStores } from "./stores";
 
 /**
  * The `sync` Docker container's entry point (docker-compose.yml): brings the database up to the
@@ -18,7 +18,7 @@ const port = Number(process.env.PORT ?? 8787);
 
 const pg = postgresJs(url);
 await migrateServer(pg);
-const server = serve({ fetch: createApp(syncStore(pg)).fetch, port, hostname: "0.0.0.0" }, () => log.info("sync server listening", { port }));
+const server = serve({ fetch: createApp(createStores(pg, process.env)).fetch, port, hostname: "0.0.0.0" }, () => log.info("sync server listening", { port }));
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, () => {
