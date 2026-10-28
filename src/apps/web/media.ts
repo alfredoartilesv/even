@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Screen widths the layout changes at, the same as the @media rules in styles.css. Under DOCKED (a
+ * Screen widths the web layout changes at, the same as the @media rules in web.css. Under DOCKED (a
  * phone held upright) the side menu is a drawer; from DOCKED on (a phone on its side, a tablet, a
  * computer) it stays open beside the page, as icons only until ROOMY.
  */

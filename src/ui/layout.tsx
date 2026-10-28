@@ -13,8 +13,9 @@ export interface Choice<T extends string> {
 }
 
 /**
- * The side menu's button, given by the shell: PageHeader shows it at the top of a tab, where a
- * phone held upright keeps the menu out of sight (styles.css hides it where the menu stays open).
+ * A side menu's button, given by a target's frame (the web app's): PageHeader shows it at the top
+ * of a tab, where a phone held upright keeps the menu out of sight. Without it (Android's tab bar)
+ * the header has no menu button.
  */
 export const NavMenu = createContext<{ open: boolean; onOpen: () => void } | null>(null);
 
