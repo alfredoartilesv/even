@@ -293,7 +293,7 @@ test("web app: waits for the sync session, asks to connect without one, and lets
 
 test("each target brings its navigation: Android the tab bar without a gate, the web app the side menu behind its gate", () => {
   const entry = (t: string) => readFileSync(resolve(import.meta.dirname, "../src/apps", t, "main.tsx"), "utf8");
-  assert.match(entry("web"), /startApp\(\{ gate: connectGate, Frame: SideNavFrame \}\)/);
+  assert.match(entry("web"), /startApp\(\{ gate: \(state\) => connectGate\(state, notice\), Frame: SideNavFrame \}\)/);
   assert.match(entry("android"), /startApp\(\{ Frame: TabBarFrame \}\);/);
   // The other target's navigation (and its styles) never reach a build.
   assert.doesNotMatch(entry("android"), /SideNav|web\.css/);
