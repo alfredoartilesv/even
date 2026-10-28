@@ -108,7 +108,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
     <section>
       <PageHeader title={LABEL[page]} onBack={() => onPage(null)} backLabel="Settings" />
       {page === "profile" ? (
-        <ProfileSettings db={db} onChanged={onChanged} />
+        <ProfileSettings db={db} onChanged={onChanged} connected={session !== null} onOpenSync={() => onPage("sync")} />
       ) : page === "sync" ? (
         <SyncSettings db={db} secrets={secrets} isNative={isNative} session={session} onSession={onSession} onSync={onSync} version={version} />
       ) : page === "friends" ? (
@@ -116,7 +116,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
       ) : page === "connections" ? (
         <ConnectionSettings db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={() => void onSync()} />
       ) : page === "privacy" ? (
-        <PrivacySettings db={db} onChanged={onChanged} />
+        <PrivacySettings db={db} onChanged={onChanged} syncAccountId={session?.accountId ?? null} />
       ) : page === "logs" ? (
         <LogsScreen db={db} />
       ) : page === "admin" ? (

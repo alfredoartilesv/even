@@ -141,6 +141,8 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 ## 5b. Account: Google sign-in (decided 26 Oct 2026)
 
+**Changed 28 Oct 2026:** the sync account is the user ([users.md section 6](users.md#6-decided-28-oct-2026)). Google links to it, and backups of a connected device belong to it. What follows still holds for a phone that never connects.
+
 **What it is for:** knowing whose data this is. The phone's data gets an owner (Google's stable account id), so phase 2 sync can key everything by that account and a backup cannot be restored into another person's data. It is **not** a lock: the data is protected on the phone by SQLCipher with a Keystore key whether or not anyone is signed in (a biometric lock would be the tool for that).
 
 **Decisions (by the owner):**
