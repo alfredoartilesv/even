@@ -255,6 +255,6 @@ test("web app: waits for the sync session, asks to connect without one, and lets
 
 test("only the web app is gated: the Android entry starts the shell without a gate", () => {
   const entry = (t: string) => readFileSync(resolve(import.meta.dirname, "../src/apps", t, "main.tsx"), "utf8");
-  assert.match(entry("web"), /startApp\(\{ gate: connectGate \}\)/);
+  assert.match(entry("web"), /startApp\(\{ gate: \(state\) => connectGate\(state, notice\) \}\)/);
   assert.match(entry("android"), /startApp\(\);/);
 });

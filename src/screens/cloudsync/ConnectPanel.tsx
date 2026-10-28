@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SecretStore } from "../../core/secretStore";
 import { deviceFetch, platformName } from "../../platform/device";
+import { keepNothing } from "../../platform/idb";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { SecretInput } from "../../ui/controls";
 import { Segmented } from "../../ui/layout";
@@ -46,8 +47,12 @@ function browserName(): string {
 export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [server, setServer] = useState(DEFAULT_SERVER);
+  const [shared, setShared] = useState(false);
   const fetchFn = deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 });
-  const device = thisDevice(isNative);
+  const plain = thisDevice(isNative);
+  const device = shared ? { ...plain, name: `${plain.name} (shared)` } : plain;
+  // Chosen before anything is stored: the session and the data then stay in this tab's memory.
+  const before = () => shared && keepNothing();
   return (
     <div className="stack">
       <Segmented
@@ -66,12 +71,21 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
           <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://your-even.vercel.app" inputMode="url" autoCapitalize="off" />
         </label>
       )}
+      {!isNative && (
+        <label className="row">
+          <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
+          <span>
+            This is a shared computer
+            <span className="muted small block">Keep nothing in this browser: closing or reloading the tab signs out and forgets the data.</span>
+          </span>
+        </label>
+      )}
       {mode === "signin" ? (
-        <SignIn server={server} secrets={secrets} device={device} fetchFn={fetchFn} onConnected={onConnected} />
+        <SignIn server={server} secrets={secrets} device={device} fetchFn={fetchFn} before={before} onConnected={onConnected} />
       ) : mode === "pair" ? (
-        <Pair server={server} secrets={secrets} device={device} fetchFn={fetchFn} onConnected={onConnected} />
+        <Pair server={server} secrets={secrets} device={device} fetchFn={fetchFn} before={before} onConnected={onConnected} />
       ) : (
-        <Create server={server} secrets={secrets} device={device} fetchFn={fetchFn} onConnected={onConnected} />
+        <Create server={server} secrets={secrets} device={device} fetchFn={fetchFn} before={before} onConnected={onConnected} />
       )}
     </div>
   );
@@ -82,10 +96,12 @@ interface FlowProps {
   secrets: SecretStore;
   device: { name: string; kind: "phone" | "web" };
   fetchFn: typeof fetch | undefined;
+  /** Runs before a flow stores anything (the shared-computer choice). */
+  before: () => void;
   onConnected: (s: SyncSession) => void;
 }
 
-function useSubmit(run: () => Promise<SyncSession>, onConnected: (s: SyncSession) => void) {
+function useSubmit(run: () => Promise<SyncSession>, onConnected: (s: SyncSession) => void, before: () => void) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const submit = async (e: FormEvent) => {
@@ -93,6 +109,7 @@ function useSubmit(run: () => Promise<SyncSession>, onConnected: (s: SyncSession
     setBusy(true);
     setMsg(null);
     try {
+      before();
       onConnected(await run());
     } catch (err) {
       setMsg(failed(err, "cloudsync"));
@@ -103,10 +120,10 @@ function useSubmit(run: () => Promise<SyncSession>, onConnected: (s: SyncSession
   return { busy, msg, submit };
 }
 
-function SignIn({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
+function SignIn({ server, secrets, device, fetchFn, before, onConnected }: FlowProps) {
   const [email, setEmail] = useState("");
   const [passphrase, setPassphrase] = useState("");
-  const { busy, msg, submit } = useSubmit(() => signInWithPassphrase(server, secrets, { email, passphrase, device }, { fetchFn }), onConnected);
+  const { busy, msg, submit } = useSubmit(() => signInWithPassphrase(server, secrets, { email, passphrase, device }, { fetchFn }), onConnected, before);
   return (
     <form onSubmit={submit} className="stack">
       <p className="muted small">Your account's email and recovery passphrase. Works without your phone at hand.</p>
@@ -126,7 +143,7 @@ function SignIn({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
   );
 }
 
-function Pair({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
+function Pair({ server, secrets, device, fetchFn, before, onConnected }: FlowProps) {
   const [req, setReq] = useState<PairingRequest | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [stop] = useState(() => new AbortController());
@@ -135,6 +152,7 @@ function Pair({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
   async function begin() {
     setMsg(null);
     try {
+      before();
       const r = await startPairing(server, secrets, device, { fetchFn, signal: stop.signal });
       setReq(r);
       r.done.then(onConnected, (err) => {
@@ -169,7 +187,7 @@ function Pair({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
   );
 }
 
-function Create({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
+function Create({ server, secrets, device, fetchFn, before, onConnected }: FlowProps) {
   const [invite, setInvite] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -179,6 +197,7 @@ function Create({ server, secrets, device, fetchFn, onConnected }: FlowProps) {
   const { busy, msg, submit } = useSubmit(
     () => createAccount(server, secrets, { inviteCode: invite, email, displayName: name, passphrase, device }, { fetchFn }),
     onConnected,
+    before,
   );
   return (
     <form onSubmit={submit} className="stack">
