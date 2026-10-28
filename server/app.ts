@@ -23,6 +23,8 @@ import {
 } from "../src/core/syncWire";
 import { AuthError, SUSPENDED, type AccountStore } from "./accounts";
 import type { Actor, AdminStore } from "./admin";
+import { mcpApp } from "./mcp";
+import { oauthApp, type OAuthStore } from "./oauth";
 import type { FriendStore } from "./friends";
 import type { GoogleVerifier } from "./google";
 import type { Device, SyncStore } from "./store";
@@ -34,6 +36,7 @@ export interface Stores {
   accounts: AccountStore;
   friends: FriendStore;
   admin: AdminStore;
+  oauth: OAuthStore;
   google: GoogleVerifier;
 }
 
@@ -45,6 +48,7 @@ export interface Stores {
  *            GET /v1/pairings/:id (with the new device's own token in x-pairing-token)
  * Device:    everything else, `Authorization: Bearer <device token>`; a suspended account's devices get 403
  * Admin:     /v1/admin/*, a device of an admin account (docs/users.md section 2.6)
+ * MCP:       /mcp with an OAuth access token for an admin account; /oauth/* and /.well-known/* (server/oauth.ts)
  */
 type Env = { Variables: { device: Device } };
 
@@ -69,10 +73,13 @@ const cursor = (c: Context) => {
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-export function createApp(s: Stores) {
+export function createApp(s: Stores, opts: { publicUrl?: string } = {}) {
   const app = new Hono<Env>();
 
   app.get("/health", (c) => c.json({ ok: true }));
+  // Claude as an admin, through its custom connector: outside /v1, with its own tokens.
+  app.route("/", oauthApp(s, { publicUrl: opts.publicUrl, clientIp }));
+  app.route("/", mcpApp(s, { publicUrl: opts.publicUrl }));
 
   // ---- Joining: invite, passphrase, pairing ----
   app.post("/v1/auth/signup", async (c) => {
@@ -212,6 +219,13 @@ export function createApp(s: Stores) {
     return c.json({ ok: true });
   });
   app.get("/v1/admin/audit", async (c) => c.json(await s.admin.auditLog()));
+  // Claude's connections (MCP grants) of this admin: see and cut them off.
+  app.get("/v1/admin/mcp-grants", async (c) => c.json(await s.oauth.grants(c.get("device").ownerId)));
+  app.delete("/v1/admin/mcp-grants/:id", async (c) => {
+    await s.oauth.revoke(c.get("device").ownerId, c.req.param("id"));
+    await s.admin.record(actor(c), "mcp-revoke", c.get("device").ownerId, { grant: c.req.param("id") });
+    return c.json({ ok: true });
+  });
 
   app.onError((err, c) => {
     if (err instanceof AuthError) return c.json({ error: err.message }, err.status);
