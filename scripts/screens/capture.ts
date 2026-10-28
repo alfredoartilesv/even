@@ -183,12 +183,20 @@ const SCREENS: Screen[] = [
     tab: "Dashboard",
     title: "Profile",
     about:
-      "Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress (the nutrition targets among them), and activities from the Garmin sync or export: a sport filter, training time per week for 12 weeks, totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).",
+      "Opened from the picture on the Dashboard (or Your activity): name and body numbers, then Activity or Goals. Activity: the last 30 days against the 30 before, your sports, and the workouts from the Garmin sync or export: a sport filter, training time per week for 12 weeks (tap a week for its sessions), totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).",
     go: async (p) => {
       await p.click(".segmented button", "Day");
       await p.click(".profile-button");
       await p.click("details.workout-more > summary");
     },
+  },
+  {
+    id: "profile-goals",
+    tab: "Dashboard",
+    title: "Profile: Goals",
+    about:
+      "How many goals are met of those with data today; the daily nutrition targets (set in the food log) together in one card, each with today against its limit and the last days met; every other goal with its progress, last 7 days and streak, delete behind an icon; Add a goal folded away.",
+    go: (p) => p.click(".segmented button", "Goals"),
   },
   {
     id: "journal-checkin",

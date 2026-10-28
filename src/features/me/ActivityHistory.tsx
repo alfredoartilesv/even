@@ -48,6 +48,8 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
   const [range, setRange] = useState(90);
   const [sport, setSport] = useState<SportId | "all">("all");
   const [shown, setShown] = useState(PAGE);
+  // A week tapped on the chart: the list shows that week's sessions instead of the range.
+  const [week, setWeek] = useState<string | null>(null);
   const day = today();
 
   const inRange = range ? workouts.filter((w) => w.day > addDays(day, -range)) : workouts;
@@ -55,7 +57,7 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
   // The owner's sports first, in their order, then the rest by time.
   const sportOrder = [...mySports.filter((s) => present.includes(s)), ...present.filter((s) => !mySports.includes(s))];
   const pick = (ws: Workout[]) => (sport === "all" ? ws : ws.filter((w) => w.sport === sport));
-  const list = pick(inRange);
+  const list = week ? pick(workouts).filter((w) => weekOf(w.day) === week) : pick(inRange);
   const weeks = weeklyVolume(pick(workouts), day, WEEKS);
   const totals = sportTotals(inRange).sort((a, b) => sportOrder.indexOf(a.sport) - sportOrder.indexOf(b.sport));
   const bests = personalBests(pick(workouts)).filter((b) => b.longestDistance || b.longestTime);
@@ -83,19 +85,24 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
           onChange={(s) => {
             setSport(s);
             setShown(PAGE);
+            setWeek(null);
           }}
         />
       )}
 
       <BarChart
         title="Training time per week"
-        subtitle={`Last ${WEEKS} weeks${sport === "all" ? "" : `, ${SPORT_LABEL[sport].toLowerCase()}`}`}
+        subtitle={`Last ${WEEKS} weeks${sport === "all" ? "" : `, ${SPORT_LABEL[sport].toLowerCase()}`}, tap a week for its sessions`}
         x={weeks.map((w) => w.week)}
         values={weeks.map((w) => (w.sessions ? hours(w.durationS) : null))}
         formatX={(w) => String(utc(w).getUTCDate())}
         formatXLong={(w) => `Week of ${fmtDayYear(w)}`}
         formatValue={(h) => fmtDuration(h * 3600)}
-        selected={weekOf(day)}
+        selected={week ?? weekOf(day)}
+        onSelect={(w) => {
+          setWeek(w === week ? null : w);
+          setShown(PAGE);
+        }}
         height={150}
       />
       <p className="muted small">
@@ -103,17 +110,25 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
         {usual > 0 && ` · usually ${fmtDuration(usual)} a week (last 4 weeks)`}
       </p>
 
-      <ChipGroup
-        label="Activities range"
-        options={RANGES}
-        value={range}
-        onChange={(r) => {
-          setRange(r);
-          setShown(PAGE);
-        }}
-      />
+      {week ? (
+        <div className="chips">
+          <button type="button" className="chip active" onClick={() => setWeek(null)} aria-label="Show the whole range again">
+            Week of {fmtDayYear(week)} ×
+          </button>
+        </div>
+      ) : (
+        <ChipGroup
+          label="Activities range"
+          options={RANGES}
+          value={range}
+          onChange={(r) => {
+            setRange(r);
+            setShown(PAGE);
+          }}
+        />
+      )}
 
-      {sport === "all" && totals.length > 0 && (
+      {sport === "all" && !week && totals.length > 0 && (
         <div className="stack tight">
           {totals.map((t) => (
             <button key={t.sport} type="button" className="card sport-total link-card" onClick={() => setSport(t.sport)}>
@@ -178,7 +193,9 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
         Sessions <span className="muted small">· {plural(list.length, "workout")}</span>
       </h3>
       {list.length === 0 ? (
-        <p className="muted small">No {sport === "all" ? "workouts" : SPORT_LABEL[sport].toLowerCase()} in this range.</p>
+        <p className="muted small">
+          No {sport === "all" ? "workouts" : SPORT_LABEL[sport].toLowerCase()} {week ? "that week" : "in this range"}.
+        </p>
       ) : (
         byMonth(list.slice(0, shown)).map((m) => (
           <div key={m.month}>
