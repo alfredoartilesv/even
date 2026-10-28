@@ -1,3 +1,6 @@
+# PARKED (28 Oct 2026): iOS is a later phase. GitHub runs only .github/workflows/, so this file does
+# not run. To bring iOS back, move it to .github/workflows/ios.yml (docs/dev-setup.md section 7).
+#
 # iOS: compile the app for the simulator and for devices, then run it in the iOS Simulator
 # (scripts/ios-sim.mjs). Needs macOS, so it runs on GitHub's Macs: on demand (Actions > iOS >
 # Run workflow) and on pull requests that touch the native side. The repo is private, so macOS
