@@ -93,3 +93,10 @@ test("vercel.json serves the web build and sends /v1 and /health to the sync fun
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
   assert.match(scripts["vercel-build"], /server\/cli\.ts migrate && npm run build/, "migrations run in the build, never on a request");
 });
+
+test("the Vercel function exports every method the API routes use", () => {
+  const fn = readFileSync(join(import.meta.dirname, "../api/[[...route]].ts"), "utf8");
+  const app = readFileSync(join(import.meta.dirname, "../server/app.ts"), "utf8");
+  const used = new Set([...app.matchAll(/app\.(get|post|put|delete)\(/g)].map((m) => m[1]!.toUpperCase()));
+  for (const method of used) assert.match(fn, new RegExp(`export const ${method} = `), method);
+});
