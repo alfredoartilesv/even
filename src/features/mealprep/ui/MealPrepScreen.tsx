@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { listTags } from "../mealPrep";
-import { TagChips } from "../../../ui/common";
+import { TagChips, today } from "../../../ui/common";
 import { PageHeader, Segmented, SubTabs, type Choice } from "../../../ui/layout";
 import { HistoryView } from "../../food/ui/HistoryView";
 import { SavedView } from "../../food/ui/SavedView";
-import { TodayView } from "../../food/ui/TodayView";
+import { DayView } from "../../food/ui/DayView";
 import { RecipesView } from "./RecipesView";
 import { ShoppingView } from "./ShoppingView";
-import { SpendingView } from "./SpendingView";
 import { StockView } from "./StockView";
 
-export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping" | "spending";
+export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping";
 
 export type MealPrepGroup = "food" | "prep";
 
@@ -20,7 +19,7 @@ export const MEAL_PREP_GROUPS: (Choice<MealPrepGroup> & { views: Choice<MealPrep
     id: "food",
     label: "Food log",
     views: [
-      { id: "log", label: "Today" },
+      { id: "log", label: "Log" },
       { id: "history", label: "History" },
       { id: "saved", label: "Saved meals" },
     ],
@@ -32,7 +31,6 @@ export const MEAL_PREP_GROUPS: (Choice<MealPrepGroup> & { views: Choice<MealPrep
       { id: "stock", label: "Stock" },
       { id: "recipes", label: "Recipes" },
       { id: "shopping", label: "Shopping" },
-      { id: "spending", label: "Spending" },
     ],
   },
 ];
@@ -54,13 +52,16 @@ interface Props {
 }
 
 /**
- * The third tab: everything about eating, in two groups. Food log: what you eat today, past days,
- * saved meals. Meal prep: what is in stock and what to defrost, recipes, the shopping list, and
- * what the supermarket cost.
+ * The third tab: everything about eating, in two groups. Food log: a day's log (today, or any past
+ * day), the history by week, saved meals. Meal prep, in the order it happens: recipes (cook, or
+ * put on the shopping list), shopping (the list, what it cost, the month's spending) and stock
+ * (what to defrost, eat). The views link to each other along the way.
  */
 export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) {
   const [tags, setTags] = useState<string[]>([]);
   const [tag, setTag] = useState<string | null>(null);
+  // The day open in the food log. Kept here so History can open a day in the log.
+  const [foodDay, setFoodDay] = useState(today);
   // Bumped after any write so the other views reload when opened.
   const [local, setLocal] = useState(0);
   const changed = () => {
@@ -90,13 +91,23 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
       <Segmented items={MEAL_PREP_GROUPS} value={group} onChange={(g) => onView(last.current[g])} label="Food log or meal prep" />
       <SubTabs items={views} value={view} onChange={onView} label={group === "food" ? "Food log views" : "Meal prep views"} />
       {(view === "stock" || view === "recipes") && <TagChips tags={tags} value={tag} onChange={setTag} />}
-      {view === "log" && <TodayView db={db} version={v} onChanged={changed} />}
-      {view === "history" && <HistoryView db={db} version={v} onChanged={changed} />}
+      {view === "log" && <DayView db={db} version={v} onChanged={changed} day={foodDay} onDay={setFoodDay} onStock={() => onView("stock")} />}
+      {view === "history" && (
+        <HistoryView
+          db={db}
+          version={v}
+          onOpenDay={(d) => {
+            setFoodDay(d);
+            onView("log");
+          }}
+        />
+      )}
       {view === "saved" && <SavedView db={db} version={v} onChanged={changed} />}
-      {view === "stock" && <StockView db={db} tag={tag} version={v} />}
-      {view === "recipes" && <RecipesView db={db} tag={tag} allTags={tags} version={v} onChanged={changed} />}
-      {view === "shopping" && <ShoppingView db={db} version={v} onPaid={() => onView("spending")} />}
-      {view === "spending" && <SpendingView db={db} version={v} onChanged={changed} />}
+      {view === "stock" && <StockView db={db} tag={tag} version={v} onChanged={changed} onRecipes={() => onView("recipes")} />}
+      {view === "recipes" && (
+        <RecipesView db={db} tag={tag} allTags={tags} version={v} onChanged={changed} onShopping={() => onView("shopping")} onStock={() => onView("stock")} />
+      )}
+      {view === "shopping" && <ShoppingView db={db} version={v} onChanged={changed} onRecipes={() => onView("recipes")} />}
     </section>
   );
 }

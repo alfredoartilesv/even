@@ -154,7 +154,7 @@ const SCREENS: Screen[] = [
     tab: "Dashboard",
     title: "Day",
     about:
-      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein; the day's check-in and latest weight; then energy, workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).",
+      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).",
     go: async (p) => {
       await tab(p, "Dashboard");
       await p.click("details.synced > summary");
@@ -165,7 +165,7 @@ const SCREENS: Screen[] = [
     tab: "Dashboard",
     title: "Week",
     about:
-      "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
+      "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it, intensity minutes against 150 a week, recovery as daily averages with a line per day. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
     go: async (p) => {
       await p.click(".segmented button", "Week");
       await p.click('[aria-label="Previous week"]');
@@ -183,10 +183,11 @@ const SCREENS: Screen[] = [
     tab: "Dashboard",
     title: "Profile",
     about:
-      "Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress, and the past activity imported from the Garmin export or synced: totals per sport, longest sessions, recent workouts.",
+      "Opened from the picture on the Dashboard: name and body numbers, sports, goals with progress (the nutrition targets among them), and activities from the Garmin sync or export: a sport filter, training time per week for 12 weeks, totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).",
     go: async (p) => {
       await p.click(".segmented button", "Day");
       await p.click(".profile-button");
+      await p.click("details.workout-more > summary");
     },
   },
   {
@@ -254,15 +255,17 @@ const SCREENS: Screen[] = [
   {
     id: "mealprep-log",
     tab: "Meal prep",
-    title: "Food log: Today",
-    about: "Today's calories against the target, macros, Eat again suggestions, Log a meal (with a photo), and today's entries by meal.",
+    title: "Food log: Log",
+    about:
+      "One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.",
     go: (p) => tab(p, "Meal prep"),
   },
   {
     id: "mealprep-history",
     tab: "Meal prep",
     title: "Food log: History",
-    about: "Calories per day for the week with the target, the weekly average, and any day's entries.",
+    about:
+      "Seven days at a time: calories per day against the target (tap a bar to open that day in the log), the daily averages against every target, then each day with its kcal and macros and what was left or over.",
     go: (p) => sub(p, "History"),
   },
   {
@@ -276,23 +279,25 @@ const SCREENS: Screen[] = [
     id: "mealprep-stock",
     tab: "Meal prep",
     title: "Meal prep: Stock",
-    about: "The second group. Portions in the fridge and freezer, the defrost plan, and Eat / Freeze / Defrost per batch.",
+    about:
+      "The second group. Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the defrost plan (portions a day, what to take out today, the next 7 days), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
     go: (p) => p.click(".segmented button", "Meal prep"),
   },
   {
     id: "mealprep-recipes",
     tab: "Meal prep",
     title: "Meal prep: Recipes",
-    about: "Meal prep recipes with portions, shelf life, macros, tags and ingredients; add them to the shopping list.",
+    about:
+      "Recipes with what a portion holds, shelf life, tags and ingredients, and Edit, Cook (records a batch into Stock) and Duplicate. Set batches with the steppers and add every ingredient to the shopping list in one go; the result links on to the list or to Stock.",
     go: (p) => sub(p, "Recipes"),
   },
   {
-    id: "mealprep-spending",
+    id: "mealprep-shopping",
     tab: "Meal prep",
-    title: "Meal prep: Spending",
+    title: "Meal prep: Shopping",
     about:
-      "What the supermarket cost. Log a shop (supermarket, amount, day; it can clear the ticked shopping list items), then the month's total against the month before, per supermarket, the last six months, and each shop with delete and undo.",
-    go: (p) => sub(p, "Spending"),
+      "The supermarket in the order it happens: the shopping list (add, tick off, share, Add from recipes), what was paid (supermarket, amount, day; saving clears the ticked items), then the month's spending against the month before, per supermarket, the last six months, and each shop with delete and undo.",
+    go: (p) => sub(p, "Shopping"),
   },
   {
     id: "alcohol",
