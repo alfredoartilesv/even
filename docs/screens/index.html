@@ -182,8 +182,8 @@ code { font-size: 0.9em; }
   <figcaption><strong>Error: out of API credits</strong><span class="muted">When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-chat-photo.webp" alt="Chat: New chat, adding a photo (light)" loading="lazy"><img class="dark" src="img/dark-chat-photo.webp" alt="Chat: New chat, adding a photo (dark)" loading="lazy"></div>
-  <figcaption><strong>New chat, adding a photo</strong><span class="muted">Quick prompts to start from. The camera button offers Take a photo (the camera) or Attach an image (the gallery, several at once).</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-chat-photo.webp" alt="Chat: New chat, adding a photo or a file (light)" loading="lazy"><img class="dark" src="img/dark-chat-photo.webp" alt="Chat: New chat, adding a photo or a file (dark)" loading="lazy"></div>
+  <figcaption><strong>New chat, adding a photo or a file</strong><span class="muted">Quick prompts to start from. The paperclip offers Take a photo (the camera), Attach an image (the gallery, several at once) or Attach a file (a PDF or a CSV, TXT or JSON file). The microphone dictates into the message box where the phone has a speech recognizer.</span></figcaption>
 </figure>
 </div>
 <h2 id="meal-prep">Meal prep</h2>
@@ -260,7 +260,7 @@ code { font-size: 0.9em; }
 <tr><td><code>Segmented</code></td><td><code>src/ui/layout.tsx</code></td><td>Day / Week / Month on the Dashboard; Food log / Meal prep.</td></tr>
 <tr><td><code>Ring</code></td><td><code>src/ui/charts/figures.tsx</code></td><td>Calories eaten against the target and steps against the goal.</td></tr>
 <tr><td><code>ChipGroup, RangePicker</code></td><td><code>src/ui/controls.tsx</code></td><td>Periods and filters: Alcohol periods, profile activity ranges, chart ranges.</td></tr>
-<tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar icons, the chat's camera and send buttons.</td></tr>
+<tr><td><code>Icon</code></td><td><code>src/ui/icons.tsx</code></td><td>Tab bar icons, the chat's attach, microphone and send buttons.</td></tr>
 <tr><td><code>TabBar</code></td><td><code>src/app/TabBar.tsx</code></td><td>The five tabs at the bottom.</td></tr>
 <tr><td><code>StatTile, Meter, BarChart, LineChart, CalendarHeatmap</code></td><td><code>src/ui/charts/</code></td><td>Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending.</td></tr>
 <tr><td><code>StatusBadge, Stepper</code></td><td><code>src/ui/controls.tsx</code></td><td>States as icon and words; portion counts.</td></tr>

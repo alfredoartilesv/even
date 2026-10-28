@@ -21,7 +21,7 @@ test("chat bubbles: the owner's text and photos, without the app's clock line", 
       { type: "text", text: "[App] Now: Monday 2026-10-26, 13:05 (time zone Europe/Madrid)." },
     ]),
   );
-  assert.deepEqual(b, { id: "m1", role: "user", texts: ["Log this lunch"], images: ["data:image/jpeg;base64,AAAA"] });
+  assert.deepEqual(b, { id: "m1", role: "user", texts: ["Log this lunch"], images: ["data:image/jpeg;base64,AAAA"], files: [] });
 });
 
 test("chat bubbles: tool calls, tool results and thinking are hidden; a message of only those is skipped", () => {

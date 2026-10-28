@@ -11,6 +11,8 @@ import { addDays, localDay } from "../../core/tz";
 import { latestWeight } from "../alcohol/alcohol";
 import { estimates, loadProfile } from "../settings/profile";
 import { goalProgress, listGoals as listGoalRows } from "../me/goals";
+import { fmtPace, fmtSpeed, listWorkouts, sportTotals, weeklyVolume } from "../me/workouts";
+import { spending } from "../mealprep/spending";
 import type { DataClass } from "./consent";
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
@@ -585,6 +587,94 @@ const alcoholImpact: ChatTool = {
   },
 };
 
+const workoutSummary: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "workout_summary",
+    "Training over a date range, from the watch's recorded sessions: per sport the sessions, total time (minutes), distance (km) and active kcal, and per Monday week the sessions, minutes and km. For single sessions use list_workouts.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    const workouts = await listWorkouts(db, p.from, p.to);
+    const min = (s: number) => Math.round(s / 60);
+    const km = (m: number) => Math.round(m / 100) / 10;
+    const weeks = Math.min(53, Math.ceil(daysBetween(p.from, p.to) / 7) + 1);
+    return {
+      result: {
+        from: p.from,
+        to: p.to,
+        sessions: workouts.length,
+        by_sport: sportTotals(workouts).map((t) => ({
+          sport: t.sport,
+          sessions: t.sessions,
+          minutes: min(t.durationS),
+          km: km(t.distanceM),
+          kcal: Math.round(t.kcal),
+        })),
+        by_week: weeklyVolume(workouts, p.to, weeks)
+          .filter((w) => w.week >= addDays(p.from, -6))
+          .map((w) => ({ week_of: w.week, sessions: w.sessions, minutes: min(w.durationS), km: km(w.distanceM) })),
+      },
+      summary: `Workout summary, ${p.from} to ${p.to} (${workouts.length} sessions)`,
+    };
+  },
+};
+
+const listWorkoutsTool: ChatTool = {
+  dataClass: "raw",
+  definition: tool(
+    "list_workouts",
+    "Single workout sessions in a date range (at most 92 days), newest first: day, start time, sport, activity type, minutes, km, pace or speed, active kcal, average and max heart rate, elevation, Garmin training effect (aerobic, anaerobic) and VO2 max when the watch recorded them.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    if (daysBetween(p.from, p.to) > 92) throw new Error("list_workouts is limited to 92 days");
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const time = (ms: number | null) =>
+      ms === null ? null : new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
+    const workouts = await listWorkouts(db, p.from, p.to);
+    return {
+      result: {
+        workouts: workouts.map((w) => ({
+          day: w.day,
+          start: time(w.startMs),
+          sport: w.sport,
+          type: w.type,
+          minutes: w.durationS === null ? null : Math.round(w.durationS / 60),
+          km: w.distanceM === null ? null : Math.round(w.distanceM / 10) / 100,
+          pace: fmtPace(w.durationS, w.distanceM),
+          speed: fmtSpeed(w.durationS, w.distanceM),
+          kcal: w.kcal === null ? null : Math.round(w.kcal),
+          avg_hr: round(w.avgHr),
+          max_hr: round(w.maxHr),
+          elevation_m: round(w.elevationM),
+          aerobic_te: round(w.aerobicTe),
+          anaerobic_te: round(w.anaerobicTe),
+          vo2_max: round(w.vo2Max),
+          source: w.source,
+        })),
+      },
+      summary: `Workout sessions, ${p.from} to ${p.to} (${workouts.length})`,
+    };
+  },
+};
+
+const grocerySpending: ChatTool = {
+  dataClass: "aggregate",
+  definition: tool(
+    "grocery_spending",
+    "What the owner spent on grocery shopping trips in a date range (logged in Meal prep, Shopping): total, number of trips, and per supermarket the total and trips, in the owner's currency.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    const [s, currency] = await Promise.all([spending(db, p.from, p.to), getCurrency(db)]);
+    return { result: { from: p.from, to: p.to, currency, ...s }, summary: `Grocery spending, ${p.from} to ${p.to}` };
+  },
+};
+
 /** Fixed order: the tool list is part of the cached prompt prefix, so it must not change between requests. */
 export const CHAT_TOOLS: ChatTool[] = [
   listMetrics,
@@ -604,6 +694,9 @@ export const CHAT_TOOLS: ChatTool[] = [
   dayNotes,
   drinkTypesTool,
   alcoholImpact,
+  workoutSummary,
+  listWorkoutsTool,
+  grocerySpending,
 ];
 
 export const TOOLS_BY_NAME = new Map(CHAT_TOOLS.map((t) => [t.definition.name, t]));
