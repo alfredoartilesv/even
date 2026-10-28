@@ -1,5 +1,5 @@
 import { withTransaction } from "../../db/tx";
-import { addDays, localDay, tzOffsetMinutes } from "../../core/tz";
+import { addDays, localDateTimeToMs, localDay, tzOffsetMinutes } from "../../core/tz";
 import { uuidv7 } from "../../core/uuidv7";
 import { mealForHour, rankSuggestions, type Candidate, type Meal } from "./suggest";
 import type { SqlDriver, SqlValue } from "../../db/driver";
@@ -140,22 +140,59 @@ export async function logFood(db: SqlDriver, f: FoodInput): Promise<string> {
   return id;
 }
 
-/** Edit name, slot, macros and notes of an entry. The time stays. */
+/**
+ * Edit name, slot, macros and notes of an entry. With atMs (and its time zone) it also moves to
+ * that time, on another day if need be. A meal prep portion keeps its time: its stock move has it too.
+ */
 export async function updateFood(
   db: SqlDriver,
   id: string,
-  f: Omit<FoodInput, "atMs" | "timeZone" | "savedMealId">,
+  f: Omit<FoodInput, "atMs" | "timeZone" | "savedMealId"> & { atMs?: number; timeZone?: string },
   nowMs: number = Date.now(),
 ): Promise<void> {
   const name = f.name.trim();
   if (!name) throw new Error("Give the meal a name");
   checkMacros(f);
+  if (f.atMs !== undefined) {
+    if (!f.timeZone) throw new Error("A new time needs its time zone");
+    if (!Number.isFinite(f.atMs) || f.atMs > nowMs + 60_000) throw new Error("That time has not happened yet");
+    const [cur] = await db.all<{ eaten_at_ms: number; from_prep: number }>(
+      `SELECT e.eaten_at_ms, EXISTS (SELECT 1 FROM meal_prep_moves m WHERE m.food_entry_id = e.id AND m.deleted_at IS NULL) AS from_prep
+       FROM food_entries e WHERE e.id = ? AND e.deleted_at IS NULL`,
+      [id],
+    );
+    if (!cur) throw new Error("That entry no longer exists");
+    if (cur.eaten_at_ms !== f.atMs) {
+      if (cur.from_prep === 1) throw new Error("A meal prep portion keeps its time. Delete it and eat it again from Stock on the right day.");
+      await db.run("UPDATE food_entries SET eaten_at_ms = ?, offset_min = ?, local_day = ? WHERE id = ?", [
+        f.atMs,
+        tzOffsetMinutes(f.atMs, f.timeZone),
+        localDay(f.atMs, f.timeZone),
+        id,
+      ]);
+      log.info("food moved", { id });
+    }
+  }
   await db.run(
     `UPDATE food_entries SET name = ?, meal = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, notes = ?, updated_at = ?
      WHERE id = ? AND deleted_at IS NULL`,
     [name, f.meal, f.calories, f.proteinG, f.carbsG, f.fatG, f.notes?.trim() || null, nowMs, id],
   );
   log.info("food updated", { id });
+}
+
+/** The usual clock time of a meal slot, for logging on a past day when the time is not asked. */
+export const MEAL_TIME: Record<Meal, string> = { breakfast: "08:30", lunch: "13:30", snack: "17:00", dinner: "20:30", prep: "13:30" };
+
+/**
+ * When to log something on a day: now for today, otherwise the slot's usual time on that day
+ * (noon without a slot). A day after today is refused.
+ */
+export function logTimeFor(day: string, meal: Meal | null, timeZone: string, nowMs: number = Date.now()): number {
+  const today = localDay(nowMs, timeZone);
+  if (day > today) throw new Error("That day has not happened yet");
+  if (day === today) return nowMs;
+  return localDateTimeToMs(day, meal ? MEAL_TIME[meal] : "12:00", timeZone).ms;
 }
 
 /** Delete an entry. One made by eating a meal prep portion undoes that move, so the portion is back in stock. */
@@ -235,7 +272,19 @@ export async function loggedDaysBefore(db: SqlDriver, before: string, limit = 30
   return rows.map((r) => r.local_day);
 }
 
-// ---- Calorie goal: one live row in goals (target_kind food, metric calories, per day). ----
+// ---- Nutrition targets: one live row each in goals (target_kind food, period day). ----
+
+/** The four numbers a meal carries, each of which can have a daily target. */
+export type Nutrient = keyof Macros;
+export const NUTRIENTS: Nutrient[] = ["calories", "proteinG", "carbsG", "fatG"];
+
+/** Per nutrient: the daily_nutrition column its goal measures, the goal's title and unit, and which way is good. Protein is a floor, the rest are budgets. */
+const NUTRIENT_GOAL: Record<Nutrient, { metric: string; title: string; unit: string; comparator: ">=" | "<="; what: string }> = {
+  calories: { metric: "calories", title: "Daily calories", unit: "kcal", comparator: "<=", what: "calorie" },
+  proteinG: { metric: "protein_g", title: "Daily protein", unit: "g", comparator: ">=", what: "protein" },
+  carbsG: { metric: "carbs_g", title: "Daily carbs", unit: "g", comparator: "<=", what: "carbs" },
+  fatG: { metric: "fat_g", title: "Daily fat", unit: "g", comparator: "<=", what: "fat" },
+};
 
 export interface CalorieGoal {
   id: string;
@@ -243,21 +292,53 @@ export interface CalorieGoal {
   startDay: string;
 }
 
-export async function getCalorieGoal(db: SqlDriver): Promise<CalorieGoal | null> {
+async function nutrientGoal(db: SqlDriver, n: Nutrient): Promise<CalorieGoal | null> {
   const [g] = await db.all<{ id: string; target_num: number; start_day: string }>(
     `SELECT id, target_num, start_day FROM goals
-     WHERE deleted_at IS NULL AND target_kind = 'food' AND metric = 'calories' AND period = 'day'
+     WHERE deleted_at IS NULL AND target_kind = 'food' AND metric = ? AND period = 'day'
      ORDER BY start_day DESC, created_at DESC LIMIT 1`,
+    [NUTRIENT_GOAL[n].metric],
   );
   return g ? { id: g.id, target: g.target_num, startDay: g.start_day } : null;
 }
 
-/** Set (or with null, remove) the daily calorie target. The previous goal ends the day before. */
-export async function setCalorieGoal(db: SqlDriver, target: number | null, today: string, nowMs: number = Date.now()): Promise<void> {
-  if (target !== null && !(Number.isFinite(target) && target > 0)) throw new Error("The calorie target must be more than 0");
-  const current = await getCalorieGoal(db);
+export const getCalorieGoal = (db: SqlDriver) => nutrientGoal(db, "calories");
+
+export type NutritionTargets = Record<Nutrient, number | null>;
+
+/** The live daily targets for kcal, protein, carbs and fat, in one query; null where none is set. */
+export async function getNutritionTargets(db: SqlDriver): Promise<NutritionTargets> {
+  const rows = await db.all<{ metric: string; target_num: number }>(
+    `SELECT metric, target_num FROM goals
+     WHERE deleted_at IS NULL AND target_kind = 'food' AND period = 'day' AND metric IN ('calories', 'protein_g', 'carbs_g', 'fat_g')
+     ORDER BY start_day DESC, created_at DESC`,
+  );
+  const by = new Map<string, number>();
+  // Newest first: the first row of each metric is the live one.
+  for (const r of rows) if (!by.has(r.metric)) by.set(r.metric, r.target_num);
+  return Object.fromEntries(NUTRIENTS.map((n) => [n, by.get(NUTRIENT_GOAL[n].metric) ?? null])) as NutritionTargets;
+}
+
+/**
+ * Macro targets from a calorie target and how its calories split between protein, carbs and fat
+ * (default 30/40/30), in whole grams at 4/4/9 kcal per gram.
+ */
+export function macrosFromCalories(kcal: number, split: [number, number, number] = [0.3, 0.4, 0.3]): Omit<NutritionTargets, "calories"> {
+  return { proteinG: Math.round((kcal * split[0]) / 4), carbsG: Math.round((kcal * split[1]) / 4), fatG: Math.round((kcal * split[2]) / 9) };
+}
+
+/** Set (or with null, remove) the daily calorie target. */
+export const setCalorieGoal = (db: SqlDriver, target: number | null, today: string, nowMs: number = Date.now()) =>
+  setNutritionTarget(db, "calories", target, today, nowMs);
+
+/** Set (or with null, remove) a daily nutrition target. The previous one ends the day before. */
+export async function setNutritionTarget(db: SqlDriver, n: Nutrient, target: number | null, today: string, nowMs: number = Date.now()): Promise<void> {
+  const spec = NUTRIENT_GOAL[n];
+  if (target !== null && !(Number.isFinite(target) && target > 0)) throw new Error(`The ${spec.what} target must be more than 0`);
+  const current = await nutrientGoal(db, n);
   if (current && target !== null && current.target === target) return;
-  log.info(target === null ? "calorie target removed" : "calorie target set", { target, replaces: current?.target ?? null });
+  if (!current && target === null) return;
+  log.info(target === null ? "nutrition target removed" : "nutrition target set", { nutrient: n, target, replaces: current?.target ?? null });
   const dev = await deviceId(db, nowMs);
   await withTransaction(db, async () => {
     if (current) {
@@ -271,8 +352,8 @@ export async function setCalorieGoal(db: SqlDriver, target: number | null, today
     if (target !== null) {
       await db.run(
         `INSERT INTO goals (id, title, target_kind, metric, comparator, target_num, unit, period, start_day, created_at, updated_at, origin_device_id)
-         VALUES (?, 'Daily calories', 'food', 'calories', '<=', ?, 'kcal', 'day', ?, ?, ?, ?)`,
-        [uuidv7(nowMs), target, today, nowMs, nowMs, dev],
+         VALUES (?, ?, 'food', ?, ?, ?, ?, 'day', ?, ?, ?, ?)`,
+        [uuidv7(nowMs), spec.title, spec.metric, spec.comparator, target, spec.unit, today, nowMs, nowMs, dev],
       );
     }
   });

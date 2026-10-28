@@ -1,11 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedMeal } from "../food";
-import { kcalFromMacros } from "../../../core/health";
-import { addDays } from "../../../core/tz";
+import { addDays, localDay } from "../../../core/tz";
 import { MEALS, type Meal } from "../suggest";
 import { failed, numOrNull } from "../../../ui/common";
-import { CalorieMeter as Meter, MacroInputs, MacroSplit } from "../../../ui/nutrition";
+import { estimateKcal, MacroInputs } from "../../../ui/nutrition";
 import { downscalePhoto, photoInputUrl } from "./photo";
 import { Icon } from "../../../ui/icons";
 
@@ -69,15 +68,9 @@ export function PhotoPicker({ value, onChange }: { value: PhotoInput | null; onC
   );
 }
 
-/** Today against the target, with the macro split underneath. */
-export function CalorieMeter({ eaten, target, macros, fromDrinks = 0 }: { eaten: number; target: number | null; macros: Macros; fromDrinks?: number }) {
-  return (
-    <div className="meter-card">
-      <Meter eaten={eaten} target={target} fromDrinks={fromDrinks} />
-      <MacroSplit proteinG={macros.proteinG} carbsG={macros.carbsG} fatG={macros.fatG} />
-    </div>
-  );
-}
+/** "13:05": the local clock time of an instant, for a time field. */
+export const clockOf = (ms: number, timeZone: string) =>
+  new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(ms);
 
 export const weekEnding = (day: string) => Array.from({ length: 7 }, (_, i) => addDays(day, i - 6));
 
@@ -89,6 +82,9 @@ export interface MealDraft {
   carbsG: string;
   fatG: string;
   notes: string;
+  /** When it was eaten, editing an entry: its local day and "HH:MM". Moving it changes these. */
+  day?: string;
+  time?: string;
 }
 
 export const emptyDraft = (meal: Meal | null): MealDraft => ({ name: "", meal, calories: "", proteinG: "", carbsG: "", fatG: "", notes: "" });
@@ -103,14 +99,6 @@ export const draftFrom = (m: Macros & { name: string; meal: Meal | null; notes: 
   fatG: str(m.fatG),
   notes: m.notes ?? "",
 });
-
-/** kcal from the macros typed so far, when they are all valid numbers. */
-function estimateKcal(d: MealDraft): number | null {
-  const m = { proteinG: numOrNull(d.proteinG), carbsG: numOrNull(d.carbsG), fatG: numOrNull(d.fatG) };
-  if (Object.values(m).some((v) => v !== null && !(v >= 0))) return null;
-  const k = kcalFromMacros(m);
-  return k === null ? null : Math.round(k);
-}
 
 /**
  * Parse the form. Bad numbers come back as NaN and the db layer rejects them with a message.
@@ -185,12 +173,12 @@ interface EntryActions {
   onDelete: (e: FoodEntry) => void;
 }
 
-/** A day's entries grouped by meal, each with log-again, bookmark, edit and delete. */
-export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: FoodEntry[] } & EntryActions) {
+/** A day's entries grouped by meal, each with log-again, bookmark, edit (time and day too) and delete. */
+export function EntryList({ db, entries, timeZone, ...act }: { db: SqlDriver; entries: FoodEntry[]; timeZone: string } & EntryActions) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<MealDraft | null>(null);
   const groups = [...MEALS, null].map((m) => ({ meal: m, items: entries.filter((e) => e.meal === m) })).filter((g) => g.items.length);
-  if (!entries.length) return <p className="muted">Nothing logged.</p>;
+  if (!entries.length) return <p className="muted small">Nothing logged on this day yet.</p>;
 
   async function submit(e: FormEvent, entry: FoodEntry) {
     e.preventDefault();
@@ -211,6 +199,23 @@ export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: Foo
                 <li key={e.id}>
                   <form className="stack tight grow" onSubmit={(ev) => submit(ev, e)}>
                     <MealFields draft={draft} onChange={setDraft} allowPrep={e.meal === "prep"} />
+                    {!e.fromPrep && (
+                      <div className="grid">
+                        <label>
+                          Day
+                          <input
+                            type="date"
+                            value={draft.day ?? ""}
+                            max={localDay(Date.now(), timeZone)}
+                            onChange={(x) => setDraft({ ...draft, day: x.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Time
+                          <input type="time" value={draft.time ?? ""} onChange={(x) => setDraft({ ...draft, time: x.target.value })} />
+                        </label>
+                      </div>
+                    )}
                     <div className="actions">
                       <button type="submit">Save</button>
                       <button type="button" className="secondary" onClick={() => setEditing(null)}>
@@ -230,7 +235,7 @@ export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: Foo
                     </div>
                     <div className="entry-actions">
                       <button className="secondary" onClick={() => act.onAgain(e)}>
-                        Eat again
+                        Again
                       </button>
                       <button className="secondary" onClick={() => act.onSave(e)} aria-pressed={Boolean(e.savedMealId)}>
                         {e.savedMealId ? "★ Saved" : "☆ Save"}
@@ -238,7 +243,7 @@ export function EntryList({ db, entries, ...act }: { db: SqlDriver; entries: Foo
                       <button
                         className="secondary"
                         onClick={() => {
-                          setDraft(draftFrom(e));
+                          setDraft({ ...draftFrom(e), day: e.localDay, time: clockOf(e.eatenAtMs, timeZone) });
                           setEditing(e.id);
                         }}
                       >
