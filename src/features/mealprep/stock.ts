@@ -63,7 +63,7 @@ export interface BatchStock {
 }
 
 /** Whole days a portion takes to thaw, rounded up. */
-export const thawDays = (thawHours: number) => Math.ceil(thawHours / 24);
+const thawDays = (thawHours: number) => Math.ceil(thawHours / 24);
 
 const byEatBy = (a: FridgeLot, b: FridgeLot) => (a.eatBy < b.eatBy ? -1 : a.eatBy > b.eatBy ? 1 : a.readyAtMs - b.readyAtMs);
 const byFrozen = (a: FreezerLot, b: FreezerLot) => (a.frozenDay < b.frozenDay ? -1 : a.frozenDay > b.frozenDay ? 1 : 0);

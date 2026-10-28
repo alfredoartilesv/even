@@ -183,8 +183,3 @@ export async function listDisclosures(db: SqlDriver, conversationId?: string): P
     bytes: r.bytes,
   }));
 }
-
-export async function disclosurePayload(db: SqlDriver, id: string): Promise<string | null> {
-  const rows = await db.all<{ payload_json: string }>("SELECT payload_json FROM ai_disclosures WHERE id = ?", [id]);
-  return rows[0]?.payload_json ?? null;
-}
