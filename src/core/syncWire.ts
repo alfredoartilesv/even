@@ -123,7 +123,7 @@ export interface DeviceInfo {
 }
 
 export interface Me {
-  account: { id: string; email: string; displayName: string; googleLinked: boolean; createdAt: number };
+  account: { id: string; email: string; displayName: string; googleLinked: boolean; createdAt: number; isAdmin: boolean };
   devices: DeviceInfo[];
   usage: { bytes: number; quotaBytes: number; rows: number };
 }
@@ -164,4 +164,83 @@ export interface ShareRowsResult {
   rows: (ShareRow & { seq: number })[];
   next: number;
   more: boolean;
+}
+
+// ---- Admin (docs/users.md section 2.6): accounts, invites and devices; never a sealed row ----
+
+/** Where an admin action came from: the app's Settings > Admin, Claude through the MCP server, or the CLI. */
+export const ADMIN_VIA = ["app", "mcp", "cli"] as const;
+export type AdminVia = (typeof ADMIN_VIA)[number];
+
+export const INVITE_MAX_DAYS = 30;
+export const adminInviteBody = z.object({ email, days: z.optional(z.int().check(z.gte(1), z.lte(INVITE_MAX_DAYS))) });
+export type AdminInviteBody = z.infer<typeof adminInviteBody>;
+/** Quotas between 10 MB and 2 GB (Neon's free plan holds 0.5 GB for everyone). */
+export const QUOTA_MIN_BYTES = 10 * 1_048_576;
+export const QUOTA_MAX_BYTES = 2_048 * 1_048_576;
+export const quotaBody = z.object({ bytes: z.int().check(z.gte(QUOTA_MIN_BYTES), z.lte(QUOTA_MAX_BYTES)) });
+export const suspendBody = z.object({ suspended: z.boolean() });
+
+export interface AdminInvite {
+  /** The code's hash: the code itself is shown once, when it is made. */
+  id: string;
+  email: string;
+  createdAt: number;
+  expiresAt: number;
+  status: "open" | "used" | "expired" | "cancelled";
+  usedAt: number | null;
+}
+
+export interface AdminAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: number;
+  isAdmin: boolean;
+  suspendedAt: number | null;
+  devices: number;
+  lastSeenAt: number | null;
+  bytes: number;
+  quotaBytes: number;
+  friends: number;
+}
+
+export interface AdminDevice {
+  id: string;
+  name: string;
+  kind: string;
+  addedBy: string;
+  createdAt: number;
+  lastSeenAt: number | null;
+  revokedAt: number | null;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: number;
+  actor: string;
+  via: AdminVia;
+  action: string;
+  target: string | null;
+  detail: string | null;
+}
+
+export interface ServiceHealth {
+  /** The deployed commit on Vercel (VERCEL_GIT_COMMIT_SHA), else "local". */
+  build: string;
+  database: "ok";
+  accounts: number;
+  devices: number;
+  bytes: number;
+  openInvites: number;
+}
+
+/** One sign-in of Claude (or another MCP client) as an admin: an access token and its refresh token. */
+export interface McpGrant {
+  id: string;
+  clientId: string;
+  clientName: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+  accessExpiresAt: number;
 }

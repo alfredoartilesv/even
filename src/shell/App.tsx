@@ -24,7 +24,7 @@ import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../domain/settings/logLevel";
 import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
-import { TabBar, type Tab } from "./TabBar";
+import type { Tab } from "./tabs";
 import { PageHeader } from "../ui/layout";
 import { PullToRefresh } from "../ui/PullToRefresh";
 import "../ui/ui.css";
@@ -212,9 +212,21 @@ export function App({ target }: { target: Target }) {
           ? `mealprep|${mealPrepView}`
           : tab;
 
+  // Marks the page a wide screen may spread into columns (the web app's styles); other screens keep a readable width.
+  const wide = tab === "dashboard" && !overlay;
+  const { Frame } = target;
+
   return (
-    <>
-      <main className="shell with-tabbar">
+    <Frame
+      tab={tab}
+      onTab={(t) => {
+        // A section goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
+        if (t === "dashboard") setOverlay(null);
+        if (t === "settings") setSettingsPage(null);
+        go(t);
+      }}
+    >
+      <main className={`shell with-nav${wide ? " wide" : ""}`}>
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
           <Suspense>
@@ -289,15 +301,6 @@ export function App({ target }: { target: Target }) {
           </Suspense>
         </div>
       </main>
-      <TabBar
-        tab={tab}
-        onTab={(t) => {
-          // Tapping a tab goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
-          if (t === "dashboard") setOverlay(null);
-          if (t === "settings") setSettingsPage(null);
-          go(t);
-        }}
-      />
-    </>
+    </Frame>
   );
 }

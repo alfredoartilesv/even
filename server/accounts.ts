@@ -21,6 +21,7 @@ export class AuthError extends Error {
 }
 
 const DAY = 86_400_000;
+export const SUSPENDED = "This account is suspended. Ask the person who invited you.";
 export const INVITE_DAYS = 14;
 export const PAIRING_MS = 5 * 60_000;
 export const RECOVERY_ITERATIONS = 600_000;
@@ -140,18 +141,28 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
       return { salt: fake, iterations: RECOVERY_ITERATIONS };
     },
 
-    async recoveryFinish(email: string, verifier: string, device: { name: string; kind: DeviceKind }, ip: string, nowMs = Date.now()): Promise<Joined> {
-      // Per email and per address: guessing a passphrase online is slow; offline needs the database.
+    /**
+     * The account whose passphrase proof this is, rate limited per email and per address: guessing a
+     * passphrase online is slow; offline needs the database. Passphrase sign-in and the MCP login use it.
+     */
+    async verifyPassphrase(email: string, verifier: string, ip: string, nowMs = Date.now()): Promise<string> {
       await limit(`recovery:${email}`, 5, 3_600_000, nowMs);
       await limit(`recovery-ip:${ip}`, 20, 3_600_000, nowMs);
-      const [row] = await pg.query<{ id: string; recovery_verifier: string }>(
-        "SELECT a.id, k.recovery_verifier FROM accounts a JOIN account_keys k ON k.account_id = a.id WHERE a.email = $1",
+      const [row] = await pg.query<{ id: string; recovery_verifier: string; suspended_at: number | null }>(
+        "SELECT a.id, k.recovery_verifier, a.suspended_at FROM accounts a JOIN account_keys k ON k.account_id = a.id WHERE a.email = $1",
         [email],
       );
       const given = await sha256Hex(verifier);
       if (!row || !sameHex(given, row.recovery_verifier)) throw new AuthError(401, "That email and passphrase do not match");
-      const dev = await addDevice(pg, row.id, device, "passphrase", nowMs);
-      return { accountId: row.id, deviceId: dev.id, token: dev.token!, keys: await sealedKeys(row.id) };
+      // Only after the passphrase matched, so suspension tells a stranger nothing.
+      if (row.suspended_at !== null) throw new AuthError(403, SUSPENDED);
+      return row.id;
+    },
+
+    async recoveryFinish(email: string, verifier: string, device: { name: string; kind: DeviceKind }, ip: string, nowMs = Date.now()): Promise<Joined> {
+      const accountId = await this.verifyPassphrase(email, verifier, ip, nowMs);
+      const dev = await addDevice(pg, accountId, device, "passphrase", nowMs);
+      return { accountId, deviceId: dev.id, token: dev.token!, keys: await sealedKeys(accountId) };
     },
 
     async updateRecovery(accountId: string, b: RecoveryUpdateBody, nowMs = Date.now()): Promise<void> {
@@ -216,10 +227,15 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
     // ---- The signed-in account ----
 
     async me(accountId: string, deviceId: string): Promise<Me> {
-      const [a] = await pg.query<{ id: string; email: string; display_name: string; google_subject: string | null; created_at: number; quota_bytes: number }>(
-        "SELECT id, email, display_name, google_subject, created_at, quota_bytes FROM accounts WHERE id = $1",
-        [accountId],
-      );
+      const [a] = await pg.query<{
+        id: string;
+        email: string;
+        display_name: string;
+        google_subject: string | null;
+        created_at: number;
+        quota_bytes: number;
+        is_admin: boolean;
+      }>("SELECT id, email, display_name, google_subject, created_at, quota_bytes, is_admin FROM accounts WHERE id = $1", [accountId]);
       if (!a) throw new AuthError(404, "No such account");
       const devices = await pg.query<{ id: string; name: string; kind: string; added_by: string; created_at: number; last_seen_at: number | null }>(
         "SELECT id, name, kind, added_by, created_at, last_seen_at FROM devices WHERE owner_id = $1 AND revoked_at IS NULL ORDER BY created_at",
@@ -230,7 +246,14 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
         [accountId],
       );
       return {
-        account: { id: a.id, email: a.email, displayName: a.display_name, googleLinked: a.google_subject !== null, createdAt: a.created_at },
+        account: {
+          id: a.id,
+          email: a.email,
+          displayName: a.display_name,
+          googleLinked: a.google_subject !== null,
+          createdAt: a.created_at,
+          isAdmin: a.is_admin,
+        },
         devices: devices.map((d): DeviceInfo => ({
           id: d.id,
           name: d.name,

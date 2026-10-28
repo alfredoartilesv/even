@@ -6,9 +6,10 @@ body {
   font-family: system-ui, sans-serif;
 }
 .shell {
+  --gutter: 16px;
   max-width: 40rem;
   margin: 0 auto;
-  padding: 1rem 16px;
+  padding: 1rem var(--gutter);
 }
 .muted {
   color: var(--muted);
@@ -483,7 +484,8 @@ fieldset .chips {
    and --safe-area-inset-*; older WebViews (the API 36 emulator image has 133) get native padding and
    both read 0. Taking the larger covers both. */
 :root {
-  --tabbar-h: 60px;
+  /* A target with a bar at the bottom (Android) sets its height; what sticks to the bottom stays above it. */
+  --tabbar-h: 0px;
   /* Capacitor overrides these on <html> at runtime (an inline style beats this rule). */
   --safe-area-inset-top: 0px;
   --safe-area-inset-bottom: 0px;
@@ -505,46 +507,9 @@ body::before {
   z-index: 20;
   pointer-events: none;
 }
-/* Bottom tab bar: fixed, thumb reach, above the phone's gesture area */
-.shell.with-tabbar {
+/* Below the last thing on a page: room above the tab bar, if any, and the phone's gesture area */
+.shell.with-nav {
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 1.5rem);
-}
-.tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10;
-  display: flex;
-  justify-content: center;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  padding-bottom: var(--safe-bottom);
-}
-.tabbar button {
-  flex: 1;
-  max-width: 8rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  height: var(--tabbar-h);
-  min-height: 0;
-  padding: 0.25rem 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-.tabbar button.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-.tabbar button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -4px;
 }
 
 /* Top of a tab */
@@ -839,8 +804,8 @@ figure.viz,
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  margin: -1rem -16px 0.9rem;
-  padding: 0.9rem 16px 0.6rem;
+  margin: -1rem calc(-1 * var(--gutter)) 0.9rem;
+  padding: 0.9rem var(--gutter) 0.6rem;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
 }
@@ -918,22 +883,6 @@ button:active:not(:disabled) {
     opacity: 1;
     transform: none;
   }
-}
-
-/* Tab bar: the open tab gets a pill behind its icon */
-.tabbar {
-  box-shadow: var(--shadow);
-}
-.tabbar .icon {
-  box-sizing: content-box;
-  padding: 3px 14px;
-  border-radius: var(--radius-pill);
-  transition:
-    background-color var(--normal) var(--ease),
-    color var(--normal);
-}
-.tabbar button.active .icon {
-  background: var(--accent-soft);
 }
 
 /* Quick actions on the Dashboard */
@@ -1139,8 +1088,7 @@ button:active:not(:disabled) {
     animation: none;
   }
   button,
-  .ring-fill,
-  .tabbar .icon {
+  .ring-fill {
     transition: none;
   }
   button:active:not(:disabled) {

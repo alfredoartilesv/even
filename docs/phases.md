@@ -8,7 +8,7 @@ Agreed 28 Oct 2026. Even ships to more than one target: the **Android app** (now
 |---|---|
 | `domain/` (logic and SQL per feature), `db/` (schema, migrations), the backup format, the sync wire format (`core/syncWire.ts`), metric names and sources, `core/`, `ui/` (the kit), `platform/` (adapters; the OS is picked at runtime) | `apps/<target>/`: the entry and whatever only that target needs: its start, later its own shell, its own copy of a screen that has diverged |
 
-- `shell/` (App, tab bar, lazy screens) and `screens/` are shared **for now**. When a target needs something different, the different part moves into `apps/<target>/`. Small differences stay as props on the shared code; a whole screen is copied only when it really differs.
+- `shell/` (App, the five sections, lazy screens; each target brings its own navigation as `Target.Frame`) and `screens/` are shared **for now**. When a target needs something different, the different part moves into `apps/<target>/`. Small differences stay as props on the shared code; a whole screen is copied only when it really differs.
 - A backup made on one target restores on any other, and every target syncs the same rows.
 - The Vite mode picks the target: `npm run build` is Android, `npm run build:web` (`--mode web`) the web app. The built `index.html` names its target, and `scripts/android-harden.mjs` stops a web build from going into the APK.
 - `tests/architecture.test.ts` enforces the layers, that no target imports another, and that every build path names the right target.
@@ -45,7 +45,7 @@ Order of work as in [users.md section 5](users.md#5-order-of-work-for-04). For t
 
 1. **Split the shell (done 28 Oct 2026).** The web's connect gate lives in `apps/web/connectGate.tsx` and reaches the shared shell as `Target.gate` (`shell/target.ts`); Android's entry passes none. What a target adds to the shell goes through `Target`, never through `isNative` checks in `shell/`. The remaining `isNative` checks in screens are capabilities (share or copy, where a key is kept) and stay.
 2. **Web-only screens** (the web has no Garmin key, no notifications, no camera picker) go in `apps/web/`. They are not flags inside the shared screens.
-3. **Before the first Vercel deploy** ([dev-setup section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app)): the Vercel project (Hobby) with the Neon integration, `SERVER_SECRET` and the other server variables set in Vercel, never in the repo. Production branch `master`, so the web app and the APK release ship from the same merge. `vercel-build` already builds the web target.
+3. **Before the first Vercel deploy** ([dev-setup section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app)): the Vercel project (Hobby) with the Neon integration, `SERVER_SECRET`, `PUBLIC_URL` (for the admin MCP) and the other server variables set in Vercel, never in the repo. Production branch `master`, so the web app and the APK release ship from the same merge. `vercel-build` already builds the web target.
 4. **Done when:** a phone and the web app sync through the deployed server (`npm run test:sync` against it), and a fresh browser connects with the passphrase.
 
 ## iPhone app (later phase)

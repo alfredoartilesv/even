@@ -203,131 +203,144 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         ]}
       />
 
-      <Segmented
-        items={SPANS}
-        value={span}
-        label="Period"
-        onChange={(id) => {
-          setSpan(id);
-          setAnchor(isCurrent ? now : current.from, id);
-        }}
-      />
+      <div className="dash-controls">
+        <Segmented
+          items={SPANS}
+          value={span}
+          label="Period"
+          onChange={(id) => {
+            setSpan(id);
+            setAnchor(isCurrent ? now : current.from, id);
+          }}
+        />
 
-      <PeriodNav
-        title={spanTitle(span, anchor)}
-        unit={span}
-        onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-        onNext={() => setAnchor(next)}
-        nextDisabled={next > now}
-        onCurrent={isCurrent ? null : () => setAnchor(now)}
-        currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
-      />
-
-      {/* Keyed by period so the card animates in when the period changes. */}
-      <div key={`${span}|${anchor}`} className="card hero-card fade-in">
-        <div className="rings">
-          <Ring label={many ? "Eaten, a day" : "Eaten"} value={headline(d?.eaten)} target={d?.targets.kcal ?? null} kind="limit" unit="kcal" format={int} />
-          <Ring label={many ? "Steps, a day" : "Steps"} value={headline(d?.steps)} target={d?.targets.steps ?? null} kind="goal" format={int} />
-        </div>
-        <dl className="hero-stats">
-          <div>
-            <dt className="muted small">Burned</dt>
-            <dd>{headline(d?.burned) !== null ? `${int(headline(d?.burned)!)} kcal` : "–"}</dd>
-          </div>
-          <div>
-            <dt className="muted small">Balance</dt>
-            <dd>{balance !== null ? `${signed(balance)} kcal` : "–"}</dd>
-          </div>
-          <div>
-            <dt className="muted small">Protein</dt>
-            <dd>
-              {headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}
-              {d?.targets.protein != null && <span className="muted small"> / {int(d.targets.protein)}</span>}
-            </dd>
-          </div>
-        </dl>
-        {d && d.balance.total !== null && (
-          <p className="muted small hero-note">
-            Balance is eaten minus burned{many ? `, a day, on the ${plural(d.balance.daysWithData, "day")} with both` : ""}: below zero is a deficit.
-            {d.drinks.total ? ` Eaten includes ${int(d.drinks.total)} kcal from drinks.` : ""}
-          </p>
-        )}
+        <PeriodNav
+          title={spanTitle(span, anchor)}
+          unit={span}
+          onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
+          onNext={() => setAnchor(next)}
+          nextDisabled={next > now}
+          onCurrent={isCurrent ? null : () => setAnchor(now)}
+          currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+        />
       </div>
 
-      <SectionHeader title="Check-in" action="Journal" onAction={() => go.checkIn(many ? undefined : anchor)} />
-      <CheckInCard data={d} many={many} day={anchor} onOpen={() => go.checkIn(many ? undefined : anchor)} onWeight={go.measurements} />
+      {/* Blocks a wide screen sets in two columns (styles.css); a phone reads them in one. */}
+      <div className="dash-columns">
+        <div className="dash-block">
+          {/* Keyed by period so the card animates in when the period changes. */}
+          <div key={`${span}|${anchor}`} className="card hero-card fade-in">
+            <div className="rings">
+              <Ring label={many ? "Eaten, a day" : "Eaten"} value={headline(d?.eaten)} target={d?.targets.kcal ?? null} kind="limit" unit="kcal" format={int} />
+              <Ring label={many ? "Steps, a day" : "Steps"} value={headline(d?.steps)} target={d?.targets.steps ?? null} kind="goal" format={int} />
+            </div>
+            <dl className="hero-stats">
+              <div>
+                <dt className="muted small">Burned</dt>
+                <dd>{headline(d?.burned) !== null ? `${int(headline(d?.burned)!)} kcal` : "–"}</dd>
+              </div>
+              <div>
+                <dt className="muted small">Balance</dt>
+                <dd>{balance !== null ? `${signed(balance)} kcal` : "–"}</dd>
+              </div>
+              <div>
+                <dt className="muted small">Protein</dt>
+                <dd>
+                  {headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}
+                  {d?.targets.protein != null && <span className="muted small"> / {int(d.targets.protein)}</span>}
+                </dd>
+              </div>
+            </dl>
+            {d && d.balance.total !== null && (
+              <p className="muted small hero-note">
+                Balance is eaten minus burned{many ? `, a day, on the ${plural(d.balance.daysWithData, "day")} with both` : ""}: below zero is a deficit.
+                {d.drinks.total ? ` Eaten includes ${int(d.drinks.total)} kcal from drinks.` : ""}
+              </p>
+            )}
+          </div>
 
-      <SectionHeader title="Activity" />
-      <div className="viz-tiles pairs">
-        <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
-        <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
-        {d && d.body.distance.total !== null && (
-          <StatTile label="Distance" {...tile(d.body.distance, fmtDistance)} trend={many ? undefined : d.body.distance.trend} />
-        )}
-        {d && d.body.intensityMin.total !== null && <IntensityTile f={d.body.intensityMin} span={span} />}
-        {/* A day's eaten and steps are in the rings; a week or month adds their totals here. */}
-        {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
-        {many && <StatTile label="Steps" {...tile(d?.steps)} />}
-      </div>
-
-      {many && d && (
-        <>
-          <BarChart
-            title="Steps"
-            subtitle="Tap a day to open it"
-            x={x}
-            values={d.days.map((r) => r.steps)}
-            formatX={axis}
-            formatXLong={(day) => fmtDay(day)}
-            formatValue={int}
-            onSelect={openDay}
-          />
-          <LineChart
-            title="Calories in and out"
-            x={x}
-            series={[
-              { id: "eaten", label: "Eaten", values: d.days.map((r) => r.eatenKcal) },
-              { id: "burned", label: "Burned", values: d.days.map((r) => r.burnedKcal) },
-            ]}
-            formatX={axis}
-            formatXLong={(day) => fmtDay(day)}
-            formatValue={int}
-            unit="kcal"
-            target={d.targets.kcal}
-            zero
-          />
-        </>
-      )}
-
-      {d && <Recovery d={d} many={many} />}
-
-      <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
-      {d && d.workouts.count > 0 ? (
-        <div className="viz-tiles pairs">
-          <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
-          <StatTile
-            label="Time"
-            value={fmtDuration(d.workouts.durationS)}
-            note={many ? `${fmtDuration(d.workouts.durationS / d.days.length)} a day` : undefined}
-          />
+          <SectionHeader title="Check-in" action="Journal" onAction={() => go.checkIn(many ? undefined : anchor)} />
+          <CheckInCard data={d} many={many} day={anchor} onOpen={() => go.checkIn(many ? undefined : anchor)} onWeight={go.measurements} />
         </div>
-      ) : (
-        <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
-      )}
 
-      <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
-      <div className="viz-tiles pairs">
-        <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
-        <StatTile
-          label="In stock now"
-          value={d ? String(d.stock.portions) : null}
-          note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined}
-        />
-        <StatTile
-          label="Groceries"
-          value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null}
-          note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined}
-        />
+        <div className="dash-block">
+          <SectionHeader title="Activity" />
+          <div className="viz-tiles pairs">
+            <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
+            <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
+            {d && d.body.distance.total !== null && (
+              <StatTile label="Distance" {...tile(d.body.distance, fmtDistance)} trend={many ? undefined : d.body.distance.trend} />
+            )}
+            {d && d.body.intensityMin.total !== null && <IntensityTile f={d.body.intensityMin} span={span} />}
+            {/* A day's eaten and steps are in the rings; a week or month adds their totals here. */}
+            {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
+            {many && <StatTile label="Steps" {...tile(d?.steps)} />}
+          </div>
+
+          {many && d && (
+            <>
+              <BarChart
+                title="Steps"
+                subtitle="Tap a day to open it"
+                x={x}
+                values={d.days.map((r) => r.steps)}
+                formatX={axis}
+                formatXLong={(day) => fmtDay(day)}
+                formatValue={int}
+                onSelect={openDay}
+              />
+              <LineChart
+                title="Calories in and out"
+                x={x}
+                series={[
+                  { id: "eaten", label: "Eaten", values: d.days.map((r) => r.eatenKcal) },
+                  { id: "burned", label: "Burned", values: d.days.map((r) => r.burnedKcal) },
+                ]}
+                formatX={axis}
+                formatXLong={(day) => fmtDay(day)}
+                formatValue={int}
+                unit="kcal"
+                target={d.targets.kcal}
+                zero
+              />
+            </>
+          )}
+        </div>
+
+        {d && <Recovery d={d} many={many} />}
+
+        <div className="dash-block">
+          <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
+          {d && d.workouts.count > 0 ? (
+            <div className="viz-tiles pairs">
+              <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
+              <StatTile
+                label="Time"
+                value={fmtDuration(d.workouts.durationS)}
+                note={many ? `${fmtDuration(d.workouts.durationS / d.days.length)} a day` : undefined}
+              />
+            </div>
+          ) : (
+            <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
+          )}
+        </div>
+
+        <div className="dash-block">
+          <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
+          <div className="viz-tiles pairs">
+            <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
+            <StatTile
+              label="In stock now"
+              value={d ? String(d.stock.portions) : null}
+              note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined}
+            />
+            <StatTile
+              label="Groceries"
+              value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null}
+              note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined}
+            />
+          </div>
+        </div>
       </div>
 
       {span === "day" && metrics.length > 0 && <SyncedNumbers metrics={metrics} />}
@@ -365,7 +378,7 @@ function Recovery({ d, many }: { d: Dashboard; many: boolean }) {
     return undefined;
   };
   return (
-    <>
+    <div className="dash-block">
       <SectionHeader title="Recovery" />
       <div className="viz-tiles pairs">
         {shown.map((r) => {
@@ -375,7 +388,7 @@ function Recovery({ d, many }: { d: Dashboard; many: boolean }) {
           return <StatTile key={r.key} label={r.label} value={v === null ? null : r.fmt(v)} note={notes.join(" · ") || undefined} trend={f.trend} />;
         })}
       </div>
-    </>
+    </div>
   );
 }
 
