@@ -42,7 +42,8 @@ CMD ["node", "--import", "tsx", "server/node.ts"]
 # ---- Web app (the build Vercel serves), with the in-memory demo database until the web data layer lands ----
 FROM deps AS web
 COPY . .
-RUN npx vite build --config scripts/screens/vite.config.ts
+# vite preview bundles its config into node_modules/.vite-temp at start; the image runs as node, so that one folder is node's.
+RUN npx vite build --config scripts/screens/vite.config.ts && mkdir -p node_modules/.vite-temp && chown node:node node_modules/.vite-temp
 USER node
 EXPOSE 4173
 CMD ["npx", "vite", "preview", "--config", "scripts/screens/vite.config.ts", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]
