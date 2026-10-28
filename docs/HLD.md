@@ -95,7 +95,7 @@ flowchart TB
 
 | Component | Responsibility | Main files |
 |---|---|---|
-| App shell | Opens the DB, runs migrations, triggers sync on launch, the five tabs in a bottom bar (Dashboard, Chat, Meal prep, Alcohol, Settings) | `src/shell/App.tsx`, `src/shell/TabBar.tsx`, `src/platform/openDatabase.ts` |
+| App shell | Opens the DB, runs migrations, triggers sync on launch, the five sections in a side menu (Dashboard, Chat, Meal prep, Alcohol, Settings): a drawer on a phone, docked beside the page on wider screens | `src/shell/App.tsx`, `src/shell/SideNav.tsx`, `src/platform/openDatabase.ts` |
 | Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance and protein; the check-in and latest weight; energy, workouts and meal prep as the day's numbers or daily averages and totals; charts per day; every synced number of a day | `src/domain/dashboard/` |
 | Journal (from the Dashboard) | Daily check-in (mood and energy 1 to 5, a note) with 30 days of history and a trend; manual measurements (weight, body fat, waist, blood pressure, resting heart rate, glucose, supplements, symptoms) with a trend per kind | `src/domain/journal/` |
 | Chat tab | Conversations with Claude: typed or dictated messages, camera or gallery photos, PDF and text files, quick prompts, consent and change confirmation in line, changes with undo, history | `src/screens/chat/ChatScreen.tsx` |

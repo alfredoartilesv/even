@@ -190,9 +190,9 @@ const latestSchema = Math.max(...readdirSync(join(import.meta.dirname, "../src/d
 
 async function openSettingsPage(page: Page, label: string) {
   // Tapping Settings while a page is open goes back to the menu.
-  await page.eval(`__t.click("nav.tabbar button", "Settings")`);
+  await page.eval(`__t.click("nav.sidenav button", "Settings")`);
   await sleep(300);
-  if (!(await page.eval<boolean>(`!!__t.byText("button", ${JSON.stringify(label)})`))) await page.eval(`__t.click("nav.tabbar button", "Settings")`);
+  if (!(await page.eval<boolean>(`!!__t.byText("button", ${JSON.stringify(label)})`))) await page.eval(`__t.click("nav.sidenav button", "Settings")`);
   await until(`the ${label} row`, () => page.eval<boolean>(`__t.click("button", ${JSON.stringify(label)})`), 10_000);
   await sleep(500);
 }
@@ -255,11 +255,11 @@ async function main() {
   let page = await launch();
 
   await check("app opens and the database is ready", async () => {
-    await until("the tab bar", () => page.eval<boolean>(`!!document.querySelector("nav.tabbar")`), 60_000);
+    await until("the side menu", () => page.eval<boolean>(`!!document.querySelector("nav.sidenav")`), 60_000);
     const text = await page.eval<string>("__t.text()");
     if (text.includes("Database unavailable")) throw new Error("the app says the database is unavailable");
     screenshot("dashboard-open");
-    return "tab bar shown";
+    return "side menu shown";
   });
 
   await check("the header clears the status bar (edge to edge)", async () => {
@@ -291,7 +291,7 @@ async function main() {
       await page.eval(`__t.click("button.sync-button")`);
       await until("the Connections page", () => page.eval<boolean>(`__t.text().includes("Personal API key")`), 10_000);
       screenshot("setup-sync-connections");
-      await page.eval(`__t.click("nav.tabbar button", "Dashboard")`);
+      await page.eval(`__t.click("nav.sidenav button", "Dashboard")`);
       return `"${label.split(".")[0]}" opens Settings > Connections`;
     });
   }
@@ -336,7 +336,7 @@ async function main() {
     let before = 0;
     await check("a real Garmin sync succeeds", async () => {
       before = await storedReadings(page);
-      await page.eval(`__t.click("nav.tabbar button", "Dashboard")`);
+      await page.eval(`__t.click("nav.sidenav button", "Dashboard")`);
       await until("the sync button", () => page.eval<boolean>(`__t.click("button.sync-button")`), 10_000);
       const label = await until(
         "the sync to finish",
@@ -375,7 +375,7 @@ async function main() {
     });
 
     await check("the dashboard shows synced steps", async () => {
-      await page.eval(`__t.click("nav.tabbar button", "Dashboard")`);
+      await page.eval(`__t.click("nav.sidenav button", "Dashboard")`);
       // Today may have no steps yet: step back a day until a day has them (up to a week).
       for (let i = 0; i < 7; i++) {
         await sleep(800);
@@ -398,7 +398,7 @@ async function main() {
     page.close();
     adb("shell", "am", "force-stop", APP);
     page = await launch();
-    await until("the tab bar", () => page.eval<boolean>(`!!document.querySelector("nav.tabbar")`), 60_000);
+    await until("the side menu", () => page.eval<boolean>(`!!document.querySelector("nav.sidenav")`), 60_000);
     const after = await storedReadings(page);
     if (after !== before) throw new Error(`${before} readings before, ${after} after`);
     return `${after.toLocaleString("en")} readings after a restart`;
