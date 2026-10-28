@@ -1,4 +1,4 @@
-import { accountStore } from "./accounts";
+import { adminStore } from "./admin";
 import { migrateServer } from "./migrate";
 import { openDb } from "./db";
 
@@ -9,6 +9,7 @@ import { openDb } from "./db";
  *   npm run sync:migrate                               apply server/migrations
  *   npm run sync:invite -- --email you@example.com     an invite code for one account (14 days), printed once
  *   npm run sync:accounts                              accounts with device counts and storage, no data
+ *   npm run sync:admin -- --email you@example.com      make an account an admin (add --remove to take it away)
  *
  * In Docker: docker compose run --rm sync npm run sync:invite -- --email ...
  */
@@ -27,7 +28,7 @@ try {
   } else if (command === "invite") {
     const email = flag("email");
     if (!email || !email.includes("@")) throw new Error("Pass --email <address>: the invite only works for that email");
-    const code = await accountStore(pg, { serverSecret: process.env.SERVER_SECRET ?? "even-local-only" }).createInvite(email);
+    const { code } = await adminStore(pg).createInvite({ id: "cli", via: "cli" }, email);
     // The one time the code is shown: only its hash is kept.
     out(`invite for ${email.trim().toLowerCase()}: ${code}  (valid 14 days, one account)`);
   } else if (command === "accounts") {
@@ -42,8 +43,14 @@ try {
       out(
         `${r.email}  ${r.display_name}  devices ${r.devices}  ${(r.bytes / 1_048_576).toFixed(1)} MB  since ${new Date(r.created_at).toISOString().slice(0, 10)}`,
       );
+  } else if (command === "admin") {
+    const email = flag("email");
+    if (!email) throw new Error("Pass --email <address> of an existing account");
+    const remove = rest.includes("--remove");
+    await adminStore(pg).setAdmin(email, !remove);
+    out(`${email.trim().toLowerCase()} ${remove ? "is no longer an admin" : "is now an admin"}`);
   } else {
-    throw new Error("Commands: migrate, invite, accounts");
+    throw new Error("Commands: migrate, invite, accounts, admin");
   }
 } finally {
   await pg.close();
