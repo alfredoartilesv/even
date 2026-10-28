@@ -17,7 +17,8 @@ function fakeNative(status: number, body: unknown) {
   const seen: HttpOptions[] = [];
   const request = async (o: HttpOptions): Promise<HttpResponse> => {
     seen.push(o);
-    return { status, headers: { "content-type": "application/json" }, data: body, url: o.url };
+    // retry-after-ms 1 (0 counts as unset): the SDK retries a 529 once (maxRetries 1); the real back-off would add half a second to the test.
+    return { status, headers: { "content-type": "application/json", "retry-after-ms": "1" }, data: body, url: o.url };
   };
   return { request, seen };
 }
