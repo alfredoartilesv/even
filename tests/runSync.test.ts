@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCursor } from "../src/features/metrics/samples";
-import { combineSyncs, lastSync, runSync } from "../src/features/sync/runSync";
-import type { Source, SyncResult } from "../src/features/sync/types";
+import { loadCursor } from "../src/domain/metrics/samples";
+import { combineSyncs, lastSync, runSync } from "../src/domain/sync/runSync";
+import type { Source, SyncResult } from "../src/domain/sync/types";
 import { migratedDb } from "./helpers";
 
 const NOW = Date.UTC(2026, 9, 25, 18, 0, 0);

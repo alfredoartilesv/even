@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { strToU8, zipSync } from "fflate";
-import { GARMIN_EXPORT_SOURCE, garminKind, parseGarminExport } from "../src/features/import/garmin";
-import { garminExportCoverage, importGarminZip, readGarminZip } from "../src/features/import/garminImport";
-import { dailySeries, dayValues } from "../src/features/metrics/queries";
-import { upsertSamples } from "../src/features/metrics/samples";
+import { GARMIN_EXPORT_SOURCE, garminKind, parseGarminExport } from "../src/domain/import/garmin";
+import { garminExportCoverage, importGarminZip, readGarminZip } from "../src/domain/import/garminImport";
+import { dailySeries, dayValues } from "../src/domain/metrics/queries";
+import { upsertSamples } from "../src/domain/metrics/samples";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 import { migrate } from "../src/db/migrate";
 

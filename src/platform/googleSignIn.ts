@@ -3,7 +3,7 @@ import { platformName } from "./device";
 
 /**
  * Sign in with Google through Android's Credential Manager (@capgo/capacitor-social-login).
- * Returns only the ID token: the account logic (features/account) reads and checks it.
+ * Returns only the ID token: the account logic (domain/account) reads and checks it.
  *
  * Setup (once, in Google Cloud Console, see docs/architecture.md section 5b):
  * - OAuth consent screen (Testing is fine; add your account as a test user), scopes email + profile.

@@ -10,6 +10,7 @@ Even is a personal health app for Android (then iPhone): Garmin data straight fr
 | [users.md](users.md) | **Who** uses Even in phase 2 | Accounts, devices, friends, the operator; each case step by step (first phone, adding the web, recovery, friends and shares); server tables; order of work for 0.4 |
 | [HLD.md](HLD.md) | **What** the system is and how data moves | Context, components, main flows (start, sync, backup, Claude), data groups, security, deployment, quality attributes |
 | [LLD.md](LLD.md) | **How** a part works in the code | Repo layout, interfaces, database driver and its quirks, the full schema, the Garmin Personal API client and mapping, sync algorithm, backup file format and merge rules, tests, how to extend |
+| [phases.md](phases.md) | **What comes next**, per target | How the code splits per target; Android, the web app, iOS later; what each needs before it is deployed |
 | [dev-setup.md](dev-setup.md) | **How to build and run** on this PC | JDK 21 and Android SDK install, environment variables, emulator acceleration, VS Code extensions and tasks, debugging the WebView, when Docker helps |
 
 New to the repo: read this page, then the HLD, then the parts of the LLD you need. Before changing a decision, read architecture.md.
@@ -27,10 +28,10 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/ci.yml` (PRs: tests only) |
 | Releases | Merge `develop` into `master`: signed APK built and checked in Docker, launched on an emulator, tagged `v<version>` and published as a GitHub release (`release.yml`, dev-setup.md section 6). Needs the four `HEALTH_*` GitHub secrets |
 | Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
-| Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/features/chat/`, `npm run chat` on a PC); Chat tab with camera and image attach |
+| Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/domain/chat/`, `npm run chat` on a PC); Chat tab with camera and image attach |
 | Connect Claude (verified API key; there is no "Sign in with Claude" for Android apps, see architecture.md section 5) | Built and tested (`connect.ts`); screen in Settings > Connections |
-| Garmin history import (account export ZIP, imported on the phone in Settings > Connections, or on a PC as an encrypted backup to restore; 2018-2026 imported on the first run) | Built and tested (`features/import`, `npm run import:garmin`) |
-| Google sign-in (optional; one owner per install, data and backups tied to that account) | Built and tested (`features/account`); needs the Google Cloud setup (architecture.md 5b) and a screen |
+| Garmin history import (account export ZIP, imported on the phone in Settings > Connections, or on a PC as an encrypted backup to restore; 2018-2026 imported on the first run) | Built and tested (`domain/import`, `npm run import:garmin`) |
+| Google sign-in (optional; one owner per install, data and backups tied to that account) | Built and tested (`domain/account`); needs the Google Cloud setup (architecture.md 5b) and a screen |
 
 ## Quick start
 

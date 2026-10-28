@@ -4,11 +4,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AggregatedSample, HealthSample, QueryAggregatedOptions, QueryOptions, QueryWorkoutsOptions, Workout } from "@capgo/capacitor-health";
 import { localDayStart } from "../src/core/tz";
-import { listWorkouts } from "../src/features/me/workouts";
-import { upsertSamples } from "../src/features/metrics/samples";
-import { APPLE_HEALTH_SOURCE, AppleHealthSource, appleHealthEnabled, setAppleHealthEnabled, type HealthStore } from "../src/features/sync/appleHealth";
-import { runSync } from "../src/features/sync/runSync";
-import type { SampleInput } from "../src/features/sync/types";
+import { listWorkouts } from "../src/domain/me/workouts";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import { APPLE_HEALTH_SOURCE, AppleHealthSource, appleHealthEnabled, setAppleHealthEnabled, type HealthStore } from "../src/domain/sync/appleHealth";
+import { runSync } from "../src/domain/sync/runSync";
+import type { SampleInput } from "../src/domain/sync/types";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

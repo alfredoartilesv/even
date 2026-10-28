@@ -2,7 +2,7 @@ import { addDays } from "../../core/tz";
 
 /**
  * The defrost plan as a strip of days. Takes the plan's shape structurally (the fields of
- * features/mealprep/stock.ts Plan it needs), so ui/ stays below features/.
+ * domain/mealprep/stock.ts Plan it needs), so ui/ stays below domain/.
  */
 export interface PlanLike {
   thaw: { day: string; forDay: string; name: string; portions: number; late: boolean }[];
