@@ -12,37 +12,52 @@ import {
   type ShoppingItem,
 } from "../shopping";
 import { failed, MsgLine, numOrNull, type Msg } from "../../../ui/common";
+import { Icon } from "../../../ui/icons";
+import { SectionHeader } from "../../../ui/layout";
+import { SpendingView } from "./SpendingView";
 
 interface Props {
   db: SqlDriver;
   version: number;
-  /** Opens Spending, to log what the shop cost (and clear the ticked items there). */
-  onPaid: () => void;
+  onChanged: () => void;
+  /** Opens Recipes, to add a recipe's ingredients to the list. */
+  onRecipes: () => void;
 }
 
-export function ShoppingView({ db, version, onPaid }: Props) {
+/**
+ * The supermarket in one place, in the order it happens: the list (add, tick off in the shop,
+ * share), then what it cost (logging the shop clears the ticked items), then the month's spending.
+ */
+export function ShoppingView({ db, version, onChanged, onRecipes }: Props) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
+  // Bumped on every list change, so the spending form below sees how many items are ticked.
+  const [listVersion, setListVersion] = useState(0);
 
   const load = useCallback(async () => setItems(await listShopping(db)), [db]);
   useEffect(() => {
     void load();
   }, [load, version]);
 
+  const changed = async () => {
+    await load();
+    setListVersion((v) => v + 1);
+  };
+
   async function add(e: FormEvent) {
     e.preventDefault();
     try {
-      const q = numOrNull(qty);
+      const q = numOrNull(qty.replace(",", "."));
       if (q !== null && Number.isNaN(q)) throw new Error("Quantity must be a number");
       await addShoppingItem(db, { name, quantity: q, unit });
       setName("");
       setQty("");
       setUnit("");
       setMsg(null);
-      await load();
+      await changed();
     } catch (err) {
       setMsg(failed(err, "mealprep"));
     }
@@ -58,53 +73,67 @@ export function ShoppingView({ db, version, onPaid }: Props) {
     }
   }
 
-  const open = items.filter((i) => !i.checked).length;
+  const open = items.filter((i) => !i.checked);
+  const ticked = items.length - open.length;
 
   return (
     <div>
+      <SectionHeader title="Shopping list" action="Add from recipes" onAction={onRecipes} />
+      {items.length > 0 && (
+        <p className="muted small">
+          {open.length ? `${open.length} to buy` : "Everything is in the basket"}
+          {ticked > 0 && ` · ${ticked} ticked`}
+        </p>
+      )}
       <form className="ingredient" onSubmit={add}>
-        <input aria-label="Item" placeholder="Item" value={name} onChange={(e) => setName(e.target.value)} />
+        <input aria-label="Item" placeholder="Add an item" value={name} onChange={(e) => setName(e.target.value)} />
         <input aria-label="Quantity" placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
         <input aria-label="Unit" placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
-        <button type="submit">Add</button>
+        <button type="submit" aria-label="Add item">
+          <Icon name="plus" size={18} />
+        </button>
       </form>
       <MsgLine msg={msg} />
 
-      <ul className="checklist">
-        {items.map((i) => (
-          <li key={i.id} className={i.checked ? "done" : ""}>
-            <label>
-              <input type="checkbox" checked={i.checked} onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(load)} />
-              <span>{i.name}</span>
-              <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
-            </label>
-            <button className="secondary" aria-label={`Remove ${i.name}`} onClick={() => void removeShoppingItem(db, i.id).then(load)}>
-              ×
-            </button>
-          </li>
-        ))}
-      </ul>
-      {!items.length && <p className="muted">The list is empty. Add items here, or from recipes in Recipes.</p>}
+      {items.length > 0 ? (
+        <ul className="checklist">
+          {items.map((i) => (
+            <li key={i.id} className={i.checked ? "done" : ""}>
+              <label>
+                <input type="checkbox" checked={i.checked} onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(changed)} />
+                <span>{i.name}</span>
+                <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
+              </label>
+              <button className="icon-button ghost" aria-label={`Remove ${i.name}`} onClick={() => void removeShoppingItem(db, i.id).then(changed)}>
+                <Icon name="trash" size={18} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted small">The list is empty. Add items above, or pick recipes and how many batches you will cook in Recipes.</p>
+      )}
 
       {items.length > 0 && (
         <div className="actions">
-          {open < items.length && <button onClick={onPaid}>Log what you paid</button>}
-          <button onClick={share} disabled={!open}>
+          <button className="secondary" onClick={share} disabled={!open.length}>
             {isNative ? "Share list" : "Copy list"}
           </button>
-          <button className="secondary" disabled={open === items.length} onClick={() => void clearShopping(db).then(load)}>
+          <button className="secondary" disabled={!ticked} onClick={() => void clearShopping(db).then(changed)}>
             Clear ticked
           </button>
           <button
             className="secondary danger"
             onClick={() => {
-              if (confirm("Empty the whole shopping list?")) void clearShopping(db, { all: true }).then(load);
+              if (confirm("Empty the whole shopping list?")) void clearShopping(db, { all: true }).then(changed);
             }}
           >
             Clear all
           </button>
         </div>
       )}
+
+      <SpendingView db={db} version={version + listVersion} onChanged={onChanged} />
     </div>
   );
 }

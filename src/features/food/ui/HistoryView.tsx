@@ -1,92 +1,66 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { drinkKcalByDay } from "../../alcohol/alcohol";
-import { dayFood, getCalorieGoal, loggedDaysBefore, nutritionRange, type DayTotals, type FoodEntry } from "../food";
+import { getNutritionTargets, nutritionRange, type DayTotals, type NutritionTargets } from "../food";
 import { mean } from "../../../core/health";
 import { addDays } from "../../../core/tz";
-import { fmtDay, MsgLine, today, type Msg } from "../../../ui/common";
+import { fmtDay, today } from "../../../ui/common";
 import { BarChart } from "../../../ui/charts";
-import { EntryList, kcal, weekEnding } from "./components";
-import { entryActions } from "./entryActions";
+import { PeriodNav, SectionHeader } from "../../../ui/layout";
+import { budgetText, MacroBudget } from "../../../ui/nutrition";
+import { Icon } from "../../../ui/icons";
+import { kcal, weekEnding } from "./components";
 
 const weekdayLetter = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" });
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 interface Props {
   db: SqlDriver;
   version: number;
-  onChanged: () => void;
+  /** Opens a day in the log, to see, edit or add to it. */
+  onOpenDay: (day: string) => void;
 }
 
-export function HistoryView({ db, version, onChanged }: Props) {
-  const [day, setDay] = useState(today());
+/**
+ * Seven days at a time: calories per day against the target, the week's daily averages against
+ * every target, then each day with its totals. Tapping a bar or a day opens it in the log, where
+ * it can be edited and added to.
+ */
+export function HistoryView({ db, version, onOpenDay }: Props) {
   const [weekEnd, setWeekEnd] = useState(today());
   const [week, setWeek] = useState<DayTotals[]>([]);
   const [drinkKcal, setDrinkKcal] = useState<Map<string, number>>(new Map());
-  const [entries, setEntries] = useState<FoodEntry[]>([]);
-  const [target, setTarget] = useState<number | null>(null);
-  const [earlier, setEarlier] = useState<string | null>(null);
-  const [msg, setMsg] = useState<Msg>(null);
+  const [targets, setTargets] = useState<NutritionTargets>({ calories: null, proteinG: null, carbsG: null, fatG: null });
 
   const load = useCallback(async () => {
     const days = weekEnding(weekEnd);
-    const [w, e, g, prev, dk] = await Promise.all([
-      nutritionRange(db, days[0], days[6]),
-      dayFood(db, day),
-      getCalorieGoal(db),
-      loggedDaysBefore(db, day, 1),
-      drinkKcalByDay(db, days[0], days[6]),
-    ]);
-    // Bars and averages count food and drinks together; the list below is food only.
+    const [w, t, dk] = await Promise.all([nutritionRange(db, days[0], days[6]), getNutritionTargets(db), drinkKcalByDay(db, days[0], days[6])]);
+    // Calories count food and drinks together.
     setWeek(w.map((d) => (dk.has(d.day) ? { ...d, calories: (d.calories ?? 0) + dk.get(d.day)! } : d)));
     setDrinkKcal(dk);
-    setEntries(e);
-    setTarget(g?.target ?? null);
-    setEarlier(prev[0] ?? null);
-  }, [db, day, weekEnd]);
+    setTargets(t);
+  }, [db, weekEnd]);
 
   useEffect(() => {
     void load();
   }, [load, version]);
 
-  const go = (d: string) => {
-    setDay(d);
-    if (d > weekEnd || d < addDays(weekEnd, -6)) setWeekEnd(d > today() ? today() : d);
-  };
-
+  const now = today();
   const logged = week.filter((d) => d.calories !== null);
-  const avg = mean(logged.map((d) => d.calories ?? 0));
-  const overDays = target === null ? 0 : logged.filter((d) => (d.calories ?? 0) > target).length;
-  const selected = week.find((d) => d.day === day);
+  const avg = (k: "calories" | "proteinG" | "carbsG" | "fatG") => mean(logged.map((d) => d[k]).filter((v): v is number => v !== null));
+  const overDays = targets.calories === null ? 0 : logged.filter((d) => (d.calories ?? 0) > targets.calories!).length;
 
   return (
     <div>
-      <div className="row">
-        <button
-          className="secondary"
-          aria-label="Previous week"
-          onClick={() => {
-            setWeekEnd(addDays(weekEnd, -7));
-            setDay(addDays(day, -7));
-          }}
-        >
-          ‹
-        </button>
-        <span className="small">
-          {fmtDay(addDays(weekEnd, -6))} – {fmtDay(weekEnd)}
-        </span>
-        <button
-          className="secondary"
-          aria-label="Next week"
-          disabled={weekEnd >= today()}
-          onClick={() => {
-            const end = addDays(weekEnd, 7) > today() ? today() : addDays(weekEnd, 7);
-            setWeekEnd(end);
-            setDay(end);
-          }}
-        >
-          ›
-        </button>
-      </div>
+      <PeriodNav
+        title={`${cap(fmtDay(addDays(weekEnd, -6)))} – ${fmtDay(weekEnd)}`}
+        unit="week"
+        onPrev={() => setWeekEnd(addDays(weekEnd, -7))}
+        onNext={() => setWeekEnd(addDays(weekEnd, 7) > now ? now : addDays(weekEnd, 7))}
+        nextDisabled={weekEnd >= now}
+        onCurrent={weekEnd === now ? null : () => setWeekEnd(now)}
+        currentLabel="Back to this week"
+      />
       <BarChart
         title="Calories"
         subtitle="Food and drinks, tap a day to open it"
@@ -96,47 +70,55 @@ export function HistoryView({ db, version, onChanged }: Props) {
         formatXLong={(d) => fmtDay(d)}
         formatValue={kcal}
         unit="kcal"
-        target={target}
-        selected={day}
-        onSelect={setDay}
+        target={targets.calories}
+        onSelect={onOpenDay}
       />
       <p className="muted small">
-        {avg === null
-          ? "Nothing logged this week."
-          : `Average ${kcal(avg)} kcal on ${logged.length} logged day${logged.length === 1 ? "" : "s"}${target !== null ? `, ${overDays} over target` : ""}.`}
+        {logged.length === 0
+          ? "Nothing logged these 7 days."
+          : `${logged.length} of 7 days logged${targets.calories !== null ? `, ${overDays} over the calorie target` : ""}.`}
       </p>
 
-      <div className="row">
-        <h2>{fmtDay(day)}</h2>
-        <span className="muted small">
-          {selected?.calories != null && `${kcal(selected.calories)} kcal`}
-          {selected?.proteinG != null && ` · ${kcal(selected.proteinG)} g protein`}
-          {drinkKcal.has(day) && ` · incl. ${kcal(drinkKcal.get(day)!)} kcal from drinks`}
-        </span>
+      {logged.length > 0 && (
+        <>
+          <SectionHeader title="Daily average" />
+          <MacroBudget eaten={{ calories: avg("calories"), proteinG: avg("proteinG"), carbsG: avg("carbsG"), fatG: avg("fatG") }} targets={targets} />
+        </>
+      )}
+
+      <SectionHeader title="Days" />
+      <div className="menu-group">
+        <ul>
+          {[...week].reverse().map((d) => {
+            const k = d.calories === null ? null : budgetText(d.calories, targets.calories, "kcal");
+            return (
+              <li key={d.day}>
+                <button type="button" className="menu-row" onClick={() => onOpenDay(d.day)}>
+                  <span className="grow">
+                    <span className="menu-label">{cap(fmtDay(d.day))}</span>
+                    <span className="menu-desc muted small">
+                      {d.entries === 0 && !drinkKcal.has(d.day)
+                        ? "Nothing logged"
+                        : [
+                            `${kcal(d.calories)} kcal`,
+                            d.proteinG !== null && `P ${kcal(d.proteinG)} g`,
+                            d.carbsG !== null && `C ${kcal(d.carbsG)} g`,
+                            d.fatG !== null && `F ${kcal(d.fatG)} g`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                    </span>
+                  </span>
+                  {k && targets.calories !== null && (
+                    <span className={k.over ? "small warning" : "small muted"}>{k.over ? `${k.big} over` : `${k.big} left`}</span>
+                  )}
+                  <Icon name="chevron" size={18} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-      <div className="actions">
-        <button className="secondary" disabled={!earlier} onClick={() => earlier && go(earlier)}>
-          {earlier ? `Earlier: ${fmtDay(earlier)}` : "No earlier meals"}
-        </button>
-        {day !== today() && (
-          <button className="secondary" onClick={() => go(today())}>
-            Back to today
-          </button>
-        )}
-      </div>
-      <MsgLine msg={msg} />
-      <EntryList
-        db={db}
-        entries={entries}
-        {...entryActions(
-          db,
-          () => {
-            void load();
-            onChanged();
-          },
-          setMsg,
-        )}
-      />
     </div>
   );
 }

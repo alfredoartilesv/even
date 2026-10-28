@@ -11,9 +11,10 @@ import { insertGoal } from "../journal/journal";
 import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto, EMPTY_PROFILE, type Profile } from "../settings/profile";
 import { fmtGoalValue, GOAL_TEMPLATES } from "./goalTemplates";
 import { deleteGoal, goalProgress, listGoals, type Goal, type Progress, type Status } from "./goals";
-import { activityLabel, SPORT_LABEL, SPORTS, type SportId } from "./sports";
+import { ActivityHistory } from "./ActivityHistory";
+import { SPORT_LABEL, SPORTS, type SportId } from "./sports";
 import { Avatar, squarePhoto } from "./ui/avatar";
-import { fmtDistance, fmtDuration, fmtPace, fmtSpeed, listWorkouts, personalBests, sportTotals, type Workout } from "./workouts";
+import { fmtDistance, fmtDuration, listWorkouts, type Workout } from "./workouts";
 
 const STATUS: Record<Status, { badge: BadgeStatus; word: string }> = {
   met: { badge: "good", word: "met" },
@@ -23,11 +24,6 @@ const STATUS: Record<Status, { badge: BadgeStatus; word: string }> = {
   no_data: { badge: "info", word: "no data yet" },
 };
 const PERIOD_WORD = { day: "today", week: "this week", month: "this month" } as const;
-const RANGES = [
-  { days: 30, label: "30 days" },
-  { days: 365, label: "1 year" },
-  { days: 0, label: "All" },
-];
 
 /**
  * The owner's own page: picture, name and body numbers, their sports, goals with progress,
@@ -39,7 +35,6 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
   const [weight, setWeight] = useState<Weight | null>(null);
   const [goals, setGoals] = useState<{ goal: Goal; progress: Progress | null }[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [range, setRange] = useState(30);
   const [msg, setMsg] = useState<Msg>(null);
   const [editingSports, setEditingSports] = useState(false);
   const [sportsDraft, setSportsDraft] = useState<SportId[]>([]);
@@ -121,14 +116,6 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
     .join(" · ");
 
   const last30 = workouts.filter((w) => w.day > addDays(day, -30));
-  const inRange = range ? workouts.filter((w) => w.day > addDays(day, -range)) : workouts;
-  const mine = (s: SportId) => profile.sports.indexOf(s);
-  const totals = sportTotals(inRange).sort((a, b) => {
-    const ma = mine(a.sport);
-    const mb = mine(b.sport);
-    return ma >= 0 && mb >= 0 ? ma - mb : ma >= 0 ? -1 : mb >= 0 ? 1 : 0;
-  });
-  const bests = personalBests(workouts).filter((b) => b.longestDistance && (profile.sports.length === 0 || profile.sports.includes(b.sport)));
   const measurable = goals.filter((g) => g.progress);
   const metNow = measurable.filter((g) => g.progress!.status === "met" || g.progress!.status === "on_track").length;
   const tpl = GOAL_TEMPLATES.find((t) => t.id === template);
@@ -324,119 +311,7 @@ export function MeScreen({ db, version, onEditProfile, onChanged }: { db: SqlDri
         <MsgLine msg={goalMsg} />
       </form>
 
-      <h2>Activities</h2>
-      <div className="chips" role="radiogroup" aria-label="Activities range">
-        {RANGES.map((r) => (
-          <button
-            key={r.days}
-            type="button"
-            role="radio"
-            aria-checked={range === r.days}
-            className={range === r.days ? "chip active" : "chip"}
-            onClick={() => setRange(r.days)}
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
-      {totals.length === 0 ? (
-        <p className="muted small">
-          No workouts {range ? `in the last ${range === 365 ? "year" : `${range} days`}` : "yet"}. They arrive from your watch with the Garmin sync, or from the
-          Garmin import.
-        </p>
-      ) : (
-        <div className="stack tight">
-          {totals.map((t) => (
-            <div key={t.sport} className="card sport-total">
-              <div className="row">
-                <strong className="grow">{SPORT_LABEL[t.sport]}</strong>
-                {mine(t.sport) >= 0 && <span className="muted small">your sport</span>}
-              </div>
-              <dl className="stat-row">
-                <div>
-                  <dt>Sessions</dt>
-                  <dd>{t.sessions}</dd>
-                </div>
-                <div>
-                  <dt>Time</dt>
-                  <dd>{fmtDuration(t.durationS)}</dd>
-                </div>
-                {t.distanceM > 0 && (
-                  <div>
-                    <dt>Distance</dt>
-                    <dd>{fmtDistance(t.distanceM)}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {bests.length > 0 && (
-        <>
-          <h3 className="group-head">Longest sessions</h3>
-          <ul className="plain">
-            {bests.map((b) => (
-              <li key={b.sport} className="small">
-                <strong>{SPORT_LABEL[b.sport]}</strong>: {fmtDistance(b.longestDistance!.distanceM!)}
-                <span className="muted"> · {fmtDayYear(b.longestDistance!.day)}</span>
-                {b.longestTime && b.longestTime !== b.longestDistance && <span className="muted"> · longest time {fmtDuration(b.longestTime.durationS!)}</span>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      {workouts.length > 0 && (
-        <>
-          <h3 className="group-head">Recent workouts</h3>
-          <ul className="workouts">
-            {workouts.slice(0, 8).map((w) => (
-              <li key={w.key}>
-                <WorkoutRow w={w} />
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <ActivityHistory workouts={workouts} mySports={profile.sports} />
     </section>
-  );
-}
-
-/** "Sat 17 Oct", with the year added when it is not this year. */
-function fmtDayYear(day: string): string {
-  const d = fmtDay(day);
-  return day.slice(0, 4) === today().slice(0, 4) ? d : `${d} ${day.slice(0, 4)}`;
-}
-
-/** One session: what and when on top, then its numbers in labelled columns. */
-function WorkoutRow({ w }: { w: Workout }) {
-  const speed = w.sport === "cycling" ? fmtSpeed(w.durationS, w.distanceM) : fmtPace(w.durationS, w.distanceM);
-  const stats = [
-    w.distanceM ? { k: "Distance", v: fmtDistance(w.distanceM) } : null,
-    w.durationS ? { k: "Time", v: fmtDuration(w.durationS) } : null,
-    speed ? { k: w.sport === "cycling" ? "Speed" : "Pace", v: speed } : null,
-    w.avgHr ? { k: "Avg HR", v: `${Math.round(w.avgHr)} bpm` } : null,
-    !speed && w.kcal ? { k: "Calories", v: `${Math.round(w.kcal)} kcal` } : null,
-  ].filter((x): x is { k: string; v: string } => x !== null);
-  return (
-    <>
-      <div className="row">
-        <strong className="grow">{activityLabel(w.type)}</strong>
-        <span className="muted small">{fmtDayYear(w.day)}</span>
-      </div>
-      {stats.length > 0 && (
-        <dl className="stat-row">
-          {stats.map((s) => (
-            <div key={s.k}>
-              <dt>{s.k}</dt>
-              <dd>{s.v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {speed && w.kcal ? <div className="muted small">{Math.round(w.kcal)} kcal</div> : null}
-    </>
   );
 }

@@ -11,7 +11,7 @@ import { migrations } from "../../src/db/migrations";
 import { addDays, localDay } from "../../src/core/tz";
 import { upsertCatalog } from "../../src/features/metrics/catalog";
 import { upsertSamples } from "../../src/features/metrics/samples";
-import { logFood, saveMeal, setCalorieGoal } from "../../src/features/food/food";
+import { logFood, saveMeal, setCalorieGoal, setNutritionTarget } from "../../src/features/food/food";
 import { logDrink, saveDrinkType } from "../../src/features/alcohol/alcohol";
 import { addMove, logBatch, saveMealPrep, DEFAULT_MEAL_PREP } from "../../src/features/mealprep/mealPrep";
 import { addShoppingItem, listShopping, setShoppingChecked } from "../../src/features/mealprep/shopping";
@@ -79,6 +79,9 @@ async function seed(db: SqlDriver) {
     today,
   );
   await setCalorieGoal(db, 2300, addDays(today, -40), now - 40 * 86_400_000);
+  await setNutritionTarget(db, "proteinG", 150, addDays(today, -40), now - 40 * 86_400_000);
+  await setNutritionTarget(db, "carbsG", 260, addDays(today, -40), now - 40 * 86_400_000);
+  await setNutritionTarget(db, "fatG", 75, addDays(today, -40), now - 40 * 86_400_000);
   await insertGoal(
     db,
     {
@@ -132,20 +135,24 @@ async function seed(db: SqlDriver) {
       day("daily_totalKilocalories", 1750 + active),
       day("daily_restingHeartRateInBeatsPerMinute", Math.round(49 + r() * 6)),
       day("sleep_durationInSeconds", Math.round((6.3 + r() * 1.8) * 3600)),
+      // Recovery numbers every day, so the Dashboard's trends have a line to draw.
+      day("sleep_overallSleepScore", Math.round(68 + r() * 22)),
+      day("hrv_lastNightAvg", Math.round(42 + r() * 16)),
+      day("daily_averageStressLevel", Math.round(22 + r() * 18)),
+      day("daily_moderateIntensityDurationInSeconds", Math.round(r() * 40) * 60),
+      day("daily_distanceInMeters", Math.round(4000 + r() * 7000)),
+      ...(i === 0 ? [] : [day("dailyBodyBattery_highestValue", Math.round(65 + r() * 30)), day("dailyBodyBattery_lowestValue", Math.round(10 + r() * 20))]),
     );
     // Today also gets the full set a real Garmin day has (about 29 numbers, with Garmin's long names),
     // so the "All synced numbers" capture shows the real case that once pushed the page off the phone.
     if (i === 0) {
       const full: [string, number][] = [
         ["daily_bmrKilocalories", 1750],
-        ["daily_distanceInMeters", 7340],
-        ["daily_moderateIntensityDurationInSeconds", 1320],
         ["daily_vigorousIntensityDurationInSeconds", 960],
         ["daily_activeDurationInSeconds", 5400],
         ["daily_highlyActiveDurationInSeconds", 1500],
         ["daily_maxHeartRateInBeatsPerMinute", 168],
         ["daily_minHeartRateInBeatsPerMinute", 47],
-        ["daily_averageStressLevel", 31],
         ["daily_maxStressLevel", 92],
         ["daily_stressDurationInSeconds", 18_600],
         ["daily_restStressDurationInSeconds", 31_200],
@@ -178,7 +185,19 @@ async function seed(db: SqlDriver) {
         w("activity_durationInSeconds", run ? Math.round(1800 + r() * 2400) : 2700),
         w("activity_activeKilocalories", Math.round(300 + r() * 300)),
       );
-      if (run) samples.push(w("activity_distanceInMeters", Math.round(5000 + r() * 7000)));
+      samples.push(
+        w("activity_averageHeartRateInBeatsPerMinute", Math.round(run ? 145 + r() * 15 : 110 + r() * 15)),
+        w("activity_maxHeartRateInBeatsPerMinute", Math.round(run ? 172 + r() * 12 : 150 + r() * 10)),
+        w("activity_aerobicTrainingEffect", Math.round((run ? 2.6 + r() * 1.6 : 1.4 + r()) * 10) / 10),
+        w("activity_anaerobicTrainingEffect", Math.round(r() * 20) / 10),
+      );
+      if (run) {
+        samples.push(
+          w("activity_distanceInMeters", Math.round(5000 + r() * 7000)),
+          w("activity_totalElevationGainInMeters", Math.round(20 + r() * 140)),
+          w("activity_vo2Max", 51),
+        );
+      }
     }
   }
   await upsertSamples(db, samples as never);

@@ -1363,7 +1363,7 @@ input.switch:disabled {
 /* Labelled numbers in a row (workouts, sport totals). */
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
   gap: 0.25rem 0.75rem;
   margin: 0.35rem 0 0;
 }
@@ -1394,6 +1394,69 @@ ul.workouts li {
 }
 ul.workouts li:last-child {
   border-bottom: none;
+}
+/* A session that opens to the rest of what the watch measured. */
+details.workout-more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.workout-more > summary::-webkit-details-marker {
+  display: none;
+}
+details.workout-more > summary .grow::after {
+  content: " ›";
+  color: var(--muted);
+}
+details.workout-more[open] > summary .grow::after {
+  content: " ⌄";
+}
+details.workout-more > dl dd {
+  white-space: normal;
+}
+details.workout-more > dl {
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--line);
+  margin-top: 0.5rem;
+}
+.month-head {
+  margin: 0.9rem 0 0.1rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+/* A whole card that opens or filters something. */
+button.link-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--fg);
+  font: inherit;
+}
+/* Recipe cards: the everyday actions on the left, the batches to shop for on the right. */
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.recipe-actions .actions {
+  margin: 0;
+}
+.cook-form {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+/* The one button a list leads to, kept above the tab bar while the list scrolls. */
+.sticky-action {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom, 0px) + 0.5rem);
+  z-index: 3;
+  margin-top: 0.75rem;
+}
+.sticky-action .wide-button {
+  box-shadow: var(--shadow);
 }
 /* Long names wrap instead of pushing the page wider than the screen. */
 .values td:first-child {
