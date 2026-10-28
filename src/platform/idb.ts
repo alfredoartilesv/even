@@ -29,9 +29,33 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest)
   );
 }
 
-export const idbGet = <T>(key: string) => run<T | undefined>("readonly", (s) => s.get(key));
-export const idbPut = (key: string, value: unknown) => run<void>("readwrite", (s) => s.put(value, key));
-export const idbDelete = (key: string) => run<void>("readwrite", (s) => s.delete(key));
+/**
+ * On a shared computer (ticked when connecting) nothing goes to IndexedDB: the database file, the
+ * session and the sealing key live in this map, so closing or reloading the tab forgets them all.
+ * There is no way back to storing in the same tab: a reload starts clean.
+ */
+let memory: Map<string, unknown> | null = null;
+export function keepNothing(): void {
+  memory ??= new Map();
+}
+export const keepsNothing = () => memory !== null;
+
+export const idbGet = <T>(key: string) => (memory ? Promise.resolve(memory.get(key) as T | undefined) : run<T | undefined>("readonly", (s) => s.get(key)));
+export const idbPut = (key: string, value: unknown) =>
+  memory ? Promise.resolve(void memory.set(key, value)) : run<void>("readwrite", (s) => s.put(value, key));
+export const idbDelete = (key: string) => (memory ? Promise.resolve(void memory.delete(key)) : run<void>("readwrite", (s) => s.delete(key)));
+
+/** Deletes this browser's whole store, the sealing key included (a copy left unused too long). */
+export async function idbReset(): Promise<void> {
+  if (opening) (await opening).close();
+  opening = null;
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error("IndexedDB was not deleted"));
+    req.onblocked = () => resolve(); // finishes once nothing holds it; the page reloads after
+  });
+}
 
 /** The key everything here is sealed with: made once per browser profile, never extractable. */
 export async function deviceKey(): Promise<CryptoKey> {
