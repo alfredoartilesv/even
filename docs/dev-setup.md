@@ -188,6 +188,8 @@ First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on t
 
 ## 7. iOS
 
+**Parked (28 Oct 2026):** iOS is a later phase, so the workflow lives in `scripts/ci/ios.yml`, where GitHub does not run it. To bring it back, move it to `.github/workflows/ios.yml` and update the check in `tests/ios.test.ts`. The rest of this section describes it as it runs from there.
+
 iOS builds need macOS with Xcode, so on this Windows PC they run on GitHub's Macs: `.github/workflows/ios.yml` (macOS 15, the runner's default Xcode). It runs on demand (Actions > iOS > Run workflow, once the workflow is on `master`) and on PRs to `develop` or `master` that touch the native side (`package.json`, `capacitor.config.json`, `resources/`, `src/platform/`, the palette, the iOS scripts). The repo is private, so macOS minutes count 10x against the plan's allowance; pure web changes do not trigger it.
 
 The run:
