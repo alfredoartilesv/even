@@ -18,7 +18,7 @@ export interface Stamp {
   now?: number;
 }
 
-export function localDayOf(ms: number, offsetMin: number): string {
+function localDayOf(ms: number, offsetMin: number): string {
   return new Date(ms + offsetMin * 60_000).toISOString().slice(0, 10);
 }
 

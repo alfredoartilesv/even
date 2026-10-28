@@ -458,6 +458,13 @@ export async function addMove(db: SqlDriver, input: MoveInput): Promise<string> 
   return id;
 }
 
+/** Eat portions of a batch (see addMove) and return the food log entry it wrote, so the log can offer Undo. */
+export async function eatPortions(db: SqlDriver, input: Omit<MoveInput, "kind" | "fromLoc">): Promise<string> {
+  const moveId = await addMove(db, { ...input, kind: "eat" });
+  const [row] = await db.all<{ food_entry_id: string }>("SELECT food_entry_id FROM meal_prep_moves WHERE id = ?", [moveId]);
+  return row.food_entry_id;
+}
+
 /**
  * Undo a move (soft delete, plus its food log row). Refused when later moves depend on it,
  * for example undoing a defrost after one of the defrosted portions was eaten.

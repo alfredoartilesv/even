@@ -4,6 +4,7 @@ import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
 import { DashboardScreen } from "../features/dashboard/DashboardScreen";
 import type { MealPrepView } from "../features/mealprep/ui/MealPrepScreen";
+import type { MeView } from "../features/me/MeScreen";
 import type { SettingsPage } from "../features/settings/SettingsScreen";
 import { ProfileButton } from "../features/dashboard/ProfileButton";
 import type { JournalView } from "../features/journal/ui/JournalScreen";
@@ -22,6 +23,7 @@ import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
 import { TabBar, type Tab } from "./TabBar";
 import { PageHeader } from "../ui/layout";
+import { PullToRefresh } from "../ui/PullToRefresh";
 import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
@@ -33,7 +35,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
   // The profile opens over the Dashboard, with a way back.
   // A page over the Dashboard (the profile or the journal), with a way back.
-  const [overlay, setOverlay] = useState<{ page: "profile" } | { page: "journal"; view: JournalView; day?: string } | null>(null);
+  const [overlay, setOverlay] = useState<{ page: "profile"; view?: MeView } | { page: "journal"; view: JournalView; day?: string } | null>(null);
   const [mealPrepView, setMealPrepView] = useState<MealPrepView>("log");
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
   const [configured, setConfigured] = useState(false);
@@ -181,34 +183,37 @@ export function App() {
           <Suspense>
             {tab === "dashboard" ? (
               !overlay ? (
-                <DashboardScreen
-                  db={ready}
-                  version={version}
-                  configured={configured}
-                  syncWarnings={status?.warnings ?? []}
-                  profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
-                  sync={syncButton}
-                  go={{
-                    logFood: () => {
-                      setMealPrepView("log");
-                      go("mealprep");
-                    },
-                    logDrink: () => go("alcohol"),
-                    askClaude: () => go("chat"),
-                    mealPrep: () => {
-                      setMealPrepView("stock");
-                      go("mealprep");
-                    },
-                    profile: () => open({ page: "profile" }),
-                    checkIn: (day) => open({ page: "journal", view: "checkin", day }),
-                    measurements: () => open({ page: "journal", view: "measurements" }),
-                  }}
-                />
+                // Pulling the Dashboard down syncs, as the button does (without a Garmin key it just reloads the numbers).
+                <PullToRefresh onRefresh={configured ? () => void sync() : changed} busy={syncing} label={configured ? "sync" : "refresh"}>
+                  <DashboardScreen
+                    db={ready}
+                    version={version}
+                    configured={configured}
+                    syncWarnings={status?.warnings ?? []}
+                    profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
+                    sync={syncButton}
+                    go={{
+                      logFood: () => {
+                        setMealPrepView("log");
+                        go("mealprep");
+                      },
+                      logDrink: () => go("alcohol"),
+                      askClaude: () => go("chat"),
+                      mealPrep: () => {
+                        setMealPrepView("stock");
+                        go("mealprep");
+                      },
+                      profile: () => open({ page: "profile", view: "activity" }),
+                      checkIn: (day) => open({ page: "journal", view: "checkin", day }),
+                      measurements: () => open({ page: "journal", view: "measurements" }),
+                    }}
+                  />
+                </PullToRefresh>
               ) : (
                 <section>
                   <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />
                   {overlay.page === "profile" ? (
-                    <MeScreen db={ready} version={version} onEditProfile={() => openSettings("profile")} onChanged={changed} />
+                    <MeScreen db={ready} version={version} view={overlay.view} onEditProfile={() => openSettings("profile")} onChanged={changed} />
                   ) : (
                     <JournalScreen
                       db={ready}

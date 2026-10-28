@@ -19,7 +19,7 @@ import {
 import { BarChart, Meter, StatTile } from "../../../ui/charts";
 import { failed, fmtDay, fmtMoney, MsgWithUndo, NoteField, numOrNull, plural, timeZone, today, type Msg } from "../../../ui/common";
 import { Icon } from "../../../ui/icons";
-import { SectionHeader } from "../../../ui/layout";
+import { PeriodNav, SectionHeader } from "../../../ui/layout";
 
 interface Props {
   db: SqlDriver;
@@ -37,7 +37,7 @@ const monthName = (month: string, style: "long" | "short" = "long") => {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
- * What the supermarket cost: log a shop (where, how much, which day; it can clear the ticked
+ * What the supermarket cost, under the shopping list: log a shop (where, how much, which day; it can clear the ticked
  * shopping list items), then the month's total, per supermarket, the last six months and each shop.
  */
 export function SpendingView({ db, version, onChanged }: Props) {
@@ -128,8 +128,8 @@ export function SpendingView({ db, version, onChanged }: Props) {
 
   return (
     <div>
+      <SectionHeader title="Paid at the shop" />
       <form className="card stack" onSubmit={add}>
-        <strong>Log a shop</strong>
         <label>
           Supermarket
           <input value={shop} maxLength={60} placeholder="e.g. Mercadona" autoComplete="off" onChange={(e) => setShop(e.target.value)} />
@@ -168,32 +168,20 @@ export function SpendingView({ db, version, onChanged }: Props) {
             Clear the {plural(ticked, "ticked item")} from the shopping list
           </label>
         )}
-        <button type="submit">Save</button>
+        <button type="submit">{ticked > 0 && clear ? `Save and clear ${plural(ticked, "ticked item")}` : "Save what I paid"}</button>
         <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
       </form>
 
-      <div className="period-nav">
-        <button type="button" className="secondary icon-button" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))}>
-          ‹
-        </button>
-        <div className="grow center">
-          <strong>{cap(monthName(month))}</strong>
-          {month !== thisMonth && (
-            <button type="button" className="link small accent" onClick={() => setMonth(thisMonth)}>
-              Back to this month
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          className="secondary icon-button"
-          aria-label="Next month"
-          disabled={month >= thisMonth}
-          onClick={() => setMonth(addMonths(month, 1))}
-        >
-          ›
-        </button>
-      </div>
+      <SectionHeader title="Spending" />
+      <PeriodNav
+        title={cap(monthName(month))}
+        unit="month"
+        onPrev={() => setMonth(addMonths(month, -1))}
+        onNext={() => setMonth(addMonths(month, 1))}
+        nextDisabled={month >= thisMonth}
+        onCurrent={month === thisMonth ? null : () => setMonth(thisMonth)}
+        currentLabel="Back to this month"
+      />
 
       <div className="viz-tiles pairs">
         <StatTile

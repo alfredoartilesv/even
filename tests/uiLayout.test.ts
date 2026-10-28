@@ -108,17 +108,17 @@ test("tab bar: the five tabs in order, each with an icon and a label, the open o
   assert.match(html, /class="active" aria-current="page"><svg[^]*?<span>Alcohol<\/span>/);
 });
 
-test("meal prep tab: two groups of three, the food log first", () => {
+test("meal prep tab: two groups of three, the food log first; shopping holds the list and the spending", () => {
   assert.deepEqual(
     MEAL_PREP_GROUPS.map((g) => [g.label, g.views.map((v) => v.id)]),
     [
       ["Food log", ["log", "history", "saved"]],
-      ["Meal prep", ["stock", "recipes", "shopping", "spending"]],
+      ["Meal prep", ["stock", "recipes", "shopping"]],
     ],
   );
   assert.deepEqual(
     MEAL_PREP_VIEWS.map((v) => v.id),
-    ["log", "history", "saved", "stock", "recipes", "shopping", "spending"],
+    ["log", "history", "saved", "stock", "recipes", "shopping"],
   );
 });
 

@@ -393,9 +393,7 @@ pre.logs {
   padding: 0.35rem 0.7rem;
 }
 .sync-button.stale {
-  background: transparent;
   color: var(--warning);
-  border-color: var(--warning);
 }
 .spin {
   display: inline-block;
@@ -699,9 +697,25 @@ details.card > summary {
   justify-content: center;
   flex: none;
 }
+/* Just the symbol: no frame or fill, a 48px target. */
 .sync-button.icon-button {
-  font-size: 1.3rem;
-  line-height: 1;
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  border-radius: 50%;
+}
+.sync-button.icon-button:active:not(:disabled) {
+  background: var(--accent-soft);
+}
+.sync-button.icon-button:disabled {
+  opacity: 1;
+}
+.sync-button .spin,
+.sync-button span {
+  display: inline-flex;
 }
 .composer-photos {
   display: flex;
@@ -1363,7 +1377,8 @@ input.switch:disabled {
 /* Labelled numbers in a row (workouts, sport totals). */
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  /* Four even columns on a phone; a long value ("13 h 06 min") wraps in its own cell instead of running into the next. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.25rem 0.75rem;
   margin: 0.35rem 0 0;
 }
@@ -1378,7 +1393,6 @@ input.switch:disabled {
   margin: 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 .card.sport-total {
   margin-bottom: 0;
@@ -1394,6 +1408,128 @@ ul.workouts li {
 }
 ul.workouts li:last-child {
   border-bottom: none;
+}
+/* A session that opens to the rest of what the watch measured. */
+details.workout-more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.workout-more > summary::-webkit-details-marker {
+  display: none;
+}
+/* A session: sport badge, what and when, the headline number large. */
+.workout {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.workout > .icon {
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+details.workout-more[open] .workout > .icon {
+  transform: rotate(90deg);
+}
+.sport-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--sport);
+  background: color-mix(in srgb, var(--sport) 16%, transparent);
+}
+.workout-body {
+  min-width: 0;
+}
+.workout-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.1rem;
+}
+.workout-hero {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.workout-extra {
+  margin: 0.6rem 0 0 calc(40px + 0.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.workout-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+}
+.workout-tiles > div {
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  min-width: 0;
+}
+.workout-tiles dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Training effect, 0-5: five steps, each filled as far as the value reaches into it. */
+.te-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+  margin-top: 0.25rem;
+}
+.te-steps span {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--accent-soft) var(--fill));
+}
+.month-head {
+  margin: 0.9rem 0 0.1rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+/* A whole card that opens or filters something. */
+button.link-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--fg);
+  font: inherit;
+}
+/* Recipe cards: the everyday actions on the left, the batches to shop for on the right. */
+.recipe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.recipe-actions .actions {
+  margin: 0;
+}
+.cook-form {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+/* The one button a list leads to, kept above the tab bar while the list scrolls. */
+.sticky-action {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom, 0px) + 0.5rem);
+  z-index: 3;
+  margin-top: 0.75rem;
+}
+.sticky-action .wide-button {
+  box-shadow: var(--shadow);
 }
 /* Long names wrap instead of pushing the page wider than the screen. */
 .values td:first-child {
@@ -1441,4 +1577,89 @@ a.button {
   min-height: 36px;
   padding: 0.25rem 0.7rem;
   font-size: 0.85rem;
+}
+.sports-line {
+  margin: 0.25rem 0 0.5rem;
+}
+.goal-card .row {
+  gap: 0.5rem;
+}
+/* The four nutrition targets as label / value lines in one card. */
+.goal-lines {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0.5rem 0 0;
+}
+.goal-lines > div {
+  display: contents;
+}
+.goal-lines dt {
+  font-weight: 600;
+}
+.goal-lines dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* The watch's numbers for a day, two to a row. */
+.synced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.25rem 0 0;
+}
+.synced-grid dt {
+  overflow-wrap: anywhere;
+}
+.synced-grid dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.synced .viz-stack-wrap {
+  margin-bottom: 0.75rem;
+}
+/* A one-tap action that is done: filled like a primary button, tapped again it undoes. */
+button.pressed {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.pressed .muted {
+  color: var(--accent);
+}
+/* Pull to refresh: the gap the page is pulled down by, with the sync symbol and what letting go does. */
+.ptr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+.ptr.pulling {
+  transition: none;
+}
+.ptr-mark {
+  display: inline-flex;
+  color: var(--muted);
+}
+.ptr-mark.ready {
+  color: var(--accent);
+}
+/* The browser's own pull (reload, glow) would fight the app's. */
+html {
+  overscroll-behavior-y: contain;
+}
+.ingredient select {
+  min-width: 0;
+  padding-left: 0.4rem;
+  padding-right: 0.2rem;
+}
+.cook-card .row .chips {
+  margin: 0;
 }
