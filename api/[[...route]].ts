@@ -15,5 +15,10 @@ const api = createApp(createStores(postgresJs(url, { max: 1 }), process.env));
 // Mounted twice: vercel.json rewrites /v1/* and /health to /api/..., and either path may arrive.
 const app = new Hono().route("/api", api).route("/", api);
 
-export const GET = handle(app);
-export const POST = handle(app);
+// Every method the API uses: Vercel answers 405 for a method the function does not export, which
+// would break renaming, passphrase changes, revoking devices, deleting the account and unsharing.
+const handler = handle(app);
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;
+export const DELETE = handler;
