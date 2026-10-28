@@ -21,6 +21,8 @@ import { upsertCatalog } from "../src/features/metrics/catalog";
 import { upsertSamples } from "../src/features/metrics/samples";
 import type { SampleInput } from "../src/features/sync/types";
 import { budgetText, MacroBudget } from "../src/ui/nutrition";
+import { SyncedNumbers } from "../src/features/dashboard/SyncedNumbers";
+import type { DayValue } from "../src/features/metrics/queries";
 import { migratedDb } from "./helpers";
 
 /**
@@ -245,4 +247,30 @@ test("workouts carry the watch's extras (not from freddy); weekly volume, months
     "Overreaching",
     null,
   ]);
+});
+
+test("synced numbers: one kind at a time with counts, headline number first, sleep stages as a bar", () => {
+  const v = (metric: string, category: DayValue["category"], value: number): DayValue => ({
+    metric,
+    label: metric,
+    category,
+    device: "Garmin Forerunner",
+    value,
+    unit: null,
+    readings: 1,
+    partial: false,
+  });
+  const metrics = [
+    v("sleep_deepSleepDurationInSeconds", "sleep", 5100),
+    v("sleep_lightSleepDurationInSeconds", "sleep", 12600),
+    v("sleep_durationInSeconds", "sleep", 23100),
+    v("daily_steps", "activity", 9500),
+  ];
+  const html = renderToStaticMarkup(h(SyncedNumbers, { metrics }));
+  assert.match(html, /4 numbers from Garmin Forerunner/);
+  assert.match(html, />Activity 1</);
+  assert.match(html, />Sleep 3</);
+  // Activity is first in the order, so it is the one open; its stages bar only shows for sleep.
+  assert.match(html, /Steps/);
+  assert.doesNotMatch(html, /Sleep stages/);
 });

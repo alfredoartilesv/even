@@ -154,10 +154,10 @@ const SCREENS: Screen[] = [
     tab: "Dashboard",
     title: "Day",
     about:
-      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every synced number of the day (opened here).",
+      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every number the watch sent that day, one kind at a time (Sleep open here, with its stages as a bar).",
     go: async (p) => {
       await tab(p, "Dashboard");
-      await p.click("details.synced > summary");
+      await p.click('[aria-label="Kind of number"] button', "Sleep");
     },
   },
   {

@@ -1526,3 +1526,32 @@ a.button {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* The watch's numbers for a day, two to a row. */
+.synced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.25rem 0 0;
+}
+.synced-grid dt {
+  overflow-wrap: anywhere;
+}
+.synced-grid dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.synced .viz-stack-wrap {
+  margin-bottom: 0.75rem;
+}
+/* A one-tap action that is done: filled like a primary button, tapped again it undoes. */
+button.pressed {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+button.pressed .muted {
+  color: var(--accent);
+}

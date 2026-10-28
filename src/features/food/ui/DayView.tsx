@@ -55,6 +55,15 @@ const TARGET_LABEL: Record<Nutrient, string> = {
 const str = (n: number | null) => (n === null ? "" : String(n));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** The share of calories the macro targets typed give protein, carbs and fat; undefined (30/40/30) unless all three are numbers. */
+function splitOf(t: Record<Nutrient, string>): [number, number, number] | undefined {
+  const g = [t.proteinG, t.carbsG, t.fatG].map((v) => Number(v.replace(",", ".")));
+  if (g.some((v) => !(v > 0))) return undefined;
+  const k = [g[0] * 4, g[1] * 4, g[2] * 9];
+  const total = k[0] + k[1] + k[2];
+  return [k[0] / total, k[1] / total, k[2] / total];
+}
+
 /**
  * The food log for one day, today by default: what is left of the day's calories and macros,
  * one-tap logging (meal prep portions in the fridge, meals eaten often), the form for anything
@@ -71,6 +80,12 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   const [ready, setReady] = useState<StockEntry[]>([]);
   const [msg, setMsg] = useState<Msg>(null);
   const [undo, setUndo] = useState<string | null>(null);
+  // The meal prep chip tapped just now: it stays pressed, and tapping it again puts the portion back.
+  const [ate, setAte] = useState<{ batchId: string; entryId: string } | null>(null);
+  // Macro targets follow the kcal typed (30/40/30) until one of them is edited by hand.
+  const [macrosTouched, setMacrosTouched] = useState(false);
+  // The split they keep: the saved targets' own when the form opened (typing kcal digit by digit would round it away).
+  const [split, setSplit] = useState<[number, number, number] | undefined>(undefined);
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<MealDraft>(() => emptyDraft(mealForHour(new Date().getHours())));
@@ -96,7 +111,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
     setTargets(t);
     setSuggested(s);
     setSaved(sv);
-    setReady(st.filter((b) => b.fridgeCount > 0));
+    setReady(st);
   }, [db, day]);
 
   useEffect(() => {
@@ -106,6 +121,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   // A different day: start the form afresh and drop the undo of something logged elsewhere.
   useEffect(() => {
     setUndo(null);
+    setAte(null);
     setMsg(null);
     setTime("");
   }, [day]);
@@ -118,16 +134,17 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   // " yesterday", " on Mon, Oct 26", or nothing for today.
   const on = isToday ? "" : fmtDay(day) === "yesterday" ? " yesterday" : ` on ${fmtDay(day)}`;
 
-  async function run(fn: () => Promise<string>, ok: string) {
+  /** Log something; resolves to the new entry's id, or null when it failed (the message says why). */
+  async function run(fn: () => Promise<string>, ok: string): Promise<string | null> {
     try {
       const id = await fn();
       setUndo(id);
       setMsg({ kind: "ok", text: ok });
       reload();
-      return true;
+      return id;
     } catch (err) {
       setMsg(failed(err, "food"));
-      return false;
+      return null;
     }
   }
 
@@ -141,21 +158,32 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
     );
   };
 
-  /** Eat one fridge portion: it leaves stock and lands in the log (meal prep slot). */
-  const eatPrep = (s: StockEntry) =>
-    run(
-      () => {
-        const tz = timeZone();
-        return eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
-      },
-      `Ate a portion of ${s.batch.name}${on}. ${plural(s.fridgeCount - 1, "portion")} left in the fridge.`,
-    );
+  /** Eat one fridge portion: it leaves stock and lands in the log (meal prep slot). Tapped again right after, it goes back. */
+  async function eatPrep(s: StockEntry) {
+    if (ate?.batchId === s.batch.id) {
+      try {
+        await deleteFood(db, ate.entryId);
+        setAte(null);
+        setUndo(null);
+        setMsg({ kind: "ok", text: `Put the portion of ${s.batch.name} back in the fridge.` });
+        reload();
+      } catch (err) {
+        setMsg(failed(err, "food"));
+      }
+      return;
+    }
+    const id = await run(() => {
+      const tz = timeZone();
+      return eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
+    }, `Ate a portion of ${s.batch.name}${on}. Tap it again to undo.`);
+    if (id) setAte({ batchId: s.batch.id, entryId: id });
+  }
 
   async function add(e: FormEvent) {
     e.preventDefault();
     const f = parseDraft(draft);
     const tz = timeZone();
-    const ok = await run(
+    const logged = await run(
       async () => {
         const atMs = time ? localDateTimeToMs(day, time, tz).ms : logTimeFor(day, f.meal, tz);
         if (atMs > Date.now() + 60_000) throw new Error("That time has not happened yet");
@@ -165,7 +193,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
       },
       `Logged ${f.name.trim()}${on}${bookmark || photo ? " and saved it" : ""}.`,
     );
-    if (!ok) return;
+    if (!logged) return;
     setDraft(emptyDraft(isToday ? mealForHour(new Date().getHours()) : null));
     setTime("");
     setPhoto(null);
@@ -193,6 +221,8 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   const food = sum(entries, "calories") ?? 0;
   const totals = { calories: food + drinks, proteinG: sum(entries, "proteinG"), carbsG: sum(entries, "carbsG"), fatG: sum(entries, "fatG") };
   const noTargets = NUTRIENTS.every((n) => targets[n] === null);
+  // Batches with fridge portions, and the one just eaten from even if that was its last, so it can be tapped back.
+  const prep = ready.filter((b) => b.fridgeCount > 0 || b.batch.id === ate?.batchId);
 
   return (
     <div>
@@ -214,7 +244,15 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
       )}
 
       {editTargets === null ? (
-        <button className="link small accent" onClick={() => setEditTargets(Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as never)}>
+        <button
+          className="link small accent"
+          onClick={() => {
+            setEditTargets(Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as never);
+            const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;
+            setSplit(splitOf(open));
+            setMacrosTouched(false);
+          }}
+        >
           {noTargets ? "Set daily targets for calories and macros" : "Change targets"}
         </button>
       ) : (
@@ -224,21 +262,42 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
             {NUTRIENTS.map((n) => (
               <label key={n}>
                 {TARGET_LABEL[n]}
-                <input inputMode="decimal" value={editTargets[n]} onChange={(e) => setEditTargets({ ...editTargets, [n]: e.target.value })} />
+                <input
+                  inputMode="decimal"
+                  value={editTargets[n]}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (n !== "calories") {
+                      setMacrosTouched(true);
+                      return setEditTargets({ ...editTargets, [n]: v });
+                    }
+                    const k = Number(v.replace(",", "."));
+                    if (macrosTouched || !(k > 0)) return setEditTargets({ ...editTargets, calories: v });
+                    const m = macrosFromCalories(k, split);
+                    setEditTargets({ calories: v, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
+                  }}
+                />
               </label>
             ))}
           </div>
-          <button
-            type="button"
-            className="link small accent"
-            disabled={!(Number(editTargets.calories) > 0)}
-            onClick={() => {
-              const m = macrosFromCalories(Number(editTargets.calories));
-              setEditTargets({ ...editTargets, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
-            }}
-          >
-            Fill macros from kcal (30% protein, 40% carbs, 30% fat)
-          </button>
+          {macrosTouched ? (
+            <button
+              type="button"
+              className="link small accent"
+              disabled={!(Number(editTargets.calories.replace(",", ".")) > 0)}
+              onClick={() => {
+                const m = macrosFromCalories(Number(editTargets.calories.replace(",", ".")));
+                setEditTargets({ ...editTargets, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
+                const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;
+                setSplit(splitOf(open));
+                setMacrosTouched(false);
+              }}
+            >
+              Fill macros from kcal again (30% protein, 40% carbs, 30% fat)
+            </button>
+          ) : (
+            <span className="muted small">Macros follow the kcal, keeping their split (30% protein, 40% carbs, 30% fat to start), until you change one.</span>
+          )}
           <span className="muted small">Leave a field empty to remove that target. Targets also show as goals on your profile.</span>
           <div className="actions">
             <button type="submit">Save targets</button>
@@ -263,18 +322,26 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
         }
       />
 
-      {ready.length > 0 && (
+      {prep.length > 0 && (
         <section>
           <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
           <div className="suggest">
-            {ready.map((s) => (
-              <button key={s.batch.id} className="suggestion secondary" onClick={() => void eatPrep(s)}>
-                <span>
-                  Eat 1 · {s.batch.name}
-                  <span className="muted small block">{plural(s.fridgeCount, "portion")} in the fridge</span>
-                </span>
-              </button>
-            ))}
+            {prep.map((s) => {
+              const pressed = ate?.batchId === s.batch.id;
+              return (
+                <button
+                  key={s.batch.id}
+                  className={pressed ? "suggestion pressed" : "suggestion secondary"}
+                  aria-pressed={pressed}
+                  onClick={() => void eatPrep(s)}
+                >
+                  <span>
+                    {pressed ? `✓ Ate 1 · ${s.batch.name}` : `Eat 1 · ${s.batch.name}`}
+                    <span className="muted small block">{pressed ? "Tap again to undo" : `${plural(s.fridgeCount, "portion")} in the fridge`}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}

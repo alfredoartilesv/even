@@ -8,11 +8,11 @@ import { Icon } from "../../ui/icons";
 import { PageHeader, PeriodNav, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDistance, fmtDuration } from "../me/workouts";
 import { dayValues, type DayValue } from "../metrics/queries";
-import { CATEGORY_LABEL, CATEGORY_ORDER, displayCategory, metricLabel, metricValue } from "../metrics/display";
 import { SCALE } from "../journal/entries";
 import { loadProfile } from "../settings/profile";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type BodyFigure, type BodyKey, type Dashboard, type Figure, type Span } from "./dashboard";
 import { greeting } from "./greeting";
+import { SyncedNumbers } from "./SyncedNumbers";
 import { appleHealthSupported } from "../../platform/health";
 
 const log = createLogger("dashboard");
@@ -379,51 +379,6 @@ function IntensityTile({ f, span }: { f: BodyFigure; span: Span }) {
         ? `of 150 a week${total >= 150 ? " · met" : ` · ${150 - total} to go`}`
         : `${Math.round(f.avg! * 7)} a week on average`;
   return <StatTile label="Intensity minutes" value={String(total)} note={note} trend={span === "day" ? f.trend : undefined} />;
-}
-
-/**
- * Every number synced for the day, grouped by kind (activity, heart, sleep...), with plain names
- * and readable units. The source is named once, and per row only when a metric has several.
- */
-function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
-  const devices = [...new Set(metrics.map((v) => v.device).filter(Boolean))];
-  const perMetric = new Map<string, number>();
-  for (const v of metrics) perMetric.set(v.metric, (perMetric.get(v.metric) ?? 0) + 1);
-  const groups = CATEGORY_ORDER.map((c) => ({ category: c, rows: metrics.filter((v) => displayCategory(v.metric, v.category) === c) })).filter(
-    (g) => g.rows.length,
-  );
-  return (
-    <details className="card synced">
-      <summary>
-        All synced numbers{" "}
-        <span className="muted small">
-          · {metrics.length}
-          {devices.length === 1 ? ` from ${devices[0]}` : ""}
-        </span>
-      </summary>
-      {groups.map((g) => (
-        <div key={g.category}>
-          <h4 className="synced-head">{CATEGORY_LABEL[g.category]}</h4>
-          <table className="values">
-            <tbody>
-              {g.rows.map((v) => (
-                <tr key={`${v.metric}|${v.device}`}>
-                  <td>
-                    {v.label === v.metric ? metricLabel(v.metric) : v.label}
-                    {(devices.length > 1 || (perMetric.get(v.metric) ?? 0) > 1) && <div className="muted small">{v.device}</div>}
-                  </td>
-                  <td className="num">
-                    {metricValue(v.metric, v.value, v.unit)}
-                    {v.partial && <div className="muted small">so far today</div>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
-    </details>
-  );
 }
 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
