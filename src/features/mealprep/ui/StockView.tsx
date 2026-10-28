@@ -15,7 +15,8 @@ import {
 } from "../mealPrep";
 import { planDefrost, stockAlerts, type Alert, type Location, type MoveKind, type Plan } from "../stock";
 import { failed, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../../ui/common";
-import { StatusBadge, Stepper } from "../../../ui/controls";
+import { ChipGroup, StatusBadge, Stepper } from "../../../ui/controls";
+import { addDays, localDateTimeToMs } from "../../../core/tz";
 import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../../../ui/mealprep/components";
 
 interface Props {
@@ -70,9 +71,11 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const [amount, setAmount] = useState<Record<string, number>>({});
   const [done, setDone] = useState<Done | null>(null);
 
+  // Log a cook: the recipe, portions made, how many go straight to the freezer, and when (today or yesterday).
   const [cookId, setCookId] = useState("");
-  const [cookPortions, setCookPortions] = useState("");
-  const [cookFrozen, setCookFrozen] = useState("0");
+  const [cookPortions, setCookPortions] = useState(4);
+  const [cookFrozen, setCookFrozen] = useState(0);
+  const [cookDay, setCookDay] = useState<"today" | "yesterday">("today");
 
   const load = useCallback(async () => {
     const [s, ppd, p] = await Promise.all([loadStock(db, { tag }), getPortionsPerDay(db, tag), listMealPreps(db, tag)]);
@@ -143,20 +146,31 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
     e.preventDefault();
     const prep = preps.find((p) => p.id === cookId);
     if (!prep) return setMsg({ kind: "error", text: "Pick what you cooked" });
+    const tz = timeZone();
     await act(
       () =>
         logBatch(db, {
           mealPrepId: prep.id,
-          portions: cookPortions ? Number(cookPortions) : undefined,
-          frozen: Number(cookFrozen || 0),
-          timeZone: timeZone(),
+          portions: cookPortions,
+          frozen: cookFrozen,
+          // Yesterday's cook is put at 19:00, when most batches are made.
+          cookedAtMs: cookDay === "today" ? undefined : localDateTimeToMs(addDays(today(), -1), "19:00", tz).ms,
+          timeZone: tz,
         }),
-      `Logged a batch of ${prep.name}.`,
+      `Logged ${plural(cookPortions, "portion")} of ${prep.name}${cookFrozen ? `, ${cookFrozen} in the freezer` : ""}.`,
     );
-    setCookPortions("");
-    setCookFrozen("0");
+    setCookId("");
+    setCookFrozen(0);
+    setCookDay("today");
   }
 
+  const pickCook = (p: MealPrep) => {
+    setCookId(p.id === cookId ? "" : p.id);
+    setCookPortions(p.portions);
+    setCookFrozen(0);
+  };
+
+  const cooked = preps.find((p) => p.id === cookId) ?? null;
   const alerts = stockAlerts(stock, today(), Date.now());
   const fridge = stock.reduce((n, s) => n + s.fridgeCount, 0);
   const frozen = stock.reduce((n, s) => n + s.freezerCount, 0);
@@ -277,47 +291,72 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
       })}
       {!stock.length && <p className="muted">No meal prep in stock{tag ? ` tagged ${tag}` : ""}.</p>}
 
-      <form className="card stack" onSubmit={cook}>
+      <form className="card stack cook-card" onSubmit={cook}>
         <h3>Log a cook</h3>
         {preps.length ? (
           <>
-            <label>
-              Recipe
-              <select
-                value={cookId}
-                onChange={(e) => {
-                  setCookId(e.target.value);
-                  setCookPortions("");
-                }}
-              >
-                <option value="">Choose…</option>
-                {preps.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="row">
-              <label>
-                Portions made
-                <input
-                  type="number"
-                  min={1}
-                  placeholder={String(preps.find((p) => p.id === cookId)?.portions ?? "")}
-                  value={cookPortions}
-                  onChange={(e) => setCookPortions(e.target.value)}
-                />
-              </label>
-              <label>
-                Straight to the freezer
-                <input type="number" min={0} value={cookFrozen} onChange={(e) => setCookFrozen(e.target.value)} />
-              </label>
+            <div className="small muted">What did you cook?</div>
+            <div className="chips" role="radiogroup" aria-label="Recipe cooked">
+              {preps.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={p.id === cookId}
+                  className={p.id === cookId ? "chip active" : "chip"}
+                  onClick={() => pickCook(p)}
+                >
+                  {p.name}
+                </button>
+              ))}
             </div>
-            <button type="submit">Log batch</button>
+            {cooked && (
+              <>
+                <div className="row">
+                  <span className="grow">Portions made</span>
+                  <Stepper
+                    value={cookPortions}
+                    min={1}
+                    max={50}
+                    label="Portions made"
+                    onChange={(n) => {
+                      setCookPortions(n);
+                      setCookFrozen(Math.min(cookFrozen, n));
+                    }}
+                  />
+                </div>
+                <div className="row">
+                  <span className="grow">Straight to the freezer</span>
+                  <Stepper value={cookFrozen} min={0} max={cookPortions} label="Portions to freeze" onChange={setCookFrozen} />
+                </div>
+                <div className="row">
+                  <span className="grow">Cooked</span>
+                  <ChipGroup
+                    label="When it was cooked"
+                    options={[
+                      { id: "today", label: "Today" },
+                      { id: "yesterday", label: "Yesterday" },
+                    ]}
+                    value={cookDay}
+                    onChange={setCookDay}
+                  />
+                </div>
+                <BatchBar cooked={cookPortions} eaten={0} fridge={cookPortions - cookFrozen} freezer={cookFrozen} discarded={0} />
+                <p className="muted small">
+                  Keeps {cooked.fridgeDays} days in the fridge, {cooked.freezerDays} in the freezer.
+                </p>
+                <button type="submit">Log batch of {cooked.name}</button>
+              </>
+            )}
           </>
         ) : (
-          <p className="muted small">Add a recipe first, in Recipes.</p>
+          <p className="muted small">
+            Add a recipe first, in{" "}
+            <button type="button" className="link accent" onClick={onRecipes}>
+              Recipes
+            </button>
+            .
+          </p>
         )}
       </form>
     </div>

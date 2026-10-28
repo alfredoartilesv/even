@@ -31,6 +31,9 @@ const UNITS: Record<string, [base: string, factor: number]> = {
   liter: ["ml", 1000],
 };
 
+/** The units offered in pickers (shopping list, recipe ingredients), weight and volume first. Stored as written here. */
+export const UNIT_CHOICES = ["g", "kg", "ml", "l", "pcs", "pack", "can", "jar", "bottle", "bag", "bunch", "dozen", "tbsp", "tsp", "cup"] as const;
+
 /** Base unit and scaled quantity. Unknown units are trimmed and lower-cased. */
 export function normalizeUnit(quantity: number | null, unit: string | null): { quantity: number | null; unit: string | null } {
   const u = unit?.trim().toLowerCase() || null;

@@ -6,6 +6,7 @@ import { kcalFromMacros } from "../../../core/health";
 import { failed, MsgLine, numOrNull, plural, timeZone, type Msg } from "../../../ui/common";
 import { Stepper } from "../../../ui/controls";
 import { estimateKcal, MacroInputs } from "../../../ui/nutrition";
+import { UnitSelect } from "./UnitSelect";
 
 interface Props {
   db: SqlDriver;
@@ -274,7 +275,7 @@ export function RecipesView({ db, tag, allTags, version, onChanged, onShopping, 
               <div key={ing.id ?? `new${i}`} className="ingredient">
                 <input aria-label="Ingredient" placeholder="Ingredient" value={ing.name} onChange={(e) => upd({ name: e.target.value })} />
                 <input aria-label="Quantity" placeholder="Qty" inputMode="decimal" value={ing.quantity} onChange={(e) => upd({ quantity: e.target.value })} />
-                <input aria-label="Unit" placeholder="Unit" value={ing.unit} onChange={(e) => upd({ unit: e.target.value })} />
+                <UnitSelect value={ing.unit} onChange={(u) => upd({ unit: u })} />
                 <button
                   type="button"
                   className="secondary"

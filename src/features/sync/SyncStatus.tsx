@@ -1,3 +1,4 @@
+import { Icon } from "../../ui/icons";
 import type { LastSync } from "./runSync";
 import { ago, freshness } from "./reminder";
 
@@ -10,7 +11,7 @@ interface Props {
 }
 
 /**
- * Header sync button: the ⟳ symbol only, so the header keeps room for the greeting. What it would
+ * Header sync button: the sync symbol alone, large and without a frame, so the header keeps room for the greeting. What it would
  * say ("Synced 5 min ago") is its tooltip and screen-reader label; it spins while syncing and turns
  * amber when the last sync is old or failed. Without a Garmin key it opens Settings > Connections
  * (onSetup) instead of sitting there disabled.
@@ -23,14 +24,14 @@ export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup
   return (
     <button
       type="button"
-      className={`sync-button icon-button ${stale ? "stale" : "secondary"}`}
+      className={`sync-button icon-button${stale ? " stale" : ""}`}
       onClick={configured ? onSync : onSetup}
       disabled={syncing}
       title={`${label}. ${action}`}
       aria-label={`${label}. ${action}`}
     >
-      <span aria-hidden className={syncing ? "spin" : ""}>
-        ⟳
+      <span className={syncing ? "spin" : ""}>
+        <Icon name="sync" size={30} />
       </span>
     </button>
   );
