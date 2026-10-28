@@ -43,6 +43,10 @@ export const ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
 export const HEALTH_SHARE_USAGE =
   "Even reads your steps, calories, heart rate, sleep, weight and workouts from Apple Health to show them next to your food and journal. They stay on this iPhone.";
 
+/** Chat dictation: iOS asks for the microphone and for speech recognition, each with its own text. */
+export const MICROPHONE_USAGE = "Even listens only while you dictate a chat message. The audio is not kept or sent to Claude, only the text you send.";
+export const SPEECH_USAGE = "Even turns what you dictate into the text of your chat message, on this iPhone when it can.";
+
 const xmlText = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** A string entry in the top-level dict: replaced if there, added before the end if not. */
@@ -54,10 +58,12 @@ function setPlistString(plist, key, value) {
   return `${plist.slice(0, end)}\t<key>${key}</key>\n\t<string>${xmlText(value)}</string>\n${plist.slice(end)}`;
 }
 
-/** Info.plist with the home-screen name and the Apple Health request text. */
+/** Info.plist with the home-screen name, the Apple Health request text and the dictation texts. */
 export function patchInfoPlist(plist, appName) {
   if (!/<key>CFBundleDisplayName<\/key>/.test(plist)) throw new Error("Info.plist: no CFBundleDisplayName");
-  return setPlistString(setPlistString(plist, "CFBundleDisplayName", appName), "NSHealthShareUsageDescription", HEALTH_SHARE_USAGE);
+  let p = setPlistString(setPlistString(plist, "CFBundleDisplayName", appName), "NSHealthShareUsageDescription", HEALTH_SHARE_USAGE);
+  p = setPlistString(p, "NSMicrophoneUsageDescription", MICROPHONE_USAGE);
+  return setPlistString(p, "NSSpeechRecognitionUsageDescription", SPEECH_USAGE);
 }
 
 /** "#0f766e" -> { red: "0x0F", green: "0x76", blue: "0x6E", alpha: "1.000" } (asset catalog form). */

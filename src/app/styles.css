@@ -741,11 +741,60 @@ details.card > summary {
 }
 .pick-menu {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   margin-bottom: 0.4rem;
 }
 .pick-menu button {
-  flex: 1;
+  flex: 1 1 8rem;
+}
+/* An attached file: its name in a pill, in the composer and in sent bubbles. */
+.file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: var(--bg);
+}
+.file-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-chip .remove {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+  flex: none;
+}
+/* Dictation running: the mic button turns into a stop button and pulses. */
+.icon-button.listening {
+  background: var(--accent);
+  color: var(--bg);
+  animation: listening 1.2s ease-in-out infinite;
+}
+@keyframes listening {
+  50% {
+    opacity: 0.65;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-button.listening {
+    animation: none;
+  }
 }
 
 /* Settings > About */

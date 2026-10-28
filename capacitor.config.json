@@ -22,7 +22,8 @@
       "@capacitor/filesystem",
       "@capacitor/local-notifications",
       "@capacitor/share",
-      "@capgo/capacitor-social-login"
+      "@capgo/capacitor-social-login",
+      "@capgo/capacitor-speech-recognition"
     ]
   }
 }

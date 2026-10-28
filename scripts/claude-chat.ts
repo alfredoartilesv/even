@@ -5,8 +5,9 @@
  *   npm run sync:garmin -- --db health.sqlite
  *   npm run chat -- --db health.sqlite "How did I sleep this week?"
  *   npm run chat -- --db health.sqlite --photo lunch.jpg "Log this lunch"
+ *   npm run chat -- --db health.sqlite --file lab.pdf "Explain this lab report"   (PDF, CSV, TXT, JSON)
  *   npm run chat -- --db health.sqlite "Plan a 5-day high-protein meal prep, 2 servings"
- *   ... --allow raw,notes,photos   also allow detailed records, day notes, photos (recorded as consent in that file)
+ *   ... --allow raw,notes,photos,files   also allow detailed records, day notes, photos, files (recorded as consent in that file)
  *   ... --continue <id>            follow-up in an existing conversation
  *   ... --yes                      save every proposed change without asking (otherwise you are asked y/n)
  *
@@ -14,12 +15,13 @@
  * never prints the key.
  */
 import { readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { basename, extname } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { listAgentActions, type ActionProposal } from "../src/features/chat/actions";
 import { claudeCreate } from "../src/features/chat/client";
 import { hasConsent, recordConsent, type ConsentScope } from "../src/features/chat/consent";
 import { askClaude, startConversation, type ChatDeps } from "../src/features/chat/engine";
+import { fileKind, toFileAttachment, type FileAttachment } from "../src/features/chat/files";
 import { toAttachment, type ImageAttachment } from "../src/features/chat/images";
 import { listDisclosures } from "../src/features/chat/store";
 import { migratedNodeDb } from "./lib/nodeDb";
@@ -41,7 +43,7 @@ async function main() {
   if (!key) throw new Error("ANTHROPIC_API_KEY is empty. Add it to .env and run with --env-file=.env");
   const dbPath = arg("--db");
   if (!dbPath) throw new Error("Pass --db <file> (create one with npm run sync:garmin -- --db <file>)");
-  const withValue = new Set(["--db", "--allow", "--continue", "--photo"]);
+  const withValue = new Set(["--db", "--allow", "--continue", "--photo", "--file"]);
   const question = process.argv
     .slice(2)
     .filter((a, i, all) => !withValue.has(a) && !withValue.has(all[i - 1] ?? "") && a !== "--yes")
@@ -51,7 +53,19 @@ async function main() {
   const images: ImageAttachment[] = [];
   const photo = arg("--photo");
   if (photo) images.push(toAttachment(readFileSync(photo).toString("base64"), TYPES[extname(photo).toLowerCase()]));
-  if (!question && images.length === 0) throw new Error('Pass a question, e.g. "How did I sleep this week?"');
+  const files: FileAttachment[] = [];
+  const file = arg("--file");
+  if (file) {
+    const kind = fileKind(file, "");
+    if (!kind) throw new Error("--file takes a PDF or a text file (CSV, TXT, JSON)");
+    const raw = readFileSync(file);
+    files.push(
+      kind === "pdf"
+        ? toFileAttachment({ kind, name: basename(file), mediaType: "application/pdf", data: raw.toString("base64") })
+        : toFileAttachment({ kind, name: basename(file), mediaType: "text/plain", data: raw.toString("utf8") }),
+    );
+  }
+  if (!question && images.length === 0 && files.length === 0) throw new Error('Pass a question, e.g. "How did I sleep this week?"');
 
   const { db } = await migratedNodeDb(dbPath, { foreignKeys: true });
 
@@ -62,6 +76,7 @@ async function main() {
   if (allow.includes("raw")) wanted.push("claude.raw_series");
   if (allow.includes("notes")) wanted.push("claude.notes");
   if (allow.includes("photos") || photo) wanted.push("claude.photos");
+  if (allow.includes("files") || file) wanted.push("claude.files");
   for (const scope of wanted) if (!(await hasConsent(db, scope))) await recordConsent(db, scope, true, dev);
 
   const yes = process.argv.includes("--yes");
@@ -75,7 +90,7 @@ async function main() {
 
   const deps: ChatDeps = { db, create: claudeCreate(key), deviceId: dev, confirmAction };
   const conv = arg("--continue");
-  const res = conv ? await askClaude(deps, conv, question, { images }) : await startConversation(deps, question, { images });
+  const res = conv ? await askClaude(deps, conv, question, { images, files }) : await startConversation(deps, question, { images, files });
   rl?.close();
 
   console.log(`\n${res.text}\n`);

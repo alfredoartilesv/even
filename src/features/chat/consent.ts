@@ -13,15 +13,17 @@ const log = createLogger("chat.consent");
  * - raw: detailed records: one value per day of a metric, individual food log entries.
  * - note: text the owner wrote (day notes, mood and energy).
  * - photo: pictures the owner attaches (for example of a meal).
+ * - file: documents the owner attaches (a lab report PDF, a CSV or text export).
  */
-export type DataClass = "aggregate" | "raw" | "note" | "photo";
-export type ConsentScope = "claude.aggregates" | "claude.raw_series" | "claude.notes" | "claude.photos";
+export type DataClass = "aggregate" | "raw" | "note" | "photo" | "file";
+export type ConsentScope = "claude.aggregates" | "claude.raw_series" | "claude.notes" | "claude.photos" | "claude.files";
 
 export const SCOPE_FOR: Record<DataClass, ConsentScope> = {
   aggregate: "claude.aggregates",
   raw: "claude.raw_series",
   note: "claude.notes",
   photo: "claude.photos",
+  file: "claude.files",
 };
 
 /** Text the UI shows when asking. Change a text -> bump its version: older consents to it stop counting. */
@@ -31,6 +33,7 @@ export const CONSENT_TEXT: Record<ConsentScope, string> = {
   "claude.raw_series": "Also send detailed records when Claude asks for them: day-by-day values of a metric and individual food log entries.",
   "claude.notes": "Also send the notes you wrote (day notes, mood and energy) when Claude asks for them.",
   "claude.photos": "Send the photos you attach in the chat (for example of a meal) to Claude so it can look at them.",
+  "claude.files": "Send the files you attach in the chat (for example a lab report PDF or a CSV export) to Claude so it can read them.",
 };
 
 export const CONSENT_POLICY_VERSION: Record<ConsentScope, string> = {
@@ -38,6 +41,7 @@ export const CONSENT_POLICY_VERSION: Record<ConsentScope, string> = {
   "claude.raw_series": "2026-10-25",
   "claude.notes": "2026-10-25",
   "claude.photos": "2026-10-25",
+  "claude.files": "2026-10-28",
 };
 
 export const ALL_SCOPES = Object.keys(CONSENT_TEXT) as ConsentScope[];
