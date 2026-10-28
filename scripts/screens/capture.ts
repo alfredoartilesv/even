@@ -23,6 +23,13 @@ const WIDTH = 390;
 const HEIGHT = 844;
 const MAX_HEIGHT = 2600;
 
+interface Viewport {
+  width: number;
+  height: number;
+  mobile: boolean;
+}
+const PHONE: Viewport = { width: WIDTH, height: HEIGHT, mobile: true };
+
 // ---- Chrome over the DevTools protocol ----
 
 const CHROMES = [
@@ -120,17 +127,26 @@ function page(c: Chrome) {
     }
     await sleep(450);
   };
+  let view: Viewport = PHONE;
+  /** Set the window: the phone for most captures, a computer or a phone on its side for the wide ones. */
+  const resize = async (v: Viewport) => {
+    view = v;
+    await c.send("Emulation.setDeviceMetricsOverride", { ...v, deviceScaleFactor: v.mobile ? 2 : 1 });
+    await sleep(300);
+  };
   const shot = async (file: string) => {
     await evaluate("window.scrollTo(0, 0)");
-    const full = Math.min(MAX_HEIGHT, Math.max(HEIGHT, await evaluate<number>("document.documentElement.scrollHeight")));
-    await c.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: full, deviceScaleFactor: 2, mobile: true });
+    // An open drawer holds the page still: the screen as the owner sees it, not the whole page.
+    const drawer = await evaluate<boolean>("document.body.classList.contains('nav-open')");
+    const full = drawer ? view.height : Math.min(MAX_HEIGHT, Math.max(view.height, await evaluate<number>("document.documentElement.scrollHeight")));
+    await c.send("Emulation.setDeviceMetricsOverride", { ...view, height: full, deviceScaleFactor: view.mobile ? 2 : 1 });
     await sleep(300);
     const r = (await c.send("Page.captureScreenshot", { format: "webp", quality: 85 })) as { data: string };
     writeFileSync(join(IMG, file), Buffer.from(r.data, "base64"));
-    await c.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
+    await c.send("Emulation.setDeviceMetricsOverride", { ...view, deviceScaleFactor: view.mobile ? 2 : 1 });
     await sleep(150);
   };
-  return { evaluate, waitFor, click, shot };
+  return { evaluate, waitFor, click, shot, resize };
 }
 
 type Page = ReturnType<typeof page>;
@@ -142,10 +158,12 @@ interface Screen {
   tab: string;
   title: string;
   about: string;
+  /** Captured at this size instead of the phone's. */
+  viewport?: Viewport;
   go: (p: Page) => Promise<void>;
 }
 
-const tab = (p: Page, label: string) => p.click(".tabbar button", label);
+const tab = (p: Page, label: string) => p.click(".sidenav-item", label);
 const sub = (p: Page, label: string) => p.click(".tabs.sub button", label);
 /** A Settings page from the menu (back to the menu first when a page is open). */
 const settings = async (p: Page, label: string) => {
@@ -365,6 +383,71 @@ const SCREENS: Screen[] = [
     about: "The Even logo and name, app version, build, platform, database schema and chat model.",
     go: (p) => settings(p, "About"),
   },
+  {
+    id: "menu",
+    tab: "Menu and wide screens",
+    title: "Side menu (phone)",
+    about:
+      "The five sections in a side menu. On a phone held upright it is out of sight: the menu button at the top of each tab slides it in over the page, and a choice, a tap outside or Escape closes it.",
+    go: async (p) => {
+      await tab(p, "Dashboard");
+      await p.click(".menu-button");
+    },
+  },
+  {
+    id: "wide-dashboard-day",
+    tab: "Menu and wide screens",
+    title: "Dashboard on a computer",
+    about:
+      "From 48rem wide the menu stays docked on the left, with its labels from 75rem; the button at its top narrows it to icons and back, and the choice is kept. The Dashboard sets the period controls in one row and its sections in two columns.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Dashboard");
+      await p.click(".segmented button", "Day");
+    },
+  },
+  {
+    id: "wide-dashboard-week",
+    tab: "Menu and wide screens",
+    title: "Week on a computer",
+    about: "The week's charts sit in the first column under the rings, recovery and the rest beside them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await p.click(".segmented button", "Week");
+    },
+  },
+  {
+    id: "wide-chat",
+    tab: "Menu and wide screens",
+    title: "Chat on a computer",
+    about: "Screens other than the Dashboard keep a readable width beside the menu.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Chat");
+    },
+  },
+  {
+    id: "tablet-dashboard",
+    tab: "Menu and wide screens",
+    title: "Dashboard on a tablet",
+    about:
+      "Between 48rem and 75rem the docked menu shows icons only (the labels stay for screen readers and show on hover); from 60rem the Dashboard has two columns.",
+    viewport: { width: 1024, height: 768, mobile: true },
+    go: async (p) => {
+      await tab(p, "Dashboard");
+      await p.click(".segmented button", "Day");
+    },
+  },
+  {
+    id: "landscape-dashboard",
+    tab: "Menu and wide screens",
+    title: "Phone on its side",
+    about: "A phone turned on its side is wide enough for the docked menu as icons; the Dashboard stays in one column.",
+    viewport: { width: 844, height: 390, mobile: true },
+    go: async (p) => {
+      await tab(p, "Dashboard");
+    },
+  },
 ];
 
 const THEMES = ["light", "dark"] as const;
@@ -391,12 +474,13 @@ async function capture(url: string) {
     await chrome.send("Page.addScriptToEvaluateOnNewDocument", { source: ANTHROPIC_STUB });
     for (const theme of THEMES) {
       await chrome.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: theme }] });
-      await chrome.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 2, mobile: true });
-      await chrome.send("Page.navigate", { url });
       const p = page(chrome);
-      await p.waitFor("!!document.querySelector('.tabbar') && document.body.innerText.includes('Steps')", "the app");
+      await p.resize(PHONE);
+      await chrome.send("Page.navigate", { url });
+      await p.waitFor("!!document.querySelector('.sidenav') && document.body.innerText.includes('Steps')", "the app");
       await sleep(800);
       for (const s of SCREENS) {
+        await p.resize(s.viewport ?? PHONE);
         await s.go(p);
         await p.shot(`${theme}-${s.id}.webp`);
         console.log(`  ${theme} ${s.id}`);
@@ -453,8 +537,8 @@ function indexHtml(): string {
     ["Segmented", "src/ui/layout.tsx", "Day / Week / Month on the Dashboard; Food log / Meal prep."],
     ["Ring", "src/ui/charts/figures.tsx", "Calories eaten against the target and steps against the goal."],
     ["ChipGroup, RangePicker", "src/ui/controls.tsx", "Periods and filters: Alcohol periods, profile activity ranges, chart ranges."],
-    ["Icon", "src/ui/icons.tsx", "Tab bar icons, the chat's attach, microphone and send buttons."],
-    ["TabBar", "src/shell/TabBar.tsx", "The five tabs at the bottom."],
+    ["Icon", "src/ui/icons.tsx", "Side menu icons, the chat's attach, microphone and send buttons."],
+    ["SideNav", "src/shell/SideNav.tsx", "The five sections in a side menu: a drawer on a phone held upright, docked on the left on a wider screen."],
     [
       "StatTile, Meter, BarChart, LineChart, CalendarHeatmap",
       "src/ui/charts/",
@@ -468,14 +552,14 @@ function indexHtml(): string {
 <body data-show="light">
 <main>
 <h1>Even screens</h1>
-<p class="muted">Every tab and view at phone size (390 × 844 pt), captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
+<p class="muted">Every tab and view at phone size (390 × 844 pt), then the menu and a few wide screens, captured from the app with invented demo data by <code>npm run docs:screens</code>. Colors: <a href="palette.html">the palette</a>.</p>
 <div class="themes" role="group" aria-label="Theme">
   <button type="button" data-show="light" aria-pressed="true">Light</button>
   <button type="button" data-show="dark" aria-pressed="false">Dark</button>
   <button type="button" data-show="both" aria-pressed="false">Side by side</button>
 </div>
 <nav class="toc">${tabs.map((t) => `<a href="#${slug(t)}">${esc(t)}</a>`).join("")}<a href="#components">Components</a></nav>
-<p>Five tabs in a bar at the bottom: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. Sync and the profile sit at the top of the Dashboard.</p>
+<p>Five sections in a side menu: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. On a phone held upright the menu button at the top of each tab opens it; on a wider screen it stays docked on the left (last section). Sync and the profile sit at the top of the Dashboard.</p>
 ${tabs
   .map(
     (t) => `<h2 id="${slug(t)}">${esc(t)}</h2>
