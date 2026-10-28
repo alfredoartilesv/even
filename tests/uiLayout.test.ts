@@ -124,10 +124,10 @@ test("meal prep tab: two groups of three, the food log first; shopping holds the
 
 test("settings menu: every page once, each with an icon and a description", () => {
   const items = SETTINGS_MENU.flatMap((g) => g.items);
-  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "logs", "privacy", "profile"]);
+  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "logs", "privacy", "profile", "sync"]);
   for (const i of items) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
   const html = renderToStaticMarkup(h(MenuList<string>, { groups: SETTINGS_MENU, onOpen: noop }));
-  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 5);
+  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 7);
   assert.match(html, /<h2 class="menu-title">You<\/h2>/);
   assert.match(html, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
 });

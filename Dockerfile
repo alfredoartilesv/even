@@ -11,7 +11,7 @@
 #
 # Stages: deps (npm ci) -> test (health checks, web build) -> android-base (SDK, android/ project)
 #   -> android (debug) -> apk;  android-base -> release (signed, checked) -> release-apk;
-#   deps -> sync (the sync server);  deps -> web (the web app with demo data).
+#   deps -> sync (the sync server);  deps -> web (the web app).
 # Base images are pinned by digest (Node 24.19.0, Temurin 21.0.12.1+1); tests/docker.test.ts keeps the versions in step with .nvmrc.
 
 ARG NODE_VERSION=24.19.0
@@ -39,14 +39,14 @@ USER node
 EXPOSE 8787
 CMD ["node", "--import", "tsx", "server/node.ts"]
 
-# ---- Web app (the build Vercel serves), with the in-memory demo database until the web data layer lands ----
+# ---- Web app: the build Vercel serves, its database in the browser; /v1 goes on to the sync container (SYNC_PROXY) ----
 FROM deps AS web
 COPY . .
 # vite preview bundles its config into node_modules/.vite-temp at start; the image runs as node, so that one folder is node's.
-RUN npx vite build --config scripts/screens/vite.config.ts && mkdir -p node_modules/.vite-temp && chown node:node node_modules/.vite-temp
+RUN npx vite build && mkdir -p node_modules/.vite-temp && chown node:node node_modules/.vite-temp
 USER node
 EXPOSE 4173
-CMD ["npx", "vite", "preview", "--config", "scripts/screens/vite.config.ts", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]
+CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]
 
 # ---- Android SDK and the generated android/ project ----
 FROM ${JDK_IMAGE} AS android-base

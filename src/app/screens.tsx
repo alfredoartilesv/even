@@ -25,6 +25,8 @@ export const SettingsScreen = screen(() => import("../features/settings/Settings
 export const MeScreen = screen(() => import("../features/me/MeScreen").then((m) => m.MeScreen));
 export const JournalScreen = screen(() => import("../features/journal/ui/JournalScreen").then((m) => m.JournalScreen));
 export const LogsScreen = screen(() => import("../features/logs/LogsScreen").then((m) => m.LogsScreen));
+/** The web app's first screen; on the phone it is part of Settings > Sync. */
+export const ConnectPanel = screen(() => import("../features/cloudsync/ui/ConnectPanel").then((m) => m.ConnectPanel));
 
 const ALL = [ChatScreen, MealPrepScreen, AlcoholScreen, SettingsScreen, MeScreen, JournalScreen, LogsScreen];
 

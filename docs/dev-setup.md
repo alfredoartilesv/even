@@ -101,20 +101,23 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | Container | What | Here | Later, free |
 |---|---|---|---|
 | `db` | Postgres 17, volume `even_db-data` | `127.0.0.1:5432`, user and database `even` | Neon free plan (Vercel's Neon integration sets `DATABASE_URL`) |
-| `sync` | the phone sync API (`server/`, Dockerfile target `sync`), migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/push`, `/v1/pull`) | the Vercel function `api/[[...route]].ts` |
-| `web` | the web build (target `web`), with the demo database until the web app has its own data | `http://127.0.0.1:4173` | Vercel static hosting (`vercel.json`, `dist/`) |
+| `sync` | the sync API (`server/`, Dockerfile target `sync`): accounts, devices, pairing, sync, friends; migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/...`) | the Vercel function `api/[[...route]].ts` |
+| `web` | the web app (target `web`), its database in the browser (sql.js, sealed in IndexedDB); `/v1` goes on to `sync` | `http://127.0.0.1:4173` | Vercel static hosting (`vercel.json`, `dist/`) |
 
 | Command | Does |
 |---|---|
 | `npm run docker:up` | builds and starts all three, waits until each is healthy |
 | `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
-| `docker compose run --rm sync npm run sync:device -- --owner <id> --name s23` | registers a device and prints its token once (the server keeps its SHA-256 only); `-- --revoke <device id>` revokes one |
-| `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server; needs `SYNC_TOKEN` and `SYNC_SECRET` in `.env` (`.env.example`). Two files with two tokens and one secret are two phones |
+| `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
+| `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
+| `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
 | `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
 
-Without Docker, `npm test` still covers the server: `tests/cloudSync.test.ts` runs the real Hono app on PGlite (Postgres in WebAssembly). To run the server natively against the `db` container: `npm run sync:server` (reads `DATABASE_URL` from `.env`).
+**Without Docker** (Docker Desktop's engine would not start on this PC on 28 Oct 2026): `npm run dev:web` runs the sync server on :8787 and the web app on http://localhost:5173 (Vite sends `/v1` to the server, as Vercel does). With no `DATABASE_URL` the server uses PGlite, real Postgres in WebAssembly, saved in `.data/pglite` (git-ignored); `npm run sync:invite -- --email ...` works on it too, with the dev server stopped (one process at a time). With `DATABASE_URL` it uses that Postgres. `npm test` covers the server without Docker as well: `tests/users.test.ts` and `tests/cloudSync.test.ts` run the real Hono app on in-memory PGlite.
 
-**Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Then register devices with `DATABASE_URL=<Neon URL> npm run sync:device -- ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
+**On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address.
+
+**Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
 
 ## 5. Integration test on the emulator or phone
 
