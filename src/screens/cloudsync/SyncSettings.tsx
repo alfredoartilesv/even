@@ -3,6 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import type { SecretStore } from "../../core/secretStore";
 import type { Me } from "../../core/syncWire";
 import { deviceFetch } from "../../platform/device";
+import { googleSignIn, googleSignInAvailable } from "../../platform/googleSignIn";
 import { failed, MsgLine, plural, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge } from "../../ui/controls";
 import { pendingPush } from "../../domain/cloudsync/cloudSync";
@@ -111,6 +112,17 @@ function Connected({ db, secrets, isNative, session, onSession, onSync, version 
       </section>
 
       <Devices me={me} busy={busy} onRemove={(id, name) => void act(() => api.revokeDevice(id), `${name} removed. It cannot sync any more.`)} />
+      <GoogleLink
+        linked={me?.account.googleLinked ?? null}
+        busy={busy}
+        onLink={() =>
+          void act(async () => {
+            const token = await googleSignIn();
+            if (!token) throw new Error("Google sign-in was cancelled.");
+            await api.linkGoogle(token);
+          }, "Google is linked to your Even account.")
+        }
+      />
       <AddDevice session={session} fetchFn={fetchFn} onAdded={load} />
       <Passphrase session={session} fetchFn={fetchFn} />
 
@@ -267,5 +279,32 @@ function DeleteAccount({ email, onDelete }: { email: string; onDelete: () => Pro
         <MsgLine msg={msg} />
       </div>
     </details>
+  );
+}
+
+/** A Google account linked to the Even account: a way back in later, never what opens the data (the passphrase or a pairing does). */
+function GoogleLink({ linked, busy, onLink }: { linked: boolean | null; busy: boolean; onLink: () => void }) {
+  if (linked === null) return null;
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Google</h2>
+        <StatusBadge status={linked ? "good" : "info"}>{linked ? "linked" : "not linked"}</StatusBadge>
+      </div>
+      <p className="muted small">
+        Optional. Linking your Google account to this Even account lets you sign in with Google later. Your data still opens only with your passphrase or a
+        pairing, and Google sees nothing of it.
+      </p>
+      {!linked &&
+        (googleSignInAvailable ? (
+          <div className="actions">
+            <button type="button" disabled={busy} onClick={onLink}>
+              Link Google
+            </button>
+          </div>
+        ) : (
+          <p className="muted small">Linking is available in the phone app built with a Google client id.</p>
+        ))}
+    </section>
   );
 }

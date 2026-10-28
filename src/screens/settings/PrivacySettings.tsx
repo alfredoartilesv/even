@@ -29,7 +29,8 @@ const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
 const daysAgo = (ms: number) => Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${localDay(ms, timeZone())}T00:00:00Z`)) / 86_400_000);
 
 /** What Claude may see and was sent, what is stored on this phone, and the encrypted backup. */
-export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
+/** syncAccountId: the account this device syncs with, which owns its backups (null when not connected). */
+export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDriver; onChanged: () => void; syncAccountId: string | null }) {
   const [consent, setConsent] = useState<Record<ConsentScope, boolean> | null>(null);
   const [sent, setSent] = useState<Disclosure[]>([]);
   const [showAll, setShowAll] = useState(false);
@@ -147,12 +148,24 @@ export function PrivacySettings({ db, onChanged }: { db: SqlDriver; onChanged: (
         {empty.length > 0 && <p className="muted small">Nothing stored yet: {empty.map((r) => lowerFirst(r.label.replace(/ \(.*\)$/, ""))).join(", ")}.</p>}
       </section>
 
-      <Backup db={db} lastBackup={lastBackup} onSaved={load} onRestored={onChanged} />
+      <Backup db={db} syncAccountId={syncAccountId} lastBackup={lastBackup} onSaved={load} onRestored={onChanged} />
     </div>
   );
 }
 
-function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBackup: number | null; onSaved: () => Promise<void>; onRestored: () => void }) {
+function Backup({
+  db,
+  syncAccountId,
+  lastBackup,
+  onSaved,
+  onRestored,
+}: {
+  db: SqlDriver;
+  syncAccountId: string | null;
+  lastBackup: number | null;
+  onSaved: () => Promise<void>;
+  onRestored: () => void;
+}) {
   const [exportPw, setExportPw] = useState("");
   const [exportPw2, setExportPw2] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -166,7 +179,7 @@ function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBa
     if (exportPw !== exportPw2) return setBackupMsg({ kind: "error", text: "The two passwords differ." });
     setBusy(true);
     try {
-      const { text, rows } = await exportBackup(db, exportPw);
+      const { text, rows } = await exportBackup(db, exportPw, { syncAccountId });
       await saveBackupFile(backupFileName(), text);
       await markBackupSaved(db);
       const total = Object.values(rows).reduce((a, b) => a + b, 0);
@@ -186,7 +199,7 @@ function Backup({ db, lastBackup, onSaved, onRestored }: { db: SqlDriver; lastBa
     if (!restoreFile) return;
     setBusy(true);
     try {
-      const report = await restoreBackup(db, await restoreFile.text(), restorePw);
+      const report = await restoreBackup(db, await restoreFile.text(), restorePw, { syncAccountId });
       const total = Object.values(report.rows).reduce((a, b) => a + b, 0);
       setRestoreMsg({
         kind: "ok",

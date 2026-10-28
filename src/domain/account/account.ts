@@ -152,6 +152,26 @@ export async function releaseOwnership(db: SqlDriver, now: number = Date.now()):
 }
 
 /**
+ * Restore guard with one identity (docs/users.md, decided 28 Oct 2026): the sync account is the
+ * user. When this device is connected and the backup names the sync account it was made on, those
+ * two must match. Otherwise (a phone that never connected, or a backup from before) the Google
+ * owner check below decides. Throws a message safe to show.
+ */
+export function assertBackupOwner(o: {
+  syncAccountId: string | null;
+  backupSyncAccountId: string | null;
+  owner: Owner | null;
+  backupOwner: { subject: string; email: string | null } | null;
+}): void {
+  if (o.syncAccountId && o.backupSyncAccountId) {
+    if (o.syncAccountId !== o.backupSyncAccountId)
+      throw new Error("This backup belongs to another Even account. Restore it on a device connected to that account, or on one that is not connected.");
+    return;
+  }
+  assertSameOwner(o.owner, o.backupOwner?.subject ?? null, o.backupOwner?.email ?? null);
+}
+
+/**
  * Restore guard: a backup whose data belongs to another Google account must not be merged in.
  * `backupSubject` is the live owner in the backup file, if any. Throws a message safe to show.
  */

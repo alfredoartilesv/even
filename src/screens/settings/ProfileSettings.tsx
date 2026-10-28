@@ -59,7 +59,21 @@ function liveEstimates(draft: Draft, saved: Profile, weightKg: number | null) {
 }
 
 /** Who owns the data (Google account) and the profile the energy and body estimates use. */
-export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: () => void }) {
+/**
+ * connected: this device syncs with an account. That account is the user (docs/users.md, one
+ * identity), so the local Google owner below is only for a phone that never connects.
+ */
+export function ProfileSettings({
+  db,
+  onChanged,
+  connected,
+  onOpenSync,
+}: {
+  db: SqlDriver;
+  onChanged: () => void;
+  connected: boolean;
+  onOpenSync: () => void;
+}) {
   const [draft, setDraft] = useState<Draft>(toDraft(EMPTY_PROFILE));
   const [saved, setSaved] = useState<Profile>(EMPTY_PROFILE);
   const [weight, setWeight] = useState<Weight | null>(null);
@@ -112,7 +126,17 @@ export function ProfileSettings({ db, onChanged }: { db: SqlDriver; onChanged: (
   return (
     <div>
       <h2>Account</h2>
-      {owner ? (
+      {connected ? (
+        <div className="stack tight">
+          <p className="muted small">
+            Your Even account (the one this device syncs with) is managed in Sync &amp; devices: email, name, devices, passphrase and a linked Google account.
+            Backups made here belong to it.
+          </p>
+          <button type="button" className="secondary" onClick={onOpenSync}>
+            Open Sync &amp; devices
+          </button>
+        </div>
+      ) : owner ? (
         <div className="card">
           <div className="row">
             <div className="grow">
