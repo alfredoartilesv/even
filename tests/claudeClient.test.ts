@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { HttpOptions, HttpResponse } from "@capacitor/core";
-import { claudeCreate } from "../src/features/chat/client";
-import { CHAT_MODEL, ChatApiError, startConversation } from "../src/features/chat/engine";
-import { recordConsent } from "../src/features/chat/consent";
+import { claudeCreate } from "../src/domain/chat/client";
+import { CHAT_MODEL, ChatApiError, startConversation } from "../src/domain/chat/engine";
+import { recordConsent } from "../src/domain/chat/consent";
 import { makeNativeFetch } from "../src/platform/nativeFetch";
 import { migratedDb } from "./helpers";
 

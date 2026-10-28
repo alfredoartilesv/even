@@ -1,9 +1,9 @@
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import { BACKUP_TABLES, BackupError, exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../src/features/backup/backup";
+import { BACKUP_TABLES, BackupError, exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../src/domain/backup/backup";
 import { deviceId, getSetting, setSetting } from "../src/db/settings";
-import { upsertSamples } from "../src/features/metrics/samples";
+import { upsertSamples } from "../src/domain/metrics/samples";
 import { migrate } from "../src/db/migrate";
 import { capacitorDriver } from "../src/platform/sqlite";
 import { fakePlugin } from "./fakePlugin";

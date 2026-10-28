@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:web": "tsc --noEmit && vite build --mode web",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "lint": "oxlint src tests scripts server api --deny-warnings",
     "format": "prettier --write .",
@@ -24,7 +25,7 @@
     "sync:migrate": "node --env-file-if-exists=.env --import tsx server/cli.ts migrate",
     "sync:phone": "node --env-file-if-exists=.env --import tsx scripts/sync-phone.ts",
     "test:sync": "node --env-file-if-exists=.env --import tsx scripts/sync-smoke.ts",
-    "vercel-build": "node --import tsx server/cli.ts migrate && npm run build",
+    "vercel-build": "node --import tsx server/cli.ts migrate && npm run build:web",
     "release:check": "node scripts/release-check.mjs",
     "preview": "vite preview",
     "android:sync": "npm run build && npx cap sync android && node scripts/android-harden.mjs",

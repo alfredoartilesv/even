@@ -30,4 +30,4 @@ process.on("SIGINT", () => stop(0));
 process.on("SIGTERM", () => stop(0));
 
 run("sync server", ["--env-file-if-exists=.env", "--import", "tsx", "server/node.ts"], { PORT: process.env.SYNC_PORT ?? "8787" });
-run("vite", ["node_modules/vite/bin/vite.js", "--port", process.env.WEB_PORT ?? "5173", "--strictPort"]);
+run("vite", ["node_modules/vite/bin/vite.js", "--mode", "web", "--port", process.env.WEB_PORT ?? "5173", "--strictPort"]);

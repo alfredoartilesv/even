@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -11,12 +11,21 @@ const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), 
 const syncServer = process.env.SYNC_PROXY ?? "http://localhost:8787";
 const proxy = { "/v1": syncServer, "/health": syncServer };
 
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
-    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
-  },
-  server: { proxy },
-  preview: { proxy },
+// Which app to build. Each target has its own entry in src/apps/<target>/ over the shared code:
+// `--mode web` builds the web app (Vercel, the web container, dev:web); any other mode builds
+// Android. The target is written into index.html, and android-harden.mjs refuses a web build.
+const targetOf = (mode: string) => (mode === "web" ? "web" : "android");
+
+export default defineConfig(({ mode }) => {
+  const target = targetOf(mode);
+  if (!existsSync(new URL(`./src/apps/${target}/main.tsx`, import.meta.url))) throw new Error(`no src/apps/${target}/main.tsx`);
+  return {
+    plugins: [react(), { name: "even-target", transformIndexHtml: { order: "pre" as const, handler: (html: string) => html.replaceAll("%TARGET%", target) } }],
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
+    server: { proxy },
+    preview: { proxy },
+  };
 });

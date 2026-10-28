@@ -1,7 +1,7 @@
 import { memorySecretStore } from "../../src/core/secretStore";
 import type { SqlDriver } from "../../src/db/driver";
-import { approvePairing, createAccount, signInWithPassphrase, startPairing, type SyncSession } from "../../src/features/cloudsync/session";
-import { syncNow, type CloudSyncResult } from "../../src/features/cloudsync/syncNow";
+import { approvePairing, createAccount, signInWithPassphrase, startPairing, type SyncSession } from "../../src/domain/cloudsync/session";
+import { syncNow, type CloudSyncResult } from "../../src/domain/cloudsync/syncNow";
 import { migratedNodeDb } from "./nodeDb";
 
 /**

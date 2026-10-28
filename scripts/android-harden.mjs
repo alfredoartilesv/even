@@ -15,6 +15,7 @@
  *   launcher label from capacitor.config.json's appName (`cap sync` does not update it).
  * - The palette (src/ui/palette.css, through scripts/palette.mjs): res/values{,-night}/colors.xml,
  *   the window background and the Android 12+ splash screen; Capacitor's white splash.png is removed.
+ * - Stops on a web build in dist/ (`vite build --mode web`): the APK must carry the Android app.
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,6 +27,14 @@ const main = join(import.meta.dirname, "../android/app/src/main");
 const manifestPath = join(main, "AndroidManifest.xml");
 if (!existsSync(manifestPath)) {
   console.error("android/ not found. Run `npx cap add android` first.");
+  process.exit(1);
+}
+
+// The build names its target in index.html (vite.config.ts). A web build would still run on the
+// phone, which is why it has to be stopped here rather than noticed later.
+const builtFor = /<meta name="even-target" content="([^"]+)"/.exec(readFileSync(join(import.meta.dirname, "../dist/index.html"), "utf8"))?.[1];
+if (builtFor !== "android") {
+  console.error(`dist/ holds a build for "${builtFor ?? "unknown"}", not Android. Run \`npm run build\` (without --mode web) first.`);
   process.exit(1);
 }
 

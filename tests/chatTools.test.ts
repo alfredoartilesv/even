@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
-import { upsertCatalog } from "../src/features/metrics/catalog";
-import { upsertSamples } from "../src/features/metrics/samples";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
+import { upsertCatalog } from "../src/domain/metrics/catalog";
+import { upsertSamples } from "../src/domain/metrics/samples";
 import { localDayStart } from "../src/core/tz";
 import { migratedDb } from "./helpers";
 

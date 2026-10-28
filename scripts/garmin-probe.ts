@@ -5,7 +5,7 @@
  *
  * Prints HTTP status and JSON field names (with value types) only: never the key, the token, or values.
  */
-import { GarminApi, GarminApiError } from "../src/features/sync/garmin";
+import { GarminApi, GarminApiError } from "../src/domain/sync/garmin";
 
 const apiKey = process.env.GARMIN_API_KEY?.trim();
 if (!apiKey) throw new Error("GARMIN_API_KEY is empty. Fill .env and run with --env-file=.env");

@@ -1,7 +1,7 @@
 import * as z from "zod/mini";
 
 /**
- * The cloud sync wire format, shared by the phone (src/features/cloudsync) and the server
+ * The cloud sync wire format, shared by the phone (src/domain/cloudsync) and the server
  * (server/). The server only ever sees what is here: a table name, an opaque row key (an HMAC
  * the phone makes, so not the row's id or metric), the row's updated_at, and a sealed blob.
  * Everything else stays encrypted end to end (docs/architecture.md section 6).
@@ -52,7 +52,7 @@ export const DEVICE_KINDS = ["phone", "web", "pc"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 const device = z.object({ name: label, kind: z.enum(DEVICE_KINDS) });
 
-/** The account's keys as the server keeps them: all sealed or public (src/features/cloudsync/keys.ts). */
+/** The account's keys as the server keeps them: all sealed or public (src/domain/cloudsync/keys.ts). */
 export const accountKeys = z.object({
   identityPublic: z.string().check(z.minLength(1), z.maxLength(2_000)),
   identityPrivate: b64(4_000),
