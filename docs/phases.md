@@ -43,7 +43,7 @@ Releases are a signed APK on GitHub, sideloaded ([dev-setup section 6](dev-setup
 
 Order of work as in [users.md section 5](users.md#5-order-of-work-for-04). For the structure:
 
-1. **Split the shell.** The web's connect gate and every `!isNative` branch in `shell/App.tsx` move into `apps/web/`. The web start is then "connect first", and Android's shell carries none of it.
+1. **Split the shell (done 28 Oct 2026).** The web's connect gate lives in `apps/web/connectGate.tsx` and reaches the shared shell as `Target.gate` (`shell/target.ts`); Android's entry passes none. What a target adds to the shell goes through `Target`, never through `isNative` checks in `shell/`. The remaining `isNative` checks in screens are capabilities (share or copy, where a key is kept) and stay.
 2. **Web-only screens** (the web has no Garmin key, no notifications, no camera picker) go in `apps/web/`. They are not flags inside the shared screens.
 3. **Before the first Vercel deploy** ([dev-setup section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app)): the Vercel project (Hobby) with the Neon integration, `SERVER_SECRET` and the other server variables set in Vercel, never in the repo. Production branch `master`, so the web app and the APK release ship from the same merge. `vercel-build` already builds the web target.
 4. **Done when:** a phone and the web app sync through the deployed server (`npm run test:sync` against it), and a fresh browser connects with the passphrase.

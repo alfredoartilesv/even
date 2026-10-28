@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { initLogging } from "./logging";
 import { startOpeningDatabase } from "./startup";
+import type { Target } from "./target";
 import "../ui/palette.css";
 import "../screens/styles.css";
 
@@ -10,7 +11,7 @@ import "../screens/styles.css";
  * Start the app: logging, the database open (before React renders, App picks up the same promise),
  * then the shell. Each target's main.tsx calls it; what a target does differently goes there.
  */
-export function startApp(): void {
+export function startApp(target: Target = {}): void {
   initLogging();
   startOpeningDatabase();
 
@@ -24,7 +25,7 @@ export function startApp(): void {
           <Gallery />
         </Suspense>
       ) : (
-        <App />
+        <App target={target} />
       )}
     </StrictMode>,
   );
