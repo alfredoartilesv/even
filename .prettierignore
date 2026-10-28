@@ -7,3 +7,6 @@ coverage/
 docs/screens/
 package-lock.json
 *.md
+
+# Other checkouts of this repo (git worktree), checked in their own right.
+.worktrees/
