@@ -1,14 +1,6 @@
-import { Icon, type IconName } from "../ui/icons";
-
-export type Tab = "dashboard" | "chat" | "mealprep" | "alcohol" | "settings";
-
-export const TABS: { id: Tab; label: string; icon: IconName }[] = [
-  { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-  { id: "chat", label: "Chat", icon: "chat" },
-  { id: "mealprep", label: "Meal prep", icon: "mealprep" },
-  { id: "alcohol", label: "Alcohol", icon: "alcohol" },
-  { id: "settings", label: "Settings", icon: "settings" },
-];
+import type { FrameProps } from "../../shell/target";
+import { TABS, type Tab } from "../../shell/tabs";
+import { Icon } from "../../ui/icons";
 
 /** The five tabs, fixed to the bottom of the screen within thumb reach. */
 export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
@@ -21,5 +13,15 @@ export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
         </button>
       ))}
     </nav>
+  );
+}
+
+/** Android's frame: the page, with the tab bar under it. */
+export function TabBarFrame({ tab, onTab, children }: FrameProps) {
+  return (
+    <>
+      {children}
+      <TabBar tab={tab} onTab={onTab} />
+    </>
   );
 }

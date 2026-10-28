@@ -1,5 +1,11 @@
 import type {
   AccountKeys,
+  AdminAccount,
+  AdminDevice,
+  AdminInvite,
+  AuditEntry,
+  McpGrant,
+  ServiceHealth,
   DeviceKind,
   Friend,
   Joined,
@@ -99,6 +105,24 @@ export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch
     pushShareRows: (id: string, rows: ShareRow[]) => call<{ accepted: number }>("POST", `/v1/shares/${encodeURIComponent(id)}/rows`, { rows }),
     pullShareRows: (id: string, after: number, limit: number) =>
       call<ShareRowsResult>("GET", `/v1/shares/${encodeURIComponent(id)}/rows?${page(after, limit)}`),
+
+    // Admin (an admin account's device only; docs/users.md section 2.6)
+    admin: {
+      health: () => call<ServiceHealth>("GET", "/v1/admin/health"),
+      invites: () => call<AdminInvite[]>("GET", "/v1/admin/invites"),
+      createInvite: (email: string, days?: number) => call<{ code: string; invite: AdminInvite }>("POST", "/v1/admin/invites", { email, days }),
+      cancelInvite: (id: string) => call<{ ok: true }>("DELETE", `/v1/admin/invites/${encodeURIComponent(id)}`),
+      accounts: () => call<AdminAccount[]>("GET", "/v1/admin/accounts"),
+      setQuota: (accountId: string, bytes: number) => call<{ ok: true }>("PUT", `/v1/admin/accounts/${encodeURIComponent(accountId)}/quota`, { bytes }),
+      setSuspended: (accountId: string, suspended: boolean) =>
+        call<{ ok: true }>("PUT", `/v1/admin/accounts/${encodeURIComponent(accountId)}/suspended`, { suspended }),
+      devices: (accountId: string) => call<AdminDevice[]>("GET", `/v1/admin/accounts/${encodeURIComponent(accountId)}/devices`),
+      revokeDevice: (accountId: string, deviceId: string) =>
+        call<{ ok: true }>("DELETE", `/v1/admin/accounts/${encodeURIComponent(accountId)}/devices/${encodeURIComponent(deviceId)}`),
+      audit: () => call<AuditEntry[]>("GET", "/v1/admin/audit"),
+      mcpGrants: () => call<McpGrant[]>("GET", "/v1/admin/mcp-grants"),
+      revokeMcpGrant: (id: string) => call<{ ok: true }>("DELETE", `/v1/admin/mcp-grants/${encodeURIComponent(id)}`),
+    },
   };
 }
 

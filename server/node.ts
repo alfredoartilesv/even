@@ -17,7 +17,9 @@ const port = Number(process.env.PORT ?? 8787);
 
 const pg = await openDb(process.env);
 await migrateServer(pg);
-const server = serve({ fetch: createApp(createStores(pg, process.env)).fetch, port, hostname: "0.0.0.0" }, () => log.info("sync server listening", { port }));
+const server = serve({ fetch: createApp(createStores(pg, process.env), { publicUrl: process.env.PUBLIC_URL }).fetch, port, hostname: "0.0.0.0" }, () =>
+  log.info("sync server listening", { port }),
+);
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, () => {

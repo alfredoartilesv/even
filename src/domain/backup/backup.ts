@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { SqlDriver, SqlValue } from "../../db/driver";
 import { DEVICE_ID_KEY, getSetting, setSetting } from "../../db/settings";
 import { createLogger } from "../../core/log";
-import { assertSameOwner, getOwner } from "../account/account";
+import { assertBackupOwner, getOwner } from "../account/account";
 
 const log = createLogger("backup");
 
@@ -85,6 +85,8 @@ const payloadSchema = z.object({
   format: z.union([z.literal(PAYLOAD_FORMAT), z.literal(OLD_PAYLOAD_FORMAT)]),
   schemaVersion: z.number().int().min(0),
   exportedAt: z.number(),
+  /** The sync account this device was connected to when the backup was made: the backup's owner. */
+  syncAccountId: z.string().max(64).optional(),
   tables: z.record(z.string(), z.object({ columns: z.array(z.string()), rows: z.array(z.array(sqlValue)) })),
 });
 type Payload = z.infer<typeof payloadSchema>;
@@ -99,7 +101,7 @@ export class BackupError extends Error {
 export async function exportBackup(
   db: SqlDriver,
   password: string,
-  opts: { now?: number; iterations?: number } = {},
+  opts: { now?: number; iterations?: number; syncAccountId?: string | null } = {},
 ): Promise<{ text: string; rows: Record<string, number> }> {
   if (password.length < 8) throw new BackupError("Use a backup password of at least 8 characters");
   const done = log.time("backup exported", "info");
@@ -107,6 +109,7 @@ export async function exportBackup(
     format: PAYLOAD_FORMAT,
     schemaVersion: await schemaVersion(db),
     exportedAt: opts.now ?? Date.now(),
+    ...(opts.syncAccountId ? { syncAccountId: opts.syncAccountId } : {}),
     tables: {},
   };
   const counts: Record<string, number> = {};
@@ -159,7 +162,7 @@ function liveOwnerIn(payload: Payload): { subject: string; email: string | null 
 }
 
 /** Merge a backup into the database in one transaction: all of it, or nothing. */
-export async function restoreBackup(db: SqlDriver, fileText: string, password: string): Promise<RestoreReport> {
+export async function restoreBackup(db: SqlDriver, fileText: string, password: string, opts: { syncAccountId?: string | null } = {}): Promise<RestoreReport> {
   let envelope: z.infer<typeof envelopeSchema>;
   try {
     envelope = envelopeSchema.parse(JSON.parse(fileText));
@@ -185,10 +188,14 @@ export async function restoreBackup(db: SqlDriver, fileText: string, password: s
     throw new BackupError(`This backup comes from a newer app (schema ${payload.schemaVersion}, this app has ${current}). Update the app first.`);
   }
 
-  // Never merge another Google account's data into this phone's (one owner per install).
-  const backupOwner = liveOwnerIn(payload);
+  // Never merge another account's data into this device's: the sync account when both know it, else the Google owner.
   try {
-    assertSameOwner(await getOwner(db), backupOwner?.subject ?? null, backupOwner?.email ?? null);
+    assertBackupOwner({
+      syncAccountId: opts.syncAccountId ?? null,
+      backupSyncAccountId: payload.syncAccountId ?? null,
+      owner: await getOwner(db),
+      backupOwner: liveOwnerIn(payload),
+    });
   } catch (err) {
     log.warn("restore refused: backup belongs to another account");
     throw new BackupError((err as Error).message);

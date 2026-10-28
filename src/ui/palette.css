@@ -8,7 +8,7 @@
  *
  * Roles
  *   --bg          page background
- *   --surface     raised things on it: cards, tiles, charts, the tab bar
+ *   --surface     raised things on it: cards, tiles, charts, the tab bar, the side menu
  *   --fg          main text
  *   --muted       secondary text, icons at rest
  *   --line        borders and dividers
@@ -19,7 +19,8 @@
  *   --warning     needs attention (stale sync, over target)
  *   --error       failures and destructive actions
  *   --shadow      the lift under cards and the tab bar (none in dark: surfaces are lighter there)
- *   --shadow-pop  the lift under things that float over the page: chart tooltips
+ *   --shadow-pop  the lift under things that float over the page: chart tooltips, the open side menu
+ *   --scrim       dims the page under the side menu's drawer
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
  *   --brand-ring  the logo's ring track
  *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
@@ -62,6 +63,7 @@
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
   --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
+  --scrim: rgb(28 25 23 / 0.4);
 
   /* The logo: one brand color for both themes (the light accent). */
   --brand: #0f766e;
@@ -92,6 +94,7 @@
     --error: #f87171;
     --shadow: none;
     --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+    --scrim: rgb(0 0 0 / 0.6);
 
     --series-1: #3987e5;
     --series-2: #d95926;

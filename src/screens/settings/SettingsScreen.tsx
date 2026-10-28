@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
-import type { SyncSession } from "../../domain/cloudsync/session";
+import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
+import { deviceFetch } from "../../platform/device";
+import { AdminSettings } from "../admin/AdminSettings";
 import { FriendsSettings } from "../cloudsync/FriendsSettings";
 import { SyncSettings } from "../cloudsync/SyncSettings";
 import { MenuList, PageHeader, type MenuItem } from "../../ui/layout";
@@ -13,7 +15,7 @@ import { loadIdentity } from "../../domain/settings/profile";
 import { ProfileSettings } from "./ProfileSettings";
 import type { SecretStore } from "../../domain/settings/secrets";
 
-export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about";
+export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about" | "admin";
 
 interface Props {
   db: SqlDriver;
@@ -58,24 +60,43 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
   },
 ];
 
-const LABEL = Object.fromEntries(SETTINGS_MENU.flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
+/** Only for an admin account (docs/users.md section 2.6); the server checks it on every request too. */
+export const ADMIN_MENU: { title: string; items: MenuItem<SettingsPage>[] } = {
+  title: "Admin",
+  items: [{ id: "admin", label: "Admin", description: "Invites, accounts, devices and the audit log. Never anyone's data", icon: "settings" }],
+};
+
+const LABEL = Object.fromEntries([...SETTINGS_MENU, ADMIN_MENU].flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
 
 /** A menu of pages: who you are, where data comes from and goes, what is kept and shared, the debug logs, and the app version. */
 export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync, session, onSession }: Props) {
   const [who, setWho] = useState<{ photo: string | null; name: string | null } | null>(null);
+  const [admin, setAdmin] = useState(false);
   useEffect(() => {
     if (page === null) void loadIdentity(db).then(setWho);
   }, [db, page, version]);
+  // Whether to offer Admin: asked of the server once per connection. Offline, the menu just leaves it out.
+  useEffect(() => {
+    setAdmin(false);
+    if (!session) return;
+    void sessionApi(session, deviceFetch({ connectTimeoutMs: 10_000, readTimeoutMs: 15_000 }))
+      .me()
+      .then(
+        (me) => setAdmin(me.account.isAdmin),
+        () => {},
+      );
+  }, [session]);
 
   if (page === null) {
     // The Profile row shows the picture (or initials) once there is either.
+    const menu = admin ? [...SETTINGS_MENU, ADMIN_MENU] : SETTINGS_MENU;
     const groups =
       who && (who.photo || who.name)
-        ? SETTINGS_MENU.map((g) => ({
+        ? menu.map((g) => ({
             ...g,
             items: g.items.map((i) => (i.id === "profile" ? { ...i, picture: <Avatar photo={who.photo} name={who.name} size={36} /> } : i)),
           }))
-        : SETTINGS_MENU;
+        : menu;
     return (
       <section>
         <PageHeader title="Settings" />
@@ -87,7 +108,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
     <section>
       <PageHeader title={LABEL[page]} onBack={() => onPage(null)} backLabel="Settings" />
       {page === "profile" ? (
-        <ProfileSettings db={db} onChanged={onChanged} />
+        <ProfileSettings db={db} onChanged={onChanged} connected={session !== null} onOpenSync={() => onPage("sync")} />
       ) : page === "sync" ? (
         <SyncSettings db={db} secrets={secrets} isNative={isNative} session={session} onSession={onSession} onSync={onSync} version={version} />
       ) : page === "friends" ? (
@@ -95,9 +116,11 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
       ) : page === "connections" ? (
         <ConnectionSettings db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={() => void onSync()} />
       ) : page === "privacy" ? (
-        <PrivacySettings db={db} onChanged={onChanged} />
+        <PrivacySettings db={db} onChanged={onChanged} syncAccountId={session?.accountId ?? null} />
       ) : page === "logs" ? (
         <LogsScreen db={db} />
+      ) : page === "admin" ? (
+        session && <AdminSettings session={session} />
       ) : (
         <AboutSettings db={db} />
       )}

@@ -82,14 +82,30 @@ test("the sync environment: db, sync and web, images pinned, ports on this PC on
   assert.match(dockerfile, /FROM deps AS sync\n[\s\S]*?USER node/, "the sync server does not run as root");
 });
 
-test("vercel.json serves the web build and sends /v1 and /health to the sync function", () => {
+test("vercel.json serves the web build and sends the API, the admin MCP and its OAuth to the sync function", () => {
   const vercel = JSON.parse(read("vercel.json")) as { buildCommand: string; outputDirectory: string; rewrites: { source: string; destination: string }[] };
   assert.equal(vercel.buildCommand, "npm run vercel-build");
   assert.equal(vercel.outputDirectory, "dist");
   assert.deepEqual(
     vercel.rewrites.map((r) => r.source),
-    ["/v1/:path*", "/health"],
+    [
+      "/v1/:path*",
+      "/health",
+      "/mcp",
+      "/oauth/:path*",
+      "/.well-known/oauth-protected-resource",
+      "/.well-known/oauth-protected-resource/mcp",
+      "/.well-known/oauth-authorization-server",
+    ],
   );
+  for (const r of vercel.rewrites) assert.equal(r.destination, `/api${r.source}`, "the function sees the same path under /api");
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
   assert.match(scripts["vercel-build"], /server\/cli\.ts migrate && npm run build/, "migrations run in the build, never on a request");
+});
+
+test("the Vercel function exports every method the API routes use", () => {
+  const fn = readFileSync(join(import.meta.dirname, "../api/[[...route]].ts"), "utf8");
+  const app = readFileSync(join(import.meta.dirname, "../server/app.ts"), "utf8");
+  const used = new Set([...app.matchAll(/app\.(get|post|put|delete)\(/g)].map((m) => m[1]!.toUpperCase()));
+  for (const method of used) assert.match(fn, new RegExp(`export const ${method} = `), method);
 });

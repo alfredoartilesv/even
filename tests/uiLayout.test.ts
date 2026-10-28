@@ -4,7 +4,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TabBar, TABS } from "../src/shell/TabBar";
+import { TabBar } from "../src/apps/android/TabBar";
+import { SideNav, type SideNavState } from "../src/apps/web/SideNav";
+import { TABS } from "../src/shell/tabs";
 import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
@@ -13,7 +15,7 @@ import { SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
 import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
-import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../src/ui/layout";
+import { MenuList, NavMenu, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../src/ui/layout";
 
 const noop = () => {};
 
@@ -99,7 +101,9 @@ test("icons: every one is a hidden 24 px line drawing in the current color", () 
   assert.match(renderToStaticMarkup(h(Icon, { name: "camera", size: 22 })), /width="22" height="22"/);
 });
 
-test("tab bar: the five tabs in order, each with an icon and a label, the open one aria-current", () => {
+const navState = (over: Partial<SideNavState>): SideNavState => ({ docked: false, open: false, rail: false, setOpen: noop, toggleRail: noop, ...over });
+
+test("Android tab bar: the five tabs in order, each with an icon and a label, the open one aria-current", () => {
   assert.deepEqual(
     TABS.map((t) => t.label),
     ["Dashboard", "Chat", "Meal prep", "Alcohol", "Settings"],
@@ -108,6 +112,40 @@ test("tab bar: the five tabs in order, each with an icon and a label, the open o
   assert.equal((html.match(/<button/g) ?? []).length, 5);
   assert.equal((html.match(/<svg/g) ?? []).length, 5);
   assert.match(html, /class="active" aria-current="page"><svg[^]*?<span>Alcohol<\/span>/);
+});
+
+test("web side menu: the same five sections, each with an icon and a label, the open one aria-current", () => {
+  const html = renderToStaticMarkup(h(SideNav, { tab: "alcohol", onTab: noop, nav: navState({ open: true }) }));
+  assert.equal((html.match(/class="sidenav-item/g) ?? []).length, 5);
+  assert.match(html, /class="sidenav-item active" aria-current="page"><svg[^]*?<span class="sidenav-label">Alcohol<\/span>/);
+  assert.match(html, /aria-label="Close menu"/);
+  assert.match(html, /class="nav-scrim"/);
+});
+
+test("web side menu: a closed drawer is inert and has no scrim; docked it never is, and as icons it offers to expand", () => {
+  const closed = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({}) }));
+  assert.match(closed, /<nav[^>]*inert=""/);
+  assert.doesNotMatch(closed, /nav-scrim/);
+  const docked = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true }) }));
+  assert.doesNotMatch(docked, /inert/);
+  assert.match(docked, /aria-label="Collapse menu" aria-expanded="true"/);
+  const rail = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true, rail: true }) }));
+  assert.match(rail, /class="sidenav rail"/);
+  assert.match(rail, /aria-label="Expand menu" aria-expanded="false"/);
+  // Icons only: the label stays in the button for screen readers, the title shows it on hover.
+  assert.match(rail, /title="Settings"[^>]*>[^]*?<span class="sidenav-label">Settings<\/span>/);
+});
+
+test("PageHeader: a frame's menu button opens the side menu at the top of a tab, not on a page with a way back; without one there is none", () => {
+  const menu = (props: Parameters<typeof PageHeader>[0], open = false) =>
+    renderToStaticMarkup(h(NavMenu, { value: { open, onOpen: noop } }, h(PageHeader, props)));
+  assert.match(
+    menu({ title: "Chat" }),
+    /^<header class="topbar"><button type="button" class="menu-button" aria-label="Menu" aria-controls="sidenav" aria-expanded="false">/,
+  );
+  assert.match(menu({ title: "Chat" }, true), /aria-expanded="true"/);
+  assert.doesNotMatch(menu({ title: "Profile", onBack: noop }), /menu-button/);
+  assert.doesNotMatch(renderToStaticMarkup(h(PageHeader, { title: "Chat" })), /menu-button/);
 });
 
 test("meal prep tab: two groups of three, the food log first; shopping holds the list and the spending", () => {
@@ -253,8 +291,11 @@ test("web app: waits for the sync session, asks to connect without one, and lets
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
 });
 
-test("only the web app is gated: the Android entry starts the shell without a gate", () => {
+test("each target brings its navigation: Android the tab bar without a gate, the web app the side menu behind its gate", () => {
   const entry = (t: string) => readFileSync(resolve(import.meta.dirname, "../src/apps", t, "main.tsx"), "utf8");
-  assert.match(entry("web"), /startApp\(\{ gate: \(state\) => connectGate\(state, notice\) \}\)/);
-  assert.match(entry("android"), /startApp\(\);/);
+  assert.match(entry("web"), /startApp\(\{ gate: \(state\) => connectGate\(state, notice\), Frame: SideNavFrame \}\)/);
+  assert.match(entry("android"), /startApp\(\{ Frame: TabBarFrame \}\);/);
+  // The other target's navigation (and its styles) never reach a build.
+  assert.doesNotMatch(entry("android"), /SideNav|web\.css/);
+  assert.doesNotMatch(entry("web"), /TabBar|android\.css/);
 });
