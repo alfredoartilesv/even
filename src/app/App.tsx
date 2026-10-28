@@ -23,6 +23,7 @@ import { createLogger } from "../core/log";
 import { DEFAULT_LOG_LEVEL } from "./logging";
 import { TabBar, type Tab } from "./TabBar";
 import { PageHeader } from "../ui/layout";
+import { PullToRefresh } from "../ui/PullToRefresh";
 import "../ui/ui.css";
 
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
@@ -182,29 +183,32 @@ export function App() {
           <Suspense>
             {tab === "dashboard" ? (
               !overlay ? (
-                <DashboardScreen
-                  db={ready}
-                  version={version}
-                  configured={configured}
-                  syncWarnings={status?.warnings ?? []}
-                  profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
-                  sync={syncButton}
-                  go={{
-                    logFood: () => {
-                      setMealPrepView("log");
-                      go("mealprep");
-                    },
-                    logDrink: () => go("alcohol"),
-                    askClaude: () => go("chat"),
-                    mealPrep: () => {
-                      setMealPrepView("stock");
-                      go("mealprep");
-                    },
-                    profile: () => open({ page: "profile", view: "activity" }),
-                    checkIn: (day) => open({ page: "journal", view: "checkin", day }),
-                    measurements: () => open({ page: "journal", view: "measurements" }),
-                  }}
-                />
+                // Pulling the Dashboard down syncs, as the button does (without a Garmin key it just reloads the numbers).
+                <PullToRefresh onRefresh={configured ? () => void sync() : changed} busy={syncing} label={configured ? "sync" : "refresh"}>
+                  <DashboardScreen
+                    db={ready}
+                    version={version}
+                    configured={configured}
+                    syncWarnings={status?.warnings ?? []}
+                    profile={<ProfileButton db={ready} version={version} onOpen={() => open({ page: "profile" })} />}
+                    sync={syncButton}
+                    go={{
+                      logFood: () => {
+                        setMealPrepView("log");
+                        go("mealprep");
+                      },
+                      logDrink: () => go("alcohol"),
+                      askClaude: () => go("chat"),
+                      mealPrep: () => {
+                        setMealPrepView("stock");
+                        go("mealprep");
+                      },
+                      profile: () => open({ page: "profile", view: "activity" }),
+                      checkIn: (day) => open({ page: "journal", view: "checkin", day }),
+                      measurements: () => open({ page: "journal", view: "measurements" }),
+                    }}
+                  />
+                </PullToRefresh>
               ) : (
                 <section>
                   <PageHeader title={overlay.page === "profile" ? "Profile" : "Journal"} onBack={() => setOverlay(null)} backLabel="Dashboard" />

@@ -285,7 +285,7 @@ async function main() {
 
   if (flag("--fresh")) {
     await check("without a key, the sync button says so and opens Connections", async () => {
-      // The button shows the ⟳ symbol only; what it means is its label.
+      // The button shows the sync symbol only; what it means is its label.
       const label = await page.eval<string>(`document.querySelector("button.sync-button")?.getAttribute("aria-label") ?? ""`);
       if (!label.startsWith("Set up Garmin sync")) throw new Error(`the sync button is labelled "${label}"`);
       await page.eval(`__t.click("button.sync-button")`);

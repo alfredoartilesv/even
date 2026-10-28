@@ -15,6 +15,7 @@ import { failed, MsgLine, numOrNull, type Msg } from "../../../ui/common";
 import { Icon } from "../../../ui/icons";
 import { SectionHeader } from "../../../ui/layout";
 import { SpendingView } from "./SpendingView";
+import { UnitSelect } from "./UnitSelect";
 
 interface Props {
   db: SqlDriver;
@@ -88,7 +89,7 @@ export function ShoppingView({ db, version, onChanged, onRecipes }: Props) {
       <form className="ingredient" onSubmit={add}>
         <input aria-label="Item" placeholder="Add an item" value={name} onChange={(e) => setName(e.target.value)} />
         <input aria-label="Quantity" placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
-        <input aria-label="Unit" placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
+        <UnitSelect value={unit} onChange={setUnit} />
         <button type="submit" aria-label="Add item">
           <Icon name="plus" size={18} />
         </button>
