@@ -123,6 +123,8 @@ The owner would rather use their Claude Pro subscription than a paid API key for
 
 The way to use the Pro plan is the other direction: **Claude's apps come to Even's data**, as a custom connector (a remote MCP server, which Pro can add in Settings > Connectors). The owner then asks Claude on claude.ai or the Claude phone app, on the Pro plan, and Claude calls Even's tools. The catch: the server only holds ciphertext, so the connector needs its own readable copy. Shape that keeps the rules: Claude is treated like a friend, with its own share key, held by the MCP server, receiving only the kinds the owner ticks, as daily summaries, every call in the disclosure log. Readable on the server, but only that stream. Not built; needs the owner's yes, as it is the first plaintext on the server (architecture.md section 3).
 
+**Decided 28 Oct 2026:** not the data connector. Claude on the Pro plan gets an **admin** connector instead (section 9): it manages the service with the admin tools and sees no health data. A data connector would still need its own decision.
+
 ## 8. As built (28 Oct 2026)
 
 - **Sign-up is invite plus passphrase, not Google first.** Google sign-in is not set up yet (no Web OAuth client id in the build), and the keys need the passphrase or a pairing anyway. An account is made from an invite (`npm run sync:invite`) and the email it was made for; Google can be linked to it later (`POST /v1/me/google`, the ID token checked against Google's keys). The web Google button waits for the client id and its origin in Google Cloud.
@@ -131,3 +133,17 @@ The way to use the Pro plan is the other direction: **Claude's apps come to Even
 - **Friend summaries** are pushed for the last 90 days on every sync of the owner's devices, sealed per day with the share key. A friend's data is read from the server when shown, never stored on the friend's device.
 - **The web app's database** is sql.js in memory, saved to IndexedDB sealed with a non-extractable key of that browser profile; one tab at a time (Web Locks). Disconnecting or deleting the account on the web wipes that copy.
 - **Not built yet:** QR scanning, Google on the web, rotating the account data key after a lost device, a per-account quota other than the default 200 MB, the audit log of share grants as rows in the owner's data (the server keeps the shares themselves).
+
+## 9. The admin MCP server (decided 28 Oct 2026)
+
+Claude (on claude.ai or the Claude apps, on the owner's Pro plan) manages Even as a custom connector at `<server>/mcp`, with the same functions as Settings > Admin (`server/mcp.ts` over `server/admin.ts`). Tools: `service_health`, `list_invites`, `create_invite`, `cancel_invite`, `list_accounts`, `list_devices`, `revoke_device`, `set_quota`, `suspend_account`, `audit_log`. None reads a row, key or share, so **Claude never sees health data**. It does see what an admin sees: account names, emails, device names, dates and sizes. Every change is in the audit log with via `mcp`.
+
+**Sign-in** (`server/oauth.ts`, OAuth 2.1 as claude.ai expects):
+- Claude finds the metadata (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`) and registers itself (Dynamic Client Registration, public client).
+- Codes are only sent to Claude's callbacks (`claude.ai`, `claude.com`) or to `localhost`. Registration is open, so this stops a look-alike client from getting a code.
+- The login page asks for the admin's email and passphrase. Its script derives the same proof as passphrase sign-in and posts only that; the passphrase field has no name and is cleared. The same rate limits apply (5 an hour per email, 20 per address). Only an admin account that is not suspended gets a code. The page says where the browser goes next, and has a strict CSP with no framing.
+- PKCE (S256 only), codes single use for 2 minutes. Access tokens last an hour; refresh tokens last 30 days and are replaced on every use. All are stored as hashes.
+- Settings > Admin > Claude connector shows the address to add and every connection, with Disconnect. Losing the admin role or being suspended stops the tokens at once.
+
+Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel function as the API. `PUBLIC_URL` (for example `https://even.vercel.app`) fixes the issuer and resource address; without it they come from the request.
+

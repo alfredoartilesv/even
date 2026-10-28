@@ -5,13 +5,14 @@ import { postgresJs } from "../server/pg";
 import { createStores } from "../server/stores";
 
 /**
- * The sync API as one Vercel function (vercel.json routes /health and /v1/* here). DATABASE_URL is
+ * The sync API as one Vercel function (vercel.json routes /health, /v1/*, /mcp, /oauth/* and
+ * /.well-known/oauth-* here). DATABASE_URL is
  * Neon's pooled URL, set by the Neon integration on the free plan. Migrations run in the Vercel
  * build (npm run vercel-build), never on a request.
  */
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
-const api = createApp(createStores(postgresJs(url, { max: 1 }), process.env));
+const api = createApp(createStores(postgresJs(url, { max: 1 }), process.env), { publicUrl: process.env.PUBLIC_URL });
 // Mounted twice: vercel.json rewrites /v1/* and /health to /api/..., and either path may arrive.
 const app = new Hono().route("/api", api).route("/", api);
 

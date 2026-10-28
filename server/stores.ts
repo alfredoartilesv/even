@@ -1,5 +1,6 @@
 import { accountStore } from "./accounts";
 import { adminStore } from "./admin";
+import { oauthStore } from "./oauth";
 import type { Stores } from "./app";
 import { friendStore } from "./friends";
 import { googleVerifier, type GoogleVerifier } from "./google";
@@ -23,6 +24,7 @@ export function createStores(
     accounts: accountStore(pg, { serverSecret, rateLimits: opts.rateLimits }),
     friends: friendStore(pg),
     admin: adminStore(pg, { build: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) }),
+    oauth: oauthStore(pg),
     google: opts.google ?? googleVerifier(env.GOOGLE_CLIENT_ID),
   };
 }
