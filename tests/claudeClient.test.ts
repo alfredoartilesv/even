@@ -42,14 +42,14 @@ test("the SDK goes over native HTTP: right endpoint, headers and body, reply par
   assert.equal(req.method, "POST");
   assert.match(req.url, /^https:\/\/api\.anthropic\.com\/v1\/messages(\?|$)/);
   assert.equal(req.headers?.authorization, `Bearer ${KEY}`); // SDK 1.x sends API keys as a bearer token
-  assert.match(String(req.headers?.["anthropic-beta"]), /server-side-fallback-2026-07-01/);
+  assert.equal(req.headers?.["anthropic-beta"], undefined, "no beta header: Haiku 5.5 has no server-side fallback");
   assert.ok(req.headers?.["anthropic-version"]);
   assert.equal(req.readTimeout, 300_000);
   const body = req.data as Record<string, unknown>;
   assert.equal(typeof body, "object", "sent as an object so CapacitorHttp does not double-encode it");
-  assert.equal(body.model, "claude-opus-5-5");
-  assert.equal(body.fallbacks, "default");
-  assert.equal("betas" in body, false, "betas travel as a header, not in the body");
+  assert.equal(body.model, "claude-haiku-5-5");
+  assert.equal("fallbacks" in body, false);
+  assert.equal("betas" in body, false);
 });
 
 test("an HTTP 401 from the API surfaces as an auth ChatApiError without the key", async () => {

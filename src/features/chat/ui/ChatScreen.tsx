@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../../db/driver";
 import { deviceFetch } from "../../../platform/device";
+import { dictation } from "../../../platform/speech";
 import { failed, MsgLine, plural, type Msg } from "../../../ui/common";
 import { StatusBadge } from "../../../ui/controls";
 import { Icon } from "../../../ui/icons";
@@ -11,6 +12,9 @@ import type { SecretStore } from "../../settings/secrets";
 import { listAgentActions, undoAgentAction, type AgentAction } from "../actions";
 import { ChatApiError, continueConversation, askClaude, startConversation, type ChatDeps } from "../engine";
 import { attachmentFromPhoto, MAX_IMAGES_PER_MESSAGE } from "../images";
+import { FILE_ACCEPT, MAX_FILES_PER_MESSAGE, type FileAttachment } from "../files";
+import { dictationError, dictationLanguage, withDictation } from "../dictation";
+import { readAttachment } from "./attach";
 import { QUICK_PROMPTS } from "../prompt";
 import { chatDeps } from "../service";
 import { toBubble, type Bubble } from "../bubbles";
@@ -45,8 +49,9 @@ const ERROR_TITLE: Record<string, string> = {
 const ACTION_BADGE = { applied: "good", declined: "info", failed: "critical", undone: "info" } as const;
 
 /**
- * The second tab: talk with Claude about your data. Text, and photos taken with the camera or
- * picked from the gallery (meals to log, labels, recipes). Every kind of data needs the owner's
+ * The second tab: talk with Claude about your data. Text (typed or dictated), photos taken with
+ * the camera or picked from the gallery (meals to log, labels, recipes), and files (a lab report
+ * PDF, a CSV export). Every kind of data needs the owner's
  * permission once, and every change the assistant wants to save is shown for confirmation, with
  * an undo afterwards.
  */
@@ -59,6 +64,11 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
   const [actions, setActions] = useState<AgentAction[]>([]);
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
+  const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [canDictate, setCanDictate] = useState(false);
+  const [listening, setListening] = useState(false);
+  /** The text typed before the microphone was tapped; dictation goes after it. */
+  const typedRef = useRef("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; retry: boolean; kind: string | null; detail?: string } | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
@@ -67,6 +77,13 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
   const endRef = useRef<HTMLDivElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void dictation.available().then(setCanDictate);
+    // Leaving the tab stops the microphone.
+    return () => void dictation.stop();
+  }, []);
 
   // The engine asks through these and waits for the owner's tap.
   const ask = (p: Omit<Extract<Pending, { kind: "consent" }>, "resolve"> | Omit<Extract<Pending, { kind: "confirm" }>, "resolve">) =>
@@ -104,18 +121,53 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
     endRef.current?.scrollIntoView({ block: "end" });
   }, [bubbles, busy, pending]);
 
-  async function addPhotos(files: FileList | null) {
+  async function addPhotos(picked: FileList | null) {
     setPickMenu(false);
-    if (!files?.length) return;
+    if (!picked?.length) return;
     try {
       const room = MAX_IMAGES_PER_MESSAGE - photos.length;
       if (room <= 0) throw new Error(`At most ${MAX_IMAGES_PER_MESSAGE} photos per message`);
-      const added = await Promise.all([...files].slice(0, room).map((f) => downscalePhoto(f)));
+      const added = await Promise.all([...picked].slice(0, room).map((f) => downscalePhoto(f)));
       setPhotos((p) => [...p, ...added]);
-      setMsg(files.length > room ? { kind: "error", text: `Only ${MAX_IMAGES_PER_MESSAGE} photos fit in one message.` } : null);
+      setMsg(picked.length > room ? { kind: "error", text: `Only ${MAX_IMAGES_PER_MESSAGE} photos fit in one message.` } : null);
     } catch (err) {
       setMsg(failed(err, "chat.photo"));
     }
+  }
+
+  async function addFiles(list: FileList | null) {
+    setPickMenu(false);
+    if (!list?.length) return;
+    try {
+      const room = MAX_FILES_PER_MESSAGE - files.length;
+      if (room <= 0) throw new Error(`At most ${MAX_FILES_PER_MESSAGE} files per message`);
+      const added = await Promise.all([...list].slice(0, room).map(readAttachment));
+      setFiles((f) => [...f, ...added]);
+      setMsg(list.length > room ? { kind: "error", text: `Only ${MAX_FILES_PER_MESSAGE} files fit in one message.` } : null);
+    } catch (err) {
+      setMsg(failed(err, "chat.file"));
+    }
+  }
+
+  async function toggleDictation() {
+    if (listening) {
+      await dictation.stop();
+      setListening(false);
+      return;
+    }
+    typedRef.current = text;
+    setMsg(null);
+    const started = await dictation.start({
+      language: dictationLanguage(navigator.language),
+      onText: (heard) => setText(withDictation(typedRef.current, heard)),
+      onEnd: (code) => {
+        setListening(false);
+        const problem = dictationError(code);
+        if (problem) setMsg({ kind: "error", text: problem });
+      },
+    });
+    if (started) setListening(true);
+    else setMsg({ kind: "error", text: dictationError("permission")! });
   }
 
   /** Runs one turn. Resolves "unsent" when it failed before the question was stored (a permission was declined, bad input). */
@@ -143,18 +195,29 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
 
   async function send(e?: FormEvent) {
     e?.preventDefault();
-    if (!deps || busy || (!text.trim() && !photos.length)) return;
+    if (!deps || busy || (!text.trim() && !photos.length && !files.length)) return;
+    if (listening) {
+      await dictation.stop();
+      setListening(false);
+    }
     const question = text;
     const images = photos.map(attachmentFromPhoto);
+    const sentFiles = files;
     // Show the question right away; the stored copy replaces it when the turn ends.
-    setBubbles((b) => [...b, { id: "sending", role: "user", texts: question.trim() ? [question.trim()] : [], images: photos.map(photoInputUrl) }]);
+    setBubbles((b) => [
+      ...b,
+      { id: "sending", role: "user", texts: question.trim() ? [question.trim()] : [], images: photos.map(photoInputUrl), files: files.map((f) => f.name) },
+    ]);
     const attached = photos;
     setText("");
     setPhotos([]);
-    const outcome = await run(() => (current ? askClaude(deps, current, question, { images }) : startConversation(deps, question, { images })));
+    setFiles([]);
+    const opts = { images, files: sentFiles };
+    const outcome = await run(() => (current ? askClaude(deps, current, question, opts) : startConversation(deps, question, opts)));
     if (outcome === "unsent") {
       setText(question);
       setPhotos(attached);
+      setFiles(sentFiles);
     }
   }
 
@@ -255,7 +318,10 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
       <div className="chat-log" aria-live="polite">
         {bubbles.length === 0 && !busy && (
           <div className="stack tight">
-            <p className="muted small">Ask about your sleep, steps or meals, send a photo of a meal to log it, or start from one of these:</p>
+            <p className="muted small">
+              Ask about your sleep, training or meals (type or dictate), send a photo of a meal to log it, attach a lab report or an export, or start from one
+              of these:
+            </p>
             <div className="chips">
               {QUICK_PROMPTS.map((q) => (
                 <button
@@ -264,7 +330,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
                   className="chip"
                   onClick={() => {
                     setText(q.prompt);
-                    if (q.needs === "claude.photos") setPickMenu(true);
+                    if (q.needs === "claude.photos" || q.needs === "claude.files") setPickMenu(true);
                   }}
                 >
                   {q.label}
@@ -279,6 +345,16 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
               <div className="bubble-photos">
                 {b.images.map((src, i) => (
                   <img key={i} src={src} alt="Attached photo" className="thumb" width={96} height={96} />
+                ))}
+              </div>
+            )}
+            {b.files.length > 0 && (
+              <div className="file-chips">
+                {b.files.map((name, i) => (
+                  <span key={i} className="file-chip">
+                    <Icon name="file" size={16} />
+                    <span>{name}</span>
+                  </span>
                 ))}
               </div>
             )}
@@ -399,6 +475,24 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
             ))}
           </div>
         )}
+        {files.length > 0 && (
+          <div className="file-chips">
+            {files.map((f, i) => (
+              <span key={i} className="file-chip">
+                <Icon name="file" size={16} />
+                <span>{f.name}</span>
+                <button
+                  type="button"
+                  className="remove secondary"
+                  aria-label={`Remove ${f.name}`}
+                  onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {pickMenu && (
           <div className="pick-menu" role="menu">
             <button type="button" role="menuitem" className="secondary" onClick={() => cameraRef.current?.click()}>
@@ -407,26 +501,46 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
             <button type="button" role="menuitem" className="secondary" onClick={() => galleryRef.current?.click()}>
               Attach an image
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="secondary"
+              disabled={files.length >= MAX_FILES_PER_MESSAGE}
+              onClick={() => fileRef.current?.click()}
+            >
+              Attach a file
+            </button>
           </div>
         )}
         <div className="composer-row">
           <button
             type="button"
             className="icon-button secondary"
-            aria-label="Add a photo"
+            aria-label="Add a photo or a file"
             aria-expanded={pickMenu}
-            title="Take a photo or attach an image"
-            disabled={busy || photos.length >= MAX_IMAGES_PER_MESSAGE}
+            title="Take a photo, attach an image or a file"
+            disabled={busy || (photos.length >= MAX_IMAGES_PER_MESSAGE && files.length >= MAX_FILES_PER_MESSAGE)}
             onClick={() => setPickMenu((m) => !m)}
           >
-            <Icon name="camera" size={22} />
+            <Icon name="paperclip" size={22} />
           </button>
           <textarea
             rows={1}
             value={text}
-            placeholder={photos.length ? `Say something about the ${plural(photos.length, "photo")}…` : "Message"}
+            placeholder={
+              listening
+                ? "Listening…"
+                : photos.length
+                  ? `Say something about the ${plural(photos.length, "photo")}…`
+                  : files.length
+                    ? "Ask about the file…"
+                    : "Message"
+            }
             aria-label="Message"
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              typedRef.current = e.target.value;
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
@@ -434,7 +548,20 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
               }
             }}
           />
-          <button type="submit" className="icon-button" aria-label="Send" disabled={busy || (!text.trim() && !photos.length)}>
+          {canDictate && (
+            <button
+              type="button"
+              className={`icon-button secondary${listening ? " listening" : ""}`}
+              aria-label={listening ? "Stop dictation" : "Dictate"}
+              aria-pressed={listening}
+              title={listening ? "Stop dictation" : "Dictate a message"}
+              disabled={busy}
+              onClick={() => void toggleDictation()}
+            >
+              <Icon name={listening ? "stop" : "mic"} size={22} />
+            </button>
+          )}
+          <button type="submit" className="icon-button" aria-label="Send" disabled={busy || (!text.trim() && !photos.length && !files.length)}>
             <Icon name="send" size={22} />
           </button>
         </div>
@@ -453,6 +580,14 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect }: Props
           multiple
           hidden
           onChange={(e) => void addPhotos(e.target.files).then(() => (e.target.value = ""))}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept={FILE_ACCEPT}
+          multiple
+          hidden
+          onChange={(e) => void addFiles(e.target.files).then(() => (e.target.value = ""))}
         />
       </form>
     </section>

@@ -22,7 +22,7 @@ function fakeNative(status: number, body: unknown) {
   };
   return { request, seen };
 }
-const modelInfo = { type: "model", id: CHAT_MODEL, display_name: "Claude Opus 5.5", created_at: "2026-09-01T00:00:00Z" };
+const modelInfo = { type: "model", id: CHAT_MODEL, display_name: "Claude Haiku 5.5", created_at: "2026-09-01T00:00:00Z" };
 const apiError = (type: string, message: string) => ({ type: "error", error: { type, message } });
 
 test("connect verifies the key with a free model lookup over native HTTP, then stores it", async () => {
@@ -48,7 +48,7 @@ test("a key Claude rejects is never saved, with a message safe to show", async (
   const secrets = memorySecretStore();
   const cases: [number, unknown, RegExp][] = [
     [401, apiError("authentication_error", "invalid x-api-key"), /rejected the API key/],
-    [404, apiError("not_found_error", "model not found"), /cannot use claude-opus-5-5/],
+    [404, apiError("not_found_error", "model not found"), /cannot use claude-haiku-5-5/],
     [529, apiError("overloaded_error", "Overloaded"), /overloaded/],
   ];
   for (const [status, body, expected] of cases) {
