@@ -18,9 +18,9 @@ Run them in this order, so one fix does not hide the next problem:
 
 ## Rules you must keep while fixing
 
-- Layers: `app` -> `features` -> `ui`, `platform`, `db` -> `core`; only `src/platform/` imports Capacitor plugins at runtime; `main.tsx` imports only `app/`.
+- Layers: `apps/<target>` -> `screens` -> `domain`, `ui`, `platform` -> `db` -> `core`; a target never imports another; only `src/platform/` imports Capacitor plugins at runtime.
 - Never edit a migration that shipped; never add `console.*` in `src/` (use `createLogger`); logs carry no health values, names, notes, URLs or keys.
-- Keep the start-up path small: no new static import of a lazy screen, the Claude SDK, or full `zod` from the Dashboard's path (`src/app/App.tsx`, `src/features/dashboard/`, `src/features/settings/profile.ts`, `src/features/journal/entries.ts`).
+- Keep the start-up path small: no new static import of a lazy screen, the Claude SDK, or full `zod` from the Dashboard's path (`src/apps/android/App.tsx`, `src/domain/dashboard/`, `src/domain/settings/profile.ts`, `src/domain/journal/entries.ts`).
 - Match the surrounding style: comments explain why, in plain words; no comment noise.
 
 ## Finish

@@ -76,7 +76,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 | `npm test` | every Node test. |
 | `npm run audit` | known vulnerabilities in runtime dependencies (network, so not in `health`). |
 
-**Start-up timings** (`npm run perf:device`, `scripts/perf-device.mjs`): compares two debug builds on the emulator. Build each with `VITE_PERF_SEED=1` (about 42,000 readings, `src/app/perfSeed.ts`) and an `applicationIdSuffix ".perf"` for the debug build type in the generated `android/app/build.gradle`, so it installs next to the normal app. Then `npm run perf:device -- --apk <apk> --label before --out before.json`, the same for the other build, and `npm run perf:device -- --compare before.json after.json`. It reads Android's launch time, first paint, and the app's marks (`even:db-open`, `even:dashboard-ready`, one per step of the database open) through the WebView's DevTools socket.
+**Start-up timings** (`npm run perf:device`, `scripts/perf-device.mjs`): compares two debug builds on the emulator. Build each with `VITE_PERF_SEED=1` (about 42,000 readings, `src/apps/android/perfSeed.ts`) and an `applicationIdSuffix ".perf"` for the debug build type in the generated `android/app/build.gradle`, so it installs next to the normal app. Then `npm run perf:device -- --apk <apk> --label before --out before.json`, the same for the other build, and `npm run perf:device -- --compare before.json after.json`. It reads Android's launch time, first paint, and the app's marks (`even:db-open`, `even:dashboard-ready`, one per step of the database open) through the WebView's DevTools socket.
 
 ## 4. Docker: the standard test and build
 
@@ -119,7 +119,7 @@ It prints check names and counts, never the key or health values; screenshots of
 
 **Galaxy S23 emulator.** The AVD `Galaxy_S23_API_36` copies the Pixel 8 AVD with the S23's screen: 1080 x 2340 at density 420 (the S23's 6.1" panel is about 425 ppi), Android 16 (API 36, One UI 8 on the real phone), 4 GB RAM, host GPU. Its `config.ini` sets `hw.device.name=galaxy_s23`, `hw.lcd.width=1080`, `hw.lcd.height=2340`, `hw.lcd.density=420`, `showDeviceFrame=no`. Start it with the task *Android: start emulator* (name `Galaxy_S23_API_36`) or the emulator extension. It is not Samsung's One UI: Samsung-specific behaviour (battery optimisation, Secure Folder, One UI permission screens) still needs the real phone.
 
-**Edge to edge.** Android 15+ draws the app under the status and navigation bars. With WebView 140 or newer (current phones, updated from the Play Store) Capacitor leaves the bars over the page and reports their size as `env(safe-area-inset-*)` and `--safe-area-inset-*`; with an older WebView it pads the app natively and both read 0. The CSS takes the larger (`--safe-top`, `--safe-bottom` in `src/app/styles.css`). The API 36 emulator image ships WebView 133, so it never shows the edge-to-edge case: the device test reports a 48 px bar itself and measures the header. Found on the real S23 on 27 Oct 2026, where the title ran into the clock.
+**Edge to edge.** Android 15+ draws the app under the status and navigation bars. With WebView 140 or newer (current phones, updated from the Play Store) Capacitor leaves the bars over the page and reports their size as `env(safe-area-inset-*)` and `--safe-area-inset-*`; with an older WebView it pads the app natively and both read 0. The CSS takes the larger (`--safe-top`, `--safe-bottom` in `src/apps/android/styles.css`). The API 36 emulator image ships WebView 133, so it never shows the edge-to-edge case: the device test reports a 48 px bar itself and measures the header. Found on the real S23 on 27 Oct 2026, where the title ran into the clock.
 
 First run (27 Oct 2026, `develop` at the merge of PR #21): 9/9 checks on `Galaxy_S23_API_36`, a real sync of 924 readings. It found that scheduling the 3-day reminder opened Android's *Alarms & reminders* screen after every sync (the notifications plugin asks for exact alarms by default, which Android 14+ does not grant); the reminder now asks for an inexact alarm (`pluginNotification` in `src/core/notifier.ts`) and check 6 guards it.
 
@@ -161,11 +161,13 @@ done
 
 First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.
 
-## 7. iOS
+## 7. iOS (later phase)
 
-iOS builds need macOS with Xcode, so on this Windows PC they run on GitHub's Macs: `.github/workflows/ios.yml` (macOS 15, the runner's default Xcode). It runs on demand (Actions > iOS > Run workflow, once the workflow is on `master`) and on PRs to `develop` or `master` that touch the native side (`package.json`, `capacitor.config.json`, `resources/`, `src/platform/`, the palette, the iOS scripts). The repo is private, so macOS minutes count 10x against the plan's allowance; pure web changes do not trigger it.
+**Paused 28 Oct 2026: iOS is a later phase ([phases.md](phases.md)).** Nothing in CI builds iOS any more, so no PR waits for, or fails on, a Mac. What stays in the repo, dormant: `@capacitor/ios`, `scripts/ios-*.mjs` (with their Node tests), `npm run ios:sync` and `ios:icons`, the Apple Health code and the `apple_health` source. A broken iOS build never blocks a PR in this phase. The notes below describe how it worked, and are the starting point when the phase begins.
 
-The run:
+**Bringing CI back** when the iOS phase starts: restore `.github/workflows/ios.yml` from git history (`git log --diff-filter=D -- .github/workflows/ios.yml`, then `git checkout <commit>^ -- .github/workflows/ios.yml`), restore its test in `tests/ios.test.ts` from the same commit and drop the "no CI workflow builds it" guard, and add `src/apps/ios/` (the build picks it with `EVEN_TARGET=ios`).
+
+Until the pause, iOS builds ran on GitHub's Macs, because they need macOS with Xcode: `.github/workflows/ios.yml` (macOS 15, the runner's default Xcode), on demand and on PRs that touched the native side. The repo is private, so macOS minutes count 10x against the plan's allowance. Each run:
 
 1. builds the web app, generates `ios/` with `npx cap add ios --packagemanager SPM` (Swift Package Manager, no CocoaPods; every plugin ships a `Package.swift`), applies `scripts/ios-harden.mjs` and syncs;
 2. compiles for the simulator (Debug) and for devices (Release, `generic/platform=iOS`, unsigned);

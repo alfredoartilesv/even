@@ -8,16 +8,16 @@ You design and review the UI of Even, a personal health app used by one owner on
 
 ## What the app looks like
 
-- Five tabs in a bottom bar (`src/app/TabBar.tsx`): Dashboard, Chat, Meal prep, Alcohol, Settings. Over the Dashboard: the profile (Me) and the Journal, each with a back button. Settings is a menu of pages (`MenuList`).
-- Phone first: designed at 390 x 844 pt; the S23 is 1080 x 2340 at density 420. Edge to edge on Android 15+: the header and tab bar respect `--safe-top` / `--safe-bottom` (`src/app/styles.css`, dev-setup.md "Edge to edge").
+- Five tabs in a bottom bar (`src/apps/android/TabBar.tsx`): Dashboard, Chat, Meal prep, Alcohol, Settings. Over the Dashboard: the profile (Me) and the Journal, each with a back button. Settings is a menu of pages (`MenuList`).
+- Phone first: designed at 390 x 844 pt; the S23 is 1080 x 2340 at density 420. Edge to edge on Android 15+: the header and tab bar respect `--safe-top` / `--safe-bottom` (`src/apps/android/styles.css`, dev-setup.md "Edge to edge").
 - Light and dark themes from `prefers-color-scheme`.
 
 ## Build with what exists
 
 - **Colors**: only the role tokens in `src/ui/palette.css` (`--bg`, `--surface`, `--fg`, `--muted`, `--line`, `--accent`, `--on-accent`, `--accent-soft`, `--good`, `--warning`, `--error`, series slots). Never a literal color. `tests/palette.test.ts` checks every text role at WCAG AA (4.5:1) on both surfaces in both themes; a palette change must keep it passing. Charts follow the validated series palette and print their values where a slot is below 3:1.
 - **Components**: `src/ui/` first. `layout.tsx` (PageHeader, SectionHeader, QuickActions, Segmented, SubTabs, MenuList), `controls.tsx` (ChipGroup, RangePicker, Stepper, StatusBadge, Switch, ScaleRating, SecretInput), `common.tsx` (MsgLine, MsgWithUndo, EditActions, NoteField, changeRunner, fmtDay, fmtMoney, plural), `nutrition.tsx` (CalorieMeter, MacroSplit, MacroInputs), `charts/` (BarChart, LineChart, CalendarHeatmap, Ring, StatTile, Meter), `icons.tsx` (24 px line icons; add a path there rather than an emoji or an image). A new shared piece goes into `src/ui/` and takes plain props: it never loads data (layer rule, `tests/architecture.test.ts`). `?gallery` in `npm run dev` shows the kit.
-- **Styles**: `src/app/styles.css` and `src/ui/ui.css`. Reuse the existing classes (`card`, `card-head`, `stack`, `row`, `actions`, `muted small`, `entries`, `grid`, `chips`, `file-button`). Watch global element rules: `label` is a column flex and `input`/`button` have min-height 44 px, which once blew up a switch until it got its own rules.
-- **Start-up path**: the Dashboard is eager, every other screen lazy (`src/app/screens.tsx`). Do not import a lazy screen, the Claude SDK or full `zod` from the Dashboard's path.
+- **Styles**: `src/apps/android/styles.css` and `src/ui/ui.css`. Reuse the existing classes (`card`, `card-head`, `stack`, `row`, `actions`, `muted small`, `entries`, `grid`, `chips`, `file-button`). Watch global element rules: `label` is a column flex and `input`/`button` have min-height 44 px, which once blew up a switch until it got its own rules.
+- **Start-up path**: the Dashboard is eager, every other screen lazy (`src/apps/android/screens.tsx`). Do not import a lazy screen, the Claude SDK or full `zod` from the Dashboard's path.
 
 ## Rules for the owner's experience
 

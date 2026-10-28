@@ -4,16 +4,18 @@ Status as of 26 Oct 2026, phase 1, schema version 7. This document describes the
 
 ## 1. Repository layout
 
-The tree follows the three layers in [HLD section 3](HLD.md#3-components): UI, core logic and platform adapters. Logic is grouped by feature; anything shared sits in a layer below.
+The tree follows the three layers in [HLD section 3](HLD.md#3-components): UI, core logic and platform adapters. Everything below `apps/` is shared by every target (Android now, iOS in a later phase, [phases.md](phases.md)); each target keeps only its own shell in `apps/<target>/`. A feature's logic lives in `domain/<name>/` and its screens in `screens/<name>/`, so a target can replace a screen without touching the logic, the schema or the backup format.
 
 ```
 src/
-  main.tsx                         entry: initLogging(), render <App />
-  app/                             UI shell (the composition root)
-    App.tsx                        DB open, stored log level, auto sync, tabs and the pages over the Dashboard
-    TabBar.tsx                     the bottom tab bar (five tabs, icons and labels)
-    logging.ts                     default level (debug in dev, info built), uncaught-error hooks
-    styles.css
+  apps/<target>/                   one shell per target, the composition root; never imports another target
+    android/                       the only target today (EVEN_TARGET in vite.config.ts picks it, default android)
+      main.tsx                     entry: initLogging(), start the DB open, render <App />
+      App.tsx                      DB open, stored log level, auto sync, tabs and the pages over the Dashboard
+      TabBar.tsx                   the bottom tab bar (five tabs, icons and labels)
+      screens.tsx                  every screen but the Dashboard, lazy; preloadScreens
+      logging.ts                   default level (debug in dev, info built), uncaught-error hooks
+      Gallery.tsx, perfSeed.ts     UI kit gallery (dev only), perf build seed
   core/                            pure helpers, no app or platform imports
     log.ts                         createLogger, levels, sinks, redaction, recentLogs ring buffer
     health.ts                      health maths (BMR/TDEE, BMI, macros, alcohol, HR zones, series stats)
@@ -44,19 +46,22 @@ src/
     layout.tsx                     PageHeader, SubTabs, Segmented: the frame every screen uses
     icons.tsx                      Icon: the app's line icons
     ui.css                         kit styles
-  features/<name>/                 logic (*.ts), data access and screens (*.tsx or ui/)
+  domain/<name>/                   shared by every target: logic and SQL per feature, no UI, no platform (runs in Node)
+                                   (the list names each feature's screens too: they sit in screens/<name>/)
     metrics/                       samples, catalog, queries
     dashboard/                     dashboard.ts (spans, per-day figures, totals and averages); DashboardScreen, ProfileButton
     sync/                          runSync, GarminApi + GarminSource, staleness and reminder, Source types
-    food/                          food log, saved meals, photos, calorie goal, suggestions; ui/ TodayView, HistoryView, SavedView (shown in the Meal prep tab)
-    mealprep/                      recipes, batches, stock fold and defrost plan, shopping list, supermarket spending (spending.ts); ui/ Stock, Recipes, Shopping, Spending
-    alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; ui/ AlcoholScreen (the Alcohol tab), AlcoholView
-    journal/                       journal.ts (inserts the chat uses), entries.ts (measurement kinds, add/list/delete/restore, per-day series, day notes saved in place); ui/ JournalScreen
-    chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service, bubbles (what a stored message shows); ui/ ChatScreen
+    food/                          food log, saved meals, photos, calorie goal, suggestions; screens: TodayView, HistoryView, SavedView (shown in the Meal prep tab)
+    mealprep/                      recipes, batches, stock fold and defrost plan, shopping list, supermarket spending (spending.ts); screens: Stock, Recipes, Shopping, Spending
+    alcohol/                       drink types, drink log, totals in kcal and money, weight without alcohol; screens: AlcoholScreen (the Alcohol tab), AlcoholView
+    journal/                       journal.ts (inserts the chat uses), entries.ts (measurement kinds, add/list/delete/restore, per-day series, day notes saved in place); screens: JournalScreen
+    chat/                          engine, read tools, write tools (actions), consent, store, prompt, client, service, bubbles (what a stored message shows); screens: ChatScreen
     backup/                        exportBackup, restoreBackup, BACKUP_TABLES
     settings/                      secrets, log level, profile (owner profile and estimates), data inventory; SettingsScreen with Profile, Connections, Privacy, Debug logs and About pages
     logs/                          LogsScreen (Settings > Debug logs), report.ts (Markdown report for Claude, pure)
-    me/                            MeScreen (the profile, opened from the Dashboard); sports, workouts, goals (progress), goal templates (pure logic); ui/ avatar
+    me/                            MeScreen (the profile, opened from the Dashboard); sports, workouts, goals (progress), goal templates (pure logic); screens: avatar
+  screens/<name>/                  shared screens per feature (*.tsx and their view helpers); styles.css
+                                   a target that diverges keeps its own version in apps/<target>/
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs
 scripts/                           probe, PC sync, PC chat, Drizzle spike, Android hardening
 docs/                              this documentation
@@ -71,10 +76,11 @@ Dependency rules, enforced by `tests/architecture.test.ts`:
 | `db/` | `db/`, `core/` |
 | `platform/` | `platform/`, `db/`, `core/`, Capacitor plugins |
 | `ui/` | `ui/`, `core/` |
-| `features/` | other features, `ui/`, `platform/`, `db/`, `core/` |
-| `app/` | everything |
+| `domain/` | other domain folders, `db/`, `core/` |
+| `screens/` | other screens, `domain/`, `ui/`, `platform/`, `db/`, `core/` |
+| `apps/<target>/` | its own folder and every shared layer, never another target |
 
-On top of that, feature logic (`*.ts` outside a `ui/` folder) never imports a screen and never reaches a Capacitor plugin at runtime, not even through another module (the test follows the import graph; `import type` is allowed). That is what keeps all logic runnable in Node tests and PC scripts. Platform pieces reach the logic as parameters: `new GarminApi({ apiKey, fetch: deviceFetch(...) })`, `chatDeps(db, { secrets, fetch })`.
+On top of that, nothing in `core/`, `db/`, `domain/` or `ui/` reaches a Capacitor plugin at runtime, not even through another module (the test follows the import graph; `import type` is allowed). That is what keeps all logic runnable in Node tests and PC scripts. Platform pieces reach the logic as parameters: `new GarminApi({ apiKey, fetch: deviceFetch(...) })`, `chatDeps(db, { secrets, fetch })`.
 
 ## 2. Core interfaces
 
@@ -87,7 +93,7 @@ interface SqlDriver {
   all<T>(sql: string, params?: SqlValue[]): Promise<T[]>;             // rows as objects keyed by column name
 }
 
-// src/features/sync/types.ts
+// src/domain/sync/types.ts
 interface Source {
   readonly id: string;                                                 // "garmin"
   fetchSince(cursor: string | null): Promise<SyncResult>;
@@ -104,7 +110,7 @@ interface SampleInput {
   valueNum?: number; valueText?: string; unit?: string; raw?: unknown;
 }
 
-// src/features/settings/secrets.ts
+// src/domain/settings/secrets.ts
 interface SecretStore {
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
@@ -168,7 +174,7 @@ Consequences for SQL written for this app: no semicolons inside comments in mult
 
 `classifyMetric(name)` rules, first match wins: `sleep_*` -> sleep/last; `dailyBodyBattery_*` or contains `hrv` -> recovery/last; `stress_*` or contains `stress` -> stress/avg; contains `heartrate` or `pulseOx_*` -> heart/avg; `body_*`, `userMetrics_*` -> body/last; `nutrition_*`, `food_*`, `drink_*` -> nutrition/sum; `daily_*`, `activity_*`, contains `steps` -> activity/sum; otherwise other/avg.
 
-### 3.5 Read helpers (`src/features/metrics/queries.ts`)
+### 3.5 Read helpers (`src/domain/metrics/queries.ts`)
 
 - `latestSampleDay(db)`: `MAX(local_day)` of `health_samples`.
 - `dayValues(db, day)`: `daily_metric_values` left-joined with `metric_catalog`, ordered by pinned, `sort_order`, category, metric. Picks `avg_num` / `sum_num` / `min_num` / `max_num` / `last_num` according to `daily_agg` (default `avg`). Returns label (catalog label or metric name), device, unit, readings and the partial flag.
@@ -181,7 +187,7 @@ Records are `{ ts, level, scope, msg, fields }`. Every record goes to `consoleSi
 
 Fields are sanitised before any sink sees them: keys matching key, token, secret, password, passphrase, authorization, cookie or url become `[redacted]`; errors become `{ name, message }` (validation errors as `path: message` per issue); strings are cut at 200 characters, arrays over 20 items and objects deeper than 2 levels are summarised.
 
-Level in force: `app/logging.ts` sets `debug` in `npm run dev` and `info` in the built app before React renders; once the DB is open, `applyStoredLogLevel` applies `app_settings` key `log.level` if set (changed in Settings, `saveLogLevel`). Tests run with `silent` (`tests/setup.ts`, `LOG_LEVEL=debug npm test` to see them); scripts use `LOG_LEVEL` or `info`.
+Level in force: `apps/android/logging.ts` sets `debug` in `npm run dev` and `info` in the built app before React renders; once the DB is open, `applyStoredLogLevel` applies `app_settings` key `log.level` if set (changed in Settings, `saveLogLevel`). Tests run with `silent` (`tests/setup.ts`, `LOG_LEVEL=debug npm test` to see them); scripts use `LOG_LEVEL` or `info`.
 
 What is logged, by scope:
 
@@ -348,7 +354,7 @@ Prices are in the currency in `app_settings` key `currency` (ISO code, default E
 
 **`account`**: at most one live row, `id = 'owner'` (CHECK). `provider` (`google`), `subject` (Google `sub`, non-empty), `email`, `email_verified` (0/1), `name`, `bound_at_ms`, `last_sign_in_ms`, `signed_in` (0/1, the local session) + Std. No token columns.
 
-Code: `src/features/account/account.ts` (pure) and `service.ts`, platform wrapper `src/platform/googleSignIn.ts`.
+Code: `src/domain/account/account.ts` (pure) and `service.ts`, platform wrapper `src/platform/googleSignIn.ts`.
 
 | Function | Does |
 |---|---|
@@ -374,7 +380,7 @@ Code: `src/features/account/account.ts` (pure) and `service.ts`, platform wrappe
 | `daily_nutrition` | local_day, live food rows | `entries`, `calories`, `protein_g`, `carbs_g`, `fat_g` |
 | `daily_alcohol` | local_day, live drink rows | `drinks`, `volume_ml`, `alcohol_g` = sum(ml x ABV / 100 x 0.789), `calories` (stored, else alcohol_g x 7), `calories_estimated` (rows without a kcal), `price` (sum of known prices), `priced` (rows with a price). Rebuilt in 0006 |
 
-## 5. Garmin source (`src/features/sync/garmin.ts`)
+## 5. Garmin source (`src/domain/sync/garmin.ts`)
 
 Garmin Connect Personal API, read-only, with the owner's personal API key. Replaced the freddy source on 26 Oct 2026 (why: [architecture.md section 4b](architecture.md#4b-decision-26-oct-2026-read-garmin-directly-through-the-garmin-connect-personal-api)).
 
@@ -427,7 +433,7 @@ The catalog for each sync is built from the samples (`catalogFor`, shared with t
 
 `App.tsx` builds `new GarminSource({ api: new GarminApi({ apiKey, fetch: deviceFetch(...) }) })`: the native adapter on the phone, the WebView's `fetch` in the browser build.
 
-## 5b. Garmin export import (`src/features/import/`)
+## 5b. Garmin export import (`src/domain/import/`)
 
 `readGarminZip(bytes)` (fflate `unzipSync` with a filter) unpacks only the files `garminKind(path)` recognises, matched on their tail because some names start with the account email:
 
@@ -443,7 +449,7 @@ The catalog for each sync is built from the samples (`catalogFor`, shared with t
 
 `storeGarminImport(db, parsed)` runs in one transaction: `upsertSamples` (idempotent), `upsertCatalog`, then `GARMIN_DAILY_AGG` defaults (max for training effect, VO2 and max HR/stress, min for min HR and lowest SpO2) only for catalog rows this import created, so the owner's later choices survive a re-import.
 
-## 6. Sync orchestrator (`src/features/sync/runSync.ts`)
+## 6. Sync orchestrator (`src/domain/sync/runSync.ts`)
 
 ```
 runSync(db, source, now):
@@ -467,9 +473,9 @@ If samples were written but a later step failed, the next run rewrites them in p
 
 `lastSync(db, source)` returns the newest run (status, times, count, warnings, error) plus `lastOkMs`, the latest successful finish, so the UI can show "last successful sync" even after a failure.
 
-**When the app syncs** (`src/app/App.tsx`): on launch (after loading the status), with the header sync button on every tab, and when the app comes back to the front (`visibilitychange`) if the last success is more than an hour old (`RESYNC_ON_RESUME_MS`). `runSync` shares one run per source, so these never overlap.
+**When the app syncs** (`src/apps/android/App.tsx`): on launch (after loading the status), with the header sync button on every tab, and when the app comes back to the front (`visibilitychange`) if the last success is more than an hour old (`RESYNC_ON_RESUME_MS`). `runSync` shares one run per source, so these never overlap.
 
-**Staleness and the 3-day reminder** (`src/features/sync/reminder.ts`, pure apart from settings):
+**Staleness and the 3-day reminder** (`src/domain/sync/reminder.ts`, pure apart from settings):
 - `freshness(lastOkMs, now)`: `never`, `fresh`, or `stale` from 3 days (`STALE_AFTER_MS`) after the last success. Stale or a failed last attempt shows `SyncBanner` above every tab and turns the header button amber.
 - `nextReminderAt(lastOkMs, now)`: last success + 3 days, or now + 1 day once that has passed (repeats daily until a sync succeeds). Never synced: now + 3 days.
 - `reminderText`: "No Garmin sync for N days", and that the Garmin key may have expired.
@@ -506,7 +512,7 @@ If samples were written but a later step failed, the next run rewrites them in p
   - *Tiles*: workouts, active time and distance over 30 days, goals met or on track.
   - *Goals*: each live goal with a badge (met, on track, not yet, over, no data), the current value against the target in the owner's units (`fmtGoalValue`: hours for seconds, kg for body weight), a meter for at-least goals, and for day goals the last 7 days met and the streak. Delete asks once more (soft delete). *New goal*: a template (steps a day, sleep a night, protein a day, alcohol limit a week, target weight) with one number, or a free-text goal.
   - *Activities*: range chips (30 days, 1 year, all); totals per sport (sessions, time, distance), the owner's sports first; the longest session per sport; the 8 latest workouts (type, day, time, distance, average HR, kcal).
-  - Logic in `features/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbered each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR). A day's sessions come from one source, in the order of `daily_metric_values`: the Garmin sync, then freddy, then the export. Start times come from the sync and the export (freddy rows start at midnight). `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
+  - Logic in `domain/me/`. `listWorkouts` groups `activity_*` samples by (source, external_id): one session each. freddy numbered each metric per day, so only metrics every session has are read (type, duration, distance, kcal, average HR). A day's sessions come from one source, in the order of `daily_metric_values`: the Garmin sync, then freddy, then the export. Start times come from the sync and the export (freddy rows start at midnight). `goalProgress` reads a goal's daily numbers (`daily_metric_values` by `daily_agg`, `daily_nutrition`, `daily_alcohol`, or the day's last manual measurement) and `evaluate` (pure) compares them: day goals per day with the last 7 days and a streak (today only extends it once met); week (Monday start) and month goals on the period so far, amounts summed, levels averaged, manual measurements by the latest. A summed amount under a limit is "on track" until the period ends.
 - **LogsScreen** (Settings > Debug logs): counts with error and warning badges; *Export for Claude* writes `logReport` (a brief, the context: platform, build, time zone, level, span, counts and the scopes with problems; errors and warnings; then every record oldest first, fenced so no record can close the block) to `health-logs-<local date>-<hhmm>.md`, through the share sheet on the phone (pick the Claude app) or as a download; *Share as text* / *Copy as text* sends the same report; *Clear* asks once more and logs how many records it removed. Level picker (stored) and a display filter; the list follows new records every 2 s. Logs stay in memory, so the screen says to export before closing the app. The same screen sits under the message when the database cannot open (no tabs then); the level change applies to that run only.
 - **ChatScreen** (Chat tab): not connected shows a card that opens Settings > Connections. Otherwise History (conversations, newest first, delete) and New; the conversation as bubbles (text and photos; tool calls, thinking and the `[App]` clock line are hidden); quick prompts when empty. The composer: a camera button that offers *Take a photo* (`capture="environment"`) or *Attach an image* (gallery, several), up to `MAX_IMAGES_PER_MESSAGE`, each through `downscalePhoto` with a preview and remove; Enter sends, Shift+Enter breaks the line. `askConsent` and `confirmAction` show an inline card and wait for the tap. Retryable API errors offer *Try again* (`continueConversation`); a send that failed before anything was stored (permission declined) puts the text and photos back. *Changes in this chat* lists `listAgentActions` with Undo for applied ones.
 - **SettingsScreen**: a menu (`MenuList`, `SETTINGS_MENU`) in three groups, *You* (Profile), *Data* (Connections, Privacy & data) and *App* (Debug logs, About), each row with an icon and what is inside; a page opens with a back button to the menu. The page is owned by `App`. Messages are shown inline; nothing throws to React.
@@ -626,7 +632,7 @@ Known failure: a backup with a live `day_notes` row for a day that already has a
 
 The chat is an agent: it reads the owner's data through local tools and, after the owner confirms each change, writes through the same functions the screens use (`food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`).
 
-Files: `src/features/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (photo checks), `files.ts` (PDF and text file checks, document blocks), `context.ts` (the opening data snapshot), `dictation.ts` (dictation text and errors), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring), `ui/ChatScreen.tsx` (the Chat tab), `ui/attach.ts` (reads a picked file). Dictation itself is `src/platform/speech.ts`.
+Files: `src/domain/chat/engine.ts` (loop), `tools.ts` (read tools), `actions.ts` (write tools, action log, undo), `consent.ts`, `store.ts`, `prompt.ts` (system prompt, quick prompts), `images.ts` (photo checks), `files.ts` (PDF and text file checks, document blocks), `context.ts` (the opening data snapshot), `dictation.ts` (dictation text and errors), `client.ts` (SDK, key verifier), `connect.ts` (Connect Claude flow), `service.ts` (phone wiring), `ui/ChatScreen.tsx` (the Chat tab), `ui/attach.ts` (reads a picked file). Dictation itself is `src/platform/speech.ts`.
 
 **Connecting.** There is no "Sign in with Claude" for a third-party Android app (architecture.md section 5), so the connect screen follows `CONNECT_STEPS`: open `CLAUDE_KEYS_URL` in the browser, create a personal key with an expiration, paste it. `connectClaude` checks its shape, verifies it with `claudeKeyVerifier` (`GET /v1/models/claude-haiku-5-5` over the same native fetch as the chat: free, proves the key works and its workspace can use the model), and only then saves it. 401 → "rejected the API key", 404 → "workspace cannot use claude-haiku-5-5", other errors as in 9b.6. `chatDeps` wraps the Messages call in `watchConnection`, so a 401/403 during chat sets `claude.problem` (status `needs_attention`, the screen asks to reconnect) and the next successful reply clears it.
 
@@ -733,7 +739,7 @@ Rules this keeps:
 | `grocery_spending` | aggregate | from, to | Currency, total, trips and per supermarket total and trips (`spending` in `mealprep/spending.ts`) |
 | `alcohol_impact` | aggregate | from, to | Drinks, drinking days, alcohol g, standard drinks, kcal (and how many estimated), kcal per calendar day, money (and how many priced), currency, latest weight, kg from alcohol, expected weight without alcohol |
 
-A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/features/metrics/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
+A day's value always follows `metric_catalog.daily_agg` (`dailySeries` in `src/domain/metrics/queries.ts`), so two weigh-ins on one day count once. Dates are `YYYY-MM-DD`; ranges up to 3660 days; numbers rounded to 2 decimals.
 
 ### 9b.5 Consent and disclosures
 
@@ -897,9 +903,9 @@ Not covered by automated tests: the React screens (the UI kit's components are, 
 3. Call `runSync(db, newSource)` from the shell.
 
 **Add a feature**
-1. Create `src/features/<name>/` with the logic and SQL in `*.ts` (typed rows, writes in `withTransaction`) and tests against `migratedDb()`.
+1. Create `src/domain/<name>/` with the logic and SQL in `*.ts` (typed rows, writes in `withTransaction`) and tests against `migratedDb()`.
 2. Give it a logger, `createLogger("<name>")`, and log each write and refusal by id, kind and count (section 3.6). Never log the values.
-3. Put screens in `src/features/<name>/ui/` (or `*.tsx` next to the logic). Keep them thin, take `db` as a prop, and report errors with `failed(err, "<name>")`.
+3. Put screens in `src/domain/<name>/ui/` (or `*.tsx` next to the logic). Keep them thin, take `db` as a prop, and report errors with `failed(err, "<name>")`.
 4. Anything that needs the phone goes in `src/platform/` and reaches the logic as a parameter. `npm test` runs the architecture checks.
 
 ## 15. Known limitations

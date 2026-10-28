@@ -95,30 +95,30 @@ flowchart TB
 
 | Component | Responsibility | Main files |
 |---|---|---|
-| App shell | Opens the DB, runs migrations, triggers sync on launch, the five tabs in a bottom bar (Dashboard, Chat, Meal prep, Alcohol, Settings) | `src/app/App.tsx`, `src/app/TabBar.tsx`, `src/platform/openDatabase.ts` |
-| Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance and protein; the check-in and latest weight; energy, workouts and meal prep as the day's numbers or daily averages and totals; charts per day; every synced number of a day | `src/features/dashboard/` |
-| Journal (from the Dashboard) | Daily check-in (mood and energy 1 to 5, a note) with 30 days of history and a trend; manual measurements (weight, body fat, waist, blood pressure, resting heart rate, glucose, supplements, symptoms) with a trend per kind | `src/features/journal/` |
-| Chat tab | Conversations with Claude: typed or dictated messages, camera or gallery photos, PDF and text files, quick prompts, consent and change confirmation in line, changes with undo, history | `src/features/chat/ui/ChatScreen.tsx` |
-| Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list, supermarket spending per month and per supermarket) | `src/features/mealprep/ui/`, `src/features/food/ui/` |
+| App shell | Opens the DB, runs migrations, triggers sync on launch, the five tabs in a bottom bar (Dashboard, Chat, Meal prep, Alcohol, Settings) | `src/apps/android/App.tsx`, `src/apps/android/TabBar.tsx`, `src/platform/openDatabase.ts` |
+| Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance and protein; the check-in and latest weight; energy, workouts and meal prep as the day's numbers or daily averages and totals; charts per day; every synced number of a day | `src/domain/dashboard/` |
+| Journal (from the Dashboard) | Daily check-in (mood and energy 1 to 5, a note) with 30 days of history and a trend; manual measurements (weight, body fat, waist, blood pressure, resting heart rate, glucose, supplements, symptoms) with a trend per kind | `src/domain/journal/` |
+| Chat tab | Conversations with Claude: typed or dictated messages, camera or gallery photos, PDF and text files, quick prompts, consent and change confirmation in line, changes with undo, history | `src/screens/chat/ChatScreen.tsx` |
+| Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list, supermarket spending per month and per supermarket) | `src/screens/mealprep/`, `src/screens/food/` |
 | UI kit and palette | Shared components (charts, figures, controls, `PageHeader`, `SubTabs`, `Segmented`, `Icon`) and the one color palette (`palette.css`), checked by tests. Screens: `docs/screens/index.html` | `src/ui/` |
-| Alcohol tab | One-tap drink logging first, then drinks per period, their kcal and cost, weight without alcohol | `src/features/alcohol/ui/` |
-| Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: a card each for the Garmin sync (key, reminder), the Garmin history import (the export ZIP, read on the phone) and Claude. *Privacy & data*: Claude consents as switches, what was sent, what is stored, backup (with its age) and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/features/settings/` |
-| Profile (from the Dashboard) | past activity imported and synced, picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/features/me/` |
-| Debug logs (Settings) | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/features/logs/` |
-| Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/features/sync/runSync.ts` |
-| GarminSource | Decides the date window (30 days on the first sync, then from the cursor), reads each endpoint in 28-day chunks, maps the JSON to samples with the export's metric names | `src/features/sync/garmin.ts` |
-| Garmin API client | Trades the personal API key for a token (cached, renewed before expiry or on a 401), GETs JSON, no secrets in errors | `src/features/sync/garmin.ts` (`GarminApi`) |
+| Alcohol tab | One-tap drink logging first, then drinks per period, their kcal and cost, weight without alcohol | `src/screens/alcohol/` |
+| Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: a card each for the Garmin sync (key, reminder), the Garmin history import (the export ZIP, read on the phone) and Claude. *Privacy & data*: Claude consents as switches, what was sent, what is stored, backup (with its age) and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/domain/settings/` |
+| Profile (from the Dashboard) | past activity imported and synced, picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/domain/me/` |
+| Debug logs (Settings) | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/domain/logs/` |
+| Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/domain/sync/runSync.ts` |
+| GarminSource | Decides the date window (30 days on the first sync, then from the cursor), reads each endpoint in 28-day chunks, maps the JSON to samples with the export's metric names | `src/domain/sync/garmin.ts` |
+| Garmin API client | Trades the personal API key for a token (cached, renewed before expiry or on a 401), GETs JSON, no secrets in errors | `src/domain/sync/garmin.ts` (`GarminApi`) |
 | Native HTTP adapter | `fetch` look-alike over `CapacitorHttp` | `src/platform/nativeFetch.ts` |
-| Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, spending, journal. Shared: settings, transactions | `src/features/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
+| Data access | Per feature: samples, catalog, day queries, food, meal prep, shopping, spending, journal. Shared: settings, transactions | `src/domain/*/*.ts`, `src/db/settings.ts`, `src/db/tx.ts` |
 | Migration runner | Applies numbered SQL files, versioned in `PRAGMA user_version` | `src/db/migrate.ts`, `src/db/migrations/` |
-| Logging | Scoped, levelled logger; console and an in-memory buffer; secrets redacted; level stored in settings | `src/core/log.ts`, `src/app/logging.ts`, `src/features/settings/logLevel.ts` |
+| Logging | Scoped, levelled logger; console and an in-memory buffer; secrets redacted; level stored in settings | `src/core/log.ts`, `src/apps/android/logging.ts`, `src/domain/settings/logLevel.ts` |
 | SqlDriver (Capacitor) | Adapts the SQLite plugin to a 3-method interface and hides its quirks | `src/platform/sqlite.ts` |
-| Backup | Export every table to an encrypted file; restore by merging | `src/features/backup/` |
-| Secrets | Garmin personal API key, Claude API key (old freddy URL and key are deleted on start) | `src/features/settings/` |
-| Alcohol counter | Drink types with price and kcal, drink log, totals in kcal and money, expected weight without alcohol | `src/features/alcohol/` |
-| Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/features/chat/` |
+| Backup | Export every table to an encrypted file; restore by merging | `src/domain/backup/` |
+| Secrets | Garmin personal API key, Claude API key (old freddy URL and key are deleted on start) | `src/domain/settings/` |
+| Alcohol counter | Drink types with price and kcal, drink log, totals in kcal and money, expected weight without alcohol | `src/domain/alcohol/` |
+| Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/domain/chat/` |
 
-**Code layout:** `app/` (shell), `features/<name>/` (logic, data access and screens per feature), `ui/`, `platform/` (every Capacitor adapter), `db/`, `core/` (pure helpers). See [LLD section 1](LLD.md#1-repository-layout) and the rules in [architecture.md section 3](architecture.md#3-rules-the-code-must-keep).
+**Code layout:** `apps/<target>/` (one shell per platform), `screens/<name>/` (shared screens), `domain/<name>/` (logic and data access per feature, shared by every target), `ui/`, `platform/` (every Capacitor adapter), `db/`, `core/` (pure helpers). See [LLD section 1](LLD.md#1-repository-layout) and the rules in [architecture.md section 3](architecture.md#3-rules-the-code-must-keep).
 
 **Design principle:** everything in "Core" depends only on interfaces (`SqlDriver`, `Source`, `SecretStore`, a `fetch` function). Only the platform adapters import Capacitor. That is why the whole core runs in Node tests and in PC scripts (`scripts/garmin-sync.ts`) without a phone.
 
@@ -259,7 +259,7 @@ Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hand
 | Android (S23) | `npm run android:sync` (build, `cap sync`, hardening script), then `gradlew assembleDebug` or the VS Code tasks; or `npm run docker:apk` (pinned toolchain, also in CI). `npm run test:device` checks the installed build | Passes on a Galaxy S23-shaped Android 16 emulator (27 Oct 2026); not yet on the phone |
 | CI | `.github/workflows/ci.yml`: the Docker test stage on every PR (no APK) | Added 27 Oct 2026 |
 | Release | `.github/workflows/release.yml` on a push to `master` (merging `develop`): signed release APK in Docker, checked (`scripts/release-check.mjs`), installed and launched on an emulator, then tag `v<version>` and a GitHub release with the APK. Release key outside the repo, in GitHub secrets for CI (dev-setup.md section 6) | Added 27 Oct 2026 |
-| iOS (iPhone 14) | Same code; built and run in the iOS Simulator on GitHub macOS runners (`ios.yml`, dev-setup section 7). Device install needs an Apple Developer account | Simulator build, 27 Oct 2026 |
+| iOS (iPhone 14) | Later phase ([phases.md](phases.md)): the shared layers already serve it, its shell will be `src/apps/ios/`. CI no longer builds it (dev-setup section 7). Device install needs an Apple Developer account | Paused 28 Oct 2026 (simulator build worked 27 Oct) |
 | Browser | `npm run dev`, UI only, no database | Development aid |
 | PC scripts | `scripts/garmin-sync.ts` (`npm run sync:garmin`: real Garmin Personal API -> SQLite file), `scripts/garmin-probe.ts` (which endpoints the key can read, field names only), `scripts/garmin-import.ts` (Garmin account export -> encrypted backup to restore on the phone) | In use |
 

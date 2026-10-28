@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 import {
@@ -17,7 +17,8 @@ import { checkBundle, checkLog, pickDevice } from "../scripts/ios-sim.mjs";
 import { readPalette } from "../scripts/palette.mjs";
 
 // iOS: the patches to the generated Xcode project, the icon and launch images, the simulator
-// check's own logic, and the workflow that builds and runs it on a Mac.
+// check's own logic. iOS is a later phase (docs/phases.md): these run locally, and no CI workflow
+// builds iOS until that phase starts.
 const root = join(import.meta.dirname, "..");
 const read = (f: string) => readFileSync(join(root, f), "utf8").replace(/\r\n/g, "\n");
 
@@ -161,21 +162,11 @@ test("the simulator check reads the app's log", () => {
   assert.match(checkLog([start, secret, err, sync].join("\n"), { firstLaunch: true }).join(), /database open failed/);
 });
 
-test("iOS workflow: on a Mac, on demand and on native-side PRs, compiles both ways and runs the simulator", () => {
-  const wf = read(".github/workflows/ios.yml");
-  assert.match(wf, /runs-on: macos-/);
-  assert.match(wf, /workflow_dispatch:/);
-  assert.match(wf, /pull_request:[\s\S]*paths:/, "only PRs that touch the native side");
-  assert.doesNotMatch(wf, /^\s*push:/m, "macOS minutes are expensive: no run on every push");
-  assert.match(wf, /cap add ios --packagemanager SPM/);
-  assert.match(wf, /node scripts\/ios-harden\.mjs/);
-  assert.match(wf, /generic\/platform=iOS Simulator/);
-  assert.match(wf, /generic\/platform=iOS'/);
-  assert.match(wf, /iOS Simulator' -derivedDataPath build\/ios\s+CODE_SIGN_IDENTITY=-/, "simulator build ad-hoc signed: unsigned apps get no Keychain");
-  assert.match(wf, /generic\/platform=iOS' -derivedDataPath build\/ios\s+CODE_SIGNING_ALLOWED=NO/, "device build unsigned (no Apple account)");
-  assert.match(wf, /node scripts\/ios-sim\.mjs --app build\/ios\/Build\/Products\/Debug-iphonesimulator\/App\.app/);
-  assert.match(wf, /upload-artifact/);
-  assert.doesNotMatch(wf, /secrets\./, "no signing secrets: nothing here is signed");
+test("iOS waits for its phase: no CI workflow builds it or runs on a Mac", () => {
+  for (const f of readdirSync(join(root, ".github/workflows"))) {
+    const wf = read(join(".github/workflows", f));
+    assert.doesNotMatch(wf, /runs-on: macos-|cap (add|sync) ios|xcodebuild/, f);
+  }
 });
 
 test("package.json: the iOS platform and its scripts; ios/ stays generated", () => {

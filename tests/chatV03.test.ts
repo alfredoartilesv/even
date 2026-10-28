@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type Anthropic from "@anthropic-ai/sdk";
-import { toBubble } from "../src/features/chat/bubbles";
-import { recordConsent, type ConsentScope } from "../src/features/chat/consent";
-import { CONTEXT_TOOLS, contextSnapshot } from "../src/features/chat/context";
-import { dictationError, dictationLanguage, withDictation } from "../src/features/chat/dictation";
+import { toBubble } from "../src/domain/chat/bubbles";
+import { recordConsent, type ConsentScope } from "../src/domain/chat/consent";
+import { CONTEXT_TOOLS, contextSnapshot } from "../src/domain/chat/context";
+import { dictationError, dictationLanguage, withDictation } from "../src/domain/chat/dictation";
 import {
   askClaude,
   CHAT_MODEL,
@@ -14,24 +14,16 @@ import {
   startConversation,
   type ChatDeps,
   type ClaudeCreate,
-} from "../src/features/chat/engine";
-import {
-  cleanFileName,
-  fileKind,
-  MAX_FILES_PER_MESSAGE,
-  MAX_TEXT_CHARS,
-  toFileAttachment,
-  validateFiles,
-  type FileAttachment,
-} from "../src/features/chat/files";
-import { listDisclosures, loadMessages } from "../src/features/chat/store";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
+} from "../src/domain/chat/engine";
+import { cleanFileName, fileKind, MAX_FILES_PER_MESSAGE, MAX_TEXT_CHARS, toFileAttachment, validateFiles, type FileAttachment } from "../src/domain/chat/files";
+import { listDisclosures, loadMessages } from "../src/domain/chat/store";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
 import { localDayStart } from "../src/core/tz";
-import { saveProfile } from "../src/features/settings/profile";
-import { addTrip } from "../src/features/mealprep/spending";
-import { upsertSamples } from "../src/features/metrics/samples";
-import type { SampleInput } from "../src/features/sync/types";
-import { listMeasurements } from "../src/features/journal/entries";
+import { saveProfile } from "../src/domain/settings/profile";
+import { addTrip } from "../src/domain/mealprep/spending";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import type { SampleInput } from "../src/domain/sync/types";
+import { listMeasurements } from "../src/domain/journal/entries";
 import { migratedDb } from "./helpers";
 import { addRecognitionQuery } from "../scripts/android-manifest.mjs";
 import { MICROPHONE_USAGE, patchInfoPlist, SPEECH_USAGE } from "../scripts/ios-project.mjs";

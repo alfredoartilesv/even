@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadDashboard } from "../src/features/dashboard/dashboard";
-import { addShoppingItem, listShopping, setShoppingChecked } from "../src/features/mealprep/shopping";
-import { addMonths, addTrip, deleteTrip, knownShops, listTrips, monthlySpending, monthRange, restoreTrip, spending } from "../src/features/mealprep/spending";
+import { loadDashboard } from "../src/domain/dashboard/dashboard";
+import { addShoppingItem, listShopping, setShoppingChecked } from "../src/domain/mealprep/shopping";
+import { addMonths, addTrip, deleteTrip, knownShops, listTrips, monthlySpending, monthRange, restoreTrip, spending } from "../src/domain/mealprep/spending";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

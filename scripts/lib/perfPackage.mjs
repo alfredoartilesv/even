@@ -1,6 +1,6 @@
 /**
  * Timing builds (scripts/perf-device.mjs) seed about 42,000 invented readings on first launch
- * (src/app/perfSeed.ts). They must never land in a real install: an emulator can hold the owner's
+ * (src/apps/android/perfSeed.ts). They must never land in a real install: an emulator can hold the owner's
  * app under app.health.personal, signed with the same debug key, so `adb install -r` would succeed
  * and mix the invented readings into real data and its backups. Timing builds carry an
  * applicationIdSuffix (".perf", ".perf2"); anything else is refused.

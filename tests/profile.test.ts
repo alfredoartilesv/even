@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { bmr, calorieTarget, tdee } from "../src/core/health";
 import { localDay } from "../src/core/tz";
 import { setSetting } from "../src/db/settings";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
-import { upsertSamples } from "../src/features/metrics/samples";
-import { dataInventory } from "../src/features/settings/dataInventory";
-import { EMPTY_PROFILE, estimates, loadProfile, PROFILE_KEY, saveProfile } from "../src/features/settings/profile";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import { dataInventory } from "../src/domain/settings/dataInventory";
+import { EMPTY_PROFILE, estimates, loadProfile, PROFILE_KEY, saveProfile } from "../src/domain/settings/profile";
 import { migratedDb } from "./helpers";
 
 const TODAY = "2026-10-26";

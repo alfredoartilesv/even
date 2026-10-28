@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { latestWeight } from "../src/features/alcohol/alcohol";
-import { loadDashboard } from "../src/features/dashboard/dashboard";
+import { latestWeight } from "../src/domain/alcohol/alcohol";
+import { loadDashboard } from "../src/domain/dashboard/dashboard";
 import {
   addMeasurement,
   deleteDayNote,
@@ -16,8 +16,8 @@ import {
   presetFor,
   restoreMeasurement,
   saveDayNote,
-} from "../src/features/journal/entries";
-import { insertDayNote } from "../src/features/journal/journal";
+} from "../src/domain/journal/entries";
+import { insertDayNote } from "../src/domain/journal/journal";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

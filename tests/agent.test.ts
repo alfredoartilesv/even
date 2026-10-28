@@ -1,17 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type Anthropic from "@anthropic-ai/sdk";
-import { listAgentActions, undoAgentAction, type ActionProposal } from "../src/features/chat/actions";
-import { recordConsent } from "../src/features/chat/consent";
-import { CHAT_MODEL, ConsentRequiredError, startConversation, type ChatDeps, type ClaudeCreate } from "../src/features/chat/engine";
-import { attachmentFromPhoto, MAX_IMAGES_PER_MESSAGE, toAttachment, validateAttachments } from "../src/features/chat/images";
-import { listDisclosures, loadMessages } from "../src/features/chat/store";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
+import { listAgentActions, undoAgentAction, type ActionProposal } from "../src/domain/chat/actions";
+import { recordConsent } from "../src/domain/chat/consent";
+import { CHAT_MODEL, ConsentRequiredError, startConversation, type ChatDeps, type ClaudeCreate } from "../src/domain/chat/engine";
+import { attachmentFromPhoto, MAX_IMAGES_PER_MESSAGE, toAttachment, validateAttachments } from "../src/domain/chat/images";
+import { listDisclosures, loadMessages } from "../src/domain/chat/store";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
 import { capacitorDriver } from "../src/platform/sqlite";
-import { dayFood, listSavedMeals } from "../src/features/food/food";
-import { listMealPreps, loadStock } from "../src/features/mealprep/mealPrep";
+import { dayFood, listSavedMeals } from "../src/domain/food/food";
+import { listMealPreps, loadStock } from "../src/domain/mealprep/mealPrep";
 import { migrate } from "../src/db/migrate";
-import { addShoppingItem, listShopping } from "../src/features/mealprep/shopping";
+import { addShoppingItem, listShopping } from "../src/domain/mealprep/shopping";
 import { fakePlugin } from "./fakePlugin";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 
