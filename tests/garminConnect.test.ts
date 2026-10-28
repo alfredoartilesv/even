@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { GARMIN_SOURCE, KEY_REJECTED } from "../src/features/sync/garmin";
-import { connectGarmin, disconnectGarmin, garminConnection, garminKeyVerifier } from "../src/features/sync/garminConnect";
-import { loadGarminKey, memorySecretStore } from "../src/features/settings/secrets";
+import { GARMIN_SOURCE, KEY_REJECTED } from "../src/domain/sync/garmin";
+import { connectGarmin, disconnectGarmin, garminConnection, garminKeyVerifier } from "../src/domain/sync/garminConnect";
+import { loadGarminKey, memorySecretStore } from "../src/domain/settings/secrets";
 import { SecretInput } from "../src/ui/controls";
 import { migratedDb } from "./helpers";
 

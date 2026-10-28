@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { logDrink } from "../src/features/alcohol/alcohol";
-import { figure, loadDashboard, pinnedAnchor, shiftSpan, spanRange } from "../src/features/dashboard/dashboard";
+import { logDrink } from "../src/domain/alcohol/alcohol";
+import { figure, loadDashboard, pinnedAnchor, shiftSpan, spanRange } from "../src/domain/dashboard/dashboard";
 import { newestOnly } from "../src/core/newest";
-import { logFood, setCalorieGoal } from "../src/features/food/food";
-import { insertGoal } from "../src/features/journal/journal";
-import { upsertCatalog } from "../src/features/metrics/catalog";
-import { upsertSamples } from "../src/features/metrics/samples";
-import { metricDays, metricsDays } from "../src/features/metrics/queries";
-import type { SampleInput } from "../src/features/sync/types";
+import { logFood, setCalorieGoal } from "../src/domain/food/food";
+import { insertGoal } from "../src/domain/journal/journal";
+import { upsertCatalog } from "../src/domain/metrics/catalog";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import { metricDays, metricsDays } from "../src/domain/metrics/queries";
+import type { SampleInput } from "../src/domain/sync/types";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

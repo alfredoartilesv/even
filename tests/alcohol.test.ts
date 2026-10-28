@@ -17,11 +17,11 @@ import {
   servingKcal,
   setCurrency,
   weightWithoutAlcohol,
-} from "../src/features/alcohol/alcohol";
-import { undoAgentAction, listAgentActions } from "../src/features/chat/actions";
-import { recordConsent } from "../src/features/chat/consent";
-import { CHAT_MODEL, startConversation, type ChatDeps, type ClaudeCreate } from "../src/features/chat/engine";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
+} from "../src/domain/alcohol/alcohol";
+import { undoAgentAction, listAgentActions } from "../src/domain/chat/actions";
+import { recordConsent } from "../src/domain/chat/consent";
+import { CHAT_MODEL, startConversation, type ChatDeps, type ClaudeCreate } from "../src/domain/chat/engine";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 
 const TZ = "Europe/Madrid";

@@ -5,7 +5,7 @@ import { daysCovered, timelineDays, type PlanLike } from "./timeline";
 
 /**
  * Meal prep, drawn: what is in stock, how long it lasts, what to take out of the freezer when,
- * and what needs eating. Plain props in, callbacks out; the screen in features/mealprep loads
+ * and what needs eating. Plain props in, callbacks out; the screen in screens/mealprep loads
  * the data.
  */
 

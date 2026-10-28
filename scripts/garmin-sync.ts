@@ -9,8 +9,8 @@
  */
 import { diskMigrations, nodeDb } from "./lib/nodeDb";
 import { migrate } from "../src/db/migrate";
-import { loadCursor, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
-import { GarminApi, GarminSource } from "../src/features/sync/garmin";
+import { loadCursor, saveSyncState, upsertSamples } from "../src/domain/metrics/samples";
+import { GarminApi, GarminSource } from "../src/domain/sync/garmin";
 import { setLogLevel } from "../src/core/log";
 
 // Library logs go to stderr-ish console lines; LOG_LEVEL=debug for the detail.

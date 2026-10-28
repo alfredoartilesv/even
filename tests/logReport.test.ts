@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { configureLogging, consoleSink, createLogger, recentLogs, ringBuffer, setLogLevel, type LogRecord } from "../src/core/log";
-import { logReport, reportFileName } from "../src/features/logs/report";
+import { logReport, reportFileName } from "../src/domain/logs/report";
 
 const ctx = { platform: "android", build: "production", timeZone: "Europe/Madrid", level: "info" as const, nowMs: Date.UTC(2026, 9, 26, 6, 13) };
 const rec = (ts: number, level: LogRecord["level"], scope: string, msg: string, fields?: LogRecord["fields"]): LogRecord => ({

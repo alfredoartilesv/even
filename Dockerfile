@@ -43,7 +43,7 @@ CMD ["node", "--import", "tsx", "server/node.ts"]
 FROM deps AS web
 COPY . .
 # vite preview bundles its config into node_modules/.vite-temp at start; the image runs as node, so that one folder is node's.
-RUN npx vite build && mkdir -p node_modules/.vite-temp && chown node:node node_modules/.vite-temp
+RUN npx vite build --mode web && mkdir -p node_modules/.vite-temp && chown node:node node_modules/.vite-temp
 USER node
 EXPOSE 4173
 CMD ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]

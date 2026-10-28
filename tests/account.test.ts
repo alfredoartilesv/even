@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applySignIn, getOwner, parseGoogleIdToken, releaseOwnership, signOut, type GoogleIdentity } from "../src/features/account/account";
-import { signInWithGoogle, signOutOfGoogle } from "../src/features/account/service";
-import { exportBackup, restoreBackup } from "../src/features/backup/backup";
+import { applySignIn, getOwner, parseGoogleIdToken, releaseOwnership, signOut, type GoogleIdentity } from "../src/domain/account/account";
+import { signInWithGoogle, signOutOfGoogle } from "../src/domain/account/service";
+import { exportBackup, restoreBackup } from "../src/domain/backup/backup";
 import { migratedDb } from "./helpers";
 
 const CLIENT = "123-web.apps.googleusercontent.com";

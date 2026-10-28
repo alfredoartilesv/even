@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { configureLogging, consoleSink, getLogLevel, recentLogs, setLogLevel, type LogRecord } from "../src/core/log";
 import { memorySecretStore } from "../src/core/secretStore";
 import { withTransaction } from "../src/db/tx";
-import { exportBackup } from "../src/features/backup/backup";
-import { logFood, saveEntryAsMeal, setCalorieGoal } from "../src/features/food/food";
-import { addMove, DEFAULT_MEAL_PREP, logBatch, saveMealPrep } from "../src/features/mealprep/mealPrep";
-import { applyStoredLogLevel, loadLogLevel, saveLogLevel } from "../src/features/settings/logLevel";
-import { saveClaudeKey, saveGarminKey } from "../src/features/settings/secrets";
+import { exportBackup } from "../src/domain/backup/backup";
+import { logFood, saveEntryAsMeal, setCalorieGoal } from "../src/domain/food/food";
+import { addMove, DEFAULT_MEAL_PREP, logBatch, saveMealPrep } from "../src/domain/mealprep/mealPrep";
+import { applyStoredLogLevel, loadLogLevel, saveLogLevel } from "../src/domain/settings/logLevel";
+import { saveClaudeKey, saveGarminKey } from "../src/domain/settings/secrets";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

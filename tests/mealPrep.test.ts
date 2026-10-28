@@ -15,7 +15,7 @@ import {
   saveMealPrep,
   setPortionsPerDay,
   undoMove,
-} from "../src/features/mealprep/mealPrep";
+} from "../src/domain/mealprep/mealPrep";
 import {
   addRecipesToShopping,
   addShoppingItem,
@@ -25,7 +25,7 @@ import {
   listShopping,
   normalizeUnit,
   setShoppingChecked,
-} from "../src/features/mealprep/shopping";
+} from "../src/domain/mealprep/shopping";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

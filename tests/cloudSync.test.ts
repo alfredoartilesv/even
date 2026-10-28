@@ -1,11 +1,11 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { SYNC_PAGE, type SyncRow } from "../src/core/syncWire";
-import { bySize, cloudSync, pendingPush, SYNC_TABLES } from "../src/features/cloudsync/cloudSync";
-import { open, rowKey, seal, syncKeys } from "../src/features/cloudsync/seal";
-import { fromHex, newAdk } from "../src/features/cloudsync/keys";
-import { syncApi, transportOf } from "../src/features/cloudsync/api";
-import { BACKUP_TABLES, exportBackup } from "../src/features/backup/backup";
+import { bySize, cloudSync, pendingPush, SYNC_TABLES } from "../src/domain/cloudsync/cloudSync";
+import { open, rowKey, seal, syncKeys } from "../src/domain/cloudsync/seal";
+import { fromHex, newAdk } from "../src/domain/cloudsync/keys";
+import { syncApi, transportOf } from "../src/domain/cloudsync/api";
+import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
 import { addFood, byPassphrase, firstPhone, foods, roundTrip, type Phone } from "../scripts/lib/syncScenario";
 import { testServer } from "./serverHelpers";

@@ -10,7 +10,7 @@ import {
   saveClaudeKey,
   saveGarminKey,
   SECRET_KEYS,
-} from "../src/features/settings/secrets";
+} from "../src/domain/settings/secrets";
 
 test("Garmin personal API key: shape check, trim, store, clear", async () => {
   const store = memorySecretStore();

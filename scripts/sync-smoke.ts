@@ -10,7 +10,7 @@
  */
 import { accountStore } from "../server/accounts";
 import { postgresJs } from "../server/pg";
-import { deleteAccount } from "../src/features/cloudsync/session";
+import { deleteAccount } from "../src/domain/cloudsync/session";
 import { memorySecretStore } from "../src/core/secretStore";
 import { byPairing, byPassphrase, firstPhone, roundTrip, type Phone } from "./lib/syncScenario";
 

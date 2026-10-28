@@ -15,7 +15,7 @@
  * - tabs: a second after the Dashboard, tapping each tab until its title is on screen and painted,
  *   first visit and second.
  * Medians over the runs. Build with VITE_PERF_SEED=1 so the database holds about a real phone's
- * data (src/app/perfSeed.ts); the first launch after install seeds it and is not counted.
+ * data (src/shell/perfSeed.ts); the first launch after install seeds it and is not counted.
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
