@@ -234,3 +234,13 @@ export interface ServiceHealth {
   bytes: number;
   openInvites: number;
 }
+
+/** One sign-in of Claude (or another MCP client) as an admin: an access token and its refresh token. */
+export interface McpGrant {
+  id: string;
+  clientId: string;
+  clientName: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+  accessExpiresAt: number;
+}

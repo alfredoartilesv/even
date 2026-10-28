@@ -4,6 +4,7 @@ import type {
   AdminDevice,
   AdminInvite,
   AuditEntry,
+  McpGrant,
   ServiceHealth,
   DeviceKind,
   Friend,
@@ -119,6 +120,8 @@ export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch
       revokeDevice: (accountId: string, deviceId: string) =>
         call<{ ok: true }>("DELETE", `/v1/admin/accounts/${encodeURIComponent(accountId)}/devices/${encodeURIComponent(deviceId)}`),
       audit: () => call<AuditEntry[]>("GET", "/v1/admin/audit"),
+      mcpGrants: () => call<McpGrant[]>("GET", "/v1/admin/mcp-grants"),
+      revokeMcpGrant: (id: string) => call<{ ok: true }>("DELETE", `/v1/admin/mcp-grants/${encodeURIComponent(id)}`),
     },
   };
 }

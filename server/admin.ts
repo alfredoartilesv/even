@@ -38,6 +38,10 @@ export function adminStore(pg: Pg, opts: { build?: string } = {}) {
   }
 
   return {
+    /** An audit entry for an action taken elsewhere (connecting Claude, revoking its access). */
+    record: (actor: Actor, action: string, target: string | null, detail: Record<string, string | number | boolean> | null, nowMs = Date.now()) =>
+      audit(actor, action, target, detail, nowMs),
+
     /** Whether this account may use the admin endpoints: an admin, not suspended. */
     async isAdmin(accountId: string): Promise<boolean> {
       const [a] = await pg.query<{ ok: boolean }>("SELECT (is_admin AND suspended_at IS NULL) AS ok FROM accounts WHERE id = $1", [accountId]);

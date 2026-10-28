@@ -141,8 +141,11 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
       return { salt: fake, iterations: RECOVERY_ITERATIONS };
     },
 
-    async recoveryFinish(email: string, verifier: string, device: { name: string; kind: DeviceKind }, ip: string, nowMs = Date.now()): Promise<Joined> {
-      // Per email and per address: guessing a passphrase online is slow; offline needs the database.
+    /**
+     * The account whose passphrase proof this is, rate limited per email and per address: guessing a
+     * passphrase online is slow; offline needs the database. Passphrase sign-in and the MCP login use it.
+     */
+    async verifyPassphrase(email: string, verifier: string, ip: string, nowMs = Date.now()): Promise<string> {
       await limit(`recovery:${email}`, 5, 3_600_000, nowMs);
       await limit(`recovery-ip:${ip}`, 20, 3_600_000, nowMs);
       const [row] = await pg.query<{ id: string; recovery_verifier: string; suspended_at: number | null }>(
@@ -153,8 +156,13 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
       if (!row || !sameHex(given, row.recovery_verifier)) throw new AuthError(401, "That email and passphrase do not match");
       // Only after the passphrase matched, so suspension tells a stranger nothing.
       if (row.suspended_at !== null) throw new AuthError(403, SUSPENDED);
-      const dev = await addDevice(pg, row.id, device, "passphrase", nowMs);
-      return { accountId: row.id, deviceId: dev.id, token: dev.token!, keys: await sealedKeys(row.id) };
+      return row.id;
+    },
+
+    async recoveryFinish(email: string, verifier: string, device: { name: string; kind: DeviceKind }, ip: string, nowMs = Date.now()): Promise<Joined> {
+      const accountId = await this.verifyPassphrase(email, verifier, ip, nowMs);
+      const dev = await addDevice(pg, accountId, device, "passphrase", nowMs);
+      return { accountId, deviceId: dev.id, token: dev.token!, keys: await sealedKeys(accountId) };
     },
 
     async updateRecovery(accountId: string, b: RecoveryUpdateBody, nowMs = Date.now()): Promise<void> {

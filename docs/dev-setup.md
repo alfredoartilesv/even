@@ -118,6 +118,8 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 
 **On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address.
 
+**The admin MCP server** ([users.md section 9](users.md#9-the-admin-mcp-server-decided-28-oct-2026)) is at `/mcp` on the sync server. Locally, with `npm run dev:web` running: `claude mcp add --transport http even-admin http://localhost:8787/mcp` in Claude Code, then sign in with an admin account's email and passphrase (`npm run sync:admin` first). claude.ai needs the deployed, public address.
+
 **Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
 
 ## 5. Integration test on the emulator or phone
