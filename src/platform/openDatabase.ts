@@ -22,7 +22,8 @@ function newPassphrase(): string {
  * Open the encrypted (SQLCipher) database and bring the schema up to date.
  * The passphrase lives in the plugin's secure store (Android Keystore-backed
  * EncryptedSharedPreferences / iOS Keychain), created on first launch.
- * Native only: the web build has no jeep-sqlite and should not hold health data.
+ * In the browser (the web app, docs/users.md) the database is sql.js saved to IndexedDB
+ * (webDatabase.ts), loaded only there, so the phone's bundle does not carry it.
  * Shared promise: StrictMode runs effects twice, and two concurrent createConnection
  * calls for the same name fail. A failed open is not cached, so it can be retried.
  */
@@ -38,10 +39,13 @@ export function openDatabase(): Promise<{ db: SqlDriver; applied: number[] }> {
 }
 
 async function doOpen(): Promise<{ db: SqlDriver; applied: number[] }> {
-  if (!Capacitor.isNativePlatform()) {
-    throw new Error("Local database is only available in the Android/iOS app");
-  }
   const done = log.time("database open", "info");
+  if (!Capacitor.isNativePlatform()) {
+    const web = await (await import("./webDatabase")).openWebDatabase();
+    const applied = await migrate(web, migrations);
+    done({ migrationsApplied: applied, web: true });
+    return { db: web, applied };
+  }
   performance.mark("even:db-start");
   if (!(await sqlite.isSecretStored()).result) {
     await sqlite.setEncryptionSecret(newPassphrase());

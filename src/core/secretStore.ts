@@ -1,6 +1,6 @@
 /**
  * Where secrets live (Garmin key, Claude key). Implemented by the Keystore/Keychain
- * adapter in src/platform/secureStore.ts; tests and the browser build use the memory store.
+ * adapter in src/platform/secureStore.ts (and an IndexedDB one in the browser); tests use the memory store.
  */
 export interface SecretStore {
   get(key: string): Promise<string | null>;
@@ -8,7 +8,7 @@ export interface SecretStore {
   remove(key: string): Promise<void>;
 }
 
-/** In-memory store: tests, and the browser dev build (forgotten on reload). */
+/** In-memory store: tests and scripts (forgotten when the process ends). */
 export function memorySecretStore(): SecretStore {
   const m = new Map<string, string>();
   return {

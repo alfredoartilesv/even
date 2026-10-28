@@ -29,3 +29,9 @@ imports/*
 
 # Worktrees for parallel sessions (CLAUDE.md, Workflow)
 /.worktrees/
+
+# Vercel CLI link and local builds (vercel.json is committed)
+.vercel/
+
+# Local dev databases (npm run dev:web): health data, never committed
+/.data/

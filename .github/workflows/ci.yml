@@ -26,3 +26,21 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  sync-env:
+    name: Sync environment (Docker Compose)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose up (db, sync, web)
+        run: docker compose up -d --build --wait
+      - name: Two phone databases sync through the sync container
+        run: docker compose run --rm sync npm run test:sync
+      - name: Web app answers
+        run: curl -fsS http://127.0.0.1:4173/ > /dev/null
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+      - name: docker compose down
+        if: always()
+        run: docker compose down -v

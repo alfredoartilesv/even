@@ -1712,3 +1712,56 @@ html {
 .cook-card .row .chips {
   margin: 0;
 }
+
+/* Sync and friends (src/features/cloudsync/ui) */
+.pairing-code {
+  font-family: ui-monospace, monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--fg);
+  user-select: all;
+}
+.device-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.device-list li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--line);
+  gap: 0.75rem;
+}
+.device-list li:last-child {
+  border-bottom: 0;
+}
+.friend-kind {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.friend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.friend-table th,
+.friend-table td {
+  text-align: right;
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.friend-table th:first-child,
+.friend-table td:first-child {
+  text-align: left;
+}
+.friend-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
