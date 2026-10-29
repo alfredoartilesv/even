@@ -76,7 +76,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 | `npm test` | every Node test. |
 | `npm run audit` | known vulnerabilities in runtime dependencies (network, so not in `health`). |
 
-**Start-up timings** (`npm run perf:device`, `scripts/perf-device.mjs`): compares two debug builds on the emulator. Build each with `VITE_PERF_SEED=1` (about 42,000 readings, `src/app/perfSeed.ts`) and an `applicationIdSuffix ".perf"` for the debug build type in the generated `android/app/build.gradle`, so it installs next to the normal app. Then `npm run perf:device -- --apk <apk> --label before --out before.json`, the same for the other build, and `npm run perf:device -- --compare before.json after.json`. It reads Android's launch time, first paint, and the app's marks (`even:db-open`, `even:dashboard-ready`, one per step of the database open) through the WebView's DevTools socket.
+**Start-up timings** (`npm run perf:device`, `scripts/perf-device.mjs`): compares two debug builds on the emulator. Build each with `VITE_PERF_SEED=1` (about 42,000 readings, `src/shell/perfSeed.ts`) and an `applicationIdSuffix ".perf"` for the debug build type in the generated `android/app/build.gradle`, so it installs next to the normal app. Then `npm run perf:device -- --apk <apk> --label before --out before.json`, the same for the other build, and `npm run perf:device -- --compare before.json after.json`. It reads Android's launch time, first paint, and the app's marks (`even:db-open`, `even:dashboard-ready`, one per step of the database open) through the WebView's DevTools socket.
 
 ## 4. Docker: the standard test and build
 
@@ -93,6 +93,34 @@ Since 27 Oct 2026 the **standard check before a PR and the standard APK build ru
 **Still native, on purpose:** day-to-day development (`npm run dev`, `npm test` in watch-free runs, VS Code), the emulator and the phone. The Android emulator needs hardware virtualization and the GPU; Docker Desktop runs containers in a WSL 2 VM without nested KVM, so an emulator in a container does not start or is unusably slow, and a USB phone is awkward to reach from a container. Install the APK from Docker on the emulator with `adb install -r out/app-debug.apk`. Docker builds sign with a debug key made once and kept in a named build cache (`health-debug-key`), so each new Docker APK updates the last one; it is not the key of the native Gradle build, so switching between the two needs an uninstall (`npm run test:device -- --install <apk> --fresh` does that). `docker build --no-cache` (or `docker builder prune`) makes a new key.
 
 **Docker Desktop on this PC:** if `docker version` shows no server, or the backend log (`%LOCALAPPDATA%\Docker\log\host\com.docker.backend*.log`) repeats "connect tcp 192.168.65.7:2375: no route to host", the engine VM lost its network: quit Docker Desktop, run `wsl --terminate docker-desktop`, and start it again (seen on 27 Oct 2026).
+
+## 4b. Sync environment: Postgres, the sync server, the web app
+
+Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](architecture.md#6-phase-2-server-sync-web)), `docker-compose.yml` runs the server side on this PC, as it will later run for free on Vercel and Neon:
+
+| Container | What | Here | Later, free |
+|---|---|---|---|
+| `db` | Postgres 17, volume `even_db-data` | `127.0.0.1:5432`, user and database `even` | Neon free plan (Vercel's Neon integration sets `DATABASE_URL`) |
+| `sync` | the sync API (`server/`, Dockerfile target `sync`): accounts, devices, pairing, sync, friends; migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/...`) | the Vercel function `api/[[...route]].ts` |
+| `web` | the web app (target `web`), its database in the browser (sql.js, sealed in IndexedDB); `/v1` goes on to `sync` | `http://127.0.0.1:4173` | Vercel static hosting (`vercel.json`, `dist/`) |
+
+| Command | Does |
+|---|---|
+| `npm run docker:up` | builds and starts all three, waits until each is healthy |
+| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
+| `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
+| `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
+| `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): Settings > Admin then appears on its devices. Only the CLI grants admin |
+| `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
+| `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
+
+**Without Docker** (Docker Desktop's engine would not start on this PC on 28 Oct 2026): `npm run dev:web` runs the sync server on :8787 and the web app on http://localhost:5173 (Vite sends `/v1` to the server, as Vercel does). With no `DATABASE_URL` the server uses PGlite, real Postgres in WebAssembly, saved in `.data/pglite` (git-ignored); `npm run sync:invite -- --email ...` works on it too, with the dev server stopped (one process at a time). With `DATABASE_URL` it uses that Postgres. `npm test` covers the server without Docker as well: `tests/users.test.ts` and `tests/cloudSync.test.ts` run the real Hono app on in-memory PGlite.
+
+**On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address.
+
+**The admin MCP server** ([users.md section 9](users.md#9-the-admin-mcp-server-decided-28-oct-2026)) is at `/mcp` on the sync server. Locally, with `npm run dev:web` running: `claude mcp add --transport http even-admin http://localhost:8787/mcp` in Claude Code, then sign in with an admin account's email and passphrase (`npm run sync:admin` first). claude.ai needs the deployed, public address.
+
+**Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
 
 ## 5. Integration test on the emulator or phone
 
@@ -119,7 +147,7 @@ It prints check names and counts, never the key or health values; screenshots of
 
 **Galaxy S23 emulator.** The AVD `Galaxy_S23_API_36` copies the Pixel 8 AVD with the S23's screen: 1080 x 2340 at density 420 (the S23's 6.1" panel is about 425 ppi), Android 16 (API 36, One UI 8 on the real phone), 4 GB RAM, host GPU. Its `config.ini` sets `hw.device.name=galaxy_s23`, `hw.lcd.width=1080`, `hw.lcd.height=2340`, `hw.lcd.density=420`, `showDeviceFrame=no`. Start it with the task *Android: start emulator* (name `Galaxy_S23_API_36`) or the emulator extension. It is not Samsung's One UI: Samsung-specific behaviour (battery optimisation, Secure Folder, One UI permission screens) still needs the real phone.
 
-**Edge to edge.** Android 15+ draws the app under the status and navigation bars. With WebView 140 or newer (current phones, updated from the Play Store) Capacitor leaves the bars over the page and reports their size as `env(safe-area-inset-*)` and `--safe-area-inset-*`; with an older WebView it pads the app natively and both read 0. The CSS takes the larger (`--safe-top`, `--safe-bottom` in `src/app/styles.css`). The API 36 emulator image ships WebView 133, so it never shows the edge-to-edge case: the device test reports a 48 px bar itself and measures the header. Found on the real S23 on 27 Oct 2026, where the title ran into the clock.
+**Edge to edge.** Android 15+ draws the app under the status and navigation bars. With WebView 140 or newer (current phones, updated from the Play Store) Capacitor leaves the bars over the page and reports their size as `env(safe-area-inset-*)` and `--safe-area-inset-*`; with an older WebView it pads the app natively and both read 0. The CSS takes the larger (`--safe-top`, `--safe-bottom` in `src/shell/styles.css`). The API 36 emulator image ships WebView 133, so it never shows the edge-to-edge case: the device test reports a 48 px bar itself and measures the header. Found on the real S23 on 27 Oct 2026, where the title ran into the clock.
 
 First run (27 Oct 2026, `develop` at the merge of PR #21): 9/9 checks on `Galaxy_S23_API_36`, a real sync of 924 readings. It found that scheduling the 3-day reminder opened Android's *Alarms & reminders* screen after every sync (the notifications plugin asks for exact alarms by default, which Android 14+ does not grant); the reminder now asks for an inexact alarm (`pluginNotification` in `src/core/notifier.ts`) and check 6 guards it.
 
@@ -162,6 +190,8 @@ done
 First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.
 
 ## 7. iOS
+
+**Parked (28 Oct 2026):** iOS is a later phase, so the workflow lives in `scripts/ci/ios.yml`, where GitHub does not run it. To bring it back, move it to `.github/workflows/ios.yml`, update the check in `tests/ios.test.ts`, and add `src/apps/ios/` with its Vite mode ([phases.md](phases.md)). Nothing iOS blocks a PR meanwhile; the iOS scripts, `@capacitor/ios` and the Apple Health code stay, unused. The rest of this section describes it as it runs from there.
 
 iOS builds need macOS with Xcode, so on this Windows PC they run on GitHub's Macs: `.github/workflows/ios.yml` (macOS 15, the runner's default Xcode). It runs on demand (Actions > iOS > Run workflow, once the workflow is on `master`) and on PRs to `develop` or `master` that touch the native side (`package.json`, `capacitor.config.json`, `resources/`, `src/platform/`, the palette, the iOS scripts). The repo is private, so macOS minutes count 10x against the plan's allowance; pure web changes do not trigger it.
 

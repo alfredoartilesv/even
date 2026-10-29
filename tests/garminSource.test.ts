@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { strToU8, zipSync } from "fflate";
-import { GARMIN_SOURCE, GarminApi, GarminApiError, GarminSource, parseTokenReply } from "../src/features/sync/garmin";
-import { GARMIN_EXPORT_SOURCE } from "../src/features/import/garmin";
-import { importGarminZip } from "../src/features/import/garminImport";
-import { dailySeries, dayValues } from "../src/features/metrics/queries";
-import { loadCursor, upsertSamples } from "../src/features/metrics/samples";
-import { runSync } from "../src/features/sync/runSync";
+import { GARMIN_SOURCE, GarminApi, GarminApiError, GarminSource, parseTokenReply } from "../src/domain/sync/garmin";
+import { GARMIN_EXPORT_SOURCE } from "../src/domain/import/garmin";
+import { importGarminZip } from "../src/domain/import/garminImport";
+import { dailySeries, dayValues } from "../src/domain/metrics/queries";
+import { loadCursor, upsertSamples } from "../src/domain/metrics/samples";
+import { runSync } from "../src/domain/sync/runSync";
 import { migratedDb } from "./helpers";
 
 // Responses in the shapes of Garmin's Personal API OpenAPI document (read 26 Oct 2026). Values are invented.

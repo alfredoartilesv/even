@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TOOLS_BY_NAME } from "../src/features/chat/tools";
-import { logFood } from "../src/features/food/food";
-import { insertGoal, insertMeasurement } from "../src/features/journal/journal";
-import { fmtGoalValue, GOAL_TEMPLATES } from "../src/features/me/goalTemplates";
-import { deleteGoal, evaluate, goalProgress, listGoals, periodStart, type Goal } from "../src/features/me/goals";
-import { activityLabel, sportOf } from "../src/features/me/sports";
-import { fmtDistance, fmtDuration, listWorkouts, personalBests, sportTotals } from "../src/features/me/workouts";
-import { upsertCatalog } from "../src/features/metrics/catalog";
-import { upsertSamples } from "../src/features/metrics/samples";
-import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto } from "../src/features/settings/profile";
-import type { SampleInput } from "../src/features/sync/types";
+import { TOOLS_BY_NAME } from "../src/domain/chat/tools";
+import { logFood } from "../src/domain/food/food";
+import { insertGoal, insertMeasurement } from "../src/domain/journal/journal";
+import { fmtGoalValue, GOAL_TEMPLATES } from "../src/domain/me/goalTemplates";
+import { deleteGoal, evaluate, goalProgress, listGoals, periodStart, type Goal } from "../src/domain/me/goals";
+import { activityLabel, sportOf } from "../src/domain/me/sports";
+import { fmtDistance, fmtDuration, listWorkouts, personalBests, sportTotals } from "../src/domain/me/workouts";
+import { upsertCatalog } from "../src/domain/metrics/catalog";
+import { upsertSamples } from "../src/domain/metrics/samples";
+import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto } from "../src/domain/settings/profile";
+import type { SampleInput } from "../src/domain/sync/types";
 import { migratedDb } from "./helpers";
 
 const TZ = "Europe/Madrid";

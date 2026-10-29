@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { classifyMetric, DAILY_AGG_OVERRIDES, upsertCatalog } from "../src/features/metrics/catalog";
-import { dayValues } from "../src/features/metrics/queries";
-import { upsertSamples } from "../src/features/metrics/samples";
+import { classifyMetric, DAILY_AGG_OVERRIDES, upsertCatalog } from "../src/domain/metrics/catalog";
+import { dayValues } from "../src/domain/metrics/queries";
+import { upsertSamples } from "../src/domain/metrics/samples";
 import { migrate } from "../src/db/migrate";
-import type { SampleInput } from "../src/features/sync/types";
+import type { SampleInput } from "../src/domain/sync/types";
 import { memoryDriver, migratedDb, realMigrations } from "./helpers";
 
 const NOW = 1_800_000_000_000;

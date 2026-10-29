@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toBubble } from "../src/features/chat/bubbles";
-import type { StoredMessage } from "../src/features/chat/store";
+import { toBubble } from "../src/domain/chat/bubbles";
+import type { StoredMessage } from "../src/domain/chat/store";
 
 const msg = (role: StoredMessage["role"], content: unknown): StoredMessage => ({
   id: "m1",

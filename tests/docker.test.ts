@@ -64,3 +64,48 @@ test("stages and npm scripts: test runs the health checks (format, lint, types, 
     "out/ (the exported APK) is git-ignored",
   );
 });
+
+const compose = read("docker-compose.yml");
+
+test("the sync environment: db, sync and web, images pinned, ports on this PC only, no real secrets", () => {
+  for (const svc of ["db", "sync", "web"]) assert.match(compose, new RegExp(`^  ${svc}:$`, "m"), `service ${svc}`);
+  assert.match(compose, /image: postgres:17\.\d+-alpine@sha256:[0-9a-f]{64}$/m, "Postgres 17 (as on Neon) pinned by digest");
+  for (const target of ["sync", "web"]) {
+    assert.match(compose, new RegExp(`build: \\{ context: \\., target: ${target} \\}`), `${target} is built from the Dockerfile`);
+    assert.match(dockerfile, new RegExp(`^FROM deps AS ${target}$`, "m"), `stage ${target}`);
+  }
+  const ports = [...compose.matchAll(/ports: \[(.+)\]/g)].map((m) => m[1]);
+  assert.equal(ports.length, 3);
+  for (const p of ports) assert.match(p, /^"127\.0\.0\.1:\d+:\d+"$/, "listens on 127.0.0.1 only");
+  assert.doesNotMatch(compose, /GARMIN_API_KEY|ANTHROPIC_API_KEY|SYNC_SECRET|SYNC_TOKEN/, "no keys or sync secrets in compose");
+  assert.match(compose, /POSTGRES_PASSWORD: \$\{POSTGRES_PASSWORD:-[\w-]+\}/, "the local database password can be overridden from .env");
+  assert.match(dockerfile, /FROM deps AS sync\n[\s\S]*?USER node/, "the sync server does not run as root");
+});
+
+test("vercel.json serves the web build and sends the API, the admin MCP and its OAuth to the sync function", () => {
+  const vercel = JSON.parse(read("vercel.json")) as { buildCommand: string; outputDirectory: string; rewrites: { source: string; destination: string }[] };
+  assert.equal(vercel.buildCommand, "npm run vercel-build");
+  assert.equal(vercel.outputDirectory, "dist");
+  assert.deepEqual(
+    vercel.rewrites.map((r) => r.source),
+    [
+      "/v1/:path*",
+      "/health",
+      "/mcp",
+      "/oauth/:path*",
+      "/.well-known/oauth-protected-resource",
+      "/.well-known/oauth-protected-resource/mcp",
+      "/.well-known/oauth-authorization-server",
+    ],
+  );
+  for (const r of vercel.rewrites) assert.equal(r.destination, `/api${r.source}`, "the function sees the same path under /api");
+  const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
+  assert.match(scripts["vercel-build"], /server\/cli\.ts migrate && npm run build/, "migrations run in the build, never on a request");
+});
+
+test("the Vercel function exports every method the API routes use", () => {
+  const fn = readFileSync(join(import.meta.dirname, "../api/[[...route]].ts"), "utf8");
+  const app = readFileSync(join(import.meta.dirname, "../server/app.ts"), "utf8");
+  const used = new Set([...app.matchAll(/app\.(get|post|put|delete)\(/g)].map((m) => m[1]!.toUpperCase()));
+  for (const method of used) assert.match(fn, new RegExp(`export const ${method} = `), method);
+});

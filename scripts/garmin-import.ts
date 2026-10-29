@@ -17,8 +17,8 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setLogLevel } from "../src/core/log";
 import { migratedNodeDb } from "./lib/nodeDb";
-import { exportBackup } from "../src/features/backup/backup";
-import { importGarminZip } from "../src/features/import/garminImport";
+import { exportBackup } from "../src/domain/backup/backup";
+import { importGarminZip } from "../src/domain/import/garminImport";
 
 setLogLevel((process.env.LOG_LEVEL as never) ?? "warn");
 

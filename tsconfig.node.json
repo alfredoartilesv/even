@@ -4,5 +4,5 @@
     "allowJs": true,
     "checkJs": false
   },
-  "include": ["tests", "scripts", "vite.config.ts"]
+  "include": ["tests", "scripts", "server", "api", "vite.config.ts", "src/platform/sql-js.d.ts"]
 }
