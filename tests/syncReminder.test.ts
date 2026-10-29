@@ -11,7 +11,7 @@ import {
   setReminderEnabled,
   STALE_AFTER_MS,
   SYNC_REMINDER_ID,
-} from "../src/features/sync/reminder";
+} from "../src/domain/sync/reminder";
 import { migratedDb } from "./helpers";
 
 const H = 3_600_000;

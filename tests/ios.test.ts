@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 import {
@@ -161,8 +161,9 @@ test("the simulator check reads the app's log", () => {
   assert.match(checkLog([start, secret, err, sync].join("\n"), { firstLaunch: true }).join(), /database open failed/);
 });
 
-test("iOS workflow: on a Mac, on demand and on native-side PRs, compiles both ways and runs the simulator", () => {
-  const wf = read(".github/workflows/ios.yml");
+test("iOS workflow: parked out of CI for a later phase, still ready to compile both ways and run the simulator", () => {
+  assert.ok(!existsSync(join(root, ".github/workflows/ios.yml")), "iOS is a later phase: not in CI");
+  const wf = read("scripts/ci/ios.yml");
   assert.match(wf, /runs-on: macos-/);
   assert.match(wf, /workflow_dispatch:/);
   assert.match(wf, /pull_request:[\s\S]*paths:/, "only PRs that touch the native side");

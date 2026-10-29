@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadCursor, ROWS_PER_INSERT, saveSyncState, upsertSamples } from "../src/features/metrics/samples";
-import type { SampleInput } from "../src/features/sync/types";
+import { loadCursor, ROWS_PER_INSERT, saveSyncState, upsertSamples } from "../src/domain/metrics/samples";
+import type { SampleInput } from "../src/domain/sync/types";
 import { migratedDb } from "./helpers";
 
 const T1 = 1_800_000_000_000;

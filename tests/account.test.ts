@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applySignIn, getOwner, parseGoogleIdToken, releaseOwnership, signOut, type GoogleIdentity } from "../src/features/account/account";
-import { signInWithGoogle, signOutOfGoogle } from "../src/features/account/service";
-import { exportBackup, restoreBackup } from "../src/features/backup/backup";
+import { applySignIn, getOwner, parseGoogleIdToken, releaseOwnership, signOut, type GoogleIdentity } from "../src/domain/account/account";
+import { signInWithGoogle, signOutOfGoogle } from "../src/domain/account/service";
+import { exportBackup, restoreBackup } from "../src/domain/backup/backup";
 import { migratedDb } from "./helpers";
 
 const CLIENT = "123-web.apps.googleusercontent.com";
@@ -130,4 +130,27 @@ test("sign-in flow: cancelled, plugin failure, bad token and success", async () 
   });
   assert.equal(deviceSignedOut, true);
   assert.equal((await getOwner(db))!.signedIn, false, "local sign-out happens even if the plugin fails");
+});
+
+test("one identity: a connected device restores only its own sync account's backups, whatever Google says", async () => {
+  const pw = "correct horse battery";
+  const fast = { iterations: 1000, now: NOW };
+  const { db: phone } = await migratedDb();
+  await applySignIn(phone, ana, DEV, NOW);
+  const { text } = await exportBackup(phone, pw, { ...fast, syncAccountId: "acct-1" });
+
+  const { db: other } = await migratedDb();
+  await assert.rejects(restoreBackup(other, text, pw, { syncAccountId: "acct-2" }), /another Even account/);
+
+  // Same sync account: restores even though this device's local Google owner differs.
+  const { db: mine } = await migratedDb();
+  await applySignIn(mine, ben, DEV, NOW);
+  await restoreBackup(mine, text, pw, { syncAccountId: "acct-1" });
+
+  // Not connected, or a backup made before connecting: the Google owner check, as before.
+  const { db: offline } = await migratedDb();
+  await applySignIn(offline, ben, DEV, NOW);
+  await assert.rejects(restoreBackup(offline, text, pw), /another Google account/);
+  const { text: older } = await exportBackup(phone, pw, fast);
+  await assert.rejects(restoreBackup(offline, older, pw, { syncAccountId: "acct-1" }), /another Google account/);
 });

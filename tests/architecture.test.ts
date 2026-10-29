@@ -5,10 +5,13 @@ import { dirname, join, relative, resolve } from "node:path";
 
 /**
  * The layer rules from docs/architecture.md section 3, checked on the import graph:
- *   app -> features, ui, platform, db, core
- *   features (screens) -> other features, ui, platform, db, core
- *   features (logic, *.ts) -> other features' logic, db, core: never Capacitor, even indirectly
+ *   apps/<target> -> shell and everything below it; never another target
+ *   shell -> screens, domain, ui, platform, db, core (the app frame every target shares for now)
+ *   screens -> other screens, domain, ui, platform, db, core
+ *   domain -> other domain, db, core: never a screen, ui or platform, so never Capacitor
  *   ui -> core.   db -> core.   core -> nothing.   platform -> db, core (and the native plugins)
+ * Everything below apps/ is shared by every target; a target diverges in apps/<target>/, with
+ * its own start, shell or copy of a screen.
  */
 
 const SRC = resolve(import.meta.dirname, "../src");
@@ -25,10 +28,11 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const files = walk(SRC);
 const rel = (p: string) => relative(SRC, p).split("\\").join("/");
-const layer = (p: string) =>
-  rel(p)
-    .split("/")[0]
-    .replace(/\.tsx?$/, "");
+/** "core", "domain", ... or "apps/<target>". */
+const layer = (p: string) => {
+  const [top, sub] = rel(p).split("/");
+  return top === "apps" ? `apps/${sub}` : top;
+};
 
 interface Imp {
   spec: string;
@@ -57,9 +61,6 @@ function imports(file: string): Imp[] {
   return out;
 }
 
-/** Feature logic: .ts files outside a ui/ folder. Screens are .tsx or live under ui/. */
-const isLogic = (p: string) => p.endsWith(".ts") && !rel(p).includes("/ui/");
-
 const graph = new Map(files.map((f) => [f, imports(f)]));
 
 /** Path of runtime imports from file to a native package, or null. */
@@ -84,9 +85,9 @@ test("every relative import resolves", () => {
   assert.deepEqual(broken, []);
 });
 
-test("logic outside platform and app never reaches a native plugin at runtime", () => {
+test("code outside platform, screens, shell and apps never reaches a native plugin at runtime", () => {
   const bad = files
-    .filter((f) => ["core", "db", "features"].includes(layer(f)) && isLogic(f))
+    .filter((f) => ["core", "db", "domain", "ui"].includes(layer(f)))
     .map((f) => nativePath(f))
     .filter((p): p is string[] => p !== null)
     .map((p) => p.join(" -> "));
@@ -101,14 +102,15 @@ test("native plugins are imported only in platform/", () => {
 });
 
 test("layers only depend downwards", () => {
+  const shared = ["screens", "domain", "ui", "platform", "db", "core"];
   const allowed: Record<string, string[]> = {
     core: ["core"],
     db: ["db", "core"],
     platform: ["platform", "db", "core"],
     ui: ["ui", "core"],
-    features: ["features", "ui", "platform", "db", "core"],
-    app: ["app", "features", "ui", "platform", "db", "core"],
-    main: ["app"],
+    domain: ["domain", "db", "core"],
+    screens: shared,
+    shell: ["shell", ...shared],
   };
   const bad: string[] = [];
   for (const [f, imps] of graph) {
@@ -116,10 +118,29 @@ test("layers only depend downwards", () => {
       if (!i.target) continue;
       const from = layer(f);
       const to = layer(i.target);
-      if (!allowed[from]?.includes(to)) bad.push(`${rel(f)} -> ${rel(i.target)}`);
-      // Feature logic must not depend on any screen.
-      if (from === "features" && isLogic(f) && !isLogic(i.target)) bad.push(`${rel(f)} -> ${rel(i.target)} (logic imports UI)`);
+      const ok = from.startsWith("apps/") ? to === from || to === "shell" || shared.includes(to) : allowed[from]?.includes(to);
+      if (!ok) bad.push(`${rel(f)} -> ${rel(i.target)}`);
     }
   }
   assert.deepEqual(bad, []);
+});
+
+test("source lives only in the known layers, and every target has its entry", () => {
+  const layers = new Set(["core", "db", "domain", "platform", "ui", "screens", "shell"]);
+  const stray = files.map(layer).filter((l) => !layers.has(l) && !l.startsWith("apps/"));
+  assert.deepEqual([...new Set(stray)], []);
+  for (const t of readdirSync(join(SRC, "apps"))) assert.ok(existsSync(join(SRC, "apps", t, "main.tsx")), `apps/${t}/main.tsx`);
+});
+
+test("every build names its target: web for Vercel, the web container and dev:web, Android for the APK", () => {
+  const root = resolve(import.meta.dirname, "..");
+  const read = (f: string) => readFileSync(join(root, f), "utf8");
+  const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+  assert.match(pkg.scripts["build:web"], /vite build --mode web/);
+  assert.match(pkg.scripts["vercel-build"], /npm run build:web/);
+  assert.doesNotMatch(pkg.scripts.build, /--mode/, "the plain build is the Android one (android:sync, the APK)");
+  assert.match(read("Dockerfile"), /FROM deps AS web[\s\S]*?vite build --mode web/);
+  assert.match(read("scripts/dev-web.mjs"), /"--mode", "web"/);
+  assert.match(read("index.html"), /src="\/src\/apps\/%TARGET%\/main\.tsx"/);
+  assert.match(read("scripts/android-harden.mjs"), /builtFor !== "android"/);
 });

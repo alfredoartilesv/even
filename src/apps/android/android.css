@@ -1,0 +1,63 @@
+/*
+ * Android's navigation (TabBar.tsx): the five tabs in a bar fixed to the bottom, in thumb reach,
+ * above the phone's gesture area. The shared styles keep the page and what sticks to its bottom
+ * (the chat composer, sticky buttons) above the bar through --tabbar-h.
+ */
+:root {
+  --tabbar-h: 60px;
+}
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-bottom);
+  box-shadow: var(--shadow);
+}
+.tabbar button {
+  flex: 1;
+  max-width: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: var(--tabbar-h);
+  min-height: 0;
+  padding: 0.25rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+.tabbar button.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+.tabbar button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+}
+/* The open tab gets a pill behind its icon. */
+.tabbar .icon {
+  box-sizing: content-box;
+  padding: 3px 14px;
+  border-radius: var(--radius-pill);
+  transition:
+    background-color var(--normal) var(--ease),
+    color var(--normal);
+}
+.tabbar button.active .icon {
+  background: var(--accent-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .icon {
+    transition: none;
+  }
+}

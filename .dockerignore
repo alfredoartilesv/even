@@ -25,3 +25,4 @@ imports
 # Signing keys (required): passed to the release build as BuildKit secrets only.
 *.jks
 *.keystore
+.data
