@@ -287,7 +287,8 @@ test("web app: waits for the sync session, asks to connect without one, and lets
   assert.match(opening, /Opening…/);
   const connect = renderToStaticMarkup(h(() => connectGate({ session: null, connect: noop })));
   assert.match(connect, /<h2>Connect<\/h2>/);
-  assert.match(connect, /recovery passphrase/);
+  assert.match(connect, /opened only here, in this browser/);
+  assert.match(connect, /Loading…/, "the lazy panel has a fallback, so the card is never empty");
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
 });
 

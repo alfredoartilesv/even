@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SYNC_PAGE, type SyncRow } from "../src/core/syncWire";
 import { bySize, cloudSync, pendingPush, SYNC_TABLES } from "../src/domain/cloudsync/cloudSync";
 import { open, rowKey, seal, syncKeys } from "../src/domain/cloudsync/seal";
-import { fromHex, newAdk } from "../src/domain/cloudsync/keys";
+import { fromHex, newAdk, passphraseHint } from "../src/domain/cloudsync/keys";
 import { syncApi, transportOf } from "../src/domain/cloudsync/api";
 import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
@@ -245,4 +245,17 @@ test("server migrations are numbered in order and split into statements", () => 
     ms.map((_, i) => i + 1),
   );
   assert.equal(statements("-- a comment\nCREATE TABLE a (x INT);\n\nCREATE INDEX i ON a (x);\n").length, 2);
+});
+
+test("the new account form says what the passphrase still needs, and only a mismatch is an error", () => {
+  assert.equal(passphraseHint("", "", false), null);
+  assert.deepEqual(passphraseHint("short pass", "", false), { text: "2 more characters (at least 12). A few words make a strong one.", error: false });
+  assert.equal(passphraseHint("eleven char ", "", false)?.text.startsWith("1 more character "), true, "spaces at the ends do not count, as in checkPassphrase");
+  assert.deepEqual(passphraseHint("correct horse battery", "", false), { text: "Long enough. Now type it again below.", error: false });
+  assert.deepEqual(passphraseHint("correct horse battery", "correct horse", false), { text: "The two passphrases are different.", error: true });
+  assert.deepEqual(passphraseHint("correct horse battery", "correct horse battery", false), {
+    text: "Both match. Write it down, then say so below.",
+    error: false,
+  });
+  assert.deepEqual(passphraseHint("correct horse battery", "correct horse battery", true), { text: "Both match.", error: false });
 });
