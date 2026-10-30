@@ -75,11 +75,23 @@ test("the sync environment: db, sync and web, images pinned, ports on this PC on
     assert.match(dockerfile, new RegExp(`^FROM deps AS ${target}$`, "m"), `stage ${target}`);
   }
   const ports = [...compose.matchAll(/ports: \[(.+)\]/g)].map((m) => m[1]);
-  assert.equal(ports.length, 3);
+  assert.equal(ports.length, 5, "db, sync, web and the two simulated phones");
   for (const p of ports) assert.match(p, /^"127\.0\.0\.1:\d+:\d+"$/, "listens on 127.0.0.1 only");
   assert.doesNotMatch(compose, /GARMIN_API_KEY|ANTHROPIC_API_KEY|SYNC_SECRET|SYNC_TOKEN/, "no keys or sync secrets in compose");
   assert.match(compose, /POSTGRES_PASSWORD: \$\{POSTGRES_PASSWORD:-[\w-]+\}/, "the local database password can be overridden from .env");
   assert.match(dockerfile, /FROM deps AS sync\n[\s\S]*?USER node/, "the sync server does not run as root");
+});
+
+test("the simulated phones: their own stage and volumes, off unless asked for, and the check drives them over the compose network", () => {
+  assert.match(dockerfile, /^FROM sync AS phone$/m, "a phone runs the sync stage's code");
+  assert.match(dockerfile, /FROM sync AS phone\n[\s\S]*?USER node\nENV PORT=8790/, "and not as root");
+  for (const svc of ["phone-a", "phone-b", "phones-check"]) assert.match(compose, new RegExp(`^  ${svc}:`, "m"), `service ${svc}`);
+  assert.match(compose, /phone-a: &phone\n    build: \{ context: \., target: phone \}\n    profiles: \[phones\]/, "docker:up alone starts no phone");
+  for (const v of ["phone-a-data", "phone-b-data"]) assert.match(compose, new RegExp(`^  ${v}:$`, "m"), `volume ${v}: a phone keeps its database`);
+  assert.match(compose, /PHONE_URLS: http:\/\/phone-a:8790,http:\/\/phone-b:8790/);
+  const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
+  assert.equal(scripts["docker:phones"], "docker compose --profile phones up -d --build --wait");
+  assert.match(scripts["docker:down"], /--profile phones down/, "docker:down stops the phones too");
 });
 
 test("vercel.json serves the web build and sends the API, the admin MCP and its OAuth to the sync function", () => {

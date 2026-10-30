@@ -1,13 +1,13 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { SYNC_PAGE, type SyncRow } from "../src/core/syncWire";
+import { type SyncRow } from "../src/core/syncWire";
 import { bySize, cloudSync, pendingPush, SYNC_TABLES } from "../src/domain/cloudsync/cloudSync";
 import { open, rowKey, seal, syncKeys } from "../src/domain/cloudsync/seal";
 import { fromHex, newAdk, passphraseHint } from "../src/domain/cloudsync/keys";
 import { serverBase, syncApi, transportOf } from "../src/domain/cloudsync/api";
 import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
-import { addFood, byPassphrase, firstPhone, foods, roundTrip, type Phone } from "../scripts/lib/syncScenario";
+import { addFood, byPassphrase, firstPhone, foods, lastWriteWins, paging, roundTrip, softDelete, syncedDigest, type Phone } from "../scripts/lib/syncScenario";
 import { testServer } from "./serverHelpers";
 
 // One PGlite server for the file (it takes about a second to start); each test makes its own account.
@@ -43,23 +43,12 @@ test("the server stores sealed rows only: no name, value or id of the row is rea
 
 test("last write wins per row on updated_at, whichever device syncs last", async () => {
   const { a, b } = await twoDevices();
-  await addFood(a, "f", "newer on A", 2, 2_000);
-  await addFood(b, "f", "older on B", 1, 1_000);
-  await a.sync(2_001);
-  await b.sync(2_002); // B's older edit is pushed, refused, then A's is pulled
-  await a.sync(2_003);
-  for (const p of [a, b]) assert.equal((await foods(p))[0].name, "newer on A", p.name);
+  assert.deepEqual(await lastWriteWins(a, b, 1_000), []);
 });
 
 test("a soft delete syncs like any other edit", async () => {
   const { a, b } = await twoDevices();
-  await addFood(a, "f", "toast", 200, 1_000);
-  await a.sync(1_001);
-  await b.sync(1_002);
-  await b.db.run("UPDATE food_entries SET deleted_at = ?, updated_at = ? WHERE id = 'f'", [1_500, 1_500]);
-  await b.sync(1_501);
-  await a.sync(1_502);
-  assert.equal((await foods(a))[0].deleted_at, 1_500);
+  assert.deepEqual(await softDelete(a, b, 1_000), []);
 });
 
 test("a second sync with nothing new sends nothing, and pulled rows are not queued to go back", async () => {
@@ -106,13 +95,24 @@ test("an edit made while a push is running stays queued for the next one", async
 
 test("more rows than a page push and pull in pages, none lost", async () => {
   const { a, b } = await twoDevices();
-  const n = SYNC_PAGE * 2 + 7;
-  await a.db.exec("BEGIN");
-  for (let i = 0; i < n; i++) await addFood(a, `f${String(i).padStart(5, "0")}`, "x", i, 5_000); // one timestamp for all
-  await a.db.exec("COMMIT");
-  assert.equal((await a.sync(5_001)).accepted, n);
-  assert.equal((await b.sync(5_002)).pulled, n);
-  assert.equal((await foods(b)).length, n);
+  assert.deepEqual(await paging(a, b, 5_000), []);
+});
+
+test("two devices that wrote different tables converge to the same synced rows", async () => {
+  const { a, b } = await twoDevices();
+  await addFood(a, "f", "toast", 200, 1_000);
+  await b.db.run(
+    "INSERT INTO drink_entries (id, drunk_at_ms, name, volume_ml, abv_percent, created_at, updated_at, origin_device_id) VALUES ('d', 1, 'x', 330, 5, 1, 1, 'b')",
+  );
+  for (const [p, t] of [
+    [a, 1_001],
+    [b, 1_002],
+    [a, 1_003],
+  ] as const)
+    await p.sync(t);
+  const [da, db] = await Promise.all([syncedDigest(a.db), syncedDigest(b.db)]);
+  assert.equal(da.digest, db.digest);
+  assert.deepEqual([da.rows.food_entries, da.rows.drink_entries], [1, 1]);
 });
 
 test("a full-size food photo syncs (it used to stop every sync)", async () => {
