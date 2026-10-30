@@ -1,5 +1,6 @@
 import { addDays, localDay, localDayStart } from "../../core/tz";
 import { createLogger } from "../../core/log";
+import { GARMIN_API_URL } from "../../core/garminRelay";
 import { catalogFor } from "../import/garmin";
 import { sampleCollector, type SampleInput, type Source, type SyncResult } from "./types";
 
@@ -20,7 +21,7 @@ const log = createLogger("sync.garmin");
  */
 
 export const GARMIN_SOURCE = "garmin";
-export const GARMIN_API_URL = "https://personal.connectapi.garmin.com";
+export { GARMIN_API_URL } from "../../core/garminRelay";
 export const GARMIN_KEY_PAGE = "https://connect.garmin.com/app/settings/personalApiToken";
 const TOKEN_PATH = "/personalapitoken-service/personal-api/personal-api-key/token";
 const DEVICE = "Garmin";

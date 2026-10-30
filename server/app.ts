@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { GARMIN_RELAY_PATH } from "../src/core/garminRelay.js";
 import { createLogger } from "../src/core/log.js";
 import {
   adminInviteBody,
@@ -23,6 +24,7 @@ import {
 } from "../src/core/syncWire.js";
 import { AuthError, SUSPENDED, type AccountStore } from "./accounts.js";
 import type { Actor, AdminStore } from "./admin.js";
+import { relayToGarmin } from "./garminRelay.js";
 import { mcpApp } from "./mcp.js";
 import { oauthApp, type OAuthStore } from "./oauth.js";
 import type { FriendStore } from "./friends.js";
@@ -47,6 +49,7 @@ export interface Stores {
  * No auth:   GET /health, POST /v1/auth/signup | recovery/start | recovery/finish, POST /v1/pairings,
  *            GET /v1/pairings/:id (with the new device's own token in x-pairing-token)
  * Device:    everything else, `Authorization: Bearer <device token>`; a suspended account's devices get 403
+ * Garmin:    /v1/garmin/*, the web app's Garmin calls passed on to Garmin (server/garminRelay.ts)
  * Admin:     /v1/admin/*, a device of an admin account (docs/users.md section 2.6)
  * MCP:       /mcp with an OAuth access token for an admin account; /oauth/* and /.well-known/* (server/oauth.ts)
  */
@@ -73,7 +76,8 @@ const cursor = (c: Context) => {
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-export function createApp(s: Stores, opts: { publicUrl?: string } = {}) {
+/** garminFetch stands in for Garmin in tests. */
+export function createApp(s: Stores, opts: { publicUrl?: string; garminFetch?: typeof fetch } = {}) {
   const app = new Hono<Env>();
 
   app.get("/health", (c) => c.json({ ok: true }));
@@ -106,6 +110,9 @@ export function createApp(s: Stores, opts: { publicUrl?: string } = {}) {
     c.set("device", device);
     await next();
   });
+
+  // The browser cannot reach Garmin itself (no CORS): a device passes its Garmin calls through here.
+  app.on(["GET", "POST"], `${GARMIN_RELAY_PATH}/*`, (c) => relayToGarmin(c, opts.garminFetch));
 
   app.get("/v1/me", async (c) => c.json(await s.accounts.me(c.get("device").ownerId, c.get("device").id)));
   app.put("/v1/me", async (c) => {
