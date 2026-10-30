@@ -80,7 +80,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 
 ## 4. Docker: the standard test and build
 
-Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI: `.github/workflows/ci.yml` runs the test stage on every PR (no APK), and `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6).
+Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI. CI runs only for releases: `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6). PRs run nothing in CI, so run `npm run docker:test` before merging.
 
 | Command (or VS Code task) | Does | Time |
 |---|---|---|
@@ -163,10 +163,9 @@ A release is a merge of `develop` into `master`. The push to `master` runs `.git
    - min SDK 24 and target SDK 36;
    - Android backups off;
    - the web app inside.
-3. **Emulator.** An Android 14 (API 34) emulator on the runner gets a clean install, then the check confirms the app launches, stays alive and in front, and leaves nothing in the crash log. A screenshot is kept as an artifact.
-4. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
+3. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
 
-PRs (to `develop` or `master`) only run the tests, with no APK (`ci.yml`). `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
+PRs (to `develop` or `master`) run nothing in CI (removed 30 Oct 2026 to save Actions minutes, along with the release emulator check); test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
 
 **Version code.** `versionCode` comes from the version: `MAJOR*10000 + MINOR*100 + PATCH`, so 0.1.0 is 100. Android only installs an update with a higher code, so versions only go up, and minor and patch stay below 100 (`scripts/android-gradle.mjs`, tested).
 

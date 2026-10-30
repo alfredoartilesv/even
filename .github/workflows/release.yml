@@ -1,6 +1,7 @@
 # Release: when develop is merged into master (a push to master), build the signed release APK in
-# Docker, check it, install and launch it on an Android emulator, then tag v<package.json version>
-# and publish a GitHub release with the APK. develop is the default branch, so the merge never
+# Docker, check it, then tag v<package.json version> and publish a GitHub release with the APK.
+# This is the only workflow: PRs and develop run nothing in CI (Actions minutes), so run
+# `npm run docker:test` locally before merging. develop is the default branch, so the merge never
 # deletes it. A version that is already tagged stops the release: bump package.json on develop first.
 #
 # Secrets (Settings > Secrets and variables > Actions): HEALTH_KEYSTORE_BASE64 (the .jks, base64),
@@ -76,51 +77,10 @@ jobs:
           path: out/app-release.apk
           retention-days: 30
 
-  emulator:
-    name: Install and launch on an emulator
-    runs-on: ubuntu-latest
-    needs: build
-    # A stuck emulator must not hold the release for the runner's 6 h default.
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: app-release-apk
-          path: out
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Enable KVM for the emulator
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      # API 34: the API 35 image never came up on the hosted runner (adb found no device for the
-      # whole wait, first release run, 27 Oct 2026). The app's min SDK is 24, so 34 still checks it.
-      # The device log goes with the screenshot (artifact release-launch-screenshot): on 27 Oct 2026
-      # the app was gone 20 s after launch with nothing in the crash buffer, and a re-run passed 9/9.
-      - name: Release check on the emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          disable-animations: true
-          emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: node scripts/release-check.mjs --apk out/app-release.apk --device --build-tools "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)" --out out/shots; s=$?; adb logcat -d -v time > out/shots/logcat.txt; exit $s
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: release-launch-screenshot
-          path: out/shots
-          retention-days: 30
-
   publish:
     name: Tag and publish the release
     runs-on: ubuntu-latest
-    needs: [version, emulator]
+    needs: [version, build]
     permissions:
       contents: write
     steps:
