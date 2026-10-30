@@ -1,6 +1,6 @@
 # Even: phases and targets
 
-Agreed 28 Oct 2026. Even ships to more than one target: the **Android app** (now), the **web app** (phase 2, toward 0.4: [users.md](users.md), [architecture.md section 6](architecture.md)) and the **iPhone app** (a later phase). Their UIs will grow apart, so the code splits at the top and shares everything below.
+Agreed 28 Oct 2026. Even ships to more than one target: the **Android app** (now), the **web app** (phase 2, shipped in 0.4, now 0.4.2: [users.md](users.md), [architecture.md section 6](architecture.md)) and the **iPhone app** (a later phase). Their UIs will grow apart, so the code splits at the top and shares everything below.
 
 ## How the code is split
 
@@ -41,11 +41,13 @@ Releases are a signed APK on GitHub, sideloaded ([dev-setup section 6](dev-setup
 
 ## Web app (phase 2, 0.4)
 
+Shipped in 0.4.0 and deployed on Vercel; 0.4.2 adds the web Dashboard's macro split, two-week trends and Alcohol section, *Sign out* in the side menu, clearer connect screens, and a softer look on wide screens (`--lift`).
+
 Order of work as in [users.md section 5](users.md#5-order-of-work-for-04). For the structure:
 
 1. **Split the shell (done 28 Oct 2026).** The web's connect gate lives in `apps/web/connectGate.tsx` and reaches the shared shell as `Target.gate` (`shell/target.ts`); Android's entry passes none. What a target adds to the shell goes through `Target`, never through `isNative` checks in `shell/`. The remaining `isNative` checks in screens are capabilities (share or copy, where a key is kept) and stay.
 2. **Web-only screens** (the web has no Garmin key, no notifications, no camera picker) go in `apps/web/`. They are not flags inside the shared screens.
-3. **Before the first Vercel deploy** ([dev-setup section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app)): the Vercel project (Hobby) with the Neon integration, `SERVER_SECRET`, `PUBLIC_URL` (for the admin MCP) and the other server variables set in Vercel, never in the repo. Production branch `master`, so the web app and the APK release ship from the same merge. `vercel-build` already builds the web target.
+3. **Before the first Vercel deploy** (done) ([dev-setup section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app)): the Vercel project (Hobby) with the Neon integration, `SERVER_SECRET`, `PUBLIC_URL` (for the admin MCP) and the other server variables set in Vercel, never in the repo. Production branch `master`, so the web app and the APK release ship from the same merge. `vercel-build` already builds the web target.
 4. **Done when:** a phone and the web app sync through the deployed server (`npm run test:sync` against it), and a fresh browser connects with the passphrase.
 
 ## iPhone app (later phase)

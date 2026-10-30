@@ -10,7 +10,7 @@ Status as of 26 Oct 2026, phase 1. This document shows the system as a whole: it
 - Later in phase 1: let the owner ask Claude about their data, with consent and a record of what was sent.
 
 **Non-goals (phase 1)**
-- No server, no account, no multi-user support.
+- No server, no account, no multi-user support. (Phase 2, built for 0.4, adds a sync server, accounts and the web app: section 9.)
 - No HealthKit or Health Connect integration. Garmin is the only wearable source.
 - No medical diagnosis.
 
@@ -48,6 +48,7 @@ flowchart LR
 | Garmin account export | Full history, once | Owner downloads, PC script imports | ZIP of JSON files, turned into an encrypted backup to restore on the phone |
 | Anthropic API | The agent: answers questions, estimates meals from photos, plans meal prep (core built) | App sends, receives | Aggregates by default; detailed records, notes and photos only with consent |
 | Share targets | Where the owner keeps backups | App sends | One password-encrypted file |
+| Sync server (phase 2, Vercel + Neon) | Keeps the account's rows, sealed on the device, so the phone and the web app hold the same data; accounts, devices, friends, admins | App sends and receives | Ciphertext per row with table name, opaque row key and `updated_at`; never readable health data ([architecture.md section 6](architecture.md#6-phase-2-server-sync-web)) |
 
 ## 3. Components
 
@@ -96,13 +97,13 @@ flowchart TB
 | Component | Responsibility | Main files |
 |---|---|---|
 | App shell | Opens the DB, runs migrations, triggers sync on launch, the five sections (Dashboard, Chat, Meal prep, Alcohol, Settings), shown by each target: a tab bar at the bottom on Android, a side menu on the web app | `src/shell/App.tsx`, `src/shell/tabs.ts`, `src/apps/android/TabBar.tsx`, `src/apps/web/SideNav.tsx`, `src/platform/openDatabase.ts` |
-| Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance and protein; the check-in and latest weight; energy, workouts and meal prep as the day's numbers or daily averages and totals; charts per day; every synced number of a day | `src/domain/dashboard/` |
+| Dashboard tab | A greeting with the profile picture (opens the profile) and sync; quick actions (log food or a drink, ask Claude, the check-in); Day / Week / Month with rings for calories eaten against the target and steps against the goal, burned, balance, protein and the calories split by macro; the check-in and latest weight; energy, workouts, alcohol and meal prep as the day's numbers or daily averages and totals; charts per day, and for a single day the two weeks before it; every synced number of a day | `src/domain/dashboard/` |
 | Journal (from the Dashboard) | Daily check-in (mood and energy 1 to 5, a note) with 30 days of history and a trend; manual measurements (weight, body fat, waist, blood pressure, resting heart rate, glucose, supplements, symptoms) with a trend per kind | `src/domain/journal/` |
 | Chat tab | Conversations with Claude: typed or dictated messages, camera or gallery photos, PDF and text files, quick prompts, consent and change confirmation in line, changes with undo, history | `src/screens/chat/ChatScreen.tsx` |
 | Meal prep tab | Two groups: *Food log* (today, history, saved meals) and *Meal prep* (stock and defrost plan, recipes, shopping list, supermarket spending per month and per supermarket) | `src/screens/mealprep/`, `src/screens/food/` |
 | UI kit and palette | Shared components (charts, figures, controls, `PageHeader`, `SubTabs`, `Segmented`, `Icon`) and the one color palette (`palette.css`), checked by tests. Screens: `docs/screens/index.html` | `src/ui/` |
 | Alcohol tab | One-tap drink logging first, then drinks per period, their kcal and cost, weight without alcohol | `src/screens/alcohol/` |
-| Settings tab | A menu in three groups (You, Data, App) opening each page with a way back. *Profile*: Google account, owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: a card each for the Garmin sync (key, reminder), the Garmin history import (the export ZIP, read on the phone) and Claude. *Privacy & data*: Claude consents as switches, what was sent, what is stored, backup (with its age) and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/domain/settings/` |
+| Settings tab | A menu in three groups (You, Data, App), plus Admin for an admin account, opening each page with a way back. *Profile*: the Google account on a phone that never connected (the sync account otherwise), owner profile (birth date, sex, height, activity, weight goal) and the estimates it allows. *Connections*: a card each for the Garmin sync (key, reminder), the Garmin history import (the export ZIP, read on the phone) and Claude. *Sync & devices*: connect (sign in, pair, or a new account from an invite), devices, Google link, passphrase. *Friends*: shares per kind. *Privacy & data*: Claude consents as switches, what was sent, what is stored, backup (with its age) and restore. *Debug logs*: the Logs screen. *About*: version, build, platform, schema | `src/domain/settings/` |
 | Profile (from the Dashboard) | past activity imported and synced, picture, name and body numbers, the owner's sports, goals with progress (add from templates, delete), workouts: totals per sport, longest sessions, recent sessions | `src/domain/me/` |
 | Debug logs (Settings) | log level, this run's records, export as a Markdown report for Claude (file or text), clear | `src/domain/logs/` |
 | Sync orchestrator | One sync of one source: fetch, store, move the cursor, log the attempt | `src/domain/sync/runSync.ts` |
@@ -116,6 +117,9 @@ flowchart TB
 | Backup | Export every table to an encrypted file; restore by merging | `src/domain/backup/` |
 | Secrets | Garmin personal API key, Claude API key (old freddy URL and key are deleted on start) | `src/domain/settings/` |
 | Alcohol counter | Drink types with price and kcal, drink log, totals in kcal and money, expected weight without alcohol | `src/domain/alcohol/` |
+| Cloud sync (phase 2) | Push the outbox and pull newer rows, sealed with the account's key; sign-up, sign-in, pairing, friends; one sync at a time | `src/domain/cloudsync/`, `src/screens/cloudsync/` |
+| Sync server (phase 2) | Hono app on Postgres: accounts, devices, sealed rows, friends, admin, the admin MCP server behind OAuth 2.1. Runs in the `sync` container and as the Vercel function `api/index.ts` | `server/`, `api/` |
+| Web app (phase 2) | The shared shell behind a connect gate and a side menu; sql.js in memory, sealed in IndexedDB, kept 30 days without use or only for the tab on a shared computer | `src/apps/web/`, `src/platform/webDatabase.ts`, `src/platform/idb.ts` |
 | Agent engine | Tool-use loop with Claude: read tools with consent per data class, confirmed write tools (through `food.ts`, `mealPrep.ts`, `shopping.ts`, `logs.ts`) with undo, photos, disclosure log, conversation store | `src/domain/chat/` |
 
 **Code layout:** `apps/<target>/` (one entry per target: Android, web), `shell/` (the app frame they share for now), `screens/<name>/` (shared screens), `domain/<name>/` (logic and data access per feature, shared by every target), `ui/`, `platform/` (every Capacitor adapter), `db/`, `core/` (pure helpers). See [LLD section 1](LLD.md#1-repository-layout) and the rules in [architecture.md section 3](architecture.md#3-rules-the-code-must-keep).
@@ -242,13 +246,14 @@ Full columns and constraints: [LLD.md section 4](LLD.md#4-schema).
 |---|---|
 | Database at rest | SQLCipher. Random 32-byte passphrase per install, kept by the SQLite plugin in Keystore-backed storage (Android) / Keychain (iOS) |
 | Garmin personal API key, Claude API key | Keystore / Keychain via secure storage. Never in SQLite, so never in a backup. Memory only in the browser build. The Garmin access token lives in memory only |
-| Data in transit | HTTPS only (Garmin and Anthropic endpoints are fixed `https://` URLs) |
+| Data in transit | HTTPS only (Garmin and Anthropic endpoints are fixed `https://` URLs; a sync server address typed without a scheme gets `https://`) |
+| Cloud sync (phase 2) | Rows sealed on the device (AES-256-GCM, key derived from the account's secret, which the server never has); per-device bearer tokens stored as hashes; the web copy sealed with a non-extractable browser key |
 | Backup files | AES-256-GCM with a key derived from the owner's password (PBKDF2-SHA256, 600k iterations). The header is authenticated, so any edit makes the file unreadable |
 | OS backups | Android auto-backup, adb backup and device-to-device transfer disabled |
 | Logs and errors | Network errors never include the URL, key or token. Scripts print counts and field names, not health values |
 | Data sent to Claude | Explicit consent per data class (summaries, detailed records, notes, photos) with a policy version; tools without consent are not run; every payload and photo logged in `ai_disclosures` |
 | Changes made by the agent | Additive only, through the app's own functions; validated; confirmed by the owner line by line; logged in `agent_actions`; undo per action with the app's own undo. Injected instructions (in photos or notes) can at most propose a change the owner must confirm |
-| Who owns the data | Optional Google sign-in binds the phone's data to one account (its stable id, no token stored); another account cannot see or restore into it. Not a lock: SQLCipher protects the data either way |
+| Who owns the data | One identity: on a connected device the sync account is the user, its backups name it and only restore on a device of the same account (or one never connected). A phone that never connects can bind its data to a Google account (its stable id, no token stored); another account cannot restore into it. Not a lock: SQLCipher protects the data either way |
 
 Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hands while the app is open, and a weak backup password chosen by the owner (minimum length 8 is enforced).
 
@@ -257,9 +262,10 @@ Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hand
 | Target | How | Status |
 |---|---|---|
 | Android (S23) | `npm run android:sync` (build, `cap sync`, hardening script), then `gradlew assembleDebug` or the VS Code tasks; or `npm run docker:apk` (pinned toolchain, also in CI). `npm run test:device` checks the installed build | Passes on a Galaxy S23-shaped Android 16 emulator (27 Oct 2026); not yet on the phone |
-| CI | `.github/workflows/ci.yml`: the Docker test stage on every PR (no APK) | Added 27 Oct 2026 |
+| CI | Only `.github/workflows/release.yml` (push to `master`). PR CI (`ci.yml`) and the release emulator job removed to save Actions minutes | Added 27 Oct 2026, cut 30 Oct 2026 |
 | Release | `.github/workflows/release.yml` on a push to `master` (merging `develop`): signed release APK in Docker, checked (`scripts/release-check.mjs`), installed and launched on an emulator, then tag `v<version>` and a GitHub release with the APK. Release key outside the repo, in GitHub secrets for CI (dev-setup.md section 6) | Added 27 Oct 2026 |
 | iOS (iPhone 14) | Same code; built and run in the iOS Simulator on GitHub macOS runners (`ios.yml`, parked out of CI for now, dev-setup section 7). Device install needs an Apple Developer account | Simulator build, 27 Oct 2026 |
+| Web app and sync server | Vercel Hobby: the web build (`npm run build:web`) as static files and the sync API as one function (`api/index.ts`; `vercel.json` rewrites `/v1/*`, `/health`, `/mcp`, `/oauth/*` to it). Neon free Postgres; `npm run vercel-build` migrates it. Locally the same in Docker (`db`, `sync`, `web`) or `npm run dev:web` | Deployed with 0.4 (Oct 2026) |
 | Browser | `npm run dev`, UI only, no database | Development aid |
 | PC scripts | `scripts/garmin-sync.ts` (`npm run sync:garmin`: real Garmin Personal API -> SQLite file), `scripts/garmin-probe.ts` (which endpoints the key can read, field names only), `scripts/garmin-import.ts` (Garmin account export -> encrypted backup to restore on the phone) | In use |
 
@@ -271,11 +277,11 @@ Native projects are generated and git-ignored; the repo holds only the web code,
 |---|---|
 | Offline first | Everything except sync and chat works without network |
 | Data durability | Idempotent upserts; one transaction per migration, per sync batch and per restore; encrypted backups |
-| Testability | Core depends on interfaces; 193 Node tests, including a fake of the Android plugin's statement splitting and transactions |
+| Testability | Core depends on interfaces; 410 Node tests, including a fake of the Android plugin's statement splitting and transactions |
 | Replaceable source | `Source` interface (`fetchSince(cursor)`); the freddy source was swapped for the Garmin Personal API on 26 Oct 2026 without changes to sync, storage or screens |
 | Phase 2 readiness | UUIDv7 keys, `updated_at` / `deleted_at` / `origin_device_id` on user tables, append-only samples |
 | Performance | Personal scale. Indexed by (metric, local_day). Restore inserts in multi-row batches to limit bridge calls |
 
-## 9. Phase 2 outlook
+## 9. Phase 2 (built for 0.4)
 
-A Node + Postgres server would receive samples by cursor sync and user tables by last-write-wins on `updated_at`; a web app would read the same API. The Claude key would move behind a server proxy. None of this changes the phone schema rules. See [architecture.md section 6](architecture.md#6-phase-2-parking-lot-noted-not-built).
+A Hono + Postgres server keeps each account's rows sealed on the device and synced by last write wins on `updated_at`; the phone and the web app push an outbox and pull by sequence number. Accounts come from invites (email and a recovery passphrase), more devices join by pairing, friends see daily summaries per shared kind, and admins manage invites, accounts and quotas, also through Claude with the admin MCP server. None of this changed the phone schema rules. Decisions: [architecture.md section 6](architecture.md#6-phase-2-server-sync-web); people and flows: [users.md](users.md). Still open: Google sign-in on the web, a QR scanner for pairing, the Claude key behind a server proxy.

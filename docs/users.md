@@ -104,6 +104,8 @@ Auth changes: sessions from a Google ID token (`jose` against Google's keys) iss
 
 ## 5. Order of work for 0.4
 
+Shipped in 0.4.0 (28 Oct 2026), with fixes in 0.4.1 and 0.4.2 (the Vercel function, the phone's sync, the connect screens). Where it went another way than planned: the web database is sql.js sealed in IndexedDB (not OPFS), pairing codes are typed (QR later), and sign-up is invite plus passphrase before Google (section 6).
+
 1. Fix the three sync findings from the review of PR #53 (photos over the row limit, push cursor and clock skew, one unreadable row stopping the pull).
 2. Accounts, invites and Google ID token sign-in on the server; device tokens from sign-in.
 3. ADK, key check and passphrase wrap; Settings > Sync on the phone; sync wired into the app.
@@ -136,6 +138,8 @@ The way to use the Pro plan is the other direction: **Claude's apps come to Even
 - **Friend summaries** are pushed for the last 90 days on every sync of the owner's devices, sealed per day with the share key. A friend's data is read from the server when shown, never stored on the friend's device.
 - **The web app's database** is sql.js in memory, saved to IndexedDB sealed with a non-extractable key of that browser profile; one tab at a time (Web Locks). Disconnecting or deleting the account on the web wipes that copy.
 - **How long the web keeps it** (decided 28 Oct 2026, `src/apps/web/browserCopy.ts`): until Disconnect, or 30 days without being opened (then the copy and its sealing key are deleted, the device is removed, and the Connect screen says why), or, with **This is a shared computer** ticked when connecting, until the tab closes. In that mode nothing reaches IndexedDB: the data, the session and the key stay in the tab's memory (`keepNothing` in `platform/idb.ts`), a reload signs out, and closing the tab removes the device on the server. A browser connected by pairing never had a passphrase, so coming back after 30 days means connecting again, by passphrase or by pairing.
+- **Connecting** (`screens/cloudsync/ConnectPanel.tsx`, 30 Oct 2026): three ways in, each with one line saying whose it is: *Sign in* (email and passphrase; after forgetting it, pair and set a new one), *Pair* (the code with a countdown, copy and cancel, and where to type it on the connected device) and *New account* (a live hint on what the passphrase still needs, and a switch confirming it is written down). The server address can be typed without `https://`.
+- **Signing out on the web:** the side menu shows the account's email and *Sign out*, which disconnects the browser and removes its copy, as Settings > Sync & devices does.
 - **Not built yet:** QR scanning, Google on the web, rotating the account data key after a lost device, a per-account quota other than the default 200 MB, the audit log of share grants as rows in the owner's data (the server keeps the shares themselves).
 
 ## 9. The admin MCP server (decided 28 Oct 2026)

@@ -63,7 +63,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 1. `npm run dev` for screens that do not need the database (the browser build has no SQLite).
 2. `npm test` for logic: everything except `src/platform/` runs in Node.
 3. "Android: run on emulator or phone" to try it for real, `chrome://inspect` to debug.
-4. Before a PR: `npm run health` (or `npm run docker:test`, which CI runs, with the same checks inside), and `npm run test:device` on the emulator when a change touches the phone side.
+4. Before a PR: `npm run health` (or `npm run docker:test`, the same checks inside Docker; CI no longer runs them), and `npm run test:device` on the emulator when a change touches the phone side.
 
 **Health checks** (`npm run health`, also the Docker test stage and so CI):
 
@@ -80,7 +80,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 
 ## 4. Docker: the standard test and build
 
-Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI: `.github/workflows/ci.yml` runs the test stage on every PR (no APK), and `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6).
+Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI. CI runs only for releases: `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6). PRs run nothing in CI, so run `npm run docker:test` before merging.
 
 | Command (or VS Code task) | Does | Time |
 |---|---|---|
@@ -107,20 +107,44 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | Command | Does |
 |---|---|
 | `npm run docker:up` | builds and starts all three, waits until each is healthy |
-| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
+| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, the scenarios of `scripts/lib/syncScenario.ts` (a round trip, last write wins, a delete, more rows than a page) through the real server on real Postgres, then cleanup (CI job *Sync environment* runs it on every PR). The unit tests run the same scenarios on PGlite |
 | `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
 | `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
 | `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): Settings > Admin then appears on its devices. Only the CLI grants admin |
 | `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
-| `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
+| `npm run docker:down` | stops everything, simulated phones included; the databases stay in their volumes (`docker compose --profile phones down -v` wipes them) |
+
+### Simulated phones
+
+`npm run docker:phones` starts the same three containers plus two simulated phones, `phone-a` and `phone-b` (Dockerfile target `phone`, `scripts/phone-sim.ts`, compose profile `phones`). Each is the app's database (node:sqlite with the app's migrations, a file in its own volume, `even_phone-a-data` / `even_phone-b-data`, so it survives a restart) with the app's sync code, joined to one local throwaway account: `phone-a` makes it from an invite the first time, `phone-b` signs in by passphrase (`SIM_EMAIL`, `SIM_PASSPHRASE`; defaults in `docker-compose.yml`). Each phone has a small control API, on `127.0.0.1:8791` (A) and `:8792` (B):
+
+| Request | Does |
+|---|---|
+| `GET /state` | row counts per synced table, a digest of every synced row (equal digests, same rows), rows waiting to be pushed, the last sync and its error |
+| `POST /write?n=20` | n edits as the owner would make them: food entries added, edited and deleted, drinks, and today's steps from one shared watch (the same row on both phones, so last write wins is exercised) |
+| `POST /sync` | one full sync, as the Sync button does; 503 with the error when it fails |
+| `POST /offline`, `POST /online` | while offline every request to the server fails, as with no network |
+
+| Command | Does |
+|---|---|
+| `docker compose --profile phones run --rm phones-check` | the phone sync test (`scripts/sync-phones.ts`): the phones start in step, edits on each reach the other, then both go offline, edit (the same row too), fail to sync with the edits kept queued, come back and converge. Run it locally (no longer in CI) |
+| `docker compose --profile phones restart phone-a phone-b`, then `docker compose --profile phones run --rm phones-check --after-restart` | the same, after checking each phone kept its database |
+| `npm run test:phones` | the same test from this PC, through ports 8791 and 8792 |
+| `SIM_EVERY_MS=20000 npm run docker:phones` | live mode: each phone writes and syncs every 20 s on its own; watch with `docker compose --profile phones logs -f phone-a phone-b` |
+
+The phones print and log counts and digests only. A simulated phone keeps its session in memory (secrets never go in a file), so each start joins as a new device and each stop leaves the device list. Not covered here: the Capacitor SQLite plugin, SQLCipher and the Keystore (`npm run test:device`, section 5), and the emulator reaching `http://10.0.2.2:8787` (below).
+
+**Docker Desktop would not start** on 30 Oct 2026 with `running OTel manager: removing stale socket: remove ...\Docker\run\userAnalyticsOtlpHttp.sock: The file cannot be accessed by the system`: a socket left from an earlier run that Windows can neither open nor delete. Quit Docker Desktop, rename `%LOCALAPPDATA%\Docker\run` (for example to `run.stale`) and start Docker Desktop again; it makes a new `run` folder.
 
 **Without Docker** (Docker Desktop's engine would not start on this PC on 28 Oct 2026): `npm run dev:web` runs the sync server on :8787 and the web app on http://localhost:5173 (Vite sends `/v1` to the server, as Vercel does). With no `DATABASE_URL` the server uses PGlite, real Postgres in WebAssembly, saved in `.data/pglite` (git-ignored); `npm run sync:invite -- --email ...` works on it too, with the dev server stopped (one process at a time). With `DATABASE_URL` it uses that Postgres. `npm test` covers the server without Docker as well: `tests/users.test.ts` and `tests/cloudSync.test.ts` run the real Hono app on in-memory PGlite.
 
-**On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address.
+**On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address (typed with or without `https://`).
 
 **The admin MCP server** ([users.md section 9](users.md#9-the-admin-mcp-server-decided-28-oct-2026)) is at `/mcp` on the sync server. Locally, with `npm run dev:web` running: `claude mcp add --transport http even-admin http://localhost:8787/mcp` in Claude Code, then sign in with an admin account's email and passphrase (`npm run sync:admin` first). claude.ai needs the deployed, public address.
 
-**Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
+**Deploying to Vercel** (done for 0.4; the steps, for a new project): import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` rewrites `/v1/*`, `/health`, `/mcp`, `/oauth/*` and the OAuth `/.well-known/*` paths to the one function `api/index.ts`, with the original path in `__path` (`server/vercelPath.ts` puts it back). Relative imports under `server/` and `api/` name `.js` files, or the function fails with `ERR_MODULE_NOT_FOUND` (`tests/vercelFunction.test.ts` catches it). Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
+
+**Only `develop` and `master` deploy** (`git.deploymentEnabled` in `vercel.json`, since 30 Oct 2026): `master` is production, `develop` the one preview. The Neon integration makes a database branch for every deployed git branch, and on 30 Oct 2026 the feature-branch previews used up the free plan's branches ("Branch limit reached. Upgrade your plan or delete unused branches."). Feature branches are checked by CI in Docker instead. Neon branches left by old previews are deleted in the Neon console (Branches; keep the main one and the one for `develop`).
 
 ## 5. Integration test on the emulator or phone
 
@@ -163,10 +187,9 @@ A release is a merge of `develop` into `master`. The push to `master` runs `.git
    - min SDK 24 and target SDK 36;
    - Android backups off;
    - the web app inside.
-3. **Emulator.** An Android 14 (API 34) emulator on the runner gets a clean install, then the check confirms the app launches, stays alive and in front, and leaves nothing in the crash log. A screenshot is kept as an artifact.
-4. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
+3. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
 
-PRs (to `develop` or `master`) only run the tests, with no APK (`ci.yml`). `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
+PRs (to `develop` or `master`) run nothing in CI (removed 30 Oct 2026 to save Actions minutes, along with the release emulator check); test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
 
 **Version code.** `versionCode` comes from the version: `MAJOR*10000 + MINOR*100 + PATCH`, so 0.1.0 is 100. Android only installs an update with a higher code, so versions only go up, and minor and patch stay below 100 (`scripts/android-gradle.mjs`, tested).
 

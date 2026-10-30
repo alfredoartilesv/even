@@ -1,8 +1,8 @@
 # Even: context for Claude
 
-Even is a personal health app for one owner, Android first (Galaxy S23), plus a web app (phase 2, toward 0.4); iPhone is a later phase (kept in the repo, out of CI). It reads the owner's Garmin data (Garmin Connect Personal API, plus the Garmin export ZIP), stores everything locally in an encrypted database on the phone, shows a Dashboard and logs (food, meal prep, alcohol, journal), and lets the owner ask Claude about their own data with recorded consent.
+Even is a personal health app for one owner, Android first (Galaxy S23), plus a web app (phase 2, shipped in 0.4, now 0.4.2); iPhone is a later phase (kept in the repo, out of CI). It reads the owner's Garmin data (Garmin Connect Personal API, plus the Garmin export ZIP), stores everything locally in an encrypted database on the phone, shows a Dashboard and logs (food, meal prep, alcohol, journal), and lets the owner ask Claude about their own data with recorded consent.
 
-Stack: React 19, TypeScript 7, Vite 8, Capacitor 8 (Android, iOS), SQLite with SQLCipher through `@capacitor-community/sqlite`, zod, fflate. Tests: `node:test` through tsx, with node:sqlite standing in for the plugin. Node 24 (`.nvmrc`). App id `app.health.personal` (kept from before the rename to Even, as are the DB name `health` and the `HEALTH_*` env names).
+Stack: React 19, TypeScript 7, Vite 8, Capacitor 8 (Android, iOS), SQLite with SQLCipher through `@capacitor-community/sqlite`, zod, fflate. Sync server: Hono + Postgres in `server/`, deployed as the Vercel function `api/index.ts` on Neon; the web app's database is sql.js sealed in IndexedDB. Tests: `node:test` through tsx, with node:sqlite standing in for the plugin. Node 24 (`.nvmrc`). App id `app.health.personal` (kept from before the rename to Even, as are the DB name `health` and the `HEALTH_*` env names).
 
 Read first when the task needs it: `docs/architecture.md` (decisions and **section 3, rules the code must keep**), `docs/LLD.md` (layout, schema, backup format), `docs/dev-setup.md` (toolchain, Docker, health checks, emulator, releases), `docs/HLD.md`.
 
@@ -27,13 +27,14 @@ Read first when the task needs it: `docs/architecture.md` (decisions and **secti
 - **Secrets** only in the Keystore/Keychain: never in SQLite, logs, error messages, the repo or a backup.
 - **Health data leaves the phone only** to Claude (consent per kind, every send in the disclosure log) and in encrypted backup files the owner shares. Garmin is read only.
 - **Sources** (`garmin`, `freddy`, `apple_health`, `garmin_export`) are never added together; `daily_metric_values` picks one per metric and day.
+- **Server imports**: in everything the Vercel function loads (`api/index.ts` and what it reaches in `server/` and `src/core/`), relative imports name the `.js` file and there are no TypeScript parameter properties, or the Vercel function fails to load (`tests/vercelFunction.test.ts`).
 - **Start-up path** stays small: every screen but the Dashboard is lazy (`src/shell/screens.tsx`), and modules on the Dashboard's path use `zod/mini`. Check the bundle when adding imports there.
 - **No duplicated blocks**: shared UI goes in `src/ui/`, shared Node helpers for scripts and tests in `scripts/lib/`.
 - Comments say why, in plain words; tests describe behaviour in their names. Match the surrounding style.
 
 ## Workflow
 
-- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, emulator check, tag `v<version>`, GitHub release). Bump `package.json` on `develop` first: an already tagged version stops the release.
+- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, tag `v<version>`, GitHub release), the only CI workflow: PRs run nothing. Bump `package.json` on `develop` first: an already tagged version stops the release.
 - Commit messages end with the `Co-Authored-By` line from the session's instructions; PR bodies end with the Claude Code line.
 - Another Claude session may be working in this folder. Do work in a worktree under `.worktrees/` (git-ignored), run `npm ci` in it (real `node_modules`, **never** a junction into the main folder: removing the worktree would delete the real one), and never commit someone else's uncommitted changes.
 - Windows: Git Bash and PowerShell. `gh` is `/c/Program Files/GitHub CLI/gh.exe`. Release key and its env file live in `%USERPROFILE%\.android\health-release\` (read the env file literally, values contain backslashes).

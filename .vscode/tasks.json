@@ -28,7 +28,7 @@
       "label": "Android: build debug APK",
       "detail": "android/app/build/outputs/apk/debug/app-debug.apk",
       "type": "shell",
-      "command": ".\gradlew.bat assembleDebug",
+      "command": ".\\gradlew.bat assembleDebug",
       "options": { "cwd": "${workspaceFolder}/android" },
       "dependsOn": "Android: sync",
       "group": { "kind": "build", "isDefault": true },
