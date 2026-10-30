@@ -76,6 +76,21 @@ export function checkPassphrase(passphrase: string): string | null {
   return null;
 }
 
+/**
+ * What a new passphrase still needs, said while it is typed (the new account form), so a disabled
+ * button is never a mystery. Counts like checkPassphrase. Only a mismatch is an error: a passphrase
+ * still being typed is just not long enough yet.
+ */
+export function passphraseHint(passphrase: string, again: string, saved: boolean): { text: string; error: boolean } | null {
+  if (!passphrase) return null;
+  const missing = MIN_PASSPHRASE - passphrase.trim().length;
+  if (missing > 0)
+    return { text: `${missing} more character${missing === 1 ? "" : "s"} (at least ${MIN_PASSPHRASE}). A few words make a strong one.`, error: false };
+  if (!again) return { text: "Long enough. Now type it again below.", error: false };
+  if (again !== passphrase) return { text: "The two passphrases are different.", error: true };
+  return { text: saved ? "Both match." : "Both match. Write it down, then say so below.", error: false };
+}
+
 // ---- Identity and ECDH ----
 
 export interface Identity {
