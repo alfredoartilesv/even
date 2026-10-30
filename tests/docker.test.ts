@@ -95,7 +95,15 @@ test("the simulated phones: their own stage and volumes, off unless asked for, a
 });
 
 test("vercel.json serves the web build and sends the API, the admin MCP and its OAuth to the sync function", () => {
-  const vercel = JSON.parse(read("vercel.json")) as { buildCommand: string; outputDirectory: string; rewrites: { source: string; destination: string }[] };
+  const vercel = JSON.parse(read("vercel.json")) as {
+    buildCommand: string;
+    outputDirectory: string;
+    git: { deploymentEnabled: Record<string, boolean> };
+    rewrites: { source: string; destination: string }[];
+  };
+  // Each deployed branch gets its own Neon database branch, and the free plan has few: develop
+  // (preview) and master (production) only, never a feature branch.
+  assert.deepEqual(vercel.git.deploymentEnabled, { "*": false, develop: true, master: true });
   assert.equal(vercel.buildCommand, "npm run vercel-build");
   assert.equal(vercel.outputDirectory, "dist");
   assert.deepEqual(
