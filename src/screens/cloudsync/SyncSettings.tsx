@@ -76,6 +76,13 @@ function Connected({ db, secrets, isNative, session, onSession, onSync, version 
     void load();
   }, [load, version]);
 
+  /** The app's sync keeps a cloud failure for this screen rather than throwing, so "Synced." would show over the error. */
+  async function syncOrThrow() {
+    await onSync();
+    const { error } = await lastCloudSync(db);
+    if (error) throw new Error(error);
+  }
+
   async function act(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
     setMsg(null);
@@ -104,7 +111,7 @@ function Connected({ db, secrets, isNative, session, onSession, onSync, version 
         </p>
         {last.error && <p className="warning small">{last.error}</p>}
         <div className="actions">
-          <button type="button" disabled={busy} onClick={() => void act(onSync, "Synced.")}>
+          <button type="button" disabled={busy} onClick={() => void act(syncOrThrow, "Synced.")}>
             {busy ? "Working…" : "Sync now"}
           </button>
         </div>
