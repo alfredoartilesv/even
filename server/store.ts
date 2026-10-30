@@ -1,6 +1,6 @@
-import { sha256Hex } from "../src/core/hash";
-import type { PullResult, PushResult, SyncRow } from "../src/core/syncWire";
-import type { Pg } from "./pg";
+import { sha256Hex } from "../src/core/hash.js";
+import type { PullResult, PushResult, SyncRow } from "../src/core/syncWire.js";
+import type { Pg } from "./pg.js";
 
 export interface Device {
   id: string;

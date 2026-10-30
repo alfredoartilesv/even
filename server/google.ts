@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { AuthError } from "./accounts";
+import { AuthError } from "./accounts.js";
 
 /**
  * Checks a Google ID token the way Google documents it: signed by Google's current keys, issued by
