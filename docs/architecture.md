@@ -62,6 +62,7 @@ Code structure (26 Oct 2026):
 - One feature, two folders: its logic and SQL in `domain/<name>/`, its screens in `screens/<name>/`. Shared code moves down a layer, never sideways into another feature's internals.
 - **Decision 28 Oct 2026: targets diverge above a shared core.** The Android app and the web app (and iOS, later) will grow apart, so each has its own entry in `apps/<target>/`, and what it needs on its own goes there: its start, later its own shell or its own copy of a screen. Shared by every target and never forked: `domain/`, `db/` (schema, migrations), the backup format, the sync wire format, metric names and sources, `core/`. The Vite mode picks the target (`--mode web` for the web app); `scripts/android-harden.mjs` stops a web build from going into the APK. Plan: [phases.md](phases.md).
 - Writes that touch several rows go through `withTransaction` (`src/db/tx.ts`).
+- **Server code (30 Oct 2026):** relative imports in the files the Vercel function loads (`api/index.ts` and what it reaches in `server/` and `src/core/`) name the `.js` file (`./pg.js`, `../src/core/log.js`). Vercel compiles each file on its own and Node loads it as ESM, which resolves no extensions; Vite and tsx map `.js` to the `.ts` file. No TypeScript parameter properties there either (Node's type stripping rejects them). `tests/vercelFunction.test.ts` loads the function as Vercel does.
 
 Logging (26 Oct 2026):
 - Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in Settings > Debug logs and stored in `app_settings` (`log.level`).
@@ -176,7 +177,9 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 **Built 28 Oct 2026 (users, PR #53):** accounts from invites, the recovery passphrase, pairing codes, device management, friends and shares per kind, the Sync & devices and Friends screens on phone and web, and the web app with its own database in the browser (sql.js, sealed in IndexedDB, one tab at a time). Push now reads an outbox the triggers of migration 0016 fill, not `updated_at` (clock skew cannot hide an edit); rows up to 3.5 MB (a full food photo) sync, bigger ones stay on the device; a row that will not open or merge is set aside instead of stopping the sync. Details in [users.md](users.md).
 
-**Open:** Google sign-in on the web (linking works on the phone and the server; the web button needs the Web client id and its origin in Google Cloud); a QR scanner for pairing codes (typed for now); rows over 3.5 MB (chat PDFs) need object storage; rotating the account data key after a lost device; deploying to Vercel and Neon.
+**Deployed with 0.4 (Oct 2026)** on Vercel and Neon. Fixes since: 0.4.1, the function loads as ESM (`.js` on relative imports); 0.4.2, one function at `/api` with the original path in `__path` (Vercel matched `api/[[...route]].ts` for one path segment only, so `/v1/*` answered 404), a server address typed without `https://`, one sync at a time on the device (a second one failed with "Already in transaction"), and Sync now showing the cloud error.
+
+**Open:** Google sign-in on the web (linking works on the phone and the server; the web button needs the Web client id and its origin in Google Cloud); a QR scanner for pairing codes (typed for now); rows over 3.5 MB (chat PDFs) need object storage; rotating the account data key after a lost device.
 
 **Still parked:**
 

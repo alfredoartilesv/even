@@ -1,6 +1,6 @@
 # Even documentation
 
-Even is a personal health app for Android (then iPhone): Garmin data straight from the Garmin Connect Personal API, kept in an encrypted local database, with daily screens, manual logs and, later, Claude on top. Phase 1 runs entirely on the phone.
+Even is a personal health app for Android (then iPhone), with a web app: Garmin data straight from the Garmin Connect Personal API, kept in an encrypted local database, with daily screens, manual logs and Claude on top. Phase 1 runs entirely on the phone; phase 2 (0.4) adds a sync server, accounts and the web app, with rows sealed on the device.
 
 ## Which document to read
 
@@ -15,7 +15,7 @@ Even is a personal health app for Android (then iPhone): Garmin data straight fr
 
 New to the repo: read this page, then the HLD, then the parts of the LLD you need. Before changing a decision, read architecture.md.
 
-## Status (26 Oct 2026)
+## Status (30 Oct 2026, version 0.4.2)
 
 | Area | State |
 |---|---|
@@ -27,20 +27,24 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Run on Android | Debug build passes the device integration test (`npm run test:device`, 11 checks). The 0.1.0 release APK is installed on the real S23 on a Galaxy S23-shaped Android 16 emulator. **Not yet on the real phone** |
 | Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/ci.yml` (PRs: tests only) |
 | Releases | Merge `develop` into `master`: signed APK built and checked in Docker, launched on an emulator, tagged `v<version>` and published as a GitHub release (`release.yml`, dev-setup.md section 6). Needs the four `HEALTH_*` GitHub secrets |
-| Daily screens beyond the "latest day" list | Not started; waiting for the owner to choose them |
+| Dashboard (Day / Week / Month: rings, macro split, energy with two-week trends, recovery, check-in, workouts, alcohol, meal prep, groceries), Journal, Profile | Built and tested |
 | Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/domain/chat/`, `npm run chat` on a PC); Chat tab with camera and image attach |
 | Connect Claude (verified API key; there is no "Sign in with Claude" for Android apps, see architecture.md section 5) | Built and tested (`connect.ts`); screen in Settings > Connections |
 | Garmin history import (account export ZIP, imported on the phone in Settings > Connections, or on a PC as an encrypted backup to restore; 2018-2026 imported on the first run) | Built and tested (`domain/import`, `npm run import:garmin`) |
-| Google sign-in (optional; one owner per install, data and backups tied to that account) | Built and tested (`domain/account`); needs the Google Cloud setup (architecture.md 5b) and a screen |
+| Google sign-in (optional; one owner per install, for a phone that never connects) | Built and tested (`domain/account`, Settings > Profile); needs the Google Cloud setup (architecture.md 5b). On a connected device the sync account is the user and Google links to it |
+| Sync server, accounts, devices, pairing, friends (phase 2) | Built and tested (`server/`, `domain/cloudsync/`); deployed on Vercel + Neon with 0.4; locally in Docker or `npm run dev:web` (dev-setup.md 4b) |
+| Admins and the admin MCP server (invites, accounts, quotas, devices, suspension, audit log; Claude as a connector behind OAuth 2.1) | Built and tested (users.md sections 2.6 and 9) |
+| Web app (connect gate, side menu with Sign out, the shared screens, database sealed in the browser, 30 days without use or tab-only on a shared computer) | Built and deployed (`apps/web/`, phases.md) |
 
 ## Quick start
 
 ```bash
 npm install
-npm test                    # 250 tests, no device needed
+npm test                    # 410 tests, no device needed
 npm run docker:test         # the same in the pinned Docker toolchain (standard before a PR; CI runs it)
 npm run build               # typecheck + Vite build
 npm run dev                 # browser: UI only, no local database
+npm run dev:web             # the web app on :5173 with the sync server on :8787 (PGlite, no Docker)
 ```
 
 Android build, emulator and VS Code tasks: [dev-setup.md](dev-setup.md).
