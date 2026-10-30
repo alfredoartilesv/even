@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { deviceFetch, isNative } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
@@ -321,6 +322,7 @@ export function App({ target }: { target: Target }) {
           </Suspense>
         </div>
       </main>
+      <SpeedInsights />
     </Frame>
   );
 }
