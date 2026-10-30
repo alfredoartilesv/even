@@ -22,7 +22,7 @@ Even is a personal health app, Android first (Samsung S23), iPhone second. It re
 | Local database | SQLite via `@capacitor-community/sqlite`, encrypted with SQLCipher | Built 25 Oct 2026 |
 | Query layer | Typed raw SQL behind a 3-method `SqlDriver` interface, Zod at untrusted edges (backup files). Drizzle rejected, see risk 4 | Decided 25 Oct 2026 |
 | Data source | Garmin Connect **Personal API**, read directly with the owner's personal API key, behind the `Source` interface (section 4b). Full history from the Garmin account export (section 4c). Replaced freddy. On the iPhone, **Apple Health** too (HealthKit, `src/domain/sync/appleHealth.ts`, source `apple_health`) | Built 26 Oct 2026; Apple Health 27 Oct 2026 |
-| Transport to Garmin | Capacitor native HTTP on the phone (not subject to WebView CORS) | Built 26 Oct 2026 |
+| Transport to Garmin | Capacitor native HTTP on the phone (not subject to WebView CORS); the web app goes through the sync server's relay (section 6c) | Built 26 Oct 2026; web 30 Oct 2026 |
 | Apple Health / Health Connect | Not read. Garmin is the only wearable source | Decided 26 Oct 2026 |
 | Claude integration | An agent: official SDK over native HTTP with the owner's key; manual tool-use loop over local SQLite tools; reads with per-class consent and a disclosure log; changes are additive only, confirmed by the owner, logged and undoable, through the same functions the screens use; photos with their own consent | Core built 25-26 Oct 2026; Chat tab 26 Oct 2026 |
 | Secrets | Garmin personal API key and Claude API key in Android Keystore / iOS Keychain via `@aparajita/capacitor-secure-storage`. The DB passphrase is random per install, in the SQLite plugin's own secure store. Secrets are never written to SQLite, so they are never in a backup | Built 25 Oct 2026 |
@@ -73,7 +73,7 @@ Privacy and security:
 - Secrets only in the Keystore/Keychain. Never in SQLite, logs, error messages or the repo.
 - Error messages from the network layer never contain a URL, key or token.
 - The phone only reads from Garmin. Health data leaves the phone only to Claude, with recorded consent and a disclosure log, and in backup files the owner shares.
-- Cloud sync (phase 2) sends rows **sealed on the phone** (AES-256-GCM with a key the server never has, section 6). The server sees table names, opaque row keys, updated_at and ciphertext; nothing it stores is readable health data. Any server feature that needs plaintext (search, the MCP server) is a new decision here first.
+- Cloud sync (phase 2) sends rows **sealed on the phone** (AES-256-GCM with a key the server never has, section 6). The server sees table names, opaque row keys, updated_at and ciphertext; nothing it stores is readable health data. Any server feature that needs plaintext (search, the MCP server) is a new decision here first. The one so far: the web app's Garmin calls pass through in plain form, never stored (section 6c).
 
 ## 4. Open risks and spikes
 
@@ -180,6 +180,16 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 **Deployed with 0.4 (Oct 2026)** on Vercel and Neon. Fixes since: 0.4.1, the function loads as ESM (`.js` on relative imports); 0.4.2, one function at `/api` with the original path in `__path` (Vercel matched `api/[[...route]].ts` for one path segment only, so `/v1/*` answered 404), a server address typed without `https://`, one sync at a time on the device (a second one failed with "Already in transaction"), and Sync now showing the cloud error.
 
 **Open:** Google sign-in on the web (linking works on the phone and the server; the web button needs the Web client id and its origin in Google Cloud); a QR scanner for pairing codes (typed for now); rows over 3.5 MB (chat PDFs) need object storage; rotating the account data key after a lost device.
+
+### 6c. Decision 30 Oct 2026: the web app reaches Garmin through the sync server
+
+The owner wants Garmin to connect and sync from the web app too, not only after the phone syncs. Garmin's Personal API sends no CORS headers (a preflight from the web app's origin gets no `Access-Control-Allow-Origin`, checked 30 Oct 2026), so a browser cannot read its answers; the phone avoids this with native HTTP. Chosen by the owner over keeping Garmin on the phone only:
+
+- `/v1/garmin/*` on the sync server (`server/garminRelay.ts`) passes the browser's Garmin calls on to Garmin. Behind the device check like the rest of `/v1`; only the calls `GarminApi` makes (`garminRelayAllowed` in `src/core/garminRelay.ts`, shared by both sides), only GET and the token POST.
+- The browser sends its device token in `Authorization` and the Garmin key or Garmin token in `x-garmin-authorization`. The key itself stays in the browser's sealed store.
+- **The exception to section 3:** for these calls only, the Garmin key, the short-lived Garmin token and Garmin's answers (the owner's health readings) pass through the server in plain form, in memory. Nothing is stored; the log has the service, the status and the time only. What the web app writes from them syncs sealed, as before. Any other plaintext path through the server is still a new decision.
+- Answers the relay passed on carry `x-garmin-relayed`, so a refusal by the server itself (an expired sign-in) never reads as a rejected Garmin key.
+- The phone is unchanged: native HTTP, straight to Garmin.
 
 **Still parked:**
 
