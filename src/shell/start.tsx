@@ -1,9 +1,11 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
+import { Analytics } from "@vercel/analytics/react";
 import { App } from "./App";
 import { initLogging } from "./logging";
 import { startOpeningDatabase } from "./startup";
 import type { Target } from "./target";
+import { isNative } from "../platform/device";
 import "../ui/palette.css";
 import "../screens/styles.css";
 
@@ -27,6 +29,7 @@ export function startApp(target: Target): void {
       ) : (
         <App target={target} />
       )}
+      {!isNative && <Analytics />}
     </StrictMode>,
   );
 }
