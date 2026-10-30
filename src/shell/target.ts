@@ -10,10 +10,19 @@ export interface GateState {
   connect: (session: SyncSession | null) => void;
 }
 
+/** The account this device is connected to, for a target's navigation to show and leave. */
+export interface FrameAccount {
+  email: string;
+  /** Disconnects this device; on the web its copy of the data goes too (and the page reloads). */
+  signOut: () => Promise<void>;
+}
+
 /** What the shell gives a target's navigation: the open section, a way to change it, and the page. */
 export interface FrameProps {
   tab: Tab;
   onTab: (tab: Tab) => void;
+  /** Null when this device is not connected to an account. */
+  account: FrameAccount | null;
   /** The page (<main className="shell">), placed by the frame beside or above its navigation. */
   children: ReactNode;
 }

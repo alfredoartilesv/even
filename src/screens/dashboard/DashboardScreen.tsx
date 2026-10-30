@@ -5,6 +5,7 @@ import type { SqlDriver } from "../../db/driver";
 import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
 import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
+import { MacroSplit } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDistance, fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
@@ -96,9 +97,10 @@ function spanTitle(span: Span, anchor: string): string {
 /**
  * The first tab: how the day, week or month went. A greeting and the date; the things done most
  * (log food or a drink, ask Claude, the daily check-in); rings for calories eaten against the
- * target and steps against the goal; the check-in (mood, energy, note, latest weight); then
- * energy, workouts and meal prep, each as the period's daily average and total, with charts per
- * day. A day also lists every synced number.
+ * target and steps against the goal, with the calories split by macro; the check-in (mood, energy,
+ * note, latest weight); then energy, recovery, workouts, alcohol and meal prep, each as the
+ * period's daily average and total, with charts per day. A day shows the two weeks before it as
+ * trends and a steps chart, and lists every synced number.
  */
 export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
   const [span, setSpanState] = useState<Span>(lastSpan);
@@ -251,6 +253,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
                 </dd>
               </div>
             </dl>
+            <MacroSplit proteinG={headline(d?.protein)} carbsG={headline(d?.carbs)} fatG={headline(d?.fat)} />
             {d && d.balance.total !== null && (
               <p className="muted small hero-note">
                 Balance is eaten minus burned{many ? `, a day, on the ${plural(d.balance.daysWithData, "day")} with both` : ""}: below zero is a deficit.
@@ -266,8 +269,9 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         <div className="dash-block">
           <SectionHeader title="Activity" />
           <div className="viz-tiles pairs">
-            <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} />
-            <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} />
+            {/* A day's tiles carry the two weeks before it; a week or month has its own charts below. */}
+            <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} trend={many ? undefined : d?.activityTrend.burned} />
+            <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} trend={many ? undefined : d?.activityTrend.active} />
             {d && d.body.distance.total !== null && (
               <StatTile label="Distance" {...tile(d.body.distance, fmtDistance)} trend={many ? undefined : d.body.distance.trend} />
             )}
@@ -276,6 +280,19 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
             {many && <StatTile label="Steps" {...tile(d?.steps)} />}
           </div>
+
+          {!many && d && d.activityTrend.steps.some((v) => v !== null) && (
+            <BarChart
+              title="Steps, last two weeks"
+              subtitle="Tap a day to open it"
+              x={d.trendDays}
+              values={d.activityTrend.steps}
+              formatX={(day) => String(Number(day.slice(8)))}
+              formatXLong={(day) => fmtDay(day)}
+              formatValue={int}
+              onSelect={openDay}
+            />
+          )}
 
           {many && d && (
             <>
@@ -324,6 +341,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
           )}
         </div>
+
+        {d && <AlcoholBlock d={d} span={span} onOpen={go.logDrink} />}
 
         <div className="dash-block">
           <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
@@ -402,6 +421,33 @@ function IntensityTile({ f, span }: { f: BodyFigure; span: Span }) {
         ? `of 150 a week${total >= 150 ? " · met" : ` · ${150 - total} to go`}`
         : `${Math.round(f.avg! * 7)} a week on average`;
   return <StatTile label="Intensity minutes" value={String(total)} note={note} trend={span === "day" ? f.trend : undefined} />;
+}
+
+/** Drinks in the period, as standard drinks (10 g of alcohol), the days without any, and what they cost. */
+function AlcoholBlock({ d, span, onOpen }: { d: Dashboard; span: Span; onOpen: () => void }) {
+  const a = d.alcohol;
+  const one = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  const free = a.days - a.drinkingDays;
+  return (
+    <div className="dash-block">
+      <SectionHeader title="Alcohol" action="Open" onAction={onOpen} />
+      {a.drinks === 0 ? (
+        <p className="muted small">{span === "day" ? "No drinks this day." : `No drinks this ${span}: ${plural(a.days, "day")} without.`}</p>
+      ) : (
+        <div className="viz-tiles pairs">
+          <StatTile label="Drinks" value={String(a.drinks)} note={`${one(a.standardDrinks)} standard · ${int(a.kcal)} kcal`} />
+          {span !== "day" && <StatTile label="Days without" value={String(free)} note={`of ${a.days}`} />}
+          {a.priced > 0 && (
+            <StatTile
+              label="Spent"
+              value={fmtMoney(a.money, d.groceries.currency)}
+              note={a.priced < a.drinks ? `${a.drinks - a.priced} without price` : undefined}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
