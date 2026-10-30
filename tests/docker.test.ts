@@ -102,8 +102,8 @@ test("vercel.json serves the web build and sends the API, the admin MCP and its 
     rewrites: { source: string; destination: string }[];
   };
   // Each deployed branch gets its own Neon database branch, and the free plan has few: develop
-  // (preview) and master (production) only, never a feature branch.
-  assert.deepEqual(vercel.git.deploymentEnabled, { "*": false, develop: true, master: true });
+  // (preview) and master (production) only, never a feature branch. Minimatch: `*` stops at a slash (feat/x), `**` does not.
+  assert.deepEqual(vercel.git.deploymentEnabled, { "**": false, develop: true, master: true });
   assert.equal(vercel.buildCommand, "npm run vercel-build");
   assert.equal(vercel.outputDirectory, "dist");
   assert.deepEqual(
