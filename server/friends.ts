@@ -1,8 +1,8 @@
-import { uuidv7 } from "../src/core/uuidv7";
-import type { Friend, Share, ShareKind, ShareRow, ShareRowsResult } from "../src/core/syncWire";
-import { AuthError, newCode, normalizeCode } from "./accounts";
-import type { Pg } from "./pg";
-import { sha256Hex } from "../src/core/hash";
+import { uuidv7 } from "../src/core/uuidv7.js";
+import type { Friend, Share, ShareKind, ShareRow, ShareRowsResult } from "../src/core/syncWire.js";
+import { AuthError, newCode, normalizeCode } from "./accounts.js";
+import type { Pg } from "./pg.js";
+import { sha256Hex } from "../src/core/hash.js";
 
 /**
  * Friends and what each one is shown (docs/users.md section 2.4). The server knows who is friends

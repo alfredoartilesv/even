@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { createLogger } from "../src/core/log";
+import { createLogger } from "../src/core/log.js";
 import {
   adminInviteBody,
   friendAcceptBody,
@@ -20,14 +20,14 @@ import {
   signupBody,
   suspendBody,
   SYNC_PAGE,
-} from "../src/core/syncWire";
-import { AuthError, SUSPENDED, type AccountStore } from "./accounts";
-import type { Actor, AdminStore } from "./admin";
-import { mcpApp } from "./mcp";
-import { oauthApp, type OAuthStore } from "./oauth";
-import type { FriendStore } from "./friends";
-import type { GoogleVerifier } from "./google";
-import type { Device, SyncStore } from "./store";
+} from "../src/core/syncWire.js";
+import { AuthError, SUSPENDED, type AccountStore } from "./accounts.js";
+import type { Actor, AdminStore } from "./admin.js";
+import { mcpApp } from "./mcp.js";
+import { oauthApp, type OAuthStore } from "./oauth.js";
+import type { FriendStore } from "./friends.js";
+import type { GoogleVerifier } from "./google.js";
+import type { Device, SyncStore } from "./store.js";
 
 const log = createLogger("server");
 
