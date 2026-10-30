@@ -1675,6 +1675,17 @@ html {
   color: var(--fg);
   user-select: all;
 }
+/* Numbered how-to lines (pairing): the number in the accent colour, the text wrapping under itself */
+ol.steps {
+  margin: 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.35rem;
+}
+ol.steps li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
 .device-list {
   list-style: none;
   padding: 0;
