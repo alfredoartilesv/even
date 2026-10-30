@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "git": {
     "deploymentEnabled": {
-      "*": false,
+      "**": false,
       "develop": true,
       "master": true
     }
