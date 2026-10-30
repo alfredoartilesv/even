@@ -190,6 +190,7 @@ The owner wants Garmin to connect and sync from the web app too, not only after 
 - **The exception to section 3:** for these calls only, the Garmin key, the short-lived Garmin token and Garmin's answers (the owner's health readings) pass through the server in plain form, in memory. Nothing is stored; the log has the service, the status and the time only. What the web app writes from them syncs sealed, as before. Any other plaintext path through the server is still a new decision.
 - Answers the relay passed on carry `x-garmin-relayed`, so a refusal by the server itself (an expired sign-in) never reads as a rejected Garmin key.
 - The phone is unchanged: native HTTP, straight to Garmin.
+- **The function runs in Paris (`cdg1`, `regions` in `vercel.json`, 30 Oct 2026).** From Vercel's default `iad1` (Washington) Garmin answered the token request with HTTP 404, where the same request from Spain gets an answer; the Personal API looks EU-only. Paris also sits next to the Neon database (London, `eu-west-2`): before, every sync request crossed the Atlantic twice.
 
 **Still parked:**
 
