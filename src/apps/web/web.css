@@ -363,7 +363,7 @@ body:has(.app-frame) {
 
 /* The rings' card: a soft glow of the accent behind them. */
 .app-frame .hero-card {
-  background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 65%), var(--glass);
+  background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 65%), var(--glass);
 }
 .app-frame .hero-stats {
   border-top-color: color-mix(in srgb, var(--fg) 8%, transparent);
@@ -377,6 +377,32 @@ body:has(.app-frame) {
 }
 .app-frame .checkin-prompt {
   border-radius: var(--radius-sm);
+}
+
+/*
+ * The header over the page's wash of color: lighter still, and on a wide screen its sides fade out
+ * in the gutter, so the column's edge never shows as a block.
+ */
+.app-frame .topbar {
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+@media (min-width: 48rem) {
+  .app-frame .topbar {
+    mask-image:
+      linear-gradient(to right, transparent, black var(--gutter), black calc(100% - var(--gutter)), transparent),
+      linear-gradient(to bottom, black calc(100% - 0.5rem), transparent);
+    mask-composite: intersect;
+  }
+}
+.app-frame .drink-pick:not(.other) {
+  border-color: transparent;
+  background-color: var(--glass);
+  box-shadow: var(--lift);
+}
+@media (hover: hover) {
+  .app-frame .drink-pick:hover {
+    box-shadow: var(--lift-hover);
+  }
 }
 
 /* The Dashboard's sections come in one after another. */
