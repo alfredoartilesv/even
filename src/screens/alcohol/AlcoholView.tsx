@@ -171,20 +171,30 @@ export function AlcoholView({ db, version, onChanged }: Props) {
   return (
     <div>
       <SectionHeader title="Log a drink" />
-      <div className="suggest">
+      {types.length === 0 && <p className="muted small">Log a drink once and save it: it gets a one-tap button here.</p>}
+      <div className="drink-picks">
         {types.map((d) => (
-          <button key={d.id} className="suggestion secondary" onClick={() => quickLog(d)}>
-            <span>
-              + {d.name}
-              <span className="muted small block">
-                {servingKcal(d)} kcal{d.price !== null && ` · ${money(d.price)}`}
+          <button key={d.id} className="drink-pick secondary" onClick={() => quickLog(d)} aria-label={`Log one ${d.name}`}>
+            <span className="quick-icon">
+              <Icon name="alcohol" size={20} />
+            </span>
+            <span className="drink-pick-text">
+              <strong>{d.name}</strong>
+              <span className="muted small">
+                {d.volumeMl} ml · {d.abvPercent}% · {servingKcal(d)} kcal{d.price !== null && ` · ${money(d.price)}`}
               </span>
             </span>
           </button>
         ))}
         {!other && (
-          <button className="suggestion secondary" onClick={() => setOther({ ...emptyType })}>
-            + Other…
+          <button className="drink-pick other secondary" onClick={() => setOther({ ...emptyType })}>
+            <span className="quick-icon">
+              <Icon name="plus" size={20} />
+            </span>
+            <span className="drink-pick-text">
+              <strong>Other drink</strong>
+              <span className="muted small">size, strength, price</span>
+            </span>
           </button>
         )}
       </div>

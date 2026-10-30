@@ -8,10 +8,11 @@
 #   npm run docker:apk       # debug APK into out/app-debug.apk            (docker build --target apk --output out .)
 #   npm run docker:release   # signed release APK into out/app-release.apk (target release-apk, keystore as BuildKit secrets)
 #   npm run docker:up        # the sync environment (docker-compose.yml): db (Postgres), sync (target sync), web (target web)
+#   npm run docker:phones    # the same plus two simulated phones (target phone) for the sync tests
 #
 # Stages: deps (npm ci) -> test (health checks, web build) -> android-base (SDK, android/ project)
 #   -> android (debug) -> apk;  android-base -> release (signed, checked) -> release-apk;
-#   deps -> sync (the sync server);  deps -> web (the web app).
+#   deps -> sync (the sync server) -> phone (a simulated phone);  deps -> web (the web app).
 # Base images are pinned by digest (Node 24.19.0, Temurin 21.0.12.1+1); tests/docker.test.ts keeps the versions in step with .nvmrc.
 
 ARG NODE_VERSION=24.19.0
@@ -38,6 +39,16 @@ ENV NODE_ENV=production PORT=8787
 USER node
 EXPOSE 8787
 CMD ["node", "--import", "tsx", "server/node.ts"]
+
+# ---- Simulated phone: the app's migrations and sync code on node:sqlite, for the sync tests (scripts/phone-sim.ts) ----
+# Its database lives in /data, a volume per phone (docker-compose.yml), so it survives a restart.
+FROM sync AS phone
+USER root
+RUN mkdir -p /data && chown node:node /data
+USER node
+ENV PORT=8790
+EXPOSE 8790
+CMD ["node", "--import", "tsx", "scripts/phone-sim.ts"]
 
 # ---- Web app: the build Vercel serves, its database in the browser; /v1 goes on to the sync container (SYNC_PROXY) ----
 FROM deps AS web
