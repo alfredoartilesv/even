@@ -42,7 +42,7 @@ export interface Stores {
 
 /**
  * The sync API (docs/architecture.md section 6, docs/users.md). The same app runs in the `sync`
- * Docker container (server/node.ts) and as a Vercel function (api/[[...route]].ts).
+ * Docker container (server/node.ts) and as a Vercel function (api/index.ts).
  *
  * No auth:   GET /health, POST /v1/auth/signup | recovery/start | recovery/finish, POST /v1/pairings,
  *            GET /v1/pairings/:id (with the new device's own token in x-pairing-token)
