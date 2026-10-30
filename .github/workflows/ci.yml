@@ -38,9 +38,15 @@ jobs:
         run: docker compose run --rm sync npm run test:sync
       - name: Web app answers
         run: curl -fsS http://127.0.0.1:4173/ > /dev/null
+      - name: Two simulated phones (profile phones) start and join one account
+        run: docker compose --profile phones up -d --build --wait
+      - name: The simulated phones sync with each other, online and after being offline
+        run: docker compose --profile phones run --rm phones-check
+      - name: They keep their databases across a restart and still sync
+        run: docker compose --profile phones restart phone-a phone-b && docker compose --profile phones run --rm phones-check --after-restart
       - name: Logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose --profile phones logs --no-color
       - name: docker compose down
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile phones down -v
