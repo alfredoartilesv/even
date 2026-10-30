@@ -1,8 +1,8 @@
-import { sha256Hex } from "../src/core/hash";
-import { uuidv7 } from "../src/core/uuidv7";
-import type { AdminAccount, AdminDevice, AdminInvite, AdminVia, AuditEntry, ServiceHealth } from "../src/core/syncWire";
-import { AuthError, INVITE_DAYS, newCode } from "./accounts";
-import type { Pg } from "./pg";
+import { sha256Hex } from "../src/core/hash.js";
+import { uuidv7 } from "../src/core/uuidv7.js";
+import type { AdminAccount, AdminDevice, AdminInvite, AdminVia, AuditEntry, ServiceHealth } from "../src/core/syncWire.js";
+import { AuthError, INVITE_DAYS, newCode } from "./accounts.js";
+import type { Pg } from "./pg.js";
 
 /**
  * What an admin can do (docs/users.md section 2.6): invites, accounts, quotas, devices, suspension.
