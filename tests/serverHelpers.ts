@@ -11,12 +11,12 @@ async function fakeGoogle(idToken: string) {
   return { subject, email };
 }
 
-/** A migrated server: the Hono app, its stores, and a fetch that calls the app in-process. Rate limits off unless asked for. */
-export async function testServer(opts: { rateLimits?: boolean } = {}) {
+/** A migrated server: the Hono app, its stores, and a fetch that calls the app in-process. Rate limits off unless asked for; Garmin is garminFetch. */
+export async function testServer(opts: { rateLimits?: boolean; garminFetch?: typeof fetch } = {}) {
   const pg = await pglitePg(); // in memory
   await migrateServer(pg);
   const stores = createStores(pg, { SERVER_SECRET: "test-secret" }, { google: fakeGoogle, rateLimits: opts.rateLimits ?? false });
-  const app = createApp(stores);
+  const app = createApp(stores, { garminFetch: opts.garminFetch });
   const fetchFn = ((input: string, init?: RequestInit) => app.request(input, init)) as typeof fetch;
   return { pg, stores, app, fetchFn, base: "http://sync.test" };
 }

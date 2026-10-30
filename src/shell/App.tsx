@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
-import { deviceFetch, isNative } from "../platform/device";
+import { deviceFetch, garminFetch, isNative } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
 import { DashboardScreen } from "../screens/dashboard/DashboardScreen";
@@ -124,8 +124,8 @@ export function App({ target }: { target: Target }) {
     try {
       // runSync never throws; each outcome is in sync_runs.
       if (apiKey) {
-        // Native HTTP on the phone: no WebView CORS in the way.
-        const api = new GarminApi({ apiKey, fetch: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
+        // Native HTTP on the phone; the sync server's relay in the browser (no CORS from Garmin).
+        const api = new GarminApi({ apiKey, fetch: garminFetch(cloud, { connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
         await runSync(db, new GarminSource({ api }));
       }
       if (apple) await runSync(db, new AppleHealthSource({ store: healthStore }));
