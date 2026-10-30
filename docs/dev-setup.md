@@ -101,7 +101,7 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | Container | What | Here | Later, free |
 |---|---|---|---|
 | `db` | Postgres 17, volume `even_db-data` | `127.0.0.1:5432`, user and database `even` | Neon free plan (Vercel's Neon integration sets `DATABASE_URL`) |
-| `sync` | the sync API (`server/`, Dockerfile target `sync`): accounts, devices, pairing, sync, friends; migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/...`) | the Vercel function `api/[[...route]].ts` |
+| `sync` | the sync API (`server/`, Dockerfile target `sync`): accounts, devices, pairing, sync, friends; migrates the database at start | `http://127.0.0.1:8787` (`/health`, `/v1/...`) | the Vercel function `api/index.ts` |
 | `web` | the web app (target `web`), its database in the browser (sql.js, sealed in IndexedDB); `/v1` goes on to `sync` | `http://127.0.0.1:4173` | Vercel static hosting (`vercel.json`, `dist/`) |
 
 | Command | Does |
