@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { patchGradle, versionCode } from "../scripts/android-gradle.mjs";
 
@@ -81,42 +81,24 @@ test("the Docker release stage gets the keystore only as BuildKit secrets and ch
   assert.equal(JSON.parse(read("package.json")).scripts["docker:release"], "node scripts/docker-release.mjs");
 });
 
-test("pull requests only test: no APK is built for a PR to develop", () => {
-  const ci = read(".github/workflows/ci.yml");
-  assert.match(ci, /pull_request:\n\s+branches: \[develop, master\]/);
-  assert.match(ci, /target: test\n/);
-  assert.doesNotMatch(ci, /target: (apk|release-apk)|upload-artifact|assemble/);
+test("release.yml is the only workflow: nothing runs on PRs or develop", () => {
+  assert.deepEqual(readdirSync(join(root, ".github/workflows")), ["release.yml"]);
 });
 
-test("a push to master builds, checks on an emulator, then tags and publishes the release", () => {
+test("a push to master builds, checks, then tags and publishes the release", () => {
   const rel = read(".github/workflows/release.yml");
   assert.match(rel, /on:\n\s+push:\n\s+branches: \[master\]\n/);
   assert.doesNotMatch(rel, /pull_request|branches: \[develop/, "never on PRs or develop");
-  // Version gate, then build -> emulator -> publish, in that order.
+  // Version gate, then build -> publish, in that order. No emulator job (Actions minutes).
   assert.match(rel, /git ls-remote --exit-code --tags origin "refs\/tags\/v\$V"/);
   assert.match(rel, /build:\n[\s\S]*needs: version/);
-  assert.match(rel, /emulator:\n[\s\S]*needs: build/);
-  assert.match(rel, /publish:\n[\s\S]*needs: \[version, emulator\]/);
+  assert.doesNotMatch(rel, /emulator/);
+  assert.match(rel, /publish:\n[\s\S]*needs: \[version, build\]/);
   assert.match(rel, /target: release-apk/);
   assert.match(rel, /secret-files: \|\n\s+keystore=\$\{\{ runner\.temp \}\}\/release\.jks\n\s+keystore_env=\$\{\{ runner\.temp \}\}\/release\.env/);
-  assert.match(rel, /node scripts\/release-check\.mjs --apk out\/app-release\.apk --device/);
   assert.match(rel, /gh release create "\$TAG" "out\/even-\$TAG\.apk"/);
   // Only the publish job can write (tag and release); everything else reads.
   assert.match(rel, /^permissions:\n\s+contents: read$/m);
   assert.equal((rel.match(/contents: write/g) ?? []).length, 1);
   assert.match(rel, /publish:[\s\S]*permissions:\n\s+contents: write/);
-});
-
-test("the emulator check uses an image the hosted runner boots, and cannot hold the release for hours", () => {
-  const rel = read(".github/workflows/release.yml");
-  assert.match(rel, /emulator:\n[\s\S]*?timeout-minutes: 30\n/);
-  assert.match(rel, /api-level: 34\n/);
-  assert.match(rel, /emulator-boot-timeout: 900\n/);
-  assert.match(rel, /emulator-options: -no-window -gpu swiftshader_indirect/);
-});
-
-test("the emulator check keeps the device log with its screenshot, pass or fail", () => {
-  const rel = read(".github/workflows/release.yml");
-  assert.match(rel, /--out out\/shots; s=\$\?; adb logcat -d -v time > out\/shots\/logcat\.txt; exit \$s/);
-  assert.match(rel, /name: release-launch-screenshot\n\s+path: out\/shots/);
 });

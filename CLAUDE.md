@@ -34,7 +34,7 @@ Read first when the task needs it: `docs/architecture.md` (decisions and **secti
 
 ## Workflow
 
-- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, emulator check, tag `v<version>`, GitHub release). Bump `package.json` on `develop` first: an already tagged version stops the release.
+- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, tag `v<version>`, GitHub release), the only CI workflow: PRs run nothing. Bump `package.json` on `develop` first: an already tagged version stops the release.
 - Commit messages end with the `Co-Authored-By` line from the session's instructions; PR bodies end with the Claude Code line.
 - Another Claude session may be working in this folder. Do work in a worktree under `.worktrees/` (git-ignored), run `npm ci` in it (real `node_modules`, **never** a junction into the main folder: removing the worktree would delete the real one), and never commit someone else's uncommitted changes.
 - Windows: Git Bash and PowerShell. `gh` is `/c/Program Files/GitHub CLI/gh.exe`. Release key and its env file live in `%USERPROFILE%\.android\health-release\` (read the env file literally, values contain backslashes).
