@@ -144,6 +144,8 @@ The phones print and log counts and digests only. A simulated phone keeps its se
 
 **Deploying to Vercel (not done yet):** import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` sends `/v1/*` and `/health` to the function. Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
 
+**Only `develop` and `master` deploy** (`git.deploymentEnabled` in `vercel.json`, since 30 Oct 2026): `master` is production, `develop` the one preview. The Neon integration makes a database branch for every deployed git branch, and on 30 Oct 2026 the feature-branch previews used up the free plan's branches ("Branch limit reached. Upgrade your plan or delete unused branches."). Feature branches are checked by CI in Docker instead. Neon branches left by old previews are deleted in the Neon console (Branches; keep the main one and the one for `develop`).
+
 ## 5. Integration test on the emulator or phone
 
 `npm run test:device` (task *Android: device integration test*) drives the installed debug build through the WebView's DevTools protocol (debug builds expose it) and checks, end to end:
