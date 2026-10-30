@@ -147,6 +147,7 @@ const PATHS = {
   ),
   stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
   paperclip: <path d="M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-2.8-2.8l7.8-7.8" />,
+  signout: <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h10" />,
   file: (
     <>
       <path d="M6 3h8l4 4v14H6z" />
