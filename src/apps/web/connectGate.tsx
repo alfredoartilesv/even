@@ -25,11 +25,9 @@ export function connectGate({ session, connect }: GateState, notice: string | nu
       <section className="card">
         <h2>Connect</h2>
         {notice && <p className="warning small">{notice}</p>}
-        <p className="muted small">
-          The web app is a copy of what your phone holds: sign in with your recovery passphrase, pair with your phone, or start a new account with an invite.
-          Everything arrives sealed and is opened here, in this browser.
-        </p>
-        <Suspense>
+        <p className="muted small">Your data arrives sealed and is opened only here, in this browser. Choose how you get in:</p>
+        {/* The panel is lazy: without a fallback the card sat empty while it loaded. */}
+        <Suspense fallback={<p className="muted">Loading…</p>}>
           <ConnectPanel
             secrets={secretStore}
             isNative={false}
