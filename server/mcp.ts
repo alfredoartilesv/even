@@ -2,11 +2,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono, type Context } from "hono";
 import * as z from "zod";
-import { createLogger } from "../src/core/log";
-import { INVITE_MAX_DAYS, QUOTA_MAX_BYTES, QUOTA_MIN_BYTES } from "../src/core/syncWire";
-import { AuthError } from "./accounts";
-import type { Actor, AdminStore } from "./admin";
-import { originOf, type OAuthStore } from "./oauth";
+import { createLogger } from "../src/core/log.js";
+import { INVITE_MAX_DAYS, QUOTA_MAX_BYTES, QUOTA_MIN_BYTES } from "../src/core/syncWire.js";
+import { AuthError } from "./accounts.js";
+import type { Actor, AdminStore } from "./admin.js";
+import { originOf, type OAuthStore } from "./oauth.js";
 
 /**
  * The admin MCP server (docs/users.md section 9): Claude, as a custom connector, manages Even with
