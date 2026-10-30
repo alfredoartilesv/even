@@ -5,12 +5,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { restorePath } from "../server/vercelPath.js";
 
 // Vercel compiles each file of the function to .js on its own and Node loads them as ESM, which
 // resolves no extensions: an import of "./pg" crashed every request with ERR_MODULE_NOT_FOUND.
 // Vite and tsx forgive that, so this test loads the function the way Vercel does.
 const root = join(import.meta.dirname, "..");
-const entry = "api/[[...route]].ts";
+const entry = "api/index.ts";
 const RELATIVE_IMPORT = /(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g;
 
 /** The function's own files: the entry and everything it reaches by relative imports. */
@@ -52,4 +53,21 @@ test("the Vercel function loads under plain Node once each file is compiled to .
   });
   rmSync(out, { recursive: true, force: true });
   assert.equal(run.status, 0, run.stderr);
+});
+
+test("a rewritten request gets its original path back, with its query and body", async () => {
+  const get = restorePath(new Request("https://even.example/api?__path=/v1/pull&since=42"));
+  assert.equal(new URL(get.url).pathname, "/v1/pull");
+  assert.equal(new URL(get.url).search, "?since=42");
+  const post = restorePath(new Request("https://even.example/api?__path=/v1/push", { method: "POST", body: '{"rows":[]}' }));
+  assert.equal(post.method, "POST");
+  assert.equal(new URL(post.url).pathname, "/v1/push");
+  assert.equal(await post.text(), '{"rows":[]}');
+});
+
+test("a request without __path, or with one that is not a path, is left alone", () => {
+  const plain = new Request("https://even.example/health");
+  assert.equal(restorePath(plain), plain);
+  const odd = new Request("https://even.example/api?__path=https://elsewhere.example/");
+  assert.equal(restorePath(odd), odd);
 });
