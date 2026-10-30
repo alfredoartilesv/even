@@ -3,6 +3,8 @@
 #
 #   npm run docker:up                                   build and start db, sync and web; waits until healthy
 #   docker compose run --rm sync npm run test:sync      end-to-end sync check against these containers
+#   npm run docker:phones                               the same plus two simulated phones (profile phones)
+#   docker compose --profile phones run --rm phones-check                the phones sync with each other through `sync`
 #   npm run docker:down                                 stop (the database volume stays; add -v to wipe it)
 #
 # Ports listen on 127.0.0.1 only. The database password is for this local container only: the real
@@ -57,5 +59,59 @@ services:
       timeout: 3s
       retries: 20
 
+  # Two simulated phones of one account (scripts/phone-sim.ts), each with its own database in a
+  # volume, for the sync tests. Only with --profile phones (npm run docker:phones). The account is a
+  # local throwaway: phone-a makes it from an invite the first time, phone-b signs in by passphrase.
+  phone-a: &phone
+    build: { context: ., target: phone }
+    profiles: [phones]
+    environment: &phone-env
+      PHONE_NAME: phone-a
+      PHONE_ROLE: first
+      SYNC_URL: http://sync:8787
+      SIM_EMAIL: ${SIM_EMAIL:-phones@even.invalid}
+      SIM_PASSPHRASE: ${SIM_PASSPHRASE:-correct horse battery staple}
+      # Write and sync on a timer, in ms; 0 waits for the control API (scripts/sync-phones.ts).
+      SIM_EVERY_MS: ${SIM_EVERY_MS:-0}
+      # Only to make the invite, as npm run sync:invite does.
+      DATABASE_URL: postgres://even:${POSTGRES_PASSWORD:-even-local}@db:5432/even
+      SERVER_SECRET: ${SERVER_SECRET:-even-local-only}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports: ["127.0.0.1:8791:8790"]
+    volumes: [phone-a-data:/data]
+    depends_on:
+      sync: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8790/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  phone-b:
+    <<: *phone
+    environment:
+      <<: *phone-env
+      PHONE_NAME: phone-b
+      PHONE_ROLE: join
+      DATABASE_URL: ""
+    ports: ["127.0.0.1:8792:8790"]
+    volumes: [phone-b-data:/data]
+    depends_on:
+      phone-a: { condition: service_healthy }
+
+  # The sync test on the phones: docker compose --profile phones run --rm phones-check (add --after-restart after a restart).
+  phones-check:
+    build: { context: ., target: phone }
+    profiles: [check]
+    entrypoint: ["node", "--import", "tsx", "scripts/sync-phones.ts"]
+    command: []
+    environment:
+      PHONE_URLS: http://phone-a:8790,http://phone-b:8790
+    depends_on:
+      phone-a: { condition: service_healthy }
+      phone-b: { condition: service_healthy }
+
 volumes:
   db-data:
+  phone-a-data:
+  phone-b-data:

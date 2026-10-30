@@ -63,7 +63,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 1. `npm run dev` for screens that do not need the database (the browser build has no SQLite).
 2. `npm test` for logic: everything except `src/platform/` runs in Node.
 3. "Android: run on emulator or phone" to try it for real, `chrome://inspect` to debug.
-4. Before a PR: `npm run health` (or `npm run docker:test`, which CI runs, with the same checks inside), and `npm run test:device` on the emulator when a change touches the phone side.
+4. Before a PR: `npm run health` (or `npm run docker:test`, the same checks inside Docker; CI no longer runs them), and `npm run test:device` on the emulator when a change touches the phone side.
 
 **Health checks** (`npm run health`, also the Docker test stage and so CI):
 
@@ -107,12 +107,34 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | Command | Does |
 |---|---|
 | `npm run docker:up` | builds and starts all three, waits until each is healthy |
-| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, a write and an edit synced both ways through the real server, then cleanup (CI job *Sync environment* runs it on every PR) |
+| `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, the scenarios of `scripts/lib/syncScenario.ts` (a round trip, last write wins, a delete, more rows than a page) through the real server on real Postgres, then cleanup (CI job *Sync environment* runs it on every PR). The unit tests run the same scenarios on PGlite |
 | `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
 | `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
 | `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): Settings > Admin then appears on its devices. Only the CLI grants admin |
 | `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
-| `npm run docker:down` | stops everything; the database stays in its volume (`docker compose down -v` wipes it) |
+| `npm run docker:down` | stops everything, simulated phones included; the databases stay in their volumes (`docker compose --profile phones down -v` wipes them) |
+
+### Simulated phones
+
+`npm run docker:phones` starts the same three containers plus two simulated phones, `phone-a` and `phone-b` (Dockerfile target `phone`, `scripts/phone-sim.ts`, compose profile `phones`). Each is the app's database (node:sqlite with the app's migrations, a file in its own volume, `even_phone-a-data` / `even_phone-b-data`, so it survives a restart) with the app's sync code, joined to one local throwaway account: `phone-a` makes it from an invite the first time, `phone-b` signs in by passphrase (`SIM_EMAIL`, `SIM_PASSPHRASE`; defaults in `docker-compose.yml`). Each phone has a small control API, on `127.0.0.1:8791` (A) and `:8792` (B):
+
+| Request | Does |
+|---|---|
+| `GET /state` | row counts per synced table, a digest of every synced row (equal digests, same rows), rows waiting to be pushed, the last sync and its error |
+| `POST /write?n=20` | n edits as the owner would make them: food entries added, edited and deleted, drinks, and today's steps from one shared watch (the same row on both phones, so last write wins is exercised) |
+| `POST /sync` | one full sync, as the Sync button does; 503 with the error when it fails |
+| `POST /offline`, `POST /online` | while offline every request to the server fails, as with no network |
+
+| Command | Does |
+|---|---|
+| `docker compose --profile phones run --rm phones-check` | the phone sync test (`scripts/sync-phones.ts`): the phones start in step, edits on each reach the other, then both go offline, edit (the same row too), fail to sync with the edits kept queued, come back and converge. Run it locally (no longer in CI) |
+| `docker compose --profile phones restart phone-a phone-b`, then `docker compose --profile phones run --rm phones-check --after-restart` | the same, after checking each phone kept its database |
+| `npm run test:phones` | the same test from this PC, through ports 8791 and 8792 |
+| `SIM_EVERY_MS=20000 npm run docker:phones` | live mode: each phone writes and syncs every 20 s on its own; watch with `docker compose --profile phones logs -f phone-a phone-b` |
+
+The phones print and log counts and digests only. A simulated phone keeps its session in memory (secrets never go in a file), so each start joins as a new device and each stop leaves the device list. Not covered here: the Capacitor SQLite plugin, SQLCipher and the Keystore (`npm run test:device`, section 5), and the emulator reaching `http://10.0.2.2:8787` (below).
+
+**Docker Desktop would not start** on 30 Oct 2026 with `running OTel manager: removing stale socket: remove ...\Docker\run\userAnalyticsOtlpHttp.sock: The file cannot be accessed by the system`: a socket left from an earlier run that Windows can neither open nor delete. Quit Docker Desktop, rename `%LOCALAPPDATA%\Docker\run` (for example to `run.stale`) and start Docker Desktop again; it makes a new `run` folder.
 
 **Without Docker** (Docker Desktop's engine would not start on this PC on 28 Oct 2026): `npm run dev:web` runs the sync server on :8787 and the web app on http://localhost:5173 (Vite sends `/v1` to the server, as Vercel does). With no `DATABASE_URL` the server uses PGlite, real Postgres in WebAssembly, saved in `.data/pglite` (git-ignored); `npm run sync:invite -- --email ...` works on it too, with the dev server stopped (one process at a time). With `DATABASE_URL` it uses that Postgres. `npm test` covers the server without Docker as well: `tests/users.test.ts` and `tests/cloudSync.test.ts` run the real Hono app on in-memory PGlite.
 
@@ -121,6 +143,8 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 **The admin MCP server** ([users.md section 9](users.md#9-the-admin-mcp-server-decided-28-oct-2026)) is at `/mcp` on the sync server. Locally, with `npm run dev:web` running: `claude mcp add --transport http even-admin http://localhost:8787/mcp` in Claude Code, then sign in with an admin account's email and passphrase (`npm run sync:admin` first). claude.ai needs the deployed, public address.
 
 **Deploying to Vercel** (done for 0.4; the steps, for a new project): import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` rewrites `/v1/*`, `/health`, `/mcp`, `/oauth/*` and the OAuth `/.well-known/*` paths to the one function `api/index.ts`, with the original path in `__path` (`server/vercelPath.ts` puts it back). Relative imports under `server/` and `api/` name `.js` files, or the function fails with `ERR_MODULE_NOT_FOUND` (`tests/vercelFunction.test.ts` catches it). Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
+
+**Only `develop` and `master` deploy** (`git.deploymentEnabled` in `vercel.json`, since 30 Oct 2026): `master` is production, `develop` the one preview. The Neon integration makes a database branch for every deployed git branch, and on 30 Oct 2026 the feature-branch previews used up the free plan's branches ("Branch limit reached. Upgrade your plan or delete unused branches."). Feature branches are checked by CI in Docker instead. Neon branches left by old previews are deleted in the Neon console (Branches; keep the main one and the one for `develop`).
 
 ## 5. Integration test on the emulator or phone
 

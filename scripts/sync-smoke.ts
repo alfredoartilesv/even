@@ -1,7 +1,8 @@
 /**
  * End-to-end check of the sync environment: the `sync` container on the `db` container (or the
  * Vercel deployment on Neon). Makes a throwaway account from an invite, joins a second device by
- * pairing, and two fresh phone databases must see each other's writes through the real server.
+ * pairing, and two fresh phone databases must pass the sync scenarios (scripts/lib/syncScenario.ts)
+ * through the real server: a round trip, last write wins, a delete, paging.
  *
  *   docker compose up -d --wait && docker compose run --rm sync npm run test:sync
  *   SYNC_URL=https://<app>.vercel.app DATABASE_URL=<neon url> npm run test:sync
@@ -12,7 +13,7 @@ import { accountStore } from "../server/accounts";
 import { postgresJs } from "../server/pg";
 import { deleteAccount } from "../src/domain/cloudsync/session";
 import { memorySecretStore } from "../src/core/secretStore";
-import { byPairing, byPassphrase, firstPhone, roundTrip, type Phone } from "./lib/syncScenario";
+import { byPairing, byPassphrase, firstPhone, SCENARIOS, type Phone } from "./lib/syncScenario";
 
 const base = process.env.SYNC_URL ?? "http://localhost:8787";
 const url = process.env.DATABASE_URL;
@@ -35,8 +36,12 @@ try {
   check(true, "an invite makes an account");
   const b = await byPairing(server, a, "smoke-b");
   check(b.session.adk === a.session.adk, "a second device joins by pairing code");
-  const missed = await roundTrip(a, b);
-  check(missed.length === 0, `two devices sync through the server${missed.length ? `: ${missed.join("; ")}` : ""}`);
+  // The scenarios the unit tests run on PGlite, here on real Postgres over HTTP. Each starts later than the last.
+  let t0 = Date.now();
+  for (const [name, scenario] of SCENARIOS) {
+    const missed = await scenario(a, b, (t0 += 10_000));
+    check(missed.length === 0, `${name}${missed.length ? `: ${missed.join("; ")}` : ""}`);
+  }
   const c = await byPassphrase(server, email, "smoke-c");
   check(c.session.accountId === a.session.accountId, "a third device joins by passphrase");
 } catch (err) {
