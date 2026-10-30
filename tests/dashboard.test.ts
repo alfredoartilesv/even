@@ -58,8 +58,8 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
     meal: "lunch",
     calories: 900,
     proteinG: 60,
-    carbsG: null,
-    fatG: null,
+    carbsG: 100,
+    fatG: 30,
     atMs: midnight("2026-10-20") + 13 * 3_600_000,
     timeZone: TZ,
   });
@@ -86,6 +86,13 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   // 2000 - 2500 and 300 - 2700
   assert.deepEqual(week.balance, { total: -2900, avg: -1450, daysWithData: 2 });
   assert.equal(week.protein.total, 100);
+  assert.equal(week.carbs.total, 100);
+  assert.equal(week.fat.total, 30);
+  // Two beers on one day of seven: 2 x 330 ml at 5% is 26 g of alcohol.
+  assert.equal(week.alcohol.drinks, 2);
+  assert.equal(week.alcohol.drinkingDays, 1);
+  assert.equal(week.alcohol.days, 7);
+  assert.equal(Math.round(week.alcohol.alcoholG), 26);
   assert.equal(week.prep.total, null);
   assert.deepEqual(week.stock, { portions: 0, batches: 0 });
   assert.deepEqual(week.targets, { kcal: null, protein: null, steps: null });
@@ -149,6 +156,10 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.equal(day.days[0].eatenKcal, 300);
   assert.equal(day.days[0].activeKcal, 600);
   assert.equal(day.days[0].proteinG, null);
+  // A day carries the two weeks before it for the steps and calories sparklines, ending on the day.
+  assert.equal(day.activityTrend.steps.length, 14);
+  assert.deepEqual(day.activityTrend.steps.slice(-2), [8000, 12000]);
+  assert.deepEqual(day.activityTrend.burned.slice(-2), [2500, 2700]);
 });
 
 test("the current period follows today (the app can stay open overnight); a past one stays pinned", () => {

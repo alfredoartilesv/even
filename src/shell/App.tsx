@@ -10,7 +10,7 @@ import { ProfileButton } from "../screens/dashboard/ProfileButton";
 import type { JournalView } from "../screens/journal/JournalScreen";
 import { AlcoholScreen, ChatScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, SettingsScreen } from "./screens";
 import type { Target } from "./target";
-import { loadSession, type SyncSession } from "../domain/cloudsync/session";
+import { disconnect, loadSession, type SyncSession } from "../domain/cloudsync/session";
 import { today } from "../ui/common";
 import { loadGarminKey, removeLegacySecrets } from "../domain/settings/secrets";
 import { secretStore } from "../platform/secureStore";
@@ -195,6 +195,13 @@ export function App({ target }: { target: Target }) {
     void (s ? sync() : refreshStatus());
   };
 
+  /** Leaves the account, as Settings > Sync does: the phone keeps its data, a browser's copy is removed. */
+  const signOut = async (s: SyncSession) => {
+    await disconnect(secretStore, s, { fetchFn: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 }) });
+    if (!isNative) return (await import("../platform/webDatabase")).forgetWebData();
+    connect(null);
+  };
+
   // A target may hold the app back, as the web app does until it is connected (apps/web).
   const gate = target.gate?.({ session, connect });
   if (gate) return gate;
@@ -231,6 +238,7 @@ export function App({ target }: { target: Target }) {
   return (
     <Frame
       tab={tab}
+      account={session ? { email: session.email, signOut: () => signOut(session) } : null}
       onTab={(t) => {
         // A section goes to its top level: the Dashboard closes the profile or journal, Settings shows its menu.
         if (t === "dashboard") setOverlay(null);
