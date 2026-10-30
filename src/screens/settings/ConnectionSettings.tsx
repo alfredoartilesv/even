@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { deviceFetch } from "../../platform/device";
+import { deviceFetch, garminFetch } from "../../platform/device";
+import type { SyncSession } from "../../domain/cloudsync/session";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../../domain/chat/client";
@@ -28,6 +29,8 @@ interface Props {
   db: SqlDriver;
   secrets: SecretStore;
   isNative: boolean;
+  /** The browser reaches Garmin through this account's sync server; null before it is connected. */
+  session: SyncSession | null;
   /** Called after the Garmin key, the reminder setting or the imported data change. */
   onChanged: () => void;
   /** Sync now: after Garmin is connected, so the data comes in without a trip to the Dashboard. */
@@ -48,11 +51,11 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
 /** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude). */
-export function ConnectionSettings({ db, secrets, isNative, onChanged, onConnected }: Props) {
+export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected }: Props) {
   return (
     <div>
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
-      <GarminSync db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={onConnected} />
+      <GarminSync db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />
       <ClaudeConnectionCard db={db} secrets={secrets} />
     </div>
@@ -184,10 +187,10 @@ function KeySteps({ steps, href, open, children }: { steps: readonly string[]; h
 const GARMIN_STEPS = [
   "Open Garmin Connect on the web (button below) and sign in.",
   "Settings → Personal API Key: create one and pick when it expires. It is shown only once.",
-  "Copy it and paste it here. The app checks it with Garmin before saving it in the phone's secure storage.",
+  "Copy it and paste it here. The app checks it with Garmin before saving it in this device's secure storage.",
 ] as const;
 
-function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
+function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Props) {
   const [conn, setConn] = useState<GarminConnection | null>(null);
   const [key, setKey] = useState("");
   const [remind, setRemind] = useState(true);
@@ -207,7 +210,7 @@ function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
     e.preventDefault();
     setChecking(true);
     try {
-      const res = await connectGarmin(secrets, key, garminKeyVerifier(deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 20_000 })));
+      const res = await connectGarmin(secrets, key, garminKeyVerifier(garminFetch(session, { connectTimeoutMs: 15_000, readTimeoutMs: 20_000 })));
       if (!res.ok) return setMsg({ kind: "error", text: res.message });
       setKey("");
       setMsg({ kind: "ok", text: "Connected. Garmin accepted the key; syncing now." });
@@ -230,8 +233,8 @@ function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in the phone's
-            secure storage.
+            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in{" "}
+            {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
           <DisconnectButton
@@ -247,7 +250,12 @@ function GarminSync({ db, secrets, isNative, onChanged, onConnected }: Props) {
         <>
           <p className="muted small">Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key.</p>
           <KeySteps steps={GARMIN_STEPS} href={GARMIN_KEY_PAGE} open="Open Garmin Connect">
-            {!isNative && <p className="muted small">Browser build: the key is kept in memory only, and Garmin may block the browser's requests (CORS).</p>}
+            {!isNative && (
+              <p className="muted small">
+                In the browser, Garmin is reached through your sync server: it passes the requests on and keeps nothing. Your data still goes to your other
+                devices sealed.
+              </p>
+            )}
           </KeySteps>
         </>
       )}

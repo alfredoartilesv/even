@@ -43,7 +43,7 @@ Needs: pairing endpoints, a QR scanner on the phone (camera plugin, new), SQLite
 
 | | Phone | Web |
 |---|---|---|
-| Garmin, Apple Health | reads them (phone only: Garmin's key and HealthKit stay on the phone) | sees them after the phone syncs |
+| Garmin, Apple Health | reads them (Apple Health on the iPhone only) | reads Garmin with its own key, through the sync server (architecture.md section 6c); sees Apple Health after the phone syncs |
 | Logs (food, meal prep, alcohol, journal) | yes | yes, same rows, last write wins |
 | Dashboard, Profile, trends | yes | yes, more room |
 | Chat with Claude | yes, key in the Keystore | yes, **owner's own key, called from the browser directly** (Anthropic's browser access header), key kept non-extractable in IndexedDB, never on the server. Same consents and disclosure log, synced |
