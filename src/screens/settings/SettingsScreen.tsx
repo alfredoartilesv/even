@@ -114,7 +114,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
       ) : page === "friends" ? (
         <FriendsSettings session={session} onConnect={() => onPage("sync")} onSync={onSync} />
       ) : page === "connections" ? (
-        <ConnectionSettings db={db} secrets={secrets} isNative={isNative} onChanged={onChanged} onConnected={() => void onSync()} />
+        <ConnectionSettings db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={() => void onSync()} />
       ) : page === "privacy" ? (
         <PrivacySettings db={db} onChanged={onChanged} syncAccountId={session?.accountId ?? null} />
       ) : page === "logs" ? (
