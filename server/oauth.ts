@@ -1,10 +1,10 @@
 import { Hono, type Context } from "hono";
-import { sha256Hex } from "../src/core/hash";
-import type { McpGrant } from "../src/core/syncWire";
-import { uuidv7 } from "../src/core/uuidv7";
-import { AuthError, type AccountStore } from "./accounts";
-import type { AdminStore } from "./admin";
-import type { Pg } from "./pg";
+import { sha256Hex } from "../src/core/hash.js";
+import type { McpGrant } from "../src/core/syncWire.js";
+import { uuidv7 } from "../src/core/uuidv7.js";
+import { AuthError, type AccountStore } from "./accounts.js";
+import type { AdminStore } from "./admin.js";
+import type { Pg } from "./pg.js";
 
 /**
  * OAuth 2.1 for the admin MCP server (docs/users.md section 9), the way claude.ai's custom
