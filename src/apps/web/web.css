@@ -210,9 +210,206 @@ body.nav-open {
     margin-top: 0.4rem;
   }
 }
+/* The account and Sign out, at the foot of the menu. */
+.sidenav-foot {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidenav-account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0 0.6rem;
+  min-width: 0;
+}
+.sidenav-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.sidenav-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.sidenav-signout:hover:not(:disabled),
+.sidenav-signout:hover:not(:disabled) .icon {
+  color: var(--error);
+}
+@media (min-width: 48rem) {
+  .sidenav.rail .sidenav-account {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+/*
+ * The web app's look: softer and livelier than the phone's flat cards, at every width. Rounder
+ * corners, no hard borders, surfaces that let a faint wash of color through, a lift under the
+ * mouse, and the Dashboard's sections easing in one after another.
+ */
+.app-frame {
+  --radius: 18px;
+  --radius-sm: 12px;
+  --glass: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+body:has(.app-frame) {
+  background:
+    radial-gradient(60rem 32rem at 90% -12%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    radial-gradient(48rem 30rem at -10% 110%, color-mix(in srgb, var(--series-7) 8%, transparent), transparent 70%), var(--bg);
+  background-attachment: fixed;
+}
+.app-frame :is(.card, .viz-tile, figure.viz, .macro-tile, .meter-card, .quick-action) {
+  border-color: transparent;
+  background-color: var(--glass);
+  box-shadow: var(--lift);
+}
+.app-frame :is(.viz-tile, figure.viz, .quick-action, .card) {
+  transition:
+    transform var(--normal) var(--ease),
+    box-shadow var(--normal) var(--ease),
+    background-color var(--fast);
+}
+@media (hover: hover) {
+  .app-frame :is(.viz-tile, .quick-action):hover {
+    transform: translateY(-2px);
+    box-shadow: var(--lift-hover);
+  }
+}
+.app-frame .sidenav {
+  border-right-color: transparent;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface) 40%);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--fg) 6%, transparent);
+}
+.app-frame .sidenav-head {
+  border-bottom-color: transparent;
+}
+.app-frame .sidenav-item.active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Quick actions: each with its own tint, the icon filling in under the mouse; pills once they sit in a row. */
+.app-frame .quick-action {
+  font-weight: 500;
+}
+@media (min-width: 48rem) {
+  .app-frame .quick-action {
+    border-radius: var(--radius-pill);
+  }
+}
+.app-frame .quick-action:nth-child(1) {
+  --tint: var(--series-2);
+}
+.app-frame .quick-action:nth-child(2) {
+  --tint: var(--series-1);
+}
+.app-frame .quick-action:nth-child(3) {
+  --tint: var(--series-7);
+}
+.app-frame .quick-icon {
+  background: color-mix(in srgb, var(--tint, var(--accent)) 18%, transparent);
+  color: var(--tint, var(--accent));
+  transition:
+    background-color var(--normal) var(--ease),
+    color var(--normal) var(--ease),
+    transform var(--normal) var(--ease);
+}
+@media (hover: hover) {
+  .app-frame .quick-action:hover .quick-icon {
+    background: var(--tint, var(--accent));
+    color: var(--on-accent);
+    transform: rotate(-8deg) scale(1.06);
+  }
+}
+
+/* Day / Week / Month as a pill, the chosen one sliding its color in. */
+.app-frame .segmented {
+  border-color: transparent;
+  background: var(--glass);
+  box-shadow: var(--lift);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+}
+.app-frame .segmented button {
+  border-radius: var(--radius-pill);
+  transition:
+    background-color var(--normal) var(--ease),
+    color var(--normal) var(--ease);
+}
+.app-frame .segmented button:hover:not(.active) {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+.app-frame .period-nav > button {
+  border-radius: 50%;
+  border-color: transparent;
+  background: var(--glass);
+  box-shadow: var(--lift);
+}
+
+/* The rings' card: a soft glow of the accent behind them. */
+.app-frame .hero-card {
+  background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 65%), var(--glass);
+}
+.app-frame .hero-stats {
+  border-top-color: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.app-frame .hero-card .viz-stack-wrap {
+  margin-top: 0.75rem;
+}
+.app-frame .section-head h2 {
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+.app-frame .checkin-prompt {
+  border-radius: var(--radius-sm);
+}
+
+/* The Dashboard's sections come in one after another. */
+.app-frame .dash-block {
+  animation: rise 480ms var(--ease) both;
+}
+.app-frame .dash-block:nth-child(2) {
+  animation-delay: 60ms;
+}
+.app-frame .dash-block:nth-child(3) {
+  animation-delay: 120ms;
+}
+.app-frame .dash-block:nth-child(4) {
+  animation-delay: 180ms;
+}
+.app-frame .dash-block:nth-child(5) {
+  animation-delay: 240ms;
+}
+.app-frame .dash-block:nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidenav,
-  .app-frame {
+  .app-frame,
+  .app-frame :is(.viz-tile, figure.viz, .quick-action, .card, .quick-icon, .segmented button) {
     transition: none;
+  }
+  .app-frame .dash-block {
+    animation: none;
+  }
+  .app-frame :is(.viz-tile, .quick-action):hover,
+  .app-frame .quick-action:hover .quick-icon {
+    transform: none;
   }
 }
