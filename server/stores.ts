@@ -1,11 +1,11 @@
-import { accountStore } from "./accounts";
-import { adminStore } from "./admin";
-import { oauthStore } from "./oauth";
-import type { Stores } from "./app";
-import { friendStore } from "./friends";
-import { googleVerifier, type GoogleVerifier } from "./google";
-import type { Pg } from "./pg";
-import { syncStore } from "./store";
+import { accountStore } from "./accounts.js";
+import { adminStore } from "./admin.js";
+import { oauthStore } from "./oauth.js";
+import type { Stores } from "./app.js";
+import { friendStore } from "./friends.js";
+import { googleVerifier, type GoogleVerifier } from "./google.js";
+import type { Pg } from "./pg.js";
+import { syncStore } from "./store.js";
 
 /**
  * Every store on one database. SERVER_SECRET makes the made-up salts for unknown emails (so emails

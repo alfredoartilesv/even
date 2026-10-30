@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
-import { uuidv7 } from "../src/core/uuidv7";
-import type { DeviceInfo, DeviceKind, Joined, Me, PairingStatus, RecoveryStart, RecoveryUpdateBody, SignupBody } from "../src/core/syncWire";
-import type { Pg } from "./pg";
-import { sha256Hex } from "../src/core/hash";
+import { uuidv7 } from "../src/core/uuidv7.js";
+import type { DeviceInfo, DeviceKind, Joined, Me, PairingStatus, RecoveryStart, RecoveryUpdateBody, SignupBody } from "../src/core/syncWire.js";
+import type { Pg } from "./pg.js";
+import { sha256Hex } from "../src/core/hash.js";
 
 /**
  * Accounts and devices (docs/users.md sections 2.1, 2.2, 2.5). The server never sees a passphrase
@@ -10,13 +10,13 @@ import { sha256Hex } from "../src/core/hash";
  * derived from it, and pairing relays keys an existing device sealed for the new one.
  */
 
+// A plain field, not a parameter property: Node's type stripping (the function test) rejects those.
 export class AuthError extends Error {
-  constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 429,
-    message: string,
-  ) {
+  readonly status: 400 | 401 | 403 | 404 | 409 | 429;
+  constructor(status: AuthError["status"], message: string) {
     super(message);
     this.name = "AuthError";
+    this.status = status;
   }
 }
 

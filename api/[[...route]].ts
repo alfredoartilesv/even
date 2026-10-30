@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
-import { createApp } from "../server/app";
-import { postgresJs } from "../server/pg";
-import { createStores } from "../server/stores";
+import { createApp } from "../server/app.js";
+import { postgresJs } from "../server/pg.js";
+import { createStores } from "../server/stores.js";
 
 /**
  * The sync API as one Vercel function (vercel.json routes /health, /v1/*, /mcp, /oauth/* and
