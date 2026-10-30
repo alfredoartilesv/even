@@ -262,7 +262,7 @@ Threats not covered in phase 1: a rooted or unlocked phone in an attacker's hand
 | Target | How | Status |
 |---|---|---|
 | Android (S23) | `npm run android:sync` (build, `cap sync`, hardening script), then `gradlew assembleDebug` or the VS Code tasks; or `npm run docker:apk` (pinned toolchain, also in CI). `npm run test:device` checks the installed build | Passes on a Galaxy S23-shaped Android 16 emulator (27 Oct 2026); not yet on the phone |
-| CI | `.github/workflows/ci.yml`: the Docker test stage on every PR (no APK) | Added 27 Oct 2026 |
+| CI | Only `.github/workflows/release.yml` (push to `master`). PR CI (`ci.yml`) and the release emulator job removed to save Actions minutes | Added 27 Oct 2026, cut 30 Oct 2026 |
 | Release | `.github/workflows/release.yml` on a push to `master` (merging `develop`): signed release APK in Docker, checked (`scripts/release-check.mjs`), installed and launched on an emulator, then tag `v<version>` and a GitHub release with the APK. Release key outside the repo, in GitHub secrets for CI (dev-setup.md section 6) | Added 27 Oct 2026 |
 | iOS (iPhone 14) | Same code; built and run in the iOS Simulator on GitHub macOS runners (`ios.yml`, parked out of CI for now, dev-setup section 7). Device install needs an Apple Developer account | Simulator build, 27 Oct 2026 |
 | Web app and sync server | Vercel Hobby: the web build (`npm run build:web`) as static files and the sync API as one function (`api/index.ts`; `vercel.json` rewrites `/v1/*`, `/health`, `/mcp`, `/oauth/*` to it). Neon free Postgres; `npm run vercel-build` migrates it. Locally the same in Docker (`db`, `sync`, `web`) or `npm run dev:web` | Deployed with 0.4 (Oct 2026) |

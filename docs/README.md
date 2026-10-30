@@ -25,7 +25,7 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Encrypted backup export and restore | Built, tested |
 | Android auto-backup disabled | Built (patch script) |
 | Run on Android | Debug build passes the device integration test (`npm run test:device`, 11 checks). The 0.1.0 release APK is installed on the real S23 on a Galaxy S23-shaped Android 16 emulator. **Not yet on the real phone** |
-| Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/ci.yml` (PRs: tests only) |
+| Docker (standard test and APK build, CI) | `npm run docker:test`, `npm run docker:apk`, `.github/workflows/release.yml` (releases only; no PR CI) |
 | Releases | Merge `develop` into `master`: signed APK built and checked in Docker, launched on an emulator, tagged `v<version>` and published as a GitHub release (`release.yml`, dev-setup.md section 6). Needs the four `HEALTH_*` GitHub secrets |
 | Dashboard (Day / Week / Month: rings, macro split, energy with two-week trends, recovery, check-in, workouts, alcohol, meal prep, groceries), Journal, Profile | Built and tested |
 | Claude agent (questions, meal logging from photos, saved meals, meal prep and shopping, logs and goals; every change confirmed and undoable) | Built and tested (`src/domain/chat/`, `npm run chat` on a PC); Chat tab with camera and image attach |
