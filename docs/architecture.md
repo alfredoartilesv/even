@@ -162,7 +162,7 @@ Why additive-only with confirmation rather than full editing: wrong numbers in a
 
 | Area | Decision |
 |---|---|
-| Server | Hono + TypeScript in `server/`, one app (`server/app.ts`) run two ways: the `sync` Docker container (`server/node.ts`) and a Vercel function (`api/[[...route]].ts`). Postgres through postgres.js, `prepare: false` for Neon's pooler. No SQLite on the server |
+| Server | Hono + TypeScript in `server/`, one app (`server/app.ts`) run two ways: the `sync` Docker container (`server/node.ts`) and a Vercel function (`api/index.ts`, every API path rewritten to it by `vercel.json`). Postgres through postgres.js, `prepare: false` for Neon's pooler. No SQLite on the server |
 | Hosting, free only | **Vercel Hobby** (free, personal non-commercial use: this app) for the web build and the sync function; **Neon free** (0.5 GB, Postgres 17) through Vercel's Neon integration, which sets `DATABASE_URL`. Vercel caps a request body at 4.5 MB, so a push stays under 4 MB (`MAX_PUSH_BYTES`) |
 | Local environment | `docker-compose.yml`: `db` (Postgres 17, as Neon), `sync` (the one container for phone sync), `web` (the web build). Ports on 127.0.0.1 only. dev-setup.md section 4b |
 | Server schema | `server/migrations/`, numbered like the phone's and applied by `npm run sync:migrate`, at container start, and in the Vercel build (never on a request). Two tables: `devices` (token hash only) and `sync_rows` (newest sealed copy per owner, table and row key, with a server sequence number) |

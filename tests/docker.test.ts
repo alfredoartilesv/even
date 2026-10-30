@@ -98,13 +98,14 @@ test("vercel.json serves the web build and sends the API, the admin MCP and its 
       "/.well-known/oauth-authorization-server",
     ],
   );
-  for (const r of vercel.rewrites) assert.equal(r.destination, `/api${r.source}`, "the function sees the same path under /api");
+  // One function at /api: Vercel matched a catch-all file for one path segment only.
+  for (const r of vercel.rewrites) assert.equal(r.destination, `/api?__path=${r.source}`, "the function gets the original path");
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;
   assert.match(scripts["vercel-build"], /server\/cli\.ts migrate && npm run build/, "migrations run in the build, never on a request");
 });
 
 test("the Vercel function exports every method the API routes use", () => {
-  const fn = readFileSync(join(import.meta.dirname, "../api/[[...route]].ts"), "utf8");
+  const fn = readFileSync(join(import.meta.dirname, "../api/index.ts"), "utf8");
   const app = readFileSync(join(import.meta.dirname, "../server/app.ts"), "utf8");
   const used = new Set([...app.matchAll(/app\.(get|post|put|delete)\(/g)].map((m) => m[1]!.toUpperCase()));
   for (const method of used) assert.match(fn, new RegExp(`export const ${method} = `), method);
