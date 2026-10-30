@@ -97,8 +97,20 @@ export function App({ target }: { target: Target }) {
     await refreshSyncReminder(db, notifier, { configured: garmin, source: GARMIN_SOURCE });
   }, [db]);
 
-  /** Garmin and Apple Health into this device, then the cloud sync. */
-  const sync = useCallback(async () => {
+  /**
+   * Garmin and Apple Health into this device, then the cloud sync. One at a time: a second sync
+   * (Sync now during the one on open, a resume) opened its transactions on the same connection as
+   * the first and failed with "Already in transaction"; it now waits for the running one instead.
+   */
+  const running = useRef<Promise<void> | null>(null);
+  const sync = useCallback(() => {
+    running.current ??= runAll().finally(() => (running.current = null));
+    return running.current;
+    // runAll is redefined each render with the same db and refreshStatus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db, refreshStatus]);
+
+  async function runAll() {
     if (!db) return;
     const cloud = sessionRef.current;
     const apiKey = await loadGarminKey(secretStore);
@@ -127,7 +139,7 @@ export function App({ target }: { target: Target }) {
       setVersion((v) => v + 1);
       await refreshStatus();
     }
-  }, [db, refreshStatus]);
+  }
 
   // Keep "Synced 5 min ago" current.
   useEffect(() => {
