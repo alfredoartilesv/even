@@ -47,13 +47,22 @@ export interface Device {
 }
 
 /**
+ * The server address as typed on the phone ("even.vercel.app") is not a URL fetch accepts: with no
+ * scheme every call failed as "could not be reached". https is assumed; "" stays the same origin.
+ */
+export function serverBase(url: string): string {
+  const s = url.trim().replace(/\/+$/, "");
+  return s === "" || /^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : `https://${s}`;
+}
+
+/**
  * The sync server's API (server/app.ts). `fetchFn` is injected: on the phone the native HTTP of
  * src/platform (no WebView CORS), in the browser and in scripts the global fetch, in tests the
  * Hono app itself. Tokens go in headers only, never in a URL. `baseUrl` "" means the same origin
  * (the web app, which Vercel and the dev server route /v1 for).
  */
 export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch(...a), token?: string) {
-  const base = baseUrl.replace(/\/+$/, "");
+  const base = serverBase(baseUrl);
   async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
     let res: Response;
     try {
