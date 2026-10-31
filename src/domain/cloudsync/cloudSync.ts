@@ -1,8 +1,8 @@
-import type { SqlDriver, SqlValue } from "../../db/driver";
-import { createLogger } from "../../core/log";
-import { MAX_BLOB_CHARS, MAX_PUSH_BYTES, SYNC_PAGE, type PullResult, type PushResult, type SyncRow } from "../../core/syncWire";
-import { BACKUP_TABLES, mergeRows, type BackupTable } from "../backup/backup";
-import { open, rowKey, seal, type SyncKeys } from "./seal";
+import type { SqlDriver, SqlValue } from "../../db/driver.js";
+import { createLogger } from "../../core/log.js";
+import { MAX_BLOB_CHARS, MAX_PUSH_BYTES, SYNC_PAGE, type PullResult, type PushResult, type SyncRow } from "../../core/syncWire.js";
+import { BACKUP_TABLES, mergeRows, type BackupTable } from "../backup/backup.js";
+import { open, rowKey, seal, type SyncKeys } from "./seal.js";
 
 const log = createLogger("cloudsync");
 

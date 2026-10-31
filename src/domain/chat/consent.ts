@@ -1,6 +1,6 @@
-import type { SqlDriver } from "../../db/driver";
-import { uuidv7 } from "../../core/uuidv7";
-import { createLogger } from "../../core/log";
+import type { SqlDriver } from "../../db/driver.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("chat.consent");
 
@@ -36,17 +36,34 @@ export const CONSENT_TEXT: Record<ConsentScope, string> = {
   "claude.files": "Send the files you attach in the chat (for example a lab report PDF or a CSV export) to Claude so it can read them.",
 };
 
-export const CONSENT_POLICY_VERSION: Record<ConsentScope, string> = {
+/**
+ * The health connector (docs/users.md section 10): Claude's own apps (claude.ai, the Claude app),
+ * on the owner's Claude plan, reach the data through Even's server instead of this phone, so they
+ * have their own consents. The class consents above still decide what each tool may send.
+ */
+export type ConnectorScope = "claude.connector" | "claude.connector_changes";
+
+export const CONNECTOR_TEXT: Record<ConnectorScope, string> = {
+  "claude.connector":
+    "Let Claude's own apps (claude.ai, the Claude app), signed in to your Claude account, ask Even about your data through the Even connector. While a connection is live, Even's server opens your synced data to answer each request and keeps nothing readable afterwards. What Claude receives then falls under your Claude plan's terms. The choices above still decide what kinds of data it may get.",
+  "claude.connector_changes":
+    "Also let Claude add entries through the connector: food, drinks, meal prep, shopping, measurements, notes and goals. Claude asks you before each one, and you can undo any of them here.",
+};
+
+export const CONSENT_POLICY_VERSION: Record<ConsentScope | ConnectorScope, string> = {
   "claude.aggregates": "2026-10-25",
   "claude.raw_series": "2026-10-25",
   "claude.notes": "2026-10-25",
   "claude.photos": "2026-10-25",
   "claude.files": "2026-10-28",
+  "claude.connector": "2026-10-31",
+  "claude.connector_changes": "2026-10-31",
 };
 
 export const ALL_SCOPES = Object.keys(CONSENT_TEXT) as ConsentScope[];
+export const CONNECTOR_SCOPES = Object.keys(CONNECTOR_TEXT) as ConnectorScope[];
 
-export async function hasConsent(db: SqlDriver, scope: ConsentScope): Promise<boolean> {
+export async function hasConsent(db: SqlDriver, scope: ConsentScope | ConnectorScope): Promise<boolean> {
   // Tie-break on rowid (insertion order): UUIDv7 ids are not ordered within one millisecond.
   const rows = await db.all<{ granted: number; policy_version: string }>(
     `SELECT granted, policy_version FROM consents
@@ -58,7 +75,13 @@ export async function hasConsent(db: SqlDriver, scope: ConsentScope): Promise<bo
   return r !== undefined && r.granted === 1 && r.policy_version === CONSENT_POLICY_VERSION[scope];
 }
 
-export async function recordConsent(db: SqlDriver, scope: ConsentScope, granted: boolean, deviceId: string, nowMs: number = Date.now()): Promise<void> {
+export async function recordConsent(
+  db: SqlDriver,
+  scope: ConsentScope | ConnectorScope,
+  granted: boolean,
+  deviceId: string,
+  nowMs: number = Date.now(),
+): Promise<void> {
   await db.run(
     `INSERT INTO consents (id, scope, granted, decided_at_ms, policy_version, created_at, updated_at, origin_device_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,

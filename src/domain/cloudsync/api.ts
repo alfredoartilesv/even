@@ -115,6 +115,10 @@ export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch
     pullShareRows: (id: string, after: number, limit: number) =>
       call<ShareRowsResult>("GET", `/v1/shares/${encodeURIComponent(id)}/rows?${page(after, limit)}`),
 
+    // The health connector's connections to this account (docs/users.md section 10)
+    connectorGrants: () => call<McpGrant[]>("GET", "/v1/connector/grants"),
+    revokeConnectorGrant: (id: string) => call<{ ok: true }>("DELETE", `/v1/connector/grants/${encodeURIComponent(id)}`),
+
     // Admin (an admin account's device only; docs/users.md section 2.6)
     admin: {
       health: () => call<ServiceHealth>("GET", "/v1/admin/health"),

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { SqlDriver, SqlValue } from "../../db/driver";
-import { DEVICE_ID_KEY, getSetting, setSetting } from "../../db/settings";
-import { createLogger } from "../../core/log";
-import { assertBackupOwner, getOwner } from "../account/account";
+import type { SqlDriver, SqlValue } from "../../db/driver.js";
+import { DEVICE_ID_KEY, getSetting, setSetting } from "../../db/settings.js";
+import { createLogger } from "../../core/log.js";
+import { assertBackupOwner, getOwner } from "../account/account.js";
 
 const log = createLogger("backup");
 

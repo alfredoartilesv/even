@@ -1,4 +1,4 @@
-import { fromB64, SYNC_SECRET_BYTES, toB64 } from "./seal";
+import { fromB64, SYNC_SECRET_BYTES, toB64 } from "./seal.js";
 
 /**
  * The account's keys (docs/users.md section 2): the account data key (ADK, the sync secret every
