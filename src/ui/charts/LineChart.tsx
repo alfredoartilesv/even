@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
 import { ChartFrame, EmptyPlot, seriesColor, SINGLE, Tooltip, useWidth, type LegendItem } from "./frame";
-import { compact, extent, fmtValue, labelIndexes, lastValueIndex, linear, linePath, nearestIndex, niceTicks, segments } from "./scale";
+import { compact, extent, fmtValue, labelIndexes, lastValueIndex, linear, linePath, nearestIndex, niceTicks, present, segments } from "./scale";
 
 export interface LineSeries {
   id: string;
@@ -27,6 +27,8 @@ export interface LineChartProps {
   target?: number | null;
   /** Start the y axis at zero (amounts). Off for levels such as resting heart rate. */
   zero?: boolean;
+  /** Draw each line straight across missing days instead of breaking it (sparse logs such as mood). */
+  connectGaps?: boolean;
   height?: number;
   dim?: boolean;
 }
@@ -34,7 +36,8 @@ export interface LineChartProps {
 const PAD = { top: 12, right: 12, bottom: 24, left: 40 };
 
 /**
- * Trend over time, one or more series on one axis. Missing days break the line. One series gets
+ * Trend over time, one or more series on one axis. Missing days break the line, unless connectGaps
+ * joins the days either side. One series gets
  * a soft area wash and its last value labelled; several get a legend. Hover or arrow keys move a
  * crosshair that reads out every series at that x.
  */
@@ -49,6 +52,7 @@ export function LineChart({
   unit,
   target = null,
   zero = false,
+  connectGaps = false,
   height = 180,
   dim,
 }: LineChartProps) {
@@ -133,20 +137,24 @@ export function LineChart({
             </g>
           )}
           {series.map((s, i) =>
-            segments(s.values).map((seg) => {
-              const pts = seg.values.map((v, k) => [sx(seg.start + k), sy(v)] as [number, number]);
-              return (
-                <g key={`${s.id}-${seg.start}`}>
-                  {single && pts.length > 1 && <path className="viz-area" d={`${linePath(pts)} V${baseline} H${pts[0][0]} Z`} style={{ fill: color(s, i) }} />}
-                  {pts.length > 1 ? (
-                    <path className="viz-line" d={linePath(pts)} style={{ stroke: color(s, i) }} />
-                  ) : (
-                    // A lone day between gaps has no line to sit on: show it as a dot.
-                    <circle className="viz-dot" cx={pts[0][0]} cy={pts[0][1]} r={4} style={{ fill: color(s, i) }} />
-                  )}
-                </g>
-              );
-            }),
+            (connectGaps ? [present(s.values)] : segments(s.values).map((seg) => seg.values.map((v, k) => [seg.start + k, v] as [number, number])))
+              .filter((seg) => seg.length > 0)
+              .map((seg) => {
+                const pts = seg.map(([j, v]) => [sx(j), sy(v)] as [number, number]);
+                return (
+                  <g key={`${s.id}-${seg[0][0]}`}>
+                    {single && pts.length > 1 && (
+                      <path className="viz-area" d={`${linePath(pts)} V${baseline} H${pts[0][0]} Z`} style={{ fill: color(s, i) }} />
+                    )}
+                    {pts.length > 1 ? (
+                      <path className="viz-line" d={linePath(pts)} style={{ stroke: color(s, i) }} />
+                    ) : (
+                      // A lone day between gaps has no line to sit on: show it as a dot.
+                      <circle className="viz-dot" cx={pts[0][0]} cy={pts[0][1]} r={4} style={{ fill: color(s, i) }} />
+                    )}
+                  </g>
+                );
+              }),
           )}
           {single &&
             (() => {

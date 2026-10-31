@@ -345,7 +345,7 @@ async function main() {
             const b = document.querySelector("button.sync-button");
             const l = b ? b.getAttribute("aria-label") : "";
             if (!l || l.startsWith("Syncing")) return null;
-            if (__t.text().includes("The last sync failed")) return "FAILED: " + (document.querySelector(".banner .small")?.innerText ?? "");
+            if (__t.text().includes("Garmin sync failed")) return "FAILED: " + (document.querySelector(".banner .small")?.innerText ?? "");
             return l.startsWith("Synced") ? l.split(".")[0] : null;
           })()`),
         180_000,
