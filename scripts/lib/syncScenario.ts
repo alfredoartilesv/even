@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { memorySecretStore } from "../../src/core/secretStore";
 import { SYNC_PAGE } from "../../src/core/syncWire";
 import type { SqlDriver } from "../../src/db/driver";
-import { SYNC_TABLES } from "../../src/domain/cloudsync/cloudSync";
+import { SYNC_TABLES, SYNCED_SETTINGS } from "../../src/domain/cloudsync/cloudSync";
 import { approvePairing, createAccount, signInWithPassphrase, startPairing, type SyncSession } from "../../src/domain/cloudsync/session";
 import { syncNow, type CloudSyncResult } from "../../src/domain/cloudsync/syncNow";
 import { migratedNodeDb } from "./nodeDb";
@@ -99,7 +99,9 @@ export async function syncedDigest(db: SqlDriver): Promise<{ digest: string; row
   const hash = createHash("sha256");
   const rows: Record<string, number> = {};
   for (const t of SYNC_TABLES) {
-    const all = await db.all<Record<string, unknown>>(`SELECT * FROM ${t.name} ORDER BY ${t.key.join(", ")}`);
+    let all = await db.all<Record<string, unknown>>(`SELECT * FROM ${t.name} ORDER BY ${t.key.join(", ")}`);
+    // Each install keeps its own settings but the profile, so only those rows must match.
+    if (t.name === "app_settings") all = all.filter((r) => SYNCED_SETTINGS.has(String(r.key)));
     rows[t.name] = all.length;
     for (const r of all) {
       if (!t.key.includes("id")) delete r.id;
