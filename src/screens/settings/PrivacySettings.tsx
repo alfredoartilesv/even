@@ -20,11 +20,35 @@ const SCOPE_TITLE: Record<ConsentScope, string> = {
 
 const CLASS_WORD: Record<Disclosure["dataClass"], string> = { aggregate: "summary", raw: "detailed", note: "notes", photo: "photo", file: "file" };
 const SHOWN = 5;
+/** The chat's opening snapshot names the tools it ran (domain/chat/context.ts); these say what each one is. */
+const SNAPSHOT_PART: Record<string, string> = {
+  list_metrics: "metric list",
+  get_profile: "profile",
+  list_goals: "goals",
+  nutrition_summary: "today's food",
+  workout_summary: "last week's workouts",
+  meal_prep_stock: "meal prep stock",
+};
 /** A backup older than this gets a reminder: notes, logs and chats exist only on the phone. */
 const STALE_DAYS = 30;
 
 /** "Meal photos" -> "meal photos", but "Data sent to Claude" keeps Claude. */
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+/** Who sent it (the Chat tab or the connector, server/healthMcp.ts) and what, in plain words. */
+function describe(summary: string): { via: string; what: string } {
+  const connector = summary.startsWith("Connector: ");
+  const what = connector ? summary.slice("Connector: ".length) : summary;
+  const snapshot = /^Chat context: (.*)$/.exec(what);
+  return {
+    via: connector ? "Claude connector" : "Chat",
+    what: snapshot
+      ? `Opening snapshot: ${snapshot[1]
+          .split(", ")
+          .map((t) => SNAPSHOT_PART[t] ?? t.replaceAll("_", " "))
+          .join(", ")}`
+      : what,
+  };
+}
 const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
 const daysAgo = (ms: number) => Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${localDay(ms, timeZone())}T00:00:00Z`)) / 86_400_000);
 
@@ -97,17 +121,23 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
           <>
             <p className="muted small">{plural(sent.length, "piece")} of data, newest first.</p>
             <ul className="entries">
-              {(showAll ? sent : sent.slice(0, SHOWN)).map((d) => (
-                <li key={d.id}>
-                  <div className="grow">
-                    <div className="small">{d.summary}</div>
-                    <div className="muted small">
-                      {new Date(d.sentAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {kb(d.bytes)}
+              {(showAll ? sent : sent.slice(0, SHOWN)).map((d) => {
+                const { via, what } = describe(d.summary);
+                return (
+                  <li key={d.id}>
+                    <div className="grow">
+                      <div className="entry-head">
+                        <strong className="small">{via}</strong>
+                        <StatusBadge status={d.dataClass === "aggregate" ? "info" : "warning"}>{CLASS_WORD[d.dataClass]}</StatusBadge>
+                      </div>
+                      <div className="small">{what}</div>
+                      <div className="muted small">
+                        {new Date(d.sentAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {kb(d.bytes)}
+                      </div>
                     </div>
-                  </div>
-                  <StatusBadge status={d.dataClass === "aggregate" ? "info" : "warning"}>{CLASS_WORD[d.dataClass]}</StatusBadge>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
             {sent.length > SHOWN && (
               <button type="button" className="link small accent" onClick={() => setShowAll(!showAll)}>

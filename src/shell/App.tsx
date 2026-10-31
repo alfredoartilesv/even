@@ -49,7 +49,7 @@ export function App({ target }: { target: Target }) {
   const [configured, setConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
-  // The Chat tab, only with this device's own API key chosen and saved (domain/chat/mode.ts).
+  // The Chat tab, once this device has its own API key saved (domain/chat/mode.ts).
   const [chatOn, setChatOn] = useState(false);
   const [status, setStatus] = useState<LastSync | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -92,9 +92,9 @@ export function App({ target }: { target: Target }) {
 
   const db = dbStatus.state === "ready" ? dbStatus.db : null;
 
-  // Read again after every change, so connecting a key or choosing the connector shows or hides Chat.
+  // Read again after every change, so saving or removing the key shows or hides Chat.
   useEffect(() => {
-    if (db) void chatAvailable(db, secretStore).then(setChatOn, (err) => log.warn("Claude mode not read", { err }));
+    if (db) void chatAvailable(secretStore).then(setChatOn, (err) => log.warn("Claude mode not read", { err }));
   }, [db, version]);
   useEffect(() => {
     if (!chatOn && tab === "chat") setTab("dashboard");
@@ -206,19 +206,23 @@ export function App({ target }: { target: Target }) {
     void refreshStatus().then(() => sync());
   }, [db, session, sync, refreshStatus]);
 
-  if (dbStatus.state !== "ready") {
+  // While the database opens the page stays empty, so the Dashboard is the first thing the owner sees, not a loading line.
+  if (dbStatus.state === "opening") {
+    return (
+      <main className="shell" aria-busy="true">
+        <span className="sr-only">Loading</span>
+      </main>
+    );
+  }
+  if (dbStatus.state === "error") {
     return (
       <main className="shell">
         <PageHeader title="Even" />
-        <p className={dbStatus.state === "error" ? "error" : "muted"}>
-          {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
-        </p>
-        {dbStatus.state === "error" && (
-          <Suspense>
-            <h2>Logs</h2>
-            <LogsScreen db={null} />
-          </Suspense>
-        )}
+        <p className="error">Database unavailable: {dbStatus.message}</p>
+        <Suspense>
+          <h2>Logs</h2>
+          <LogsScreen db={null} />
+        </Suspense>
       </main>
     );
   }
