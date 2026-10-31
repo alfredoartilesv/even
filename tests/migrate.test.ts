@@ -48,6 +48,7 @@ test("expected tables exist", async () => {
       "food_photos",
       "goals",
       "health_samples",
+      "log_records",
       "manual_measurements",
       "meal_prep_batches",
       "meal_prep_ingredients",

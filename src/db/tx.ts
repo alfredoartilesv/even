@@ -5,6 +5,9 @@ const log = createLogger("db");
 
 const depth = new WeakMap<SqlDriver, number>();
 
+/** Whether a withTransaction is open on this driver: a plain write now would join it, and go with its rollback. */
+export const inTransaction = (db: SqlDriver): boolean => depth.has(db);
+
 /**
  * Run fn inside BEGIN / COMMIT, rolling back if it throws. The Capacitor driver maps these
  * onto the plugin's transaction calls. A call made inside another withTransaction on the same
