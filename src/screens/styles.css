@@ -1741,7 +1741,8 @@ html {
   gap: 1.25rem;
 }
 /* A stack gets space under it elsewhere; here it left a strip under the pairing side's tint. */
-.connect-grid > .stack {
+.connect-grid > .stack,
+.connect-account > * {
   margin: 0;
 }
 .connect-pair {
@@ -1758,7 +1759,29 @@ html {
   border-top: 1px solid var(--line);
   padding-top: 0.75rem;
 }
+/* One side at a time on a phone: the forms with a button to the QR, or the QR with a way back. The
+   pairing side stays mounted while hidden, so its code is ready when it is opened. */
+.connect-grid:not(.pairing) > .connect-pair,
+.connect-grid.pairing > .connect-account {
+  display: none;
+}
+.connect-grid.pairing > .connect-pair {
+  border-top: 0;
+  padding-top: 0;
+}
+.connect-pair-back {
+  align-self: flex-start;
+}
 @container (min-width: 44rem) {
+  /* Prefixed with the panel to outrank the phone's one-side rules and button.with-icon. */
+  .connect-panel .connect-grid > .connect-pair,
+  .connect-panel .connect-grid > .connect-account {
+    display: flex;
+  }
+  .connect-panel button.connect-pair-open,
+  .connect-panel button.connect-pair-back {
+    display: none;
+  }
   .connect-grid {
     grid-template-columns: minmax(0, 1fr) 20rem;
     gap: 0;

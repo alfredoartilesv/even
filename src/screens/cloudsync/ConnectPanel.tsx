@@ -5,6 +5,7 @@ import { keepNothing } from "../../platform/idb";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { SecretInput, Switch } from "../../ui/controls";
 import { Segmented } from "../../ui/layout";
+import { Icon } from "../../ui/icons";
 import { QrCode } from "../../ui/QrCode";
 import { checkPassphrase, passphraseHint } from "../../domain/cloudsync/keys";
 import { createAccount, pairingQrText, signInWithPassphrase, startPairing, type PairingRequest, type SyncSession } from "../../domain/cloudsync/session";
@@ -56,6 +57,8 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [server, setServer] = useState(DEFAULT_SERVER);
   const [shared, setShared] = useState(false);
+  // On a phone the two sides take turns, so each fits one screen; side by side they are both shown and this is unused.
+  const [pairing, setPairing] = useState(false);
   const fetchFn = deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 });
   const plain = thisDevice(isNative);
   const device = shared ? { ...plain, name: `${plain.name} (shared)` } : plain;
@@ -66,7 +69,7 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const flow = { server, serverReady, secrets, device, fetchFn, before, onConnected, onMode: setMode };
   return (
     <div className="connect-panel">
-      <div className="connect-grid">
+      <div className={pairing ? "connect-grid pairing" : "connect-grid"}>
         <section className="stack connect-account" aria-label="Log in or sign up">
           {isNative && (
             <label>
@@ -91,6 +94,10 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
           />
           <p className="muted small">{MODE_HINT[mode]}</p>
           {mode === "signin" ? <SignIn {...flow} /> : <Create {...flow} />}
+          <button type="button" className="secondary with-icon connect-pair-open" onClick={() => setPairing(true)}>
+            <Icon name="qr" size={20} />
+            Pair with a QR code
+          </button>
           {/* Under the forms rather than under both columns: it applies to pairing too, but there it left a gap the height of the QR. */}
           {!isNative && (
             <div className="connect-shared">
@@ -98,12 +105,16 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
                 checked={shared}
                 onChange={setShared}
                 label="This is a shared computer"
-                description="Keep nothing in this browser: closing or reloading the tab signs out and forgets the data."
+                description="Keep nothing here: closing or reloading the tab signs out and forgets the data."
               />
             </div>
           )}
         </section>
         <aside className="stack connect-pair" aria-labelledby="pair-title">
+          <button type="button" className="link accent with-icon connect-pair-back" onClick={() => setPairing(false)}>
+            <Icon name="back" size={18} />
+            Log in or sign up instead
+          </button>
           <div>
             <h3 id="pair-title">Pair with a device</h3>
             <p className="muted small">Signed in on your phone or another browser? Scan this with Even there, or type the code. No passphrase needed.</p>
@@ -184,8 +195,7 @@ function SignIn({ server, secrets, device, fetchFn, before, onConnected, onMode 
       </button>
       <MsgLine msg={msg} />
       <p className="muted small">
-        Forgot the passphrase? Nobody can reset it, but a connected phone can still let you in with the pairing code, then set a new one in Settings, Sync &amp;
-        devices. No account yet?{" "}
+        Forgot it? Pair with a connected phone, then set a new one in Settings. No account yet?{" "}
         <ModeLink to="create" onMode={onMode}>
           Sign up with your invite
         </ModeLink>
