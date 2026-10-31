@@ -24,10 +24,6 @@ import { lastSync, type LastSync } from "../../domain/sync/runSync";
 import { connectGarmin, disconnectGarmin, garminConnection, garminKeyVerifier, type GarminConnection } from "../../domain/sync/garminConnect";
 import { reminderEnabled, setReminderEnabled } from "../../domain/sync/reminder";
 import type { SecretStore } from "../../domain/settings/secrets";
-import { deviceId } from "../../db/settings";
-import { hasConsent, recordConsent } from "../../domain/chat/consent";
-import { claudeMode, setClaudeMode, type ClaudeMode } from "../../domain/chat/mode";
-import { Segmented, type Choice } from "../../ui/layout";
 import { ConnectorSettings } from "../cloudsync/ConnectorSettings";
 
 interface Props {
@@ -420,20 +416,10 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
   );
 }
 
-const CLAUDE_WAYS: Choice<ClaudeMode>[] = [
-  { id: "api", label: "API key" },
-  { id: "connector", label: "Claude connector" },
-];
-
-const WAY_NOTE: Record<ClaudeMode, string> = {
-  api: "The Chat tab in Even, on your own Claude API key.",
-  connector: "Claude's own apps (claude.ai, the Claude app) on your Claude plan, with no API key. The Chat tab is hidden.",
-};
-
 /**
- * Claude, one of two ways on this device (domain/chat/mode.ts): the Chat tab on an API key, or the
- * health connector for Claude's own apps (docs/users.md section 10). Choosing the key turns the
- * connector off, so it never reads data out of sight; choosing the connector keeps a saved key.
+ * Claude, two ways that can both be on (domain/chat/mode.ts): the Chat tab on this device's own API
+ * key, and the health connector for Claude's own apps on the owner's Claude plan (docs/users.md
+ * section 10). Each has its own switch: the key shows the Chat tab, the connector its own consents.
  */
 function ClaudeCard({
   db,
@@ -452,7 +438,6 @@ function ClaudeCard({
   onOpenSync: () => void;
   version: number;
 }) {
-  const [mode, setMode] = useState<ClaudeMode | null>(null);
   const [claude, setClaude] = useState<ClaudeConnection | null>(null);
   const [claudeKey, setClaudeKey] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
@@ -460,28 +445,8 @@ function ClaudeCard({
 
   const load = useCallback(async () => {
     setClaude(await claudeConnection(db, secrets));
-    setMode(await claudeMode(db, secrets));
   }, [db, secrets]);
 
-  async function choose(next: ClaudeMode) {
-    setMsg(null);
-    try {
-      await setClaudeMode(db, next);
-      setMode(next);
-      if (next === "api" && (await hasConsent(db, "claude.connector"))) {
-        const id = await deviceId(db);
-        await recordConsent(db, "claude.connector", false, id);
-        await recordConsent(db, "claude.connector_changes", false, id);
-        await onSync();
-        setMsg({ kind: "ok", text: "The connector is off: Claude's apps can no longer read your data. Turn it back on under Claude connector." });
-      } else if (next === "connector" && claude?.status !== "not_connected") {
-        setMsg({ kind: "ok", text: "The Chat tab is hidden. Your API key stays saved: choose API key to bring it back." });
-      }
-      onChanged();
-    } catch (err) {
-      setMsg(failed(err, "settings.claude"));
-    }
-  }
   useEffect(() => {
     void load();
   }, [load]);
@@ -524,7 +489,7 @@ function ClaudeCard({
         </>
       ) : (
         <>
-          <p className="muted small">The chat uses your own Claude API key.</p>
+          <p className="muted small">Add a key to show the Chat tab. Billing is per use, on your Claude Console account.</p>
           <KeySteps steps={CONNECT_STEPS} href={CLAUDE_KEYS_URL} open="Open the Claude Console" />
         </>
       )}
@@ -546,19 +511,17 @@ function ClaudeCard({
     <>
       <section className="card">
         <div className="card-head">
-          <h2>Claude</h2>
-          {mode === "api" && <ConnectionBadge status={claude?.status} />}
+          <h2>Chat in Even</h2>
+          <ConnectionBadge status={claude?.status} />
         </div>
-        {mode && (
-          <>
-            <Segmented items={CLAUDE_WAYS} value={mode} onChange={(m) => void choose(m)} label="How to use Claude" />
-            <p className="muted small">{WAY_NOTE[mode]}</p>
-          </>
-        )}
-        {mode === "api" && apiKey}
+        <p className="muted small">
+          Two ways to ask Claude about your data, and you can use both: the Chat tab here, on your own API key, and Claude's own apps through the connector
+          below, on your Claude plan.
+        </p>
+        {apiKey}
         <MsgLine msg={msg} />
       </section>
-      {mode === "connector" && <ConnectorSettings db={db} session={session} onConnect={onOpenSync} onSync={onSync} version={version} />}
+      <ConnectorSettings db={db} session={session} onConnect={onOpenSync} onSync={onSync} version={version} />
     </>
   );
 }
