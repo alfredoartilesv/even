@@ -187,19 +187,23 @@ export function App({ target }: { target: Target }) {
     void refreshStatus().then(() => sync());
   }, [db, session, sync, refreshStatus]);
 
-  if (dbStatus.state !== "ready") {
+  // While the database opens the page stays empty, so the Dashboard is the first thing the owner sees, not a loading line.
+  if (dbStatus.state === "opening") {
+    return (
+      <main className="shell" aria-busy="true">
+        <span className="sr-only">Loading</span>
+      </main>
+    );
+  }
+  if (dbStatus.state === "error") {
     return (
       <main className="shell">
         <PageHeader title="Even" />
-        <p className={dbStatus.state === "error" ? "error" : "muted"}>
-          {dbStatus.state === "opening" ? "Opening local database…" : `Database unavailable: ${dbStatus.message}`}
-        </p>
-        {dbStatus.state === "error" && (
-          <Suspense>
-            <h2>Logs</h2>
-            <LogsScreen db={null} />
-          </Suspense>
-        )}
+        <p className="error">Database unavailable: {dbStatus.message}</p>
+        <Suspense>
+          <h2>Logs</h2>
+          <LogsScreen db={null} />
+        </Suspense>
       </main>
     );
   }
