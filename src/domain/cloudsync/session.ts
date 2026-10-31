@@ -165,7 +165,7 @@ export async function startPairing(
   serverUrl: string,
   store: SecretStore,
   device: Device,
-  opts: { fetchFn?: typeof fetch; pollMs?: number; signal?: AbortSignal } = {},
+  opts: { fetchFn?: typeof fetch; pollMs?: number; signal?: AbortSignal; beforeSave?: () => void } = {},
 ): Promise<PairingRequest> {
   const api = syncApi(serverUrl, opts.fetchFn);
   const eph = await newIdentity();
@@ -184,6 +184,7 @@ export async function startPairing(
           pub: p.identityPublic,
           priv: p.identityPrivate,
         });
+        opts.beforeSave?.();
         await saveSession(store, s);
         log.info("device added by pairing", { device: s.deviceId });
         return s;
@@ -194,16 +195,41 @@ export async function startPairing(
   return { code, expiresAt, done };
 }
 
+/**
+ * What a pairing QR code holds: the code behind a prefix, so a scan of some other QR (a menu, a
+ * Wi-Fi code) is told apart from a pairing code instead of being sent to the server.
+ */
+export const PAIRING_QR_PREFIX = "even-pair:";
+export const pairingQrText = (code: string) => `${PAIRING_QR_PREFIX}${code}`;
+
+/** The pairing id and key fingerprint from a typed code or a scanned QR, or null when it is neither. */
+export function parsePairingCode(text: string): { id: string; fingerprint: string } | null {
+  const raw = text.trim().toLowerCase().startsWith(PAIRING_QR_PREFIX) ? text.trim().slice(PAIRING_QR_PREFIX.length) : text;
+  const m = /^([0-9A-Z]{6})-?([0-9A-Z]{6})$/.exec(raw.toUpperCase().replace(/[^0-9A-Z-]/g, ""));
+  return m ? { id: m[1], fingerprint: m[2] } : null;
+}
+
+async function checkedPairing(s: SyncSession, code: string, fetchFn: typeof fetch | undefined) {
+  const parsed = parsePairingCode(code);
+  if (!parsed) throw new ConnectError("A pairing code is 12 characters, like ABC234-XYZ567");
+  const api = sessionApi(s, fetchFn);
+  const info = await api.pairingInfo(parsed.id);
+  if ((await fingerprint(info.ephemeralPublic)) !== parsed.fingerprint)
+    throw new ConnectError("That code does not match the device asking. Do not approve it; start again on the new device.");
+  return { api, id: parsed.id, info };
+}
+
+/** On a connected device: who is asking to join with `code`, so the owner can check before approving. */
+export async function lookUpPairing(s: SyncSession, code: string, opts: { fetchFn?: typeof fetch } = {}): Promise<{ deviceName: string; deviceKind: string }> {
+  const { info } = await checkedPairing(s, code, opts.fetchFn);
+  return { deviceName: info.deviceName, deviceKind: info.deviceKind };
+}
+
 /** On a connected device: let the device showing `code` in. Checks the fingerprint, so the server cannot swap keys. */
 export async function approvePairing(s: SyncSession, code: string, opts: { fetchFn?: typeof fetch } = {}): Promise<{ deviceName: string }> {
-  const m = /^([0-9A-Z]{6})-?([0-9A-Z]{6})$/.exec(code.toUpperCase().replace(/[^0-9A-Z-]/g, ""));
-  if (!m) throw new ConnectError("A pairing code is 12 characters, like ABC234-XYZ567");
-  const api = sessionApi(s, opts.fetchFn);
-  const info = await api.pairingInfo(m[1]);
-  if ((await fingerprint(info.ephemeralPublic)) !== m[2])
-    throw new ConnectError("That code does not match the device asking. Do not approve it; start again on the new device.");
+  const { api, id, info } = await checkedPairing(s, code, opts.fetchFn);
   await api.pairingApprove(
-    m[1],
+    id,
     await sealForPairing(info.ephemeralPublic, { adk: s.adk, identityPrivate: s.identityPrivate, identityPublic: s.identityPublic }),
   );
   log.info("pairing approved", { device: s.deviceId });
