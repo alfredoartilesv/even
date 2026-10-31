@@ -25,6 +25,7 @@ import { SyncBanner, SyncButton } from "../screens/sync/SyncStatus";
 import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../domain/settings/logLevel";
 import { createLogger, recentLogs } from "../core/log";
+import { throttle } from "../core/throttle";
 import { persistLogs } from "../domain/logs/store";
 import { DEFAULT_LOG_LEVEL } from "./logging";
 import { visibleTabs, type Tab } from "./tabs";
@@ -114,17 +115,34 @@ export function App({ target }: { target: Target }) {
   }, [db]);
 
   /**
-   * Garmin and Apple Health into this device, then the cloud sync. One at a time: a second sync
-   * (Sync now during the one on open, a resume) opened its transactions on the same connection as
-   * the first and failed with "Already in transaction"; it now waits for the running one instead.
+   * One sync, or settings push, at a time: a second one (Sync now during the one on open, a
+   * resume) opened its transactions on the same connection as the first and failed with "Already
+   * in transaction". `queue` runs them in turn; `running` lets a sync asked for during one join it.
    */
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const inTurn = (fn: () => Promise<void>) => (queue.current = queue.current.then(fn, fn));
   const running = useRef<Promise<void> | null>(null);
   const sync = useCallback(() => {
-    running.current ??= runAll().finally(() => (running.current = null));
+    running.current ??= inTurn(runAll).finally(() => (running.current = null));
     return running.current;
     // runAll is redefined each render with the same db and refreshStatus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, refreshStatus]);
+
+  /** Reload the screens as a sync stores rows, so what came first is seen first; at most every 1.5 s. */
+  const [show] = useState(() => throttle(() => setVersion((v) => v + 1), 1_500));
+
+  /** A profile or photo change goes to the other devices now, not with the next sync. */
+  const pushSettings = () => {
+    const cloud = sessionRef.current;
+    if (!db || !cloud) return;
+    void inTurn(async () => {
+      const { pushSettingsNow } = await import("../domain/cloudsync/syncNow");
+      await pushSettingsNow(db, cloud, { fetchFn: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 }) }).catch((err) =>
+        log.warn("settings not sent", { err }),
+      );
+    });
+  };
 
   async function runAll() {
     if (!db) return;
@@ -135,20 +153,21 @@ export function App({ target }: { target: Target }) {
     if (!apiKey) log.info("sync skipped: Garmin not configured");
     if (!apiKey && !apple && !cloud) return;
     setSyncing(true);
+    const fetchFn = deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 });
     try {
+      const cloudSync = cloud ? await import("../domain/cloudsync/syncNow") : null;
+      // First what the other devices wrote: settings, then rows newest first, shown as they come.
+      if (cloud && cloudSync) await cloudSync.pullFirst(db, cloud, { fetchFn, onProgress: show }).catch((err) => log.warn("cloud pull failed", { err }));
       // runSync never throws; each outcome is in sync_runs.
       if (apiKey) {
         // Native HTTP on the phone; the sync server's relay in the browser (no CORS from Garmin).
         const api = new GarminApi({ apiKey, fetch: garminFetch(cloud, { connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }) });
-        await runSync(db, new GarminSource({ api }));
+        if ((await runSync(db, new GarminSource({ api }))).samplesWritten > 0) show();
       }
-      if (apple) await runSync(db, new AppleHealthSource({ store: healthStore }));
+      if (apple && (await runSync(db, new AppleHealthSource({ store: healthStore }))).samplesWritten > 0) show();
       // Last, so what Garmin just brought in goes up in the same sync. A failure is kept for Settings > Sync.
-      if (cloud) {
-        const { syncNow } = await import("../domain/cloudsync/syncNow");
-        await syncNow(db, cloud, { fetchFn: deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 }), today: today() }).catch((err) =>
-          log.warn("cloud sync failed", { err }),
-        );
+      if (cloud && cloudSync) {
+        await cloudSync.syncNow(db, cloud, { fetchFn, today: today(), onProgress: show }).catch((err) => log.warn("cloud sync failed", { err }));
       }
     } finally {
       setSyncing(false);
@@ -329,6 +348,7 @@ export function App({ target }: { target: Target }) {
                 onChanged={() => {
                   void refreshStatus();
                   changed();
+                  pushSettings();
                 }}
                 onSync={() => sync()}
                 session={session ?? null}

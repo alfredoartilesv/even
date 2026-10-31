@@ -70,6 +70,23 @@ export function syncStore(pg: Pg) {
       const page = rows.slice(0, limit).map((r) => ({ seq: r.seq, tbl: r.tbl, key: r.row_key, updatedAt: r.updated_at, blob: r.blob }));
       return { rows: page, next: page.at(-1)?.seq ?? after, more };
     },
+
+    /**
+     * Highest sequence number first, between `after` and `before` (none: from the top), for a
+     * device catching up on the latest days first. `next` is the lowest number in the page: the
+     * `before` of the page after it. `tbl` keeps one table (a device's settings, before the rest).
+     */
+    async pullNewest(ownerId: string, after: number, before: number | null, limit: number, tbl: string | null = null): Promise<PullResult> {
+      const rows = await pg.query<{ seq: number; tbl: string; row_key: string; updated_at: number; blob: string }>(
+        `SELECT seq, tbl, row_key, updated_at, blob FROM sync_rows
+          WHERE owner_id = $1 AND seq > $2 AND ($3::bigint IS NULL OR seq < $3) AND ($5::text IS NULL OR tbl = $5)
+          ORDER BY seq DESC LIMIT $4`,
+        [ownerId, after, before, limit + 1, tbl],
+      );
+      const more = rows.length > limit;
+      const page = rows.slice(0, limit).map((r) => ({ seq: r.seq, tbl: r.tbl, key: r.row_key, updatedAt: r.updated_at, blob: r.blob }));
+      return { rows: page, next: page.at(-1)?.seq ?? before ?? after, more };
+    },
   };
 }
 
