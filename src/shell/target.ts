@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import type { SyncSession } from "../domain/cloudsync/session";
-import type { Tab } from "./tabs";
+import type { Tab, TabItem } from "./tabs";
 
 /** What the shared shell knows about this device's sync connection, for a target's gate. */
 export interface GateState {
@@ -21,6 +21,8 @@ export interface FrameAccount {
 export interface FrameProps {
   tab: Tab;
   onTab: (tab: Tab) => void;
+  /** The sections to offer, in order (visibleTabs): Chat is left out without an API key. */
+  tabs: TabItem[];
   /** Null when this device is not connected to an account. */
   account: FrameAccount | null;
   /** The page (<main className="shell">), placed by the frame beside or above its navigation. */
