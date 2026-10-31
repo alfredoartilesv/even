@@ -138,6 +138,7 @@ The way to use the Pro plan is the other direction: **Claude's apps come to Even
 - **Friend summaries** are pushed for the last 90 days on every sync of the owner's devices, sealed per day with the share key. A friend's data is read from the server when shown, never stored on the friend's device.
 - **The web app's database** is sql.js in memory, saved to IndexedDB sealed with a non-extractable key of that browser profile; one tab at a time (Web Locks). Disconnecting or deleting the account on the web wipes that copy.
 - **How long the web keeps it** (decided 28 Oct 2026, `src/apps/web/browserCopy.ts`): until Disconnect, or 30 days without being opened (then the copy and its sealing key are deleted, the device is removed, and the Connect screen says why), or, with **This is a shared computer** ticked when connecting, until the tab closes. In that mode nothing reaches IndexedDB: the data, the session and the key stay in the tab's memory (`keepNothing` in `platform/idb.ts`), a reload signs out, and closing the tab removes the device on the server. A browser connected by pairing never had a passphrase, so coming back after 30 days means connecting again, by passphrase or by pairing.
+- **Connecting, redesigned** (31 Oct 2026): *Log in* or *Sign up* on one side and the pairing QR with its code under it on the other (on a computer the QR is always shown; on a phone, one at a time: a *Pair with a QR code* button opens the QR, so each fits one screen), so a connected phone scans it, or another browser or phone types the code, without picking *Pair* first. The web gate is wider for the two columns.
 - **Connecting** (`screens/cloudsync/ConnectPanel.tsx`, 30 Oct 2026): three ways in, each with one line saying whose it is: *Sign in* (email and passphrase; after forgetting it, pair and set a new one), *Pair* (the code with a countdown, copy and cancel, and where to type it on the connected device) and *New account* (a live hint on what the passphrase still needs, and a switch confirming it is written down). The server address can be typed without `https://`.
 - **Signing out on the web:** the side menu shows the account's email and *Sign out*, which disconnects the browser and removes its copy, as Settings > Sync & devices does.
 - **Not built yet:** QR scanning, Google on the web, rotating the account data key after a lost device, a per-account quota other than the default 200 MB, the audit log of share grants as rows in the owner's data (the server keeps the shares themselves).
@@ -155,3 +156,32 @@ Claude (on claude.ai or the Claude apps, on the owner's Pro plan) manages Even a
 
 Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel function as the API. `PUBLIC_URL` (for example `https://even.vercel.app`) fixes the issuer and resource address; without it they come from the request.
 
+
+## 10. The health connector (decided 31 Oct 2026)
+
+The owner asks about their own data in Claude itself (claude.ai, the Claude apps) on their **Claude plan**, instead of the Chat tab on an API key. Claude's apps cannot call into the phone, so the connector runs on the sync server at `<server>/mcp/health` (`server/healthMcp.ts`), for any account, its own data only. Using a subscription's OAuth token inside Even was rejected: Anthropic allows those tokens only in Claude's own apps and Claude Code.
+
+**What it can do:** the Chat tab's tools, with the same names, schemas and limits (`src/domain/chat/tools.ts`, `actions.ts`), plus `get_context` (today in the owner's time zone and the Chat tab's opening snapshot). Read tools are read-only; write tools only add, as in the Chat tab. Claude asks before each write tool call (they are marked not read-only), and the owner can undo each change in Settings > Claude connector.
+
+**Consent** (`src/domain/chat/consent.ts`), given on the phone and read by the server from the synced `consents` rows:
+- `claude.connector`: nothing is read without it.
+- `claude.connector_changes`: the write tools.
+- Each read tool still needs its class's consent (`claude.aggregates`, `claude.raw_series`, `claude.notes`), the same switches as the Chat tab.
+Every result sent is logged in `ai_disclosures` (summary "Connector: ...", no conversation) and every change in `agent_actions`; both sync to the phone's "Sent to Claude" list and the connector page.
+
+**Sign-in** (`server/oauth.ts`, scope `health`; the admin scope and `/mcp` are unchanged):
+1. Claude finds `/.well-known/oauth-protected-resource/mcp/health`, registers, and opens `/oauth/authorize` with the `/mcp/health` resource.
+2. The page derives the passphrase's two keys in the browser and sends the proof to `/oauth/authorize/start`, which checks it (the usual rate limits), makes a code with no keys yet, and returns it with the wrapped account data key.
+3. The browser unwraps the account data key, derives the **two sync keys** from it (`seal.ts syncKeyBits`) and posts only those, with the code and its time zone. The account data key and the passphrase never leave the browser, so the server still cannot open the identity key or friends' shares.
+4. The server checks the keys open one of the account's rows, seals them with the code (`server/connectorKeys.ts`), and redirects to Claude. A code without keys cannot be exchanged.
+5. At the token exchange the keys are sealed again with the access token and with the refresh token (and on every refresh). Postgres keeps only the SHA-256 of codes and tokens, so the sealed keys open only for a request that brings a live token. The HKDF salt is `SERVER_SECRET`: changing it disconnects every health connector.
+6. The grant gets its own device (`added_by` `connector`, no usable token), which its changes are pushed as.
+
+**Each request:** the token opens the keys; the server keeps an in-memory copy of the owner's database for the grant (node:sqlite with the app's migrations, at most 3 copies, dropped after 15 minutes idle), made on the first call by `server/ownerCopy.ts` (rows opened with node:crypto and merged in batches: about 10 s for 200,000 rows, where the phone's row-by-row pull takes minutes) and then kept up to date with the phone's own sync code (`cloudSync`, without photos, chats and the disclosure log). It runs the tool, then pushes what it wrote. Every tool, the write tools too, needs `claude.aggregates`: a write tool's checks and answers read existing data. Nothing readable is written to Postgres or the logs.
+
+**Stopping it:** Disconnect in Settings > Claude connector (or in Claude), turning `claude.connector` off, removing the connector's device (which revokes its grant), suspending the account, or deleting it (which deletes its grants and codes). Disconnecting deletes the grant's sealed keys and removes its device. A code's sealed keys are cleared when it is exchanged, and a refresh token is spent atomically, so it works once.
+
+**Known limits (31 Oct 2026):**
+- A consent change counts once the phone has synced (the page syncs right after the switch).
+- The first call after the function starts cold makes the copy: seconds, more with years of history.
+- The sign-in page is the only defence against someone sending the owner an authorize link from *their own* claude.ai connector; whether claude.ai ties the callback to the browser that started it cannot be checked from here. The page says to allow only a sign-in the owner started, and every connection is listed, with Disconnect, in Settings > Claude connector.

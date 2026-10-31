@@ -374,13 +374,6 @@ const SCREENS: Screen[] = [
     go: (p) => settings(p, "Privacy & data"),
   },
   {
-    id: "settings-logs",
-    tab: "Settings",
-    title: "Debug logs",
-    about: "This run's log records, the level, and an export as a Markdown report to hand to Claude.",
-    go: (p) => settings(p, "Debug logs"),
-  },
-  {
     id: "settings-about",
     tab: "Settings",
     title: "About",

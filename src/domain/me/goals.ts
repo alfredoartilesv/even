@@ -1,6 +1,6 @@
-import { createLogger } from "../../core/log";
-import { addDays } from "../../core/tz";
-import type { SqlDriver } from "../../db/driver";
+import { createLogger } from "../../core/log.js";
+import { addDays } from "../../core/tz.js";
+import type { SqlDriver } from "../../db/driver.js";
 
 /**
  * Goals and how they are going. A goal measures one daily number (a synced metric, a manual

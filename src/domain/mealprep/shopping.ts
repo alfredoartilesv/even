@@ -1,8 +1,8 @@
-import { withTransaction } from "../../db/tx";
-import { uuidv7 } from "../../core/uuidv7";
-import type { SqlDriver } from "../../db/driver";
-import { deviceId } from "../../db/settings";
-import { createLogger } from "../../core/log";
+import { withTransaction } from "../../db/tx.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import type { SqlDriver } from "../../db/driver.js";
+import { deviceId } from "../../db/settings.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("mealprep.shopping");
 

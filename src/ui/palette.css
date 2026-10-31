@@ -26,6 +26,9 @@
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
  *   --brand-ring  the logo's ring track
  *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
+ *   --qr-dark, --qr-light  a QR code's modules and plate: black on white in both themes, since
+ *                 cameras read that contrast best (the pairing code, the scanner's aiming frame)
+ *   --camera-bg   behind the camera view before the picture comes
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -73,6 +76,9 @@
   --brand: #0f766e;
   --brand-ring: #7fd1c6;
   --on-brand: #ffffff;
+  --qr-dark: #000000;
+  --qr-light: #ffffff;
+  --camera-bg: #000000;
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;

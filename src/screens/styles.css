@@ -445,23 +445,89 @@ pre.logs {
     animation: none;
   }
 }
+/* Floats over the top of the page, below the status bar and above the side menu's scrim, as wide as
+   the page column at most. */
 .banner {
-  display: flex;
+  position: fixed;
+  top: calc(var(--safe-top) + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  box-sizing: border-box;
+  width: calc(100% - 2 * 16px);
+  max-width: 36rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  border: 1px solid var(--warning);
-  color: var(--warning);
+  gap: 0.6rem;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
   border-radius: var(--radius);
-  padding: 0.6rem 0.75rem;
-  margin: 0.5rem 0 0.75rem;
+  box-shadow: var(--shadow-pop);
+  padding: 0.5rem 0.4rem 0.5rem 0.75rem;
+  animation: banner-in var(--normal) var(--ease);
+}
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -0.75rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
+}
+.banner-icon {
+  display: flex;
+  color: var(--warning);
+}
+.banner-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .banner strong {
   font-weight: 600;
 }
 .banner .small {
   color: var(--muted);
+  margin-top: 0.15rem;
+}
+.banner-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  background: var(--surface);
+}
+.banner-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  border-radius: 50%;
+}
+/* On a phone a notice with an error line drops the button under the text instead of squeezing it
+   to a few words a line; the close button stays top right. */
+@media (max-width: 30rem) {
+  .banner.detailed {
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+  }
+  .banner.detailed .banner-icon {
+    padding-top: 0.6rem;
+  }
+  .banner.detailed .banner-text {
+    padding-top: 0.55rem;
+  }
+  .banner.detailed .banner-action {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .banner.detailed .banner-close {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 a.file-button {
   color: var(--fg);
@@ -1712,6 +1778,147 @@ html {
   background: var(--accent-soft);
   color: var(--fg);
   user-select: all;
+}
+/* The pairing QR: centred on a white plate (cameras need the contrast in dark mode too), with a
+   fixed height while the code loads so the steps under it do not jump. */
+.pair-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 236px;
+}
+.qr-code {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  padding: 8px;
+  background: var(--qr-light);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+/* Connecting (ConnectPanel): log in or sign up, and the pairing QR beside it once the panel is wide
+   enough for both (the web gate), on a tinted side of its own; on a phone the pairing part comes
+   under the forms, past a line. */
+.connect-panel {
+  container-type: inline-size;
+}
+.connect-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+/* A stack gets space under it elsewhere; here it left a strip under the pairing side's tint. */
+.connect-grid > .stack,
+.connect-account > * {
+  margin: 0;
+}
+.connect-pair {
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+}
+.connect-pair h3 {
+  margin: 0 0 0.25rem;
+}
+.connect-pair p {
+  margin: 0;
+}
+.connect-shared {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+/* One side at a time on a phone or tablet (a touch screen): the forms with a button to the QR, or the
+   QR with a way back. The pairing side stays mounted while hidden, so its code is ready when opened.
+   With a mouse (a computer) the QR is always shown: beside the forms, or under them in a narrow window. */
+@media (pointer: coarse) {
+  .connect-grid:not(.pairing) > .connect-pair,
+  .connect-grid.pairing > .connect-account {
+    display: none;
+  }
+  .connect-grid.pairing > .connect-pair {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+@media not (pointer: coarse) {
+  .connect-panel button.connect-pair-open,
+  .connect-panel button.connect-pair-back {
+    display: none;
+  }
+}
+.connect-pair-back {
+  align-self: flex-start;
+}
+@container (min-width: 44rem) {
+  /* Prefixed with the panel to outrank the touch screen's one-side rules and button.with-icon. */
+  .connect-panel .connect-grid > .connect-pair,
+  .connect-panel .connect-grid > .connect-account {
+    display: flex;
+  }
+  .connect-panel button.connect-pair-open,
+  .connect-panel button.connect-pair-back {
+    display: none;
+  }
+  .connect-grid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: 0;
+  }
+  .connect-account {
+    padding: 2rem 2.25rem;
+  }
+  .connect-pair {
+    border-top: 0;
+    border-left: 1px solid var(--line);
+    padding: 2rem 1.75rem;
+    background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+    align-content: start;
+  }
+}
+.pair-qr.pending {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+.pair-code-row {
+  display: grid;
+  gap: 0.4rem;
+}
+.pair-code-row .pairing-code {
+  margin: 0;
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  white-space: nowrap;
+}
+.pair-code-row .muted {
+  font-variant-numeric: tabular-nums;
+}
+/* The scanner: a square camera view, the area to aim at marked and the rest dimmed. */
+.qr-viewfinder {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--camera-bg);
+}
+.qr-viewfinder video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.qr-frame {
+  position: absolute;
+  inset: 15%;
+  border: 3px solid var(--qr-light);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 999px var(--scrim);
+  pointer-events: none;
+}
+button.with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 /* Numbered how-to lines (pairing): the number in the accent colour, the text wrapping under itself */
 ol.steps {

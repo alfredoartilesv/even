@@ -1,4 +1,4 @@
-import type { SqlValue } from "../../db/driver";
+import type { SqlValue } from "../../db/driver.js";
 
 /**
  * End-to-end encryption for cloud sync. One 32-byte sync secret (kept in the Keystore, shared by
@@ -21,6 +21,26 @@ export async function syncKeys(secret: Uint8Array): Promise<SyncKeys> {
   return {
     mac: await derive("even-sync-key-v1", { name: "HMAC", hash: "SHA-256", length: 256 }, ["sign"]),
     enc: await derive("even-sync-row-v1", { name: "AES-GCM", length: 256 }, ["encrypt", "decrypt"]),
+  };
+}
+
+/**
+ * The two keys' raw bits (the same HKDF outputs syncKeys derives), for the health connector: the
+ * owner's browser derives them on its sign-in page (server/oauth.ts) and hands the server only
+ * these, never the secret, which also opens the identity key and so friends' shares.
+ */
+export async function syncKeyBits(secret: Uint8Array): Promise<{ mac: Uint8Array; enc: Uint8Array }> {
+  const base = await crypto.subtle.importKey("raw", secret as BufferSource, "HKDF", false, ["deriveBits"]);
+  const bits = async (info: string) =>
+    new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: new TextEncoder().encode(info) }, base, 256));
+  return { mac: await bits("even-sync-key-v1"), enc: await bits("even-sync-row-v1") };
+}
+
+export async function syncKeysFromBits(bits: { mac: Uint8Array; enc: Uint8Array }): Promise<SyncKeys> {
+  if (bits.mac.length !== 32 || bits.enc.length !== 32) throw new Error("Sync keys are 32 bytes each");
+  return {
+    mac: await crypto.subtle.importKey("raw", bits.mac as BufferSource, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
+    enc: await crypto.subtle.importKey("raw", bits.enc as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]),
   };
 }
 

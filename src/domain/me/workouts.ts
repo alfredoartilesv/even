@@ -1,6 +1,6 @@
-import type { SqlDriver } from "../../db/driver";
-import { addDays } from "../../core/tz";
-import { sportOf, type SportId } from "./sports";
+import type { SqlDriver } from "../../db/driver.js";
+import { addDays } from "../../core/tz.js";
+import { sportOf, type SportId } from "./sports.js";
 
 /**
  * Workouts from the activity_* samples, one row per session: from the Garmin sync, Apple Health,

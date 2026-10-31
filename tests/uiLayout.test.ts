@@ -11,7 +11,8 @@ import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
 import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
-import { SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
+import { ConnectorSettings } from "../src/screens/cloudsync/ConnectorSettings";
+import { ADMIN_MENU, SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
 import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
@@ -172,14 +173,20 @@ test("meal prep tab: two groups of three, the food log first; shopping holds the
   );
 });
 
-test("settings menu: every page once, each with an icon and a description", () => {
+test("settings menu: every page once, each with an icon and a description, Debug logs only under Admin", () => {
   const items = SETTINGS_MENU.flatMap((g) => g.items);
-  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "logs", "privacy", "profile", "sync"]);
-  for (const i of items) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
+  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "connector", "friends", "privacy", "profile", "sync"]);
+  assert.deepEqual(
+    ADMIN_MENU.items.map((i) => i.id),
+    ["admin", "logs"],
+  );
+  for (const i of [...items, ...ADMIN_MENU.items]) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
   const html = renderToStaticMarkup(h(MenuList<string>, { groups: SETTINGS_MENU, onOpen: noop }));
   assert.equal((html.match(/class="menu-row"/g) ?? []).length, 7);
   assert.match(html, /<h2 class="menu-title">You<\/h2>/);
-  assert.match(html, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
+  assert.doesNotMatch(html, /Debug logs/);
+  const admin = renderToStaticMarkup(h(MenuList<string>, { groups: [...SETTINGS_MENU, ADMIN_MENU], onOpen: noop }));
+  assert.match(admin, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
 });
 
 test("SectionHeader and QuickActions: headings with an optional link, actions as labelled icon buttons", () => {
@@ -296,7 +303,8 @@ test("web app: waits for the sync session, asks to connect without one, and lets
   const opening = renderToStaticMarkup(h(() => connectGate({ session: undefined, connect: noop })));
   assert.match(opening, /Opening…/);
   const connect = renderToStaticMarkup(h(() => connectGate({ session: null, connect: noop })));
-  assert.match(connect, /<h2>Connect<\/h2>/);
+  assert.match(connect, /<h1>Even<\/h1>/);
+  assert.match(connect, /aria-label="Connect"/);
   assert.match(connect, /opened only here, in this browser/);
   assert.match(connect, /Loading…/, "the lazy panel has a fallback, so the card is never empty");
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
@@ -309,4 +317,24 @@ test("each target brings its navigation: Android the tab bar without a gate, the
   // The other target's navigation (and its styles) never reach a build.
   assert.doesNotMatch(entry("android"), /SideNav|web\.css/);
   assert.doesNotMatch(entry("web"), /TabBar|android\.css/);
+});
+
+test("the Claude connector page gives the address to add in Claude, or asks to set up sync first", () => {
+  const off = renderToStaticMarkup(h(ConnectorSettings, { db: {} as never, session: null, onConnect: noop, onSync: async () => {}, version: 0 }));
+  assert.match(off, /connect this device first/);
+  const session = {
+    serverUrl: "https://even.example/",
+    accountId: "a",
+    deviceId: "d",
+    token: "t",
+    email: "e",
+    adk: "",
+    identityPublic: "",
+    identityPrivate: {},
+  };
+  const on = renderToStaticMarkup(
+    h(ConnectorSettings, { db: {} as never, session: session as SyncSession, onConnect: noop, onSync: async () => {}, version: 0 }),
+  );
+  assert.match(on, /<code>https:\/\/even\.example\/mcp\/health<\/code>/);
+  assert.match(on, /Add custom connector/);
 });

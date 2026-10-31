@@ -107,6 +107,12 @@ export function configureLogging(c: Partial<Config>): void {
   Object.assign(config, c);
 }
 
+/** Adds a sink next to the ones already configured (the database, once it is open). Returns its removal. */
+export function addLogSink(sink: Sink): () => void {
+  config.sinks = [...config.sinks, sink];
+  return () => void (config.sinks = config.sinks.filter((s) => s !== sink));
+}
+
 export function setLogLevel(threshold: Threshold, scope?: string): void {
   if (!LEVELS.includes(threshold)) throw new RangeError(`Unknown log level ${threshold}`);
   if (scope) config.scopes[scope] = threshold;

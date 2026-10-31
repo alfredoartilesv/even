@@ -1,4 +1,4 @@
-import { addDays, localDay } from "../../core/tz";
+import { addDays, localDay } from "../../core/tz.js";
 
 /**
  * Meal prep stock, folded from a batch and its portion moves, plus the defrost planner.

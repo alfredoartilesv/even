@@ -93,6 +93,7 @@ const PATHS = {
       <path d="M12 11v9M7 12H3M21 12h-4M7 17H4M20 17h-3M9 7a3 3 0 0 1 6 0M8 4l1.5 2M16 4l-1.5 2" />
     </>
   ),
+  alert: <path d="M12 4l9 16H3zM12 10v4.5M12 17.5v.01" />,
   info: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -152,6 +153,14 @@ const PATHS = {
     <>
       <path d="M6 3h8l4 4v14H6z" />
       <path d="M14 3v4h4M9 12h6M9 16h6" />
+    </>
+  ),
+  qr: (
+    <>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <path d="M14 14h2v2M20 14v.01M14 20h.01M17 17h3v3h-3z" />
     </>
   ),
 } satisfies Record<string, ReactNode>;

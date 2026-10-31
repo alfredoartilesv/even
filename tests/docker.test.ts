@@ -94,12 +94,13 @@ test("the simulated phones: their own stage and volumes, off unless asked for, a
   assert.match(scripts["docker:down"], /--profile phones down/, "docker:down stops the phones too");
 });
 
-test("vercel.json serves the web build and sends the API, the admin MCP and its OAuth to the sync function", () => {
+test("vercel.json serves the web build and sends the API, both MCP servers and their OAuth to the sync function", () => {
   const vercel = JSON.parse(read("vercel.json")) as {
     buildCommand: string;
     outputDirectory: string;
     git: { deploymentEnabled: Record<string, boolean> };
     rewrites: { source: string; destination: string }[];
+    functions: Record<string, { includeFiles?: string }>;
   };
   // Each deployed branch gets its own Neon database branch, and the free plan has few: develop
   // (preview) and master (production) only, never a feature branch. Minimatch: `*` stops at a slash (feat/x), `**` does not.
@@ -112,12 +113,16 @@ test("vercel.json serves the web build and sends the API, the admin MCP and its 
       "/v1/:path*",
       "/health",
       "/mcp",
+      "/mcp/health",
       "/oauth/:path*",
       "/.well-known/oauth-protected-resource",
       "/.well-known/oauth-protected-resource/mcp",
+      "/.well-known/oauth-protected-resource/mcp/health",
       "/.well-known/oauth-authorization-server",
     ],
   );
+  // The health connector migrates an in-memory copy of the app's database (server/sqlite.ts), from files nothing imports.
+  assert.equal(vercel.functions["api/index.ts"]?.includeFiles, "src/db/migrations/**");
   // One function at /api: Vercel matched a catch-all file for one path segment only.
   for (const r of vercel.rewrites) assert.equal(r.destination, `/api?__path=${r.source}`, "the function gets the original path");
   const scripts = JSON.parse(read("package.json")).scripts as Record<string, string>;

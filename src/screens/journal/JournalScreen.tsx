@@ -182,6 +182,7 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
           formatX={(d) => String(Number(d.slice(8)))}
           formatXLong={(d) => fmtDay(d)}
           formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
+          connectGaps
           height={150}
         />
       )}

@@ -5,6 +5,7 @@ import { capacitorDriver } from "../src/platform/sqlite";
 import { migrate } from "../src/db/migrate";
 import { loadCursor, saveSyncState, upsertSamples } from "../src/domain/metrics/samples";
 import { fakePlugin } from "./fakePlugin";
+import { SYNC_TABLES } from "../src/domain/cloudsync/cloudSync";
 import { realMigrations } from "./helpers";
 
 const NOW = 1_800_000_000_000;
@@ -42,6 +43,7 @@ test("real migrations apply through the plugin driver, using plugin transactions
     "food_photos",
     "goals",
     "health_samples",
+    "log_records",
     "manual_measurements",
     "meal_prep_batches",
     "meal_prep_ingredients",
@@ -66,7 +68,7 @@ test("CRLF migration files still create every table", async () => {
   const { conn, raw } = fakePlugin();
   const crlf = realMigrations().map((m) => ({ ...m, sql: m.sql.replace(/\n/g, "\r\n") }));
   await migrate(capacitorDriver(conn), crlf);
-  assert.equal(tables(raw).length, 29);
+  assert.equal(tables(raw).length, 30);
 });
 
 test("a failing migration rolls back via the plugin", async () => {
@@ -102,5 +104,5 @@ test("the cloud sync triggers survive the plugin splitting scripts on a semicolo
   const { conn, raw } = fakePlugin();
   await migrate(capacitorDriver(conn), realMigrations());
   const n = raw.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'cloud_sync_%'").get() as { n: number };
-  assert.equal(n.n, 46);
+  assert.equal(n.n, 2 * SYNC_TABLES.length, "an insert and an update trigger per synced table");
 });

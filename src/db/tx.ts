@@ -1,9 +1,12 @@
-import type { SqlDriver } from "./driver";
-import { createLogger } from "../core/log";
+import type { SqlDriver } from "./driver.js";
+import { createLogger } from "../core/log.js";
 
 const log = createLogger("db");
 
 const depth = new WeakMap<SqlDriver, number>();
+
+/** Whether a withTransaction is open on this driver: a plain write now would join it, and go with its rollback. */
+export const inTransaction = (db: SqlDriver): boolean => depth.has(db);
 
 /**
  * Run fn inside BEGIN / COMMIT, rolling back if it throws. The Capacitor driver maps these

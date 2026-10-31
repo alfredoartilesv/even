@@ -3,6 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch } from "../../platform/device";
 import { AdminSettings } from "../admin/AdminSettings";
+import { ConnectorSettings } from "../cloudsync/ConnectorSettings";
 import { FriendsSettings } from "../cloudsync/FriendsSettings";
 import { SyncSettings } from "../cloudsync/SyncSettings";
 import { MenuList, PageHeader, type MenuItem } from "../../ui/layout";
@@ -12,10 +13,11 @@ import { AboutSettings } from "./AboutSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { PrivacySettings } from "./PrivacySettings";
 import { loadIdentity } from "../../domain/settings/profile";
+import { rememberAdmin, wasAdmin } from "../../domain/settings/adminFlag";
 import { ProfileSettings } from "./ProfileSettings";
 import type { SecretStore } from "../../domain/settings/secrets";
 
-export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about" | "admin";
+export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "connector" | "privacy" | "logs" | "about" | "admin";
 
 interface Props {
   db: SqlDriver;
@@ -48,44 +50,60 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
     items: [
       { id: "sync", label: "Sync & devices", description: "Your account, the phones and browsers it syncs with, the recovery passphrase", icon: "sync" },
       { id: "connections", label: "Connections", description: "Garmin sync, Garmin history import, the Claude key", icon: "link" },
+      {
+        id: "connector",
+        label: "Claude connector",
+        description: "Ask about your data in Claude itself, on your Claude plan: the address, what it may do, its connections",
+        icon: "sparkle",
+      },
       { id: "privacy", label: "Privacy & data", description: "What Claude may see and was sent, what is stored, backup and restore", icon: "shield" },
     ],
   },
   {
     title: "App",
-    items: [
-      { id: "logs", label: "Debug logs", description: "This run's records, export them for Claude", icon: "bug" },
-      { id: "about", label: "About", description: "Version, build and platform", icon: "info" },
-    ],
+    items: [{ id: "about", label: "About", description: "Version, build and platform", icon: "info" }],
   },
 ];
 
-/** Only for an admin account (docs/users.md section 2.6); the server checks it on every request too. */
+/**
+ * Only for an admin account (docs/users.md section 2.6); the server checks it on every request too.
+ * Debug logs are this install's own records, offered offline too once the account was seen as admin.
+ */
 export const ADMIN_MENU: { title: string; items: MenuItem<SettingsPage>[] } = {
   title: "Admin",
-  items: [{ id: "admin", label: "Admin", description: "Invites, accounts, devices and the audit log. Never anyone's data", icon: "settings" }],
+  items: [
+    { id: "admin", label: "Admin", description: "Invites, accounts, devices and the audit log. Never anyone's data", icon: "settings" },
+    { id: "logs", label: "Debug logs", description: "What the app did on this device, kept across runs, export them for Claude", icon: "bug" },
+  ],
 };
 
 const LABEL = Object.fromEntries([...SETTINGS_MENU, ADMIN_MENU].flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
 
-/** A menu of pages: who you are, where data comes from and goes, what is kept and shared, the debug logs, and the app version. */
+/** A menu of pages: who you are, where data comes from and goes, what is kept and shared, the app version, and for an admin, Admin and the debug logs. */
 export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync, session, onSession }: Props) {
   const [who, setWho] = useState<{ photo: string | null; name: string | null } | null>(null);
   const [admin, setAdmin] = useState(false);
   useEffect(() => {
     if (page === null) void loadIdentity(db).then(setWho);
   }, [db, page, version]);
-  // Whether to offer Admin: asked of the server once per connection. Offline, the menu just leaves it out.
+  // Whether to offer Admin: asked of the server once per connection and remembered, so offline the
+  // menu shows what the server said last. Not connected, it is never shown.
   useEffect(() => {
     setAdmin(false);
     if (!session) return;
+    let live = true;
+    void wasAdmin(db, session.accountId).then((was) => live && was && setAdmin(true));
     void sessionApi(session, deviceFetch({ connectTimeoutMs: 10_000, readTimeoutMs: 15_000 }))
       .me()
       .then(
-        (me) => setAdmin(me.account.isAdmin),
+        async (me) => {
+          await rememberAdmin(db, session.accountId, me.account.isAdmin);
+          if (live) setAdmin(me.account.isAdmin);
+        },
         () => {},
       );
-  }, [session]);
+    return () => void (live = false);
+  }, [db, session]);
 
   if (page === null) {
     // The Profile row shows the picture (or initials) once there is either.
@@ -115,12 +133,14 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
         <FriendsSettings session={session} onConnect={() => onPage("sync")} onSync={onSync} />
       ) : page === "connections" ? (
         <ConnectionSettings db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={() => void onSync()} />
+      ) : page === "connector" ? (
+        <ConnectorSettings db={db} session={session} onConnect={() => onPage("sync")} onSync={onSync} version={version} />
       ) : page === "privacy" ? (
         <PrivacySettings db={db} onChanged={onChanged} syncAccountId={session?.accountId ?? null} />
       ) : page === "logs" ? (
-        <LogsScreen db={db} />
+        admin && <LogsScreen db={db} />
       ) : page === "admin" ? (
-        session && <AdminSettings session={session} />
+        admin && session && <AdminSettings session={session} />
       ) : (
         <AboutSettings db={db} />
       )}

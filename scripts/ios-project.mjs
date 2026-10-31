@@ -45,6 +45,7 @@ export const HEALTH_SHARE_USAGE =
 
 /** Chat dictation: iOS asks for the microphone and for speech recognition, each with its own text. */
 export const MICROPHONE_USAGE = "Even listens only while you dictate a chat message. The audio is not kept or sent to Claude, only the text you send.";
+export const CAMERA_USAGE = "Even uses the camera only to scan the pairing QR code of a new device. Nothing it sees is kept or sent.";
 export const SPEECH_USAGE = "Even turns what you dictate into the text of your chat message, on this iPhone when it can.";
 
 const xmlText = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -58,11 +59,12 @@ function setPlistString(plist, key, value) {
   return `${plist.slice(0, end)}\t<key>${key}</key>\n\t<string>${xmlText(value)}</string>\n${plist.slice(end)}`;
 }
 
-/** Info.plist with the home-screen name, the Apple Health request text and the dictation texts. */
+/** Info.plist with the home-screen name, the Apple Health request text, the dictation texts and the pairing scanner's camera text. */
 export function patchInfoPlist(plist, appName) {
   if (!/<key>CFBundleDisplayName<\/key>/.test(plist)) throw new Error("Info.plist: no CFBundleDisplayName");
   let p = setPlistString(setPlistString(plist, "CFBundleDisplayName", appName), "NSHealthShareUsageDescription", HEALTH_SHARE_USAGE);
   p = setPlistString(p, "NSMicrophoneUsageDescription", MICROPHONE_USAGE);
+  p = setPlistString(p, "NSCameraUsageDescription", CAMERA_USAGE);
   return setPlistString(p, "NSSpeechRecognitionUsageDescription", SPEECH_USAGE);
 }
 

@@ -1,8 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { SqlDriver } from "../../db/driver";
-import { uuidv7 } from "../../core/uuidv7";
-import { createLogger } from "../../core/log";
-import type { DataClass } from "./consent";
+import type { SqlDriver } from "../../db/driver.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import { createLogger } from "../../core/log.js";
+import type { DataClass } from "./consent.js";
 
 const log = createLogger("chat.store");
 
@@ -155,6 +155,35 @@ export interface Disclosure {
   summary: string;
   bytes: number;
 }
+
+/**
+ * One thing sent to Claude, for the "what was sent" panel: by the chat (engine.ts) or the health
+ * connector (server/healthMcp.ts). `bytes` is the payload's size unless given (a photo's own size).
+ */
+export async function recordDisclosure(
+  db: SqlDriver,
+  deviceId: string,
+  d: {
+    conversationId: string | null;
+    messageId: string | null;
+    at: number;
+    toolName: string | null;
+    dataClass: DataClass;
+    summary: string;
+    payload: string;
+    bytes?: number;
+  },
+): Promise<void> {
+  await db.run(
+    `INSERT INTO ai_disclosures
+       (id, conversation_id, message_id, sent_at_ms, tool_name, data_class, summary, payload_json, bytes,
+        created_at, updated_at, origin_device_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [uuidv7(d.at), d.conversationId, d.messageId, d.at, d.toolName, d.dataClass, d.summary, d.payload, d.bytes ?? utf8Bytes(d.payload), d.at, d.at, deviceId],
+  );
+}
+
+const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
 
 /** For the "what was sent to Claude" panel. Payloads stay in the table; fetch one by id if shown. */
 export async function listDisclosures(db: SqlDriver, conversationId?: string): Promise<Disclosure[]> {

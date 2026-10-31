@@ -1,5 +1,5 @@
-import { createLogger } from "../../core/log";
-import type { SqlDriver } from "../../db/driver";
+import { createLogger } from "../../core/log.js";
+import type { SqlDriver } from "../../db/driver.js";
 
 /**
  * The Google account that owns this phone's data (migration 0007). One owner per install:

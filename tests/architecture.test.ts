@@ -47,8 +47,10 @@ function imports(file: string): Imp[] {
     const spec = m[3];
     let target: string | null = null;
     if (spec.startsWith(".")) {
+      // Modules the Vercel function loads name their .js output (tests/vercelFunction.test.ts).
+      const base = spec.replace(/.js$/, "");
       for (const ext of [".ts", ".tsx", "/index.ts", ""]) {
-        const cand = resolve(dirname(file), spec + ext);
+        const cand = resolve(dirname(file), (ext === "" ? spec : base) + ext);
         if (existsSync(cand) && statSync(cand).isFile()) {
           target = cand;
           break;

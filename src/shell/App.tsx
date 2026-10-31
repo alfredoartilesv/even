@@ -24,7 +24,8 @@ import { refreshSyncReminder, RESYNC_ON_RESUME_MS } from "../domain/sync/reminde
 import { SyncBanner, SyncButton } from "../screens/sync/SyncStatus";
 import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../domain/settings/logLevel";
-import { createLogger } from "../core/log";
+import { createLogger, recentLogs } from "../core/log";
+import { persistLogs } from "../domain/logs/store";
 import { DEFAULT_LOG_LEVEL } from "./logging";
 import type { Tab } from "./tabs";
 import { PageHeader } from "../ui/layout";
@@ -60,6 +61,8 @@ export function App({ target }: { target: Target }) {
         // Timing builds only (scripts/perf-device.mjs); normal builds drop this branch and the module.
         if (import.meta.env.VITE_PERF_SEED) await (await import("./perfSeed")).seedForPerf(db);
         performance.mark("even:db-open");
+        // From here every record is written as it is logged, starting with those of the start-up.
+        persistLogs(db, { earlier: recentLogs.records() });
         // Not awaited: the Dashboard's queries need not wait for the log level.
         void applyStoredLogLevel(db, DEFAULT_LOG_LEVEL);
         void removeLegacySecrets(secretStore).catch((err) => log.warn("old secrets not removed", { err }));
