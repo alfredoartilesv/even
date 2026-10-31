@@ -37,21 +37,32 @@ export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup
   );
 }
 
-/** Banner on every tab when Garmin is 3+ days behind or the last attempt failed. */
+/**
+ * Banner on every tab when Garmin is 3+ days behind or the last attempt failed. A soft amber card
+ * with the title in the text color, so it reads as a notice rather than an alarm; the action is a
+ * quiet secondary button whose sync symbol spins while it runs, as the header button does.
+ */
 export function SyncBanner({ status, configured, syncing, nowMs, onSync }: Props) {
   if (!configured) return null;
   const f = freshness(status?.lastOkMs ?? null, nowMs);
   const failed = status?.status === "error";
   if (f.state !== "stale" && !failed) return null;
   const days = f.state === "stale" ? Math.floor(f.ageMs / 86_400_000) : 0;
+  const detail = failed ? status?.error : null;
   return (
-    <div className="banner" role="status">
-      <div>
-        {f.state === "stale" ? <strong>No Garmin sync for {days} days.</strong> : <strong>The last sync failed.</strong>}
-        {failed && status?.error && <div className="small">{status.error}</div>}
+    <div className={`banner${detail ? " detailed" : ""}`} role="status">
+      <span className="banner-icon">
+        <Icon name="alert" size={20} />
+      </span>
+      <div className="banner-text">
+        <strong>{f.state === "stale" ? `No Garmin sync for ${days} days` : "Garmin sync failed"}</strong>
+        {detail && <div className="small">{detail}</div>}
       </div>
-      <button onClick={onSync} disabled={syncing}>
-        {syncing ? "Syncing…" : "Sync now"}
+      <button type="button" className="secondary banner-action" onClick={onSync} disabled={syncing}>
+        <span className={syncing ? "spin" : ""}>
+          <Icon name="sync" size={18} />
+        </span>
+        {syncing ? "Syncing…" : failed ? "Try again" : "Sync now"}
       </button>
     </div>
   );

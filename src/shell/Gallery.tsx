@@ -7,6 +7,8 @@ import { Icon, ICON_NAMES } from "../ui/icons";
 import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../ui/layout";
 import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
+import { SyncBanner } from "../screens/sync/SyncStatus";
+import type { LastSync } from "../domain/sync/runSync";
 import "../ui/palette.css";
 import "../screens/styles.css";
 import "../ui/ui.css";
@@ -34,6 +36,12 @@ const light = d14.map((_, i) => (i === 5 ? null : +(3.5 + r() * 1.5).toFixed(1))
 const d7 = daysBack(7);
 const steps = d7.map((_, i) => (i === 2 ? null : Math.round(4000 + r() * 12000)));
 const year = Object.fromEntries(daysBack(365).flatMap((d) => (r() < 0.06 ? [] : [[d, Math.round(3000 + r() * 14000)]])));
+const nowMs = Date.now();
+const lastSync = (status: LastSync["status"], daysAgo: number, error: string | null = null): LastSync => {
+  const at = nowMs - daysAgo * 86_400_000;
+  return { status, startedMs: at, finishedMs: at, samplesWritten: null, warnings: [], error, lastOkMs: status === "ok" ? at : nowMs - 3_600_000 };
+};
+const banner = { configured: true, syncing: false, nowMs, onSync: () => {} };
 const short = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
 const letter = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" });
 
@@ -151,6 +159,9 @@ export default function Gallery() {
         <StatusBadge status="warning">eat soon</StatusBadge>
         <StatusBadge status="critical">past eat-by</StatusBadge>
       </div>
+      <SyncBanner status={lastSync("error", 1, "Could not reach Garmin (the sync server could not pass it on, HTTP 500)")} {...banner} />
+      <SyncBanner status={lastSync("ok", 5)} {...banner} />
+      <SyncBanner status={lastSync("error", 1, "Garmin refused the key")} {...banner} syncing />
 
       <h2>Layout</h2>
       <PageHeader title="Page title" onBack={() => {}} backLabel="Dashboard" actions={<button className="secondary small-button">Action</button>} />

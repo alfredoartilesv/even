@@ -446,22 +446,47 @@ pre.logs {
   }
 }
 .banner {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 0.75rem;
-  flex-wrap: wrap;
-  border: 1px solid var(--warning);
-  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
   border-radius: var(--radius);
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.75rem;
   margin: 0.5rem 0 0.75rem;
+}
+.banner-icon {
+  display: flex;
+  color: var(--warning);
+}
+.banner-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .banner strong {
   font-weight: 600;
 }
 .banner .small {
   color: var(--muted);
+  margin-top: 0.15rem;
+}
+.banner-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  background: var(--surface);
+}
+/* On a phone a banner with an error line drops the button under the text instead of squeezing it to a few words a line. */
+@media (max-width: 30rem) {
+  .banner.detailed {
+    grid-template-columns: auto 1fr;
+  }
+  .banner.detailed .banner-action {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 a.file-button {
   color: var(--fg);

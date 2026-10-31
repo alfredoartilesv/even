@@ -93,6 +93,7 @@ const PATHS = {
       <path d="M12 11v9M7 12H3M21 12h-4M7 17H4M20 17h-3M9 7a3 3 0 0 1 6 0M8 4l1.5 2M16 4l-1.5 2" />
     </>
   ),
+  alert: <path d="M12 4l9 16H3zM12 10v4.5M12 17.5v.01" />,
   info: (
     <>
       <circle cx="12" cy="12" r="9" />
