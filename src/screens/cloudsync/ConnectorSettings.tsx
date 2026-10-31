@@ -10,7 +10,7 @@ import { failed, MsgLine, type Msg } from "../../ui/common";
 import { StatusBadge, Switch } from "../../ui/controls";
 
 /**
- * Settings > Claude connector (docs/users.md section 10): Claude's own apps, on the owner's Claude
+ * Settings > Connections > Claude, with Claude connector chosen (docs/users.md section 10): Claude's own apps, on the owner's Claude
  * plan, ask about and add to Even's data through the sync server. Here the owner finds the address
  * to add in Claude, turns it on (the consents the server reads from the synced consents table),
  * sees and cuts off its connections, and undoes what it added.

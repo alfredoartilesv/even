@@ -335,7 +335,7 @@ function loginPage(o: { scope: McpScope; clientName: string; params: Record<stri
   const health = o.scope === "health";
   const intro = health
     ? `<h1>Even</h1><p><strong>${esc(o.clientName)}</strong> asks to read your Even data and, if you allow changes in the app, add entries to it. While it stays connected, Even's server opens your synced data to answer it.</p>
-<p class="muted">What it may see is still what you allow in Even (Settings &gt; Claude connector), and everything it is sent is listed there. Disconnect it there or in Claude at any time.</p>`
+<p class="muted">What it may see is still what you allow in Even (Settings &gt; Connections &gt; Claude), and everything it is sent is listed there. Disconnect it there or in Claude at any time.</p>`
     : `<h1>Even admin</h1><p><strong>${esc(o.clientName)}</strong> asks to manage Even's accounts, invites and devices as you. It cannot see anyone's health data.</p>`;
   const passphraseNote = health
     ? "Your passphrase stays in this browser: it opens your keys here, and only the two keys that read your synced data are sent."
