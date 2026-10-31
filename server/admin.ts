@@ -3,6 +3,7 @@ import { uuidv7 } from "../src/core/uuidv7.js";
 import type { AdminAccount, AdminDevice, AdminInvite, AdminVia, AuditEntry, ServiceHealth } from "../src/core/syncWire.js";
 import { AuthError, INVITE_DAYS, newCode } from "./accounts.js";
 import type { Pg } from "./pg.js";
+import { revokeDeviceGrants } from "./store.js";
 
 /**
  * What an admin can do (docs/users.md section 2.6): invites, accounts, quotas, devices, suspension.
@@ -172,6 +173,7 @@ export function adminStore(pg: Pg, opts: { build?: string } = {}) {
         nowMs,
       ]);
       if (rows.length === 0) throw new AuthError(404, "No such device on this account");
+      await revokeDeviceGrants(pg, deviceId, nowMs);
       await audit(actor, "revoke-device", accountId, { device: deviceId }, nowMs);
     },
 

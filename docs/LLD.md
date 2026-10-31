@@ -70,7 +70,7 @@ src/
     logs/                          LogsScreen (Settings > Debug logs), report.ts (Markdown report for Claude, pure)
     me/                            MeScreen (the profile, opened from the Dashboard); sports, workouts, goals (progress), goal templates (pure logic); screens: avatar
   screens/<name>/                  shared screens per feature (*.tsx and their view helpers); styles.css
-server/                            the sync server (Hono, Postgres): app.ts (routes), accounts, admin, friends, store (sync rows), oauth + mcp (the admin MCP server), migrations/;
+server/                            the sync server (Hono, Postgres): app.ts (routes), accounts, admin, friends, store (sync rows), oauth + mcp (the admin MCP server), healthMcp + connectorKeys + sqlite (the health connector, users.md section 10), migrations/;
                                    node.ts runs it in the `sync` container. What the function reaches imports `.js` files: Vercel loads it as plain ESM
 api/index.ts                       the same app as one Vercel function; vercel.json rewrites every API path to it with the path in `__path` (server/vercelPath.ts puts it back)
 tests/                             node:test suites, fixtures, fakes; setup.ts silences logs

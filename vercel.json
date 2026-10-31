@@ -24,6 +24,10 @@
       "destination": "/api?__path=/mcp"
     },
     {
+      "source": "/mcp/health",
+      "destination": "/api?__path=/mcp/health"
+    },
+    {
       "source": "/oauth/:path*",
       "destination": "/api?__path=/oauth/:path*"
     },
@@ -36,8 +40,17 @@
       "destination": "/api?__path=/.well-known/oauth-protected-resource/mcp"
     },
     {
+      "source": "/.well-known/oauth-protected-resource/mcp/health",
+      "destination": "/api?__path=/.well-known/oauth-protected-resource/mcp/health"
+    },
+    {
       "source": "/.well-known/oauth-authorization-server",
       "destination": "/api?__path=/.well-known/oauth-authorization-server"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "src/db/migrations/**"
+    }
+  }
 }

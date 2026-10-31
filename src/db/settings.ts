@@ -1,5 +1,5 @@
-import { uuidv7 } from "../core/uuidv7";
-import type { SqlDriver } from "./driver";
+import { uuidv7 } from "../core/uuidv7.js";
+import type { SqlDriver } from "./driver.js";
 
 /**
  * Non-secret app settings in app_settings. Secrets (Garmin key, Claude key)
