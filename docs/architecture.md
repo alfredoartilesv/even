@@ -67,7 +67,7 @@ Code structure (26 Oct 2026):
 Logging (26 Oct 2026):
 - Use `createLogger(scope)` from `src/core/log.ts`, never `console.*` in `src/`. Default level `info` in the built app, `debug` in development; changeable in Settings > Debug logs and stored in `app_settings` (`log.level`).
 - Log what happened, not the data: ids, counts, kinds, durations, statuses. Never health values, food or recipe names, notes, chat text, URLs or keys. The logger redacts secret-looking fields as a backstop and `tests/logging.test.ts` checks real flows.
-- Logs stay on the phone in memory (500 records) and are only shared when the owner copies them.
+- **Decision 31 Oct 2026:** every log record is also written to the encrypted local database (`log_records`, migration 0017) as it is logged, so a crash or a closed app loses nothing; the newest 5,000 are kept. Device-local: never synced, never in a backup, never sent to the server. Settings > Debug logs moved under *Admin* and is shown to admin accounts only (the last answer from the server is remembered per account, so it opens offline). Logs are only shared when the owner exports or copies them.
 
 Privacy and security:
 - Secrets only in the Keystore/Keychain. Never in SQLite, logs, error messages or the repo.

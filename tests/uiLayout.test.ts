@@ -11,7 +11,7 @@ import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
 import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
-import { SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
+import { ADMIN_MENU, SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
 import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
@@ -172,14 +172,20 @@ test("meal prep tab: two groups of three, the food log first; shopping holds the
   );
 });
 
-test("settings menu: every page once, each with an icon and a description", () => {
+test("settings menu: every page once, each with an icon and a description, Debug logs only under Admin", () => {
   const items = SETTINGS_MENU.flatMap((g) => g.items);
-  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "logs", "privacy", "profile", "sync"]);
-  for (const i of items) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
+  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "privacy", "profile", "sync"]);
+  assert.deepEqual(
+    ADMIN_MENU.items.map((i) => i.id),
+    ["admin", "logs"],
+  );
+  for (const i of [...items, ...ADMIN_MENU.items]) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
   const html = renderToStaticMarkup(h(MenuList<string>, { groups: SETTINGS_MENU, onOpen: noop }));
-  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 7);
+  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 6);
   assert.match(html, /<h2 class="menu-title">You<\/h2>/);
-  assert.match(html, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
+  assert.doesNotMatch(html, /Debug logs/);
+  const admin = renderToStaticMarkup(h(MenuList<string>, { groups: [...SETTINGS_MENU, ADMIN_MENU], onOpen: noop }));
+  assert.match(admin, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
 });
 
 test("SectionHeader and QuickActions: headings with an optional link, actions as labelled icon buttons", () => {
