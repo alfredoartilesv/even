@@ -5,11 +5,12 @@ import { keepNothing } from "../../platform/idb";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { SecretInput, Switch } from "../../ui/controls";
 import { Segmented } from "../../ui/layout";
+import { Icon } from "../../ui/icons";
 import { QrCode } from "../../ui/QrCode";
 import { checkPassphrase, passphraseHint } from "../../domain/cloudsync/keys";
 import { createAccount, pairingQrText, signInWithPassphrase, startPairing, type PairingRequest, type SyncSession } from "../../domain/cloudsync/session";
 
-type Mode = "signin" | "pair" | "create";
+type Mode = "signin" | "create";
 
 interface Props {
   secrets: SecretStore;
@@ -43,19 +44,21 @@ function browserName(): string {
 // One line under the chooser, so a first-time owner knows which way is theirs before reading a form.
 const MODE_HINT: Record<Mode, string> = {
   signin: "You already have an account: your email and recovery passphrase open it here.",
-  pair: "A phone or browser of yours is already connected and at hand: scan this screen with it, no passphrase needed.",
   create: "First time here: you have an invite code and want to start your account.",
 };
 
 /**
- * Joining the sync account (docs/users.md section 2): sign in with email and passphrase, pair with a
- * device that is already connected, or make the account with an invite. Used by Settings > Sync on
- * the phone and as the first screen of the web app.
+ * Joining the sync account (docs/users.md section 2): log in with email and passphrase or sign up
+ * with an invite on one side, and beside them a pairing QR and code that a device already connected
+ * scans or types, so pairing needs no choice first. Used by Settings > Sync on the phone and as the
+ * first screen of the web app; side by side when there is room, one under the other on a phone.
  */
 export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [server, setServer] = useState(DEFAULT_SERVER);
   const [shared, setShared] = useState(false);
+  // On a phone the two sides take turns, so each fits one screen; side by side they are both shown and this is unused.
+  const [pairing, setPairing] = useState(false);
   const fetchFn = deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 });
   const plain = thisDevice(isNative);
   const device = shared ? { ...plain, name: `${plain.name} (shared)` } : plain;
@@ -65,33 +68,60 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const serverReady = !isNative || isUrl(server.trim());
   const flow = { server, serverReady, secrets, device, fetchFn, before, onConnected, onMode: setMode };
   return (
-    <div className="stack">
-      <Segmented
-        label="How to connect"
-        value={mode}
-        onChange={setMode}
-        items={[
-          { id: "signin", label: "Sign in" },
-          { id: "pair", label: "Pair" },
-          { id: "create", label: "New account" },
-        ]}
-      />
-      <p className="muted small">{MODE_HINT[mode]}</p>
-      {isNative && (
-        <label>
-          Sync server
-          <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://your-even.vercel.app" inputMode="url" autoCapitalize="off" />
-        </label>
-      )}
-      {!isNative && (
-        <Switch
-          checked={shared}
-          onChange={setShared}
-          label="This is a shared computer"
-          description="Keep nothing in this browser: closing or reloading the tab signs out and forgets the data."
-        />
-      )}
-      {mode === "signin" ? <SignIn {...flow} /> : mode === "pair" ? <Pair {...flow} /> : <Create {...flow} />}
+    <div className="connect-panel">
+      <div className={pairing ? "connect-grid pairing" : "connect-grid"}>
+        <section className="stack connect-account" aria-label="Log in or sign up">
+          {isNative && (
+            <label>
+              Sync server
+              <input
+                value={server}
+                onChange={(e) => setServer(e.target.value)}
+                placeholder="https://your-even.vercel.app"
+                inputMode="url"
+                autoCapitalize="off"
+              />
+            </label>
+          )}
+          <Segmented
+            label="Log in or sign up"
+            value={mode}
+            onChange={setMode}
+            items={[
+              { id: "signin", label: "Log in" },
+              { id: "create", label: "Sign up" },
+            ]}
+          />
+          <p className="muted small">{MODE_HINT[mode]}</p>
+          {mode === "signin" ? <SignIn {...flow} /> : <Create {...flow} />}
+          <button type="button" className="secondary with-icon connect-pair-open" onClick={() => setPairing(true)}>
+            <Icon name="qr" size={20} />
+            Pair with a QR code
+          </button>
+          {/* Under the forms rather than under both columns: it applies to pairing too, but there it left a gap the height of the QR. */}
+          {!isNative && (
+            <div className="connect-shared">
+              <Switch
+                checked={shared}
+                onChange={setShared}
+                label="This is a shared computer"
+                description="Keep nothing here: closing or reloading the tab signs out and forgets the data."
+              />
+            </div>
+          )}
+        </section>
+        <aside className="stack connect-pair" aria-labelledby="pair-title">
+          <button type="button" className="link accent with-icon connect-pair-back" onClick={() => setPairing(false)}>
+            <Icon name="back" size={18} />
+            Log in or sign up instead
+          </button>
+          <div>
+            <h3 id="pair-title">Pair with a device</h3>
+            <p className="muted small">Signed in on your phone or another browser? Scan this with Even there, or type the code. No passphrase needed.</p>
+          </div>
+          <Pair {...flow} />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -161,17 +191,13 @@ function SignIn({ server, secrets, device, fetchFn, before, onConnected, onMode 
         <SecretInput value={passphrase} onChange={setPassphrase} noun="passphrase" autoComplete="current-password" required />
       </label>
       <button type="submit" disabled={busy || !email || !passphrase}>
-        {busy ? "Opening your keys…" : "Sign in"}
+        {busy ? "Opening your keys…" : "Log in"}
       </button>
       <MsgLine msg={msg} />
       <p className="muted small">
-        Forgot the passphrase? Nobody can reset it, but a connected phone can still let you in:{" "}
-        <ModeLink to="pair" onMode={onMode}>
-          pair instead
-        </ModeLink>
-        , then set a new one in Settings, Sync &amp; devices. No account yet?{" "}
+        Forgot it? Pair with a connected phone, then set a new one in Settings. No account yet?{" "}
         <ModeLink to="create" onMode={onMode}>
-          Use your invite
+          Sign up with your invite
         </ModeLink>
         .
       </p>
@@ -261,56 +287,61 @@ function Pair({ server, serverReady, secrets, device, fetchFn, before, onConnect
   if (!req) {
     return (
       <div className="stack">
-        {asking ? (
-          <div className="pair-qr pending" aria-busy="true">
+        <div className="pair-qr pending" aria-busy={asking}>
+          {asking ? (
             <p className="muted small">Getting a pairing code…</p>
-          </div>
-        ) : (
-          <>
-            <PairSteps />
-            <button type="button" onClick={() => ((renewals.current = 0), void begin())} disabled={!server.trim() && !serverReady}>
+          ) : !serverReady ? (
+            <p className="muted small center">Type the sync server above to get a pairing code.</p>
+          ) : (
+            <button type="button" onClick={() => ((renewals.current = 0), void begin())}>
               {msg ? "Get a new code" : "Show the pairing code"}
             </button>
-          </>
-        )}
+          )}
+        </div>
         <MsgLine msg={msg} />
+        <PairSteps />
       </div>
     );
   }
   return (
     <div className="stack" aria-live="polite">
       <div className="pair-qr">
-        <QrCode text={pairingQrText(req.code)} label="Pairing QR code. Scan it from Even on your connected device." />
+        <QrCode text={pairingQrText(req.code)} label="Pairing QR code. Scan it from Even on your connected device." size={200} />
       </div>
-      <PairSteps />
-      <p className="muted small center">
-        Waiting for the approval… This code works once, for {left ?? "5:00"} more. Your keys come straight to this device, sealed; the server cannot read them.
-      </p>
-      <details className="more">
-        <summary className="small accent">Can't scan? Type the code instead</summary>
+      {/* Under the QR, not folded away: a browser without a camera, or a phone that cannot focus, types it. */}
+      <div className="pair-code-row">
         <p className="pairing-code" aria-label={`Pairing code ${req.code.split("").join(" ")}`}>
           {req.code}
         </p>
-        <button type="button" className="secondary" onClick={() => void copy(req.code)}>
-          {copied ? "Copied" : "Copy the code"}
-        </button>
-      </details>
+        <div className="row small">
+          <span className="muted">Expires in {left ?? "5:00"}</span>
+          <button type="button" className="link accent" onClick={() => void copy(req.code)}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      </div>
+      <p className="muted small">Works once. Waiting for the approval… your keys come straight here, sealed: the server cannot read them.</p>
+      <PairSteps />
     </div>
   );
 }
 
-/** The three steps on the device that is already connected. */
+/** The three steps on the device that is already connected, folded: the QR and code say most of it. */
 function PairSteps() {
   return (
-    <ol className="steps small">
-      <li>
-        On your phone or browser that is already connected, open Even, then Settings, <b>Sync &amp; devices</b>.
-      </li>
-      <li>
-        Under <b>Add a device</b>, tap <b>Scan the QR code</b> and point the camera at this screen. (Use Even's scanner, not the camera app.)
-      </li>
-      <li>Check the name it shows and approve. This screen opens by itself.</li>
-    </ol>
+    <details className="more">
+      <summary className="small accent">How to pair</summary>
+      <ol className="steps small">
+        <li>
+          On your phone or browser that is already connected, open Even, then Settings, <b>Sync &amp; devices</b>.
+        </li>
+        <li>
+          Under <b>Add a device</b>, tap <b>Scan the QR code</b> and point the camera at this screen (Even's scanner, not the camera app), or choose{" "}
+          <b>Type the code instead</b>.
+        </li>
+        <li>Check the name it shows and approve. This screen opens by itself.</li>
+      </ol>
+    </details>
   );
 }
 
@@ -376,13 +407,9 @@ function Create({ server, secrets, device, fetchFn, before, onConnected, onMode 
       <p className="muted small">
         Already have an account?{" "}
         <ModeLink to="signin" onMode={onMode}>
-          Sign in
+          Log in
         </ModeLink>{" "}
-        or{" "}
-        <ModeLink to="pair" onMode={onMode}>
-          pair
-        </ModeLink>
-        .
+        or use the pairing code.
       </p>
     </form>
   );
