@@ -6,7 +6,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TabBar } from "../src/apps/android/TabBar";
 import { SideNav, type SideNavState } from "../src/apps/web/SideNav";
-import { TABS } from "../src/shell/tabs";
+import { TABS, visibleTabs } from "../src/shell/tabs";
 import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
@@ -175,14 +175,14 @@ test("meal prep tab: two groups of three, the food log first; shopping holds the
 
 test("settings menu: every page once, each with an icon and a description, Debug logs only under Admin", () => {
   const items = SETTINGS_MENU.flatMap((g) => g.items);
-  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "connector", "friends", "privacy", "profile", "sync"]);
+  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "privacy", "profile", "sync"]);
   assert.deepEqual(
     ADMIN_MENU.items.map((i) => i.id),
     ["admin", "logs"],
   );
   for (const i of [...items, ...ADMIN_MENU.items]) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
   const html = renderToStaticMarkup(h(MenuList<string>, { groups: SETTINGS_MENU, onOpen: noop }));
-  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 7);
+  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 6);
   assert.match(html, /<h2 class="menu-title">You<\/h2>/);
   assert.doesNotMatch(html, /Debug logs/);
   const admin = renderToStaticMarkup(h(MenuList<string>, { groups: [...SETTINGS_MENU, ADMIN_MENU], onOpen: noop }));
@@ -337,4 +337,17 @@ test("the Claude connector page gives the address to add in Claude, or asks to s
   );
   assert.match(on, /<code>https:\/\/even\.example\/mcp\/health<\/code>/);
   assert.match(on, /Add custom connector/);
+});
+
+test("without Chat the tab bar and the side menu show the other four sections", () => {
+  assert.deepEqual(
+    visibleTabs(false).map((t) => t.id),
+    ["dashboard", "mealprep", "alcohol", "settings"],
+  );
+  assert.deepEqual(visibleTabs(true), TABS);
+  const bar = renderToStaticMarkup(h(TabBar, { tab: "dashboard", onTab: noop, tabs: visibleTabs(false) }));
+  assert.equal((bar.match(/<button/g) ?? []).length, 4);
+  assert.doesNotMatch(bar, />Chat</);
+  const side = renderToStaticMarkup(h(SideNav, { tab: "dashboard", onTab: noop, nav: navState({ docked: true }), account: null, tabs: visibleTabs(false) }));
+  assert.doesNotMatch(side, />Chat</);
 });

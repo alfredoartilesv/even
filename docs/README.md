@@ -34,7 +34,7 @@ New to the repo: read this page, then the HLD, then the parts of the LLD you nee
 | Google sign-in (optional; one owner per install, for a phone that never connects) | Built and tested (`domain/account`, Settings > Profile); needs the Google Cloud setup (architecture.md 5b). On a connected device the sync account is the user and Google links to it |
 | Sync server, accounts, devices, pairing, friends (phase 2) | Built and tested (`server/`, `domain/cloudsync/`); deployed on Vercel + Neon with 0.4; locally in Docker or `npm run dev:web` (dev-setup.md 4b) |
 | Admins and the admin MCP server (invites, accounts, quotas, devices, suspension, audit log; Claude as a connector behind OAuth 2.1) | Built and tested (users.md sections 2.6 and 9) |
-| Health connector (the Chat tab's tools in claude.ai and the Claude apps, on the owner's Claude plan; consents, disclosure log and undo from the phone) | Built and tested (users.md section 10, `server/healthMcp.ts`); Settings > Claude connector |
+| Health connector (the Chat tab's tools in claude.ai and the Claude apps, on the owner's Claude plan; consents, disclosure log and undo from the phone) | Built and tested (users.md section 10, `server/healthMcp.ts`); Settings > Connections > Claude (Claude connector) |
 | Web app (connect gate, side menu with Sign out, the shared screens, database sealed in the browser, 30 days without use or tab-only on a shared computer) | Built and deployed (`apps/web/`, phases.md) |
 
 ## Quick start
