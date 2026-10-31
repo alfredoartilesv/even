@@ -42,6 +42,7 @@ test("real migrations apply through the plugin driver, using plugin transactions
     "food_photos",
     "goals",
     "health_samples",
+    "log_records",
     "manual_measurements",
     "meal_prep_batches",
     "meal_prep_ingredients",
@@ -66,7 +67,7 @@ test("CRLF migration files still create every table", async () => {
   const { conn, raw } = fakePlugin();
   const crlf = realMigrations().map((m) => ({ ...m, sql: m.sql.replace(/\n/g, "\r\n") }));
   await migrate(capacitorDriver(conn), crlf);
-  assert.equal(tables(raw).length, 29);
+  assert.equal(tables(raw).length, 30);
 });
 
 test("a failing migration rolls back via the plugin", async () => {
