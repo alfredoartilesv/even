@@ -10,6 +10,9 @@ import {
   deleteAccount,
   disconnect,
   loadSession,
+  lookUpPairing,
+  pairingQrText,
+  parsePairingCode,
   sessionApi,
   startPairing,
 } from "../src/domain/cloudsync/session";
@@ -141,6 +144,49 @@ test("a pairing code works once, and the sealed keys are forgotten after pick-up
   await assert.rejects(approvePairing(a.session, req.code, { fetchFn: server.fetchFn }), /not valid any more/);
   const [p] = await server.pg.query<{ sealed: string | null }>("SELECT sealed FROM pairings WHERE id = $1", [req.code.split("-")[0]]);
   assert.equal(p.sealed, null);
+});
+
+test("a pairing QR holds the code behind a prefix; typed and scanned codes read the same, other QR codes not at all", () => {
+  const qr = pairingQrText("ABC234-XYZ567");
+  assert.equal(qr, "even-pair:ABC234-XYZ567");
+  const want = { id: "ABC234", fingerprint: "XYZ567" };
+  assert.deepEqual(parsePairingCode(qr), want);
+  assert.deepEqual(parsePairingCode("abc234 xyz567"), want, "typed in lower case, with a space");
+  assert.deepEqual(parsePairingCode("ABC234XYZ567"), want);
+  assert.equal(parsePairingCode("https://example.com/menu"), null);
+  assert.equal(parsePairingCode("WIFI:S:home;T:WPA;P:secret;;"), null);
+  assert.equal(parsePairingCode("even-pair:ABC234"), null);
+});
+
+test("a scanned pairing QR shows the asking device's name before approval, and the browser joins only after it", async () => {
+  const { a } = await account();
+  const store = memorySecretStore();
+  let hookRan = false;
+  const req = await startPairing(
+    server.base,
+    store,
+    { name: "Chrome on Windows (shared)", kind: "web" },
+    { fetchFn: server.fetchFn, pollMs: 10, beforeSave: () => (hookRan = true) },
+  );
+  const scanned = pairingQrText(req.code);
+  assert.deepEqual(await lookUpPairing(a.session, scanned, { fetchFn: server.fetchFn }), { deviceName: "Chrome on Windows (shared)", deviceKind: "web" });
+  assert.equal(await loadSession(store), null, "looking up lets nobody in");
+  assert.equal(hookRan, false, "the shared-computer choice waits for the keys");
+  await approvePairing(a.session, scanned, { fetchFn: server.fetchFn });
+  const joined = await req.done;
+  assert.ok(hookRan, "the shared-computer choice applied before the session was saved");
+  assert.equal((await loadSession(store))?.deviceId, joined.deviceId);
+  await assert.rejects(lookUpPairing(a.session, scanned, { fetchFn: server.fetchFn }), /not valid any more/);
+});
+
+test("looking up a pairing code refuses a swapped key, like approving does", async () => {
+  const { a } = await account();
+  const stop = new AbortController();
+  const req = await startPairing(server.base, memorySecretStore(), { name: "x", kind: "web" }, { fetchFn: server.fetchFn, pollMs: 10, signal: stop.signal });
+  const done = req.done.catch(() => null);
+  await assert.rejects(lookUpPairing(a.session, pairingQrText(`${req.code.split("-")[0]}-AAAAAA`), { fetchFn: server.fetchFn }), /does not match/);
+  stop.abort();
+  await done;
 });
 
 // ---- 2.5 Devices and safety ----
