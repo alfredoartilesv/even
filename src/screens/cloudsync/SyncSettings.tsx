@@ -282,7 +282,7 @@ function AddDevice({ session, fetchFn, onAdded }: { session: SyncSession; fetchF
         <QrScanner accept={scanned} onCancel={() => setScanning(false)} hint="Point the camera at the QR code on the new phone or browser." />
       ) : (
         <div className="stack">
-          <p className="muted small">On the new phone or browser choose Pair: it shows a QR code. Scan it here, or type the code under it.</p>
+          <p className="muted small">The new phone or browser shows a pairing QR code beside Log in. Scan it here, or type the code under it.</p>
           <button type="button" className="with-icon" disabled={busy} onClick={() => (setMsg(null), setScanning(true))}>
             <Icon name="qr" size={20} />
             Scan the QR code

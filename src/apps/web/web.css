@@ -439,3 +439,8 @@ body:has(.app-frame) {
     transform: none;
   }
 }
+
+/* The connect gate: room for the log in forms and the pairing QR side by side. */
+.shell.connect-gate {
+  max-width: 60rem;
+}
