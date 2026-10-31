@@ -24,6 +24,11 @@ import { lastSync, type LastSync } from "../../domain/sync/runSync";
 import { connectGarmin, disconnectGarmin, garminConnection, garminKeyVerifier, type GarminConnection } from "../../domain/sync/garminConnect";
 import { reminderEnabled, setReminderEnabled } from "../../domain/sync/reminder";
 import type { SecretStore } from "../../domain/settings/secrets";
+import { deviceId } from "../../db/settings";
+import { hasConsent, recordConsent } from "../../domain/chat/consent";
+import { claudeMode, setClaudeMode, type ClaudeMode } from "../../domain/chat/mode";
+import { Segmented, type Choice } from "../../ui/layout";
+import { ConnectorSettings } from "../cloudsync/ConnectorSettings";
 
 interface Props {
   db: SqlDriver;
@@ -35,6 +40,11 @@ interface Props {
   onChanged: () => void;
   /** Sync now: after Garmin is connected, so the data comes in without a trip to the Dashboard. */
   onConnected: () => void;
+  /** Sync and wait: the connector's consents count on the server once they are synced. */
+  onSync: () => Promise<void>;
+  /** Settings > Sync & devices, for the connector, which needs an account. */
+  onOpenSync: () => void;
+  version: number;
 }
 
 const when = (ms: number | null) => (ms ? new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
@@ -50,14 +60,14 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
-/** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude). */
-export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected }: Props) {
+/** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude: API key or connector). */
+export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, version }: Props) {
   return (
     <div>
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
       <GarminSync db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />
-      <ClaudeConnectionCard db={db} secrets={secrets} />
+      <ClaudeCard db={db} secrets={secrets} session={session} onChanged={onChanged} onSync={onSync} onOpenSync={onOpenSync} version={version} />
     </div>
   );
 }
@@ -190,7 +200,7 @@ const GARMIN_STEPS = [
   "Copy it and paste it here. The app checks it with Garmin before saving it in this device's secure storage.",
 ] as const;
 
-function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Props) {
+function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Omit<Props, "onSync" | "onOpenSync" | "version">) {
   const [conn, setConn] = useState<GarminConnection | null>(null);
   const [key, setKey] = useState("");
   const [remind, setRemind] = useState(true);
@@ -410,13 +420,68 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
   );
 }
 
-function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretStore }) {
+const CLAUDE_WAYS: Choice<ClaudeMode>[] = [
+  { id: "api", label: "API key" },
+  { id: "connector", label: "Claude connector" },
+];
+
+const WAY_NOTE: Record<ClaudeMode, string> = {
+  api: "The Chat tab in Even, on your own Claude API key.",
+  connector: "Claude's own apps (claude.ai, the Claude app) on your Claude plan, with no API key. The Chat tab is hidden.",
+};
+
+/**
+ * Claude, one of two ways on this device (domain/chat/mode.ts): the Chat tab on an API key, or the
+ * health connector for Claude's own apps (docs/users.md section 10). Choosing the key turns the
+ * connector off, so it never reads data out of sight; choosing the connector keeps a saved key.
+ */
+function ClaudeCard({
+  db,
+  secrets,
+  session,
+  onChanged,
+  onSync,
+  onOpenSync,
+  version,
+}: {
+  db: SqlDriver;
+  secrets: SecretStore;
+  session: SyncSession | null;
+  onChanged: () => void;
+  onSync: () => Promise<void>;
+  onOpenSync: () => void;
+  version: number;
+}) {
+  const [mode, setMode] = useState<ClaudeMode | null>(null);
   const [claude, setClaude] = useState<ClaudeConnection | null>(null);
   const [claudeKey, setClaudeKey] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [checking, setChecking] = useState(false);
 
-  const load = useCallback(async () => setClaude(await claudeConnection(db, secrets)), [db, secrets]);
+  const load = useCallback(async () => {
+    setClaude(await claudeConnection(db, secrets));
+    setMode(await claudeMode(db, secrets));
+  }, [db, secrets]);
+
+  async function choose(next: ClaudeMode) {
+    setMsg(null);
+    try {
+      await setClaudeMode(db, next);
+      setMode(next);
+      if (next === "api" && (await hasConsent(db, "claude.connector"))) {
+        const id = await deviceId(db);
+        await recordConsent(db, "claude.connector", false, id);
+        await recordConsent(db, "claude.connector_changes", false, id);
+        await onSync();
+        setMsg({ kind: "ok", text: "The connector is off: Claude's apps can no longer read your data. Turn it back on under Claude connector." });
+      } else if (next === "connector" && claude?.status !== "not_connected") {
+        setMsg({ kind: "ok", text: "The Chat tab is hidden. Your API key stays saved: choose API key to bring it back." });
+      }
+      onChanged();
+    } catch (err) {
+      setMsg(failed(err, "settings.claude"));
+    }
+  }
   useEffect(() => {
     void load();
   }, [load]);
@@ -429,7 +494,8 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
       if (!res.ok) return setMsg({ kind: "error", text: res.message });
       setClaude(res.connection);
       setClaudeKey("");
-      setMsg({ kind: "ok", text: "Connected. Claude accepted the key." });
+      setMsg({ kind: "ok", text: "Connected. Claude accepted the key: the Chat tab is ready." });
+      onChanged();
     } catch (err) {
       setMsg(failed(err, "settings.claude"));
     } finally {
@@ -437,12 +503,9 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
     }
   }
 
-  return (
-    <section className="card">
-      <div className="card-head">
-        <h2>Claude</h2>
-        <ConnectionBadge status={claude?.status} />
-      </div>
+  // Plain JSX, not a component of its own: one would remount on every key typed and lose the field.
+  const apiKey = (
+    <>
       {claude && claude.status !== "not_connected" ? (
         <>
           <p className="muted small">
@@ -453,8 +516,9 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
           <DisconnectButton
             onClick={async () => {
               await disconnectClaude(db, secrets);
-              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone; your chats stay." });
+              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone and the Chat tab is hidden; your chats stay." });
               await load();
+              onChanged();
             }}
           />
         </>
@@ -475,7 +539,26 @@ function ClaudeConnectionCard({ db, secrets }: { db: SqlDriver; secrets: SecretS
           </button>
         </form>
       )}
-      <MsgLine msg={msg} />
-    </section>
+    </>
+  );
+
+  return (
+    <>
+      <section className="card">
+        <div className="card-head">
+          <h2>Claude</h2>
+          {mode === "api" && <ConnectionBadge status={claude?.status} />}
+        </div>
+        {mode && (
+          <>
+            <Segmented items={CLAUDE_WAYS} value={mode} onChange={(m) => void choose(m)} label="How to use Claude" />
+            <p className="muted small">{WAY_NOTE[mode]}</p>
+          </>
+        )}
+        {mode === "api" && apiKey}
+        <MsgLine msg={msg} />
+      </section>
+      {mode === "connector" && <ConnectorSettings db={db} session={session} onConnect={onOpenSync} onSync={onSync} version={version} />}
+    </>
   );
 }

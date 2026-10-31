@@ -362,7 +362,7 @@ const SCREENS: Screen[] = [
     tab: "Settings",
     title: "Connections",
     about:
-      "One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude. How-tos fold away.",
+      "One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude: API key (the Chat tab) or Claude connector (Claude's own apps on the Claude plan; the Chat tab is hidden), here on the API key. How-tos fold away.",
     go: (p) => settings(p, "Connections"),
   },
   {
