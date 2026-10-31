@@ -9,6 +9,8 @@ import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
 import { addFood, byPassphrase, firstPhone, foods, lastWriteWins, paging, roundTrip, softDelete, syncedDigest, type Phone } from "../scripts/lib/syncScenario";
 import { testServer } from "./serverHelpers";
+import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto } from "../src/domain/settings/profile";
+import { deviceId, getSetting, setSetting } from "../src/db/settings";
 
 // One PGlite server for the file (it takes about a second to start); each test makes its own account.
 let server: Awaited<ReturnType<typeof testServer>>;
@@ -217,8 +219,8 @@ test("pushes split under the body limit Vercel allows", () => {
 
 test("synced tables: user data yes, this install's own bookkeeping no, and each has its outbox triggers", async () => {
   const names = SYNC_TABLES.map((t) => t.name);
-  for (const t of ["food_entries", "health_samples", "meal_preps", "chat_messages", "account"]) assert.ok(names.includes(t), t);
-  for (const t of ["app_settings", "sync_state", "sync_runs", "cloud_sync_cursors", "cloud_sync_outbox"]) assert.ok(!names.includes(t), t);
+  for (const t of ["food_entries", "health_samples", "meal_preps", "chat_messages", "account", "app_settings"]) assert.ok(names.includes(t), t);
+  for (const t of ["sync_state", "sync_runs", "cloud_sync_cursors", "cloud_sync_outbox"]) assert.ok(!names.includes(t), t);
   assert.deepEqual(
     names,
     BACKUP_TABLES.map((t) => t.name).filter((n) => names.includes(n)),
@@ -227,6 +229,39 @@ test("synced tables: user data yes, this install's own bookkeeping no, and each 
   const { a } = await twoDevices();
   const triggers = new Set((await a.db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'trigger'")).map((r) => r.name));
   for (const t of names) for (const op of ["ins", "upd"]) assert.ok(triggers.has(`cloud_sync_${t}_${op}`), `${t} needs its ${op} trigger in a migration`);
+});
+
+test("the profile and its picture reach the other device, so the web app greets the owner by name", async () => {
+  const { a, b } = await twoDevices();
+  await saveProfile(a.db, { name: "Alex Doe", heightCm: 180 }, "2026-10-31", 1_000);
+  await saveProfilePhoto(a.db, "data:image/jpeg;base64,AAAA", 1_000);
+  await a.sync(1_001);
+  await b.sync(1_002);
+  const p = await loadProfile(b.db);
+  assert.equal(p.name, "Alex Doe");
+  assert.equal(p.heightCm, 180);
+  assert.equal(await loadProfilePhoto(b.db), "data:image/jpeg;base64,AAAA");
+});
+
+test("of the settings, only the profile syncs: each install keeps its own device id and the rest", async () => {
+  const { a, b } = await twoDevices();
+  const idB = await deviceId(b.db);
+  await setSetting(a.db, "backup.last_at", "123", 1_000);
+  await saveProfile(a.db, { name: "Alex" }, "2026-10-31", 1_000);
+  await a.sync(1_001);
+  const pushed = await server.pg.query<{ tbl: string }>("SELECT tbl FROM sync_rows WHERE owner_id = $1 AND tbl = 'app_settings'", [a.session.accountId]);
+  assert.equal(pushed.length, 1, "the profile alone is pushed");
+
+  // A row for another key, as a newer or misbehaving device could push it, is skipped on pull.
+  const keys = await syncKeys(fromHex(a.session.adk));
+  const key = await rowKey(keys, "app_settings", ["log.level"]);
+  const blob = await seal(keys, "app_settings", key, { c: ["key", "value", "updated_at"], v: ["log.level", "debug", 2_000] });
+  await syncApi(server.base, server.fetchFn, a.session.token).push([{ tbl: "app_settings", key, updatedAt: 2_000, blob }]);
+  await b.sync(2_001);
+  assert.equal(await getSetting(b.db, "log.level"), null);
+  assert.equal(await getSetting(b.db, "backup.last_at"), null);
+  assert.equal(await deviceId(b.db), idB);
+  assert.equal((await loadProfile(b.db)).name, "Alex");
 });
 
 test("cloud sync bookkeeping stays out of backups", async () => {

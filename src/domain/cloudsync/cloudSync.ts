@@ -2,6 +2,7 @@ import type { SqlDriver, SqlValue } from "../../db/driver";
 import { createLogger } from "../../core/log";
 import { MAX_BLOB_CHARS, MAX_PUSH_BYTES, SYNC_PAGE, type PullResult, type PushResult, type SyncRow } from "../../core/syncWire";
 import { BACKUP_TABLES, mergeRows, type BackupTable } from "../backup/backup";
+import { PHOTO_KEY, PROFILE_KEY } from "../settings/profile";
 import { open, rowKey, seal, type SyncKeys } from "./seal";
 
 const log = createLogger("cloudsync");
@@ -11,11 +12,17 @@ const log = createLogger("cloudsync");
  * changed (the outbox the triggers of migration 0016 fill), then pull everyone else's, last write
  * wins per row on updated_at.
  *
- * Synced: every backed-up table except the ones about this install (Garmin cursors, sync runs,
- * settings that hold the device id and backup dates, and the cloud sync bookkeeping itself).
- * A table added here needs its two triggers in a migration; tests/cloudSync.test.ts checks.
+ * Synced: every backed-up table except the ones about this install (Garmin cursors, sync runs and
+ * the cloud sync bookkeeping itself). A table added here needs its two triggers in a migration;
+ * tests/cloudSync.test.ts checks.
  */
-const NOT_SYNCED = new Set(["app_settings", "sync_state", "sync_runs"]);
+const NOT_SYNCED = new Set(["sync_state", "sync_runs"]);
+/**
+ * Of app_settings, only the owner's profile and picture (migration 0018 queues just these): the
+ * other keys hold this install's device id, backup dates and log level. A pulled row with any
+ * other key is skipped, whatever the device that pushed it.
+ */
+export const SYNCED_SETTINGS: ReadonlySet<string> = new Set([PROFILE_KEY, PHOTO_KEY]);
 export const SYNC_TABLES: BackupTable[] = BACKUP_TABLES.filter((t) => !t.deviceLocal && t.lastWriteWins && !NOT_SYNCED.has(t.name));
 
 /** The server, over HTTP on the phone (server/app.ts) or in-process in tests. */
@@ -130,6 +137,10 @@ async function pullAll(db: SqlDriver, server: SyncTransport, keys: SyncKeys, rep
       }
       try {
         const plain = await open(keys, r.tbl, r.key, r.blob);
+        if (r.tbl === "app_settings" && !SYNCED_SETTINGS.has(String(plain.v[plain.c.indexOf("key")]))) {
+          report.skipped++;
+          continue;
+        }
         grouped.set(r.tbl, [...(grouped.get(r.tbl) ?? []), { columns: plain.c, values: plain.v }]);
       } catch {
         // One bad row (a device with the wrong secret) must not stop every device from syncing.
