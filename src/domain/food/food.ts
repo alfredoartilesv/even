@@ -1,11 +1,11 @@
-import { withTransaction } from "../../db/tx";
-import { addDays, localDateTimeToMs, localDay, tzOffsetMinutes } from "../../core/tz";
-import { uuidv7 } from "../../core/uuidv7";
-import { mealForHour, rankSuggestions, type Candidate, type Meal } from "./suggest";
-import type { SqlDriver, SqlValue } from "../../db/driver";
-import { undoMove } from "../mealprep/mealPrep";
-import { deviceId } from "../../db/settings";
-import { createLogger } from "../../core/log";
+import { withTransaction } from "../../db/tx.js";
+import { addDays, localDateTimeToMs, localDay, tzOffsetMinutes } from "../../core/tz.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import { mealForHour, rankSuggestions, type Candidate, type Meal } from "./suggest.js";
+import type { SqlDriver, SqlValue } from "../../db/driver.js";
+import { undoMove } from "../mealprep/mealPrep.js";
+import { deviceId } from "../../db/settings.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("food");
 

@@ -1,6 +1,6 @@
-import { uuidv7 } from "../../core/uuidv7";
-import type { SqlDriver } from "../../db/driver";
-import { createLogger } from "../../core/log";
+import { uuidv7 } from "../../core/uuidv7.js";
+import type { SqlDriver } from "../../db/driver.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("journal");
 

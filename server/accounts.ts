@@ -165,6 +165,13 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
       return { accountId, deviceId: dev.id, token: dev.token!, keys: await sealedKeys(accountId) };
     },
 
+    /** The account data key as its devices keep it, wrapped with the passphrase: for the health connector's sign-in page to open. */
+    async wrappedAdk(accountId: string): Promise<string> {
+      const [k] = await pg.query<{ adk_wrapped: string }>("SELECT adk_wrapped FROM account_keys WHERE account_id = $1", [accountId]);
+      if (!k) throw new AuthError(404, "No keys for this account");
+      return k.adk_wrapped;
+    },
+
     async updateRecovery(accountId: string, b: RecoveryUpdateBody, nowMs = Date.now()): Promise<void> {
       await pg.query(
         "UPDATE account_keys SET adk_wrapped = $2, wrap_salt = $3, wrap_iterations = $4, recovery_verifier = $5, updated_at = $6 WHERE account_id = $1",

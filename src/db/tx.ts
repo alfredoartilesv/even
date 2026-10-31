@@ -1,5 +1,5 @@
-import type { SqlDriver } from "./driver";
-import { createLogger } from "../core/log";
+import type { SqlDriver } from "./driver.js";
+import { createLogger } from "../core/log.js";
 
 const log = createLogger("db");
 

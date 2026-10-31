@@ -1,18 +1,18 @@
-import { withTransaction } from "../../db/tx";
+import { withTransaction } from "../../db/tx.js";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { SqlDriver } from "../../db/driver";
-import { deleteFood, deleteSavedMeal, getSavedMeal, logFood, logSavedMeal, MAX_PHOTO_BYTES, saveMeal, type PhotoInput } from "../food/food";
-import { dayNoteExists, insertDayNote, insertGoal, insertMeasurement, type Stamp } from "../journal/journal";
-import { deleteDrinkType, findDrinkType, logDrink, saveDrinkType, servingKcal } from "../alcohol/alcohol";
-import { addMove, deleteBatch, deleteMealPrep, listMealPreps, loadStock, logBatch, prepFromColumns, saveMealPrep, undoMove } from "../mealprep/mealPrep";
-import { addRecipesToShopping, addShoppingItem } from "../mealprep/shopping";
-import { alcoholGrams } from "../../core/health";
-import { addDays, localDateTimeToMs, localDay } from "../../core/tz";
-import { uuidv7 } from "../../core/uuidv7";
-import { loadMessages } from "./store";
-import { DATE_DESC, day, round, tool } from "./tools";
-import { createLogger } from "../../core/log";
+import type { SqlDriver } from "../../db/driver.js";
+import { deleteFood, deleteSavedMeal, getSavedMeal, logFood, logSavedMeal, MAX_PHOTO_BYTES, saveMeal, type PhotoInput } from "../food/food.js";
+import { dayNoteExists, insertDayNote, insertGoal, insertMeasurement, type Stamp } from "../journal/journal.js";
+import { deleteDrinkType, findDrinkType, logDrink, saveDrinkType, servingKcal } from "../alcohol/alcohol.js";
+import { addMove, deleteBatch, deleteMealPrep, listMealPreps, loadStock, logBatch, prepFromColumns, saveMealPrep, undoMove } from "../mealprep/mealPrep.js";
+import { addRecipesToShopping, addShoppingItem } from "../mealprep/shopping.js";
+import { alcoholGrams } from "../../core/health.js";
+import { addDays, localDateTimeToMs, localDay } from "../../core/tz.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import { loadMessages } from "./store.js";
+import { DATE_DESC, day, round, tool } from "./tools.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("chat.actions");
 
@@ -924,7 +924,8 @@ export type ActionStatus = "applied" | "declined" | "failed" | "undone";
 export async function logAgentAction(
   db: SqlDriver,
   a: {
-    conversationId: string;
+    /** null for the health connector, which has no conversation in the app. */
+    conversationId: string | null;
     tool: string;
     summary: string;
     input: unknown;
