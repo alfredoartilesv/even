@@ -3,6 +3,7 @@ import { secretStore } from "../../platform/secureStore";
 import { ConnectPanel } from "../../shell/screens";
 import type { GateState } from "../../shell/target";
 import { PageHeader } from "../../ui/layout";
+import { Logo } from "../../ui/logo";
 import { forgetOnClose } from "./browserCopy";
 
 /**
@@ -22,13 +23,15 @@ export function connectGate({ session, connect }: GateState, notice: string | nu
   if (session !== null) return null;
   return (
     <main className="shell connect-gate">
-      <PageHeader title="Even" subtitle="Your health data, on the web" />
-      <section className="card">
-        <h2>Connect</h2>
-        {notice && <p className="warning small">{notice}</p>}
-        <p className="muted small">
-          Your data arrives sealed and is opened only here, in this browser. Log in, sign up, or pair with a device you already use.
-        </p>
+      <div className="connect-brand">
+        <PageHeader
+          title="Even"
+          subtitle="Your health data, on the web. It arrives sealed and is opened only here, in this browser."
+          leading={<Logo size={48} decorative />}
+        />
+      </div>
+      {notice && <p className="warning small">{notice}</p>}
+      <section className="card connect-card" aria-label="Connect">
         {/* The panel is lazy: without a fallback the card sat empty while it loaded. */}
         <Suspense fallback={<p className="muted">Loading…</p>}>
           <ConnectPanel

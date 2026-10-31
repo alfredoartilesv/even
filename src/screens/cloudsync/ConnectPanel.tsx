@@ -65,15 +65,21 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const serverReady = !isNative || isUrl(server.trim());
   const flow = { server, serverReady, secrets, device, fetchFn, before, onConnected, onMode: setMode };
   return (
-    <div className="stack connect-panel">
-      {isNative && (
-        <label>
-          Sync server
-          <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://your-even.vercel.app" inputMode="url" autoCapitalize="off" />
-        </label>
-      )}
+    <div className="connect-panel">
       <div className="connect-grid">
         <section className="stack connect-account" aria-label="Log in or sign up">
+          {isNative && (
+            <label>
+              Sync server
+              <input
+                value={server}
+                onChange={(e) => setServer(e.target.value)}
+                placeholder="https://your-even.vercel.app"
+                inputMode="url"
+                autoCapitalize="off"
+              />
+            </label>
+          )}
           <Segmented
             label="Log in or sign up"
             value={mode}
@@ -85,21 +91,26 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
           />
           <p className="muted small">{MODE_HINT[mode]}</p>
           {mode === "signin" ? <SignIn {...flow} /> : <Create {...flow} />}
+          {/* Under the forms rather than under both columns: it applies to pairing too, but there it left a gap the height of the QR. */}
+          {!isNative && (
+            <div className="connect-shared">
+              <Switch
+                checked={shared}
+                onChange={setShared}
+                label="This is a shared computer"
+                description="Keep nothing in this browser: closing or reloading the tab signs out and forgets the data."
+              />
+            </div>
+          )}
         </section>
         <aside className="stack connect-pair" aria-labelledby="pair-title">
-          <h3 id="pair-title">Pair with a device</h3>
-          <p className="muted small">Already connected on your phone or another browser? Scan this with Even there, or type the code. No passphrase needed.</p>
+          <div>
+            <h3 id="pair-title">Pair with a device</h3>
+            <p className="muted small">Signed in on your phone or another browser? Scan this with Even there, or type the code. No passphrase needed.</p>
+          </div>
           <Pair {...flow} />
         </aside>
       </div>
-      {!isNative && (
-        <Switch
-          checked={shared}
-          onChange={setShared}
-          label="This is a shared computer"
-          description="Keep nothing in this browser: closing or reloading the tab signs out and forgets the data."
-        />
-      )}
     </div>
   );
 }
@@ -292,11 +303,14 @@ function Pair({ server, serverReady, secrets, device, fetchFn, before, onConnect
         <p className="pairing-code" aria-label={`Pairing code ${req.code.split("").join(" ")}`}>
           {req.code}
         </p>
-        <button type="button" className="secondary" onClick={() => void copy(req.code)}>
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <div className="row small">
+          <span className="muted">Expires in {left ?? "5:00"}</span>
+          <button type="button" className="link accent" onClick={() => void copy(req.code)}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
       </div>
-      <p className="muted small center">Waiting for the approval… This code works once, for {left ?? "5:00"} more. Your keys come straight here, sealed.</p>
+      <p className="muted small">Works once. Waiting for the approval… your keys come straight here, sealed: the server cannot read them.</p>
       <PairSteps />
     </div>
   );
