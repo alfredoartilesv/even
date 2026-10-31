@@ -1,5 +1,5 @@
-import type { DailyAgg, MetricCategory } from "./catalog";
-import type { SqlDriver } from "../../db/driver";
+import type { DailyAgg, MetricCategory } from "./catalog.js";
+import type { SqlDriver } from "../../db/driver.js";
 
 export interface DayValue {
   metric: string;

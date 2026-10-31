@@ -3,6 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch } from "../../platform/device";
 import { AdminSettings } from "../admin/AdminSettings";
+import { ConnectorSettings } from "../cloudsync/ConnectorSettings";
 import { FriendsSettings } from "../cloudsync/FriendsSettings";
 import { SyncSettings } from "../cloudsync/SyncSettings";
 import { MenuList, PageHeader, type MenuItem } from "../../ui/layout";
@@ -16,7 +17,7 @@ import { rememberAdmin, wasAdmin } from "../../domain/settings/adminFlag";
 import { ProfileSettings } from "./ProfileSettings";
 import type { SecretStore } from "../../domain/settings/secrets";
 
-export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about" | "admin";
+export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "connector" | "privacy" | "logs" | "about" | "admin";
 
 interface Props {
   db: SqlDriver;
@@ -49,6 +50,12 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
     items: [
       { id: "sync", label: "Sync & devices", description: "Your account, the phones and browsers it syncs with, the recovery passphrase", icon: "sync" },
       { id: "connections", label: "Connections", description: "Garmin sync, Garmin history import, the Claude key", icon: "link" },
+      {
+        id: "connector",
+        label: "Claude connector",
+        description: "Ask about your data in Claude itself, on your Claude plan: the address, what it may do, its connections",
+        icon: "sparkle",
+      },
       { id: "privacy", label: "Privacy & data", description: "What Claude may see and was sent, what is stored, backup and restore", icon: "shield" },
     ],
   },
@@ -126,6 +133,8 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
         <FriendsSettings session={session} onConnect={() => onPage("sync")} onSync={onSync} />
       ) : page === "connections" ? (
         <ConnectionSettings db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={() => void onSync()} />
+      ) : page === "connector" ? (
+        <ConnectorSettings db={db} session={session} onConnect={() => onPage("sync")} onSync={onSync} version={version} />
       ) : page === "privacy" ? (
         <PrivacySettings db={db} onChanged={onChanged} syncAccountId={session?.accountId ?? null} />
       ) : page === "logs" ? (

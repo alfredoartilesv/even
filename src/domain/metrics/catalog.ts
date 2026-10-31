@@ -1,6 +1,6 @@
-import type { CatalogEntry } from "../sync/types";
-import type { SqlDriver } from "../../db/driver";
-import { createLogger } from "../../core/log";
+import type { CatalogEntry } from "../sync/types.js";
+import type { SqlDriver } from "../../db/driver.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("metrics.catalog");
 

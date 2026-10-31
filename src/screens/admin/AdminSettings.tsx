@@ -4,6 +4,7 @@ import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch, shareText } from "../../platform/device";
 import { failed, MsgLine, plural, type Msg } from "../../ui/common";
 import { StatusBadge, type Status } from "../../ui/controls";
+import { GrantList } from "../cloudsync/ConnectorSettings";
 
 /**
  * Settings > Admin (docs/users.md section 2.6), shown to admin accounts only. Invites, accounts,
@@ -318,7 +319,7 @@ function AccountRow({
 function ClaudeConnector({ url, grants, onDisconnect }: { url: string; grants: McpGrant[]; onDisconnect: (g: McpGrant) => void }) {
   return (
     <section className="card">
-      <h2>Claude connector</h2>
+      <h2>Claude admin connector</h2>
       <p className="muted small">
         Let Claude manage invites, accounts and devices for you: in Claude, Settings &gt; Connectors &gt; Add custom connector, with this address. It asks you
         to sign in here as an admin. Claude never sees anyone's health data: these tools cannot reach it.
@@ -326,24 +327,7 @@ function ClaudeConnector({ url, grants, onDisconnect }: { url: string; grants: M
       <p>
         <code>{url}</code>
       </p>
-      {grants.length > 0 && (
-        <ul className="device-list">
-          {grants.map((g) => (
-            <li key={g.id} className="row">
-              <span className="grow small">
-                <strong>{g.clientName}</strong>
-                <br />
-                <span className="muted">
-                  connected {when(g.createdAt)} · last used {when(g.lastUsedAt)}
-                </span>
-              </span>
-              <button type="button" className="secondary" onClick={() => onDisconnect(g)}>
-                Disconnect
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <GrantList grants={grants} onDisconnect={onDisconnect} />
     </section>
   );
 }

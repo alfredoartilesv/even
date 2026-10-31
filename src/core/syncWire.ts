@@ -235,7 +235,10 @@ export interface ServiceHealth {
   openInvites: number;
 }
 
-/** One sign-in of Claude (or another MCP client) as an admin: an access token and its refresh token. */
+/** Where the health connector is on the sync server (docs/users.md section 10). */
+export const HEALTH_MCP_PATH = "/mcp/health";
+
+/** One sign-in of Claude (or another MCP client), as an admin or to the health connector: an access token and its refresh token. */
 export interface McpGrant {
   id: string;
   clientId: string;

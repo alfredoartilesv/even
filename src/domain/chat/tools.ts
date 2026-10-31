@@ -1,19 +1,19 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { SqlDriver } from "../../db/driver";
-import { dayFood, listSavedMeals } from "../food/food";
-import { listMealPreps, loadStock } from "../mealprep/mealPrep";
-import { dailySeries, type MetricSeries } from "../metrics/queries";
-import { listShopping } from "../mealprep/shopping";
-import { getCurrency, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol";
-import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../../core/health";
-import { addDays, localDay } from "../../core/tz";
-import { latestWeight } from "../alcohol/alcohol";
-import { estimates, loadProfile } from "../settings/profile";
-import { goalProgress, listGoals as listGoalRows } from "../me/goals";
-import { fmtPace, fmtSpeed, listWorkouts, sportTotals, weeklyVolume } from "../me/workouts";
-import { spending } from "../mealprep/spending";
-import type { DataClass } from "./consent";
+import type { SqlDriver } from "../../db/driver.js";
+import { dayFood, listSavedMeals } from "../food/food.js";
+import { listMealPreps, loadStock } from "../mealprep/mealPrep.js";
+import { dailySeries, type MetricSeries } from "../metrics/queries.js";
+import { listShopping } from "../mealprep/shopping.js";
+import { getCurrency, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol.js";
+import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../../core/health.js";
+import { addDays, localDay } from "../../core/tz.js";
+import { latestWeight } from "../alcohol/alcohol.js";
+import { estimates, loadProfile } from "../settings/profile.js";
+import { goalProgress, listGoals as listGoalRows } from "../me/goals.js";
+import { fmtPace, fmtSpeed, listWorkouts, sportTotals, weeklyVolume } from "../me/workouts.js";
+import { spending } from "../mealprep/spending.js";
+import type { DataClass } from "./consent.js";
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
 
@@ -49,6 +49,13 @@ function daysBetween(from: string, to: string): number {
 }
 
 export const round = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? null : Math.round(n * 100) / 100);
+
+/** A tool error Claude can act on: which arguments were wrong, or what failed. Carries no health data. */
+export function errorText(err: unknown): string {
+  const issues = (err as { issues?: { message: string; path: (string | number)[] }[] }).issues;
+  if (Array.isArray(issues)) return `Invalid arguments: ${issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`;
+  return `Tool failed: ${(err as Error)?.message ?? String(err)}`;
+}
 
 export const DATE_DESC = "Local calendar day, YYYY-MM-DD";
 

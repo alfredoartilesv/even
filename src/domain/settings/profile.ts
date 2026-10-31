@@ -13,11 +13,11 @@ import {
   type ActivityLevel,
   type BmiClass,
   type Sex,
-} from "../../core/health";
-import { createLogger } from "../../core/log";
-import type { SqlDriver } from "../../db/driver";
-import { getSetting, setSetting } from "../../db/settings";
-import { SPORT_IDS } from "../me/sports";
+} from "../../core/health.js";
+import { createLogger } from "../../core/log.js";
+import type { SqlDriver } from "../../db/driver.js";
+import { getSetting, setSetting } from "../../db/settings.js";
+import { SPORT_IDS } from "../me/sports.js";
 
 /**
  * The owner's profile: what the energy and body calculations need (birth date, sex, height,

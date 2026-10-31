@@ -25,6 +25,7 @@ import {
 import { AuthError, SUSPENDED, type AccountStore } from "./accounts.js";
 import type { Actor, AdminStore } from "./admin.js";
 import { relayToGarmin } from "./garminRelay.js";
+import { dropOwnerData, healthMcpApp } from "./healthMcp.js";
 import { mcpApp } from "./mcp.js";
 import { oauthApp, type OAuthStore } from "./oauth.js";
 import type { FriendStore } from "./friends.js";
@@ -51,7 +52,8 @@ export interface Stores {
  * Device:    everything else, `Authorization: Bearer <device token>`; a suspended account's devices get 403
  * Garmin:    /v1/garmin/*, the web app's Garmin calls passed on to Garmin (server/garminRelay.ts)
  * Admin:     /v1/admin/*, a device of an admin account (docs/users.md section 2.6)
- * MCP:       /mcp with an OAuth access token for an admin account; /oauth/* and /.well-known/* (server/oauth.ts)
+ * MCP:       /mcp with an OAuth access token for an admin account; /mcp/health with one of the health scope for any
+ *            account (server/healthMcp.ts); /oauth/* and /.well-known/* (server/oauth.ts)
  */
 type Env = { Variables: { device: Device } };
 
@@ -84,6 +86,7 @@ export function createApp(s: Stores, opts: { publicUrl?: string; garminFetch?: t
   // Claude as an admin, through its custom connector: outside /v1, with its own tokens.
   app.route("/", oauthApp(s, { publicUrl: opts.publicUrl, clientIp }));
   app.route("/", mcpApp(s, { publicUrl: opts.publicUrl }));
+  app.route("/", healthMcpApp(s, { publicUrl: opts.publicUrl }));
 
   // ---- Joining: invite, passphrase, pairing ----
   app.post("/v1/auth/signup", async (c) => {
@@ -145,6 +148,15 @@ export function createApp(s: Stores, opts: { publicUrl?: string; garminFetch?: t
     const res = await s.accounts.pairingApprove(c.req.param("id"), c.get("device").ownerId, sealed);
     log.info("device added by pairing", { by: c.get("device").id, device: res.deviceId });
     return c.json(res);
+  });
+
+  // The health connector's connections (docs/users.md section 10): any account sees and cuts off its own.
+  app.get("/v1/connector/grants", async (c) => c.json(await s.oauth.grants(c.get("device").ownerId, "health")));
+  app.delete("/v1/connector/grants/:id", async (c) => {
+    await s.oauth.revoke(c.get("device").ownerId, c.req.param("id"), "health");
+    dropOwnerData(c.req.param("id"));
+    log.info("connector disconnected", { device: c.get("device").id, grant: c.req.param("id") });
+    return c.json({ ok: true });
   });
 
   // ---- Sync ----

@@ -24,7 +24,7 @@ export function createStores(
     accounts: accountStore(pg, { serverSecret, rateLimits: opts.rateLimits }),
     friends: friendStore(pg),
     admin: adminStore(pg, { build: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) }),
-    oauth: oauthStore(pg),
+    oauth: oauthStore(pg, { serverSecret }),
     google: opts.google ?? googleVerifier(env.GOOGLE_CLIENT_ID),
   };
 }

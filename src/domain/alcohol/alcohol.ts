@@ -1,10 +1,10 @@
-import { alcoholGrams, alcoholKcal, KCAL_PER_KG_BODY, standardDrinks, weightWithoutKcal } from "../../core/health";
-import { createLogger } from "../../core/log";
-import { addDays, localDay, tzOffsetMinutes } from "../../core/tz";
-import { uuidv7 } from "../../core/uuidv7";
-import type { SqlDriver } from "../../db/driver";
-import { deviceId, getSetting, setSetting } from "../../db/settings";
-import { withTransaction } from "../../db/tx";
+import { alcoholGrams, alcoholKcal, KCAL_PER_KG_BODY, standardDrinks, weightWithoutKcal } from "../../core/health.js";
+import { createLogger } from "../../core/log.js";
+import { addDays, localDay, tzOffsetMinutes } from "../../core/tz.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import type { SqlDriver } from "../../db/driver.js";
+import { deviceId, getSetting, setSetting } from "../../db/settings.js";
+import { withTransaction } from "../../db/tx.js";
 
 /**
  * Alcohol counter (schema 0006): drink types with price and calories, the drink log, totals in

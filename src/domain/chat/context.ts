@@ -1,6 +1,6 @@
-import type { SqlDriver } from "../../db/driver";
-import { addDays, localDay } from "../../core/tz";
-import { TOOLS_BY_NAME } from "./tools";
+import type { SqlDriver } from "../../db/driver.js";
+import { addDays, localDay } from "../../core/tz.js";
+import { TOOLS_BY_NAME } from "./tools.js";
 
 /**
  * What the assistant knows before the first question: the answers it would otherwise ask for in

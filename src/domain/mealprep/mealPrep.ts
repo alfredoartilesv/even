@@ -1,10 +1,10 @@
-import { withTransaction } from "../../db/tx";
-import { localDay, tzOffsetMinutes } from "../../core/tz";
-import { uuidv7 } from "../../core/uuidv7";
-import { available, foldBatch, type BatchInfo, type BatchStock, type Location, type Move, type MoveKind } from "./stock";
-import type { SqlDriver, SqlValue } from "../../db/driver";
-import { deviceId, getSetting, setSetting } from "../../db/settings";
-import { createLogger } from "../../core/log";
+import { withTransaction } from "../../db/tx.js";
+import { localDay, tzOffsetMinutes } from "../../core/tz.js";
+import { uuidv7 } from "../../core/uuidv7.js";
+import { available, foldBatch, type BatchInfo, type BatchStock, type Location, type Move, type MoveKind } from "./stock.js";
+import type { SqlDriver, SqlValue } from "../../db/driver.js";
+import { deviceId, getSetting, setSetting } from "../../db/settings.js";
+import { createLogger } from "../../core/log.js";
 
 const log = createLogger("mealprep");
 

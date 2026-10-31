@@ -2,6 +2,14 @@ import { sha256Hex } from "../src/core/hash.js";
 import type { PullResult, PushResult, SyncRow } from "../src/core/syncWire.js";
 import type { Pg } from "./pg.js";
 
+/** A removed device takes the health connector grant pushing as it along: tokens and sealed keys. */
+export async function revokeDeviceGrants(pg: Pick<Pg, "query">, deviceId: string, nowMs: number): Promise<void> {
+  await pg.query("UPDATE mcp_grants SET revoked_at = $2, keys_access = NULL, keys_refresh = NULL WHERE device_id = $1 AND revoked_at IS NULL", [
+    deviceId,
+    nowMs,
+  ]);
+}
+
 export interface Device {
   id: string;
   ownerId: string;
@@ -52,10 +60,11 @@ export function syncStore(pg: Pg) {
       return { accepted: taken.length, ignored: rows.length - taken.length };
     },
 
-    async pull(ownerId: string, after: number, limit: number): Promise<PullResult> {
+    /** `skip`: tables left out (the health connector has no use for photos and chats). */
+    async pull(ownerId: string, after: number, limit: number, skip: string[] = []): Promise<PullResult> {
       const rows = await pg.query<{ seq: number; tbl: string; row_key: string; updated_at: number; blob: string }>(
-        "SELECT seq, tbl, row_key, updated_at, blob FROM sync_rows WHERE owner_id = $1 AND seq > $2 ORDER BY seq LIMIT $3",
-        [ownerId, after, limit + 1],
+        "SELECT seq, tbl, row_key, updated_at, blob FROM sync_rows WHERE owner_id = $1 AND seq > $2 AND NOT (tbl = ANY($4::text[])) ORDER BY seq LIMIT $3",
+        [ownerId, after, limit + 1, skip],
       );
       const more = rows.length > limit;
       const page = rows.slice(0, limit).map((r) => ({ seq: r.seq, tbl: r.tbl, key: r.row_key, updatedAt: r.updated_at, blob: r.blob }));

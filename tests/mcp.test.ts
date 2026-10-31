@@ -4,25 +4,22 @@ import { syncApi } from "../src/domain/cloudsync/api";
 import { passphraseKeys } from "../src/domain/cloudsync/keys";
 import { sessionApi } from "../src/domain/cloudsync/session";
 import { firstPhone, TEST_PASSPHRASE, type Phone } from "../scripts/lib/syncScenario";
-import { testServer } from "./serverHelpers";
+import { claudeClient, CLAUDE_CALLBACK, testServer } from "./serverHelpers";
 
 // docs/users.md section 9: Claude as an admin through OAuth and the MCP server, never seeing data.
 let server: Awaited<ReturnType<typeof testServer>>;
 before(async () => {
   server = await testServer();
+  client = claudeClient(server);
 });
 after(() => server.pg.close());
 
 const BASE = "http://sync.test";
-const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
-const req = (path: string, init?: RequestInit) => server.app.request(`${BASE}${path}`, init);
-const form = (fields: Record<string, string>) => ({
-  method: "POST",
-  headers: { "content-type": "application/x-www-form-urlencoded" },
-  body: new URLSearchParams(fields).toString(),
-});
+const CALLBACK = CLAUDE_CALLBACK;
+let client: ReturnType<typeof claudeClient>;
+const req = (path: string, init?: RequestInit) => client.req(path, init);
+const form = (fields: Record<string, string>) => client.form(fields);
 const newEmail = () => `${crypto.randomUUID()}@example.com`;
-const b64url = (bytes: ArrayBuffer) => Buffer.from(bytes).toString("base64url");
 
 async function account(admin: boolean): Promise<{ email: string; a: Phone }> {
   const email = newEmail();
@@ -37,21 +34,12 @@ async function proof(email: string, passphrase = TEST_PASSPHRASE): Promise<strin
   return (await passphraseKeys(passphrase, salt, iterations)).verifier;
 }
 
-async function register(): Promise<string> {
-  const res = await req("/oauth/register", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Claude", redirect_uris: [CALLBACK] }),
-  });
-  assert.equal(res.status, 201);
-  return ((await res.json()) as { client_id: string }).client_id;
-}
+const register = () => client.register();
 
 /** The whole sign-in, as claude.ai does it. Returns the authorize answer and, when it redirected, the tokens. */
 async function connect(email: string, opts: { passphrase?: string; verifierOverride?: string } = {}) {
   const clientId = await register();
-  const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)).buffer);
-  const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  const { verifier, challenge } = await client.pkce();
   const params = { client_id: clientId, redirect_uri: CALLBACK, code_challenge: challenge, code_challenge_method: "S256", state: "xyz" };
   const page = await req(`/oauth/authorize?${new URLSearchParams({ ...params, response_type: "code" })}`);
   assert.equal(page.status, 200);
@@ -62,32 +50,12 @@ async function connect(email: string, opts: { passphrase?: string; verifierOverr
   assert.equal(`${to.origin}${to.pathname}`, CALLBACK);
   assert.equal(to.searchParams.get("state"), "xyz");
   const code = to.searchParams.get("code")!;
-  const tokenRes = await req(
-    "/oauth/token",
-    form({ grant_type: "authorization_code", code, client_id: clientId, redirect_uri: CALLBACK, code_verifier: opts.verifierOverride ?? verifier }),
-  );
-  const tokens = tokenRes.ok ? ((await tokenRes.json()) as { access_token: string; refresh_token: string; expires_in: number }) : null;
+  const { res: tokenRes, tokens } = await client.exchange(clientId, code, opts.verifierOverride ?? verifier);
   return { res, clientId, code, verifier, tokenRes, tokens };
 }
 
-let rpcId = 0;
-async function mcp(token: string | null, method: string, params: Record<string, unknown> = {}) {
-  const res = await req("/mcp", {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
-  });
-  return {
-    status: res.status,
-    headers: res.headers,
-    body: res.status === 200 ? ((await res.json()) as { result?: Record<string, unknown>; error?: unknown }) : null,
-  };
-}
-const callTool = async (token: string, name: string, args: Record<string, unknown> = {}) => {
-  const r = await mcp(token, "tools/call", { name, arguments: args });
-  const result = r.body?.result as { content: { text: string }[]; isError?: boolean };
-  return { isError: result.isError === true, text: result.content[0]!.text };
-};
+const mcp = (token: string | null, method: string, params: Record<string, unknown> = {}) => client.rpc("/mcp", token, method, params);
+const callTool = (token: string, name: string, args: Record<string, unknown> = {}) => client.call("/mcp", token, name, args);
 
 test("metadata tells Claude where to sign in: S256 only, public clients, the /mcp resource", async () => {
   const prm = (await (await req("/.well-known/oauth-protected-resource")).json()) as { resource: string; authorization_servers: string[] };

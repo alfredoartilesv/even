@@ -1,14 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SqlDriver } from "../../db/driver";
-import { uuidv7 } from "../../core/uuidv7";
 import { logAgentAction, WRITE_TOOLS, WRITE_TOOLS_BY_NAME, type ActionProposal } from "./actions";
 import { CONSENT_TEXT, hasConsent, recordConsent, SCOPE_FOR, type ConsentScope, type DataClass } from "./consent";
 import { contextSnapshot } from "./context";
 import { documentBlock, fileBytes, validateFiles, type FileAttachment } from "./files";
 import { imageBytes, validateAttachments, type ImageAttachment } from "./images";
 import { dateContext, SYSTEM_PROMPT } from "./prompt";
-import { appendMessage, createConversation, loadApiMessages, loadMessages, renameConversation } from "./store";
-import { CHAT_TOOLS, TOOLS_BY_NAME } from "./tools";
+import { appendMessage, createConversation, loadApiMessages, loadMessages, recordDisclosure, renameConversation } from "./store";
+import { CHAT_TOOLS, errorText, TOOLS_BY_NAME } from "./tools";
 import { createLogger } from "../../core/log";
 
 const chatLog = createLogger("chat");
@@ -212,7 +211,7 @@ export async function askClaude(deps: ChatDeps, conversationId: string, text: st
   const t = now();
   const messageId = await appendMessage(deps.db, deps.deviceId, { conversationId, role: "user", content, now: t });
   if (snapshot) {
-    await insertDisclosure(deps, {
+    await recordDisclosure(deps.db, deps.deviceId, {
       conversationId,
       messageId,
       at: t,
@@ -220,12 +219,11 @@ export async function askClaude(deps: ChatDeps, conversationId: string, text: st
       dataClass: "aggregate",
       summary: snapshot.summary,
       payload: snapshot.payload,
-      bytes: utf8Bytes(snapshot.payload),
     });
   }
   for (const f of files) {
     const bytes = fileBytes(f);
-    await insertDisclosure(deps, {
+    await recordDisclosure(deps.db, deps.deviceId, {
       conversationId,
       messageId,
       at: t,
@@ -238,7 +236,7 @@ export async function askClaude(deps: ChatDeps, conversationId: string, text: st
   }
   for (const img of images) {
     const bytes = imageBytes(img.data);
-    await insertDisclosure(deps, {
+    await recordDisclosure(deps.db, deps.deviceId, {
       conversationId,
       messageId,
       at: t,
@@ -484,28 +482,7 @@ async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses:
   const t = now();
   const messageId = await appendMessage(deps.db, deps.deviceId, { conversationId, role: "user", content: results, now: t });
   // Logged when queued: the next request sends them (and a retry after a failure would send the same).
-  for (const d of disclosures) {
-    await insertDisclosure(deps, { conversationId, messageId, at: t, ...d, bytes: utf8Bytes(d.payload) });
-  }
-}
-
-async function insertDisclosure(
-  deps: ChatDeps,
-  d: { conversationId: string; messageId: string; at: number; toolName: string | null; dataClass: DataClass; summary: string; payload: string; bytes: number },
-) {
-  await deps.db.run(
-    `INSERT INTO ai_disclosures
-       (id, conversation_id, message_id, sent_at_ms, tool_name, data_class, summary, payload_json, bytes,
-        created_at, updated_at, origin_device_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [uuidv7(d.at), d.conversationId, d.messageId, d.at, d.toolName, d.dataClass, d.summary, d.payload, d.bytes, d.at, d.at, deps.deviceId],
-  );
-}
-
-function errorText(err: unknown): string {
-  const issues = (err as { issues?: { message: string; path: (string | number)[] }[] }).issues;
-  if (Array.isArray(issues)) return `Invalid arguments: ${issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`;
-  return `Tool failed: ${(err as Error)?.message ?? String(err)}`;
+  for (const d of disclosures) await recordDisclosure(deps.db, deps.deviceId, { conversationId, messageId, at: t, ...d });
 }
 
 function hasFallbackBlocks(messages: CreateParams["messages"]): boolean {
