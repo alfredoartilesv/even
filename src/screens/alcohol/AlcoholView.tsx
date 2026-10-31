@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { addDays } from "../../core/tz";
+import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../ui/common";
 import { StatTile } from "../../ui/charts";
@@ -39,6 +39,8 @@ type Period = (typeof PERIODS)[number]["key"];
 
 const kcal = (n: number) => Math.round(n).toLocaleString();
 const kg = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+/** A drink logged for an earlier day lands at this time unless the owner sets another. */
+const EVENING = "20:00";
 const time = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 interface TypeDraft {
@@ -121,6 +123,16 @@ export function AlcoholView({ db, version, onChanged }: Props) {
   const [saveAsType, setSaveAsType] = useState(true);
   const [editing, setEditing] = useState<TypeDraft | null>(null);
   const [curInput, setCurInput] = useState<string | null>(null);
+  // The day drinks are logged for: today logs "now", an earlier day logs at the time picked under it.
+  const [day, setDay] = useState(today());
+  const [at, setAt] = useState(EVENING);
+  const isToday = day === today();
+  const forDay = isToday ? "" : ` for ${fmtDay(day)}`;
+  // Picking an earlier day widens a "Today" list to 7 days, so the drink shows up once logged.
+  function pickDay(d: string) {
+    setDay(d);
+    if (d !== today() && period === "today") setPeriod("week");
+  }
 
   const load = useCallback(async () => {
     const to = today();
@@ -140,8 +152,15 @@ export function AlcoholView({ db, version, onChanged }: Props) {
 
   const run = changeRunner({ setMsg, load, onChanged, scope: "alcohol" });
 
+  /** When the drink was had: now for today, otherwise the picked time on the picked day. */
+  function drunkAt(): number | undefined {
+    if (isToday) return undefined;
+    if (day > today()) throw new Error("That day has not happened yet");
+    return localDateTimeToMs(day, at, timeZone()).ms;
+  }
+
   async function quickLog(t: DrinkType) {
-    await run(async () => setLastIds(await logDrink(db, { typeId: t.id, timeZone: timeZone() })), `Logged ${t.name}.`);
+    await run(async () => setLastIds(await logDrink(db, { typeId: t.id, atMs: drunkAt(), timeZone: timeZone() })), `Logged ${t.name}${forDay}.`);
   }
 
   async function logOther(e: FormEvent) {
@@ -152,9 +171,9 @@ export function AlcoholView({ db, version, onChanged }: Props) {
     const ok = await run(
       async () => {
         const typeId = saveAsType ? await saveDrinkType(db, t) : null;
-        setLastIds(await logDrink(db, { ...t, typeId, count: n, timeZone: timeZone() }));
+        setLastIds(await logDrink(db, { ...t, typeId, count: n, atMs: drunkAt(), timeZone: timeZone() }));
       },
-      `Logged ${n} x ${t.name.trim()}${saveAsType ? " and saved the type" : ""}.`,
+      `Logged ${n} x ${t.name.trim()}${forDay}${saveAsType ? " and saved the type" : ""}.`,
     );
     if (ok) {
       setOther(null);
@@ -171,10 +190,31 @@ export function AlcoholView({ db, version, onChanged }: Props) {
   return (
     <div>
       <SectionHeader title="Log a drink" />
+      <div className="drink-when">
+        <label>
+          Day
+          <input type="date" value={day} max={today()} onChange={(e) => pickDay(e.target.value || today())} />
+        </label>
+        {isToday ? (
+          <button type="button" className="link small" onClick={() => pickDay(addDays(today(), -1))}>
+            Forgot one yesterday?
+          </button>
+        ) : (
+          <>
+            <label>
+              Time
+              <input type="time" value={at} onChange={(e) => setAt(e.target.value || EVENING)} />
+            </label>
+            <button type="button" className="link small" onClick={() => pickDay(today())}>
+              Back to today
+            </button>
+          </>
+        )}
+      </div>
       {types.length === 0 && <p className="muted small">Log a drink once and save it: it gets a one-tap button here.</p>}
       <div className="drink-picks">
         {types.map((d) => (
-          <button key={d.id} className="drink-pick secondary" onClick={() => quickLog(d)} aria-label={`Log one ${d.name}`}>
+          <button key={d.id} className="drink-pick secondary" onClick={() => quickLog(d)} aria-label={`Log one ${d.name}${forDay}`}>
             <span className="quick-icon">
               <Icon name="alcohol" size={20} />
             </span>
@@ -213,7 +253,7 @@ export function AlcoholView({ db, version, onChanged }: Props) {
             </label>
           </div>
           <div className="actions">
-            <button type="submit">Log</button>
+            <button type="submit">Log{forDay}</button>
             <button type="button" className="secondary" onClick={() => setOther(null)}>
               Cancel
             </button>
