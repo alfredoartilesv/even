@@ -92,6 +92,18 @@ export async function cloudPull(
 }
 
 /**
+ * Only the push: a change made on this device (a delete above all) goes up within seconds, not
+ * with the next full sync an hour later. Meanwhile the other device still showed the row, and the
+ * owner deleted or logged it again there, which came back as a duplicate.
+ */
+export async function cloudPush(db: SqlDriver, server: SyncTransport, keys: SyncKeys): Promise<CloudSyncReport> {
+  const report = emptyReport();
+  for (const t of SYNC_TABLES) await pushTable(db, server, keys, t, report);
+  if (report.pushed) log.info("changes pushed", { pushed: report.pushed, accepted: report.accepted });
+  return report;
+}
+
+/**
  * The synced settings (profile and photo) both ways, on their own: a few rows, so a change made
  * on one device goes up at once, and a device opening gets them before the rest of its pull.
  * The pull cursor does not move: the full pull still reads these rows, and merges them as no change.
@@ -293,6 +305,9 @@ async function pullNewestFirst(
  * meanwhile lost it for good, as the cursor moved past it.
  */
 async function mergePage(db: SqlDriver, keys: SyncKeys, rows: PullResult["rows"], report: CloudSyncReport, nowMs: number, moveCursor: () => Promise<void>) {
+  // Nothing new, as most of the light pulls between syncs find: no transaction, so no window in
+  // which the owner's own edit on the phone lands while the triggers are off.
+  if (rows.length === 0) return moveCursor();
   const byName = new Map(SYNC_TABLES.map((t) => [t.name, t]));
   // Parents before children within a page (SYNC_TABLES is in restore order).
   const grouped = new Map<string, { columns: string[]; values: SqlValue[] }[]>();

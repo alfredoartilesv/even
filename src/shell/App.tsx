@@ -37,6 +37,11 @@ import "../ui/ui.css";
 type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
 
 const log = createLogger("app");
+/** How soon a change made here is pushed, at most. */
+const PUSH_SOON_MS = 5_000;
+/** How often the other devices' changes are pulled while the app stays in front, and the least time between two pulls on coming back. */
+const LIGHT_PULL_EVERY_MS = 2 * 60_000;
+const LIGHT_PULL_MIN_MS = 15_000;
 
 export function App({ target }: { target: Target }) {
   const [dbStatus, setDbStatus] = useState<DbStatus>({ state: "opening" });
@@ -120,7 +125,7 @@ export function App({ target }: { target: Target }) {
    * in transaction". `queue` runs them in turn; `running` lets a sync asked for during one join it.
    */
   const queue = useRef<Promise<void>>(Promise.resolve());
-  const inTurn = (fn: () => Promise<void>) => (queue.current = queue.current.then(fn, fn));
+  const inTurn = useCallback((fn: () => Promise<void>) => (queue.current = queue.current.then(fn, fn)), []);
   const running = useRef<Promise<void> | null>(null);
   const sync = useCallback(() => {
     running.current ??= inTurn(runAll).finally(() => (running.current = null));
@@ -198,6 +203,44 @@ export function App({ target }: { target: Target }) {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [configured, syncing, status, sync]);
+
+  /**
+   * Between full syncs (on open, and an hour after the last one), keep the devices in step: what
+   * changed here goes up within seconds and when the app is left, and what the others changed
+   * comes down when it is back in front and every few minutes while it stays there. A delete
+   * that waited for the next full sync was still shown on the other device, where the owner
+   * deleted or logged it again, and it came back twice.
+   */
+  useEffect(() => {
+    if (!db || !session) return;
+    const fetchFn = deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 60_000 });
+    let busy = false;
+    let lastPullMs = Date.now();
+    const light = (pull: boolean) => {
+      // A full sync running or queued does both already.
+      if (busy || running.current || !navigator.onLine) return;
+      busy = true;
+      void inTurn(async () => {
+        const cloudSync = await import("../domain/cloudsync/syncNow");
+        await cloudSync.pushPending(db, session, { fetchFn }).catch((err) => log.warn("changes not pushed", { err }));
+        if (!pull) return;
+        lastPullMs = Date.now();
+        await cloudSync.pullFirst(db, session, { fetchFn, onProgress: show }).catch((err) => log.warn("cloud pull failed", { err }));
+      }).finally(() => (busy = false));
+    };
+    const tick = setInterval(() => {
+      if (document.visibilityState === "visible") light(Date.now() - lastPullMs > LIGHT_PULL_EVERY_MS);
+    }, PUSH_SOON_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") light(false);
+      else light(Date.now() - lastPullMs > LIGHT_PULL_MIN_MS);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [db, session, inTurn, show]);
 
   // Sync on open, so the latest day (Garmin, Apple Health) is there when the app is.
   useEffect(() => {
