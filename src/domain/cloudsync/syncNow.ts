@@ -3,7 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
 import type { LastSync } from "../sync/runSync";
 import { transportOf } from "./api";
-import { cloudSync, type CloudSyncReport } from "./cloudSync";
+import { cloudPull, cloudSync, cloudSyncSettings, type CloudSyncReport, type SyncOptions } from "./cloudSync";
 import { pushShares } from "./friends";
 import { fromHex } from "./keys";
 import { syncKeys } from "./seal";
@@ -20,11 +20,15 @@ export type CloudSyncResult = CloudSyncReport & { shared: number };
  * One full sync: this device's rows up and everyone's down, then the friend summaries. A failed
  * share does not fail the sync (the rows are what matters); the error is kept for the Sync screen.
  */
-export async function syncNow(db: SqlDriver, session: SyncSession, opts: { fetchFn?: typeof fetch; today: string; nowMs?: number }): Promise<CloudSyncResult> {
+export async function syncNow(
+  db: SqlDriver,
+  session: SyncSession,
+  opts: SyncOptions & { fetchFn?: typeof fetch; today: string; nowMs?: number },
+): Promise<CloudSyncResult> {
   const nowMs = opts.nowMs ?? Date.now();
   const api = sessionApi(session, opts.fetchFn);
   try {
-    const report = await cloudSync(db, transportOf(api), await syncKeys(fromHex(session.adk)), nowMs);
+    const report = await cloudSync(db, transportOf(api), await syncKeys(fromHex(session.adk)), nowMs, opts);
     let shared = 0;
     try {
       shared = await pushShares(db, api, session, opts.today, nowMs);
@@ -38,6 +42,23 @@ export async function syncNow(db: SqlDriver, session: SyncSession, opts: { fetch
     await setSetting(db, LAST_CLOUD_ERROR_KEY, (err as Error).message, nowMs);
     throw err;
   }
+}
+
+/**
+ * The first steps of a sync, before Garmin: the settings both ways, then what the other devices
+ * wrote, newest first. `onProgress` after each, so the screens fill in as the rows arrive. A
+ * failure here is left to the full sync after it, which records it for the Sync screen.
+ */
+export async function pullFirst(db: SqlDriver, session: SyncSession, opts: SyncOptions & { fetchFn?: typeof fetch; nowMs?: number }): Promise<void> {
+  const transport = transportOf(sessionApi(session, opts.fetchFn));
+  const keys = await syncKeys(fromHex(session.adk));
+  if ((await cloudSyncSettings(db, transport, keys, opts.nowMs)).pulled > 0) opts.onProgress?.();
+  await cloudPull(db, transport, keys, opts.nowMs, opts);
+}
+
+/** A profile or photo change, sent at once instead of with the next sync. */
+export async function pushSettingsNow(db: SqlDriver, session: SyncSession, opts: { fetchFn?: typeof fetch; nowMs?: number } = {}): Promise<void> {
+  await cloudSyncSettings(db, transportOf(sessionApi(session, opts.fetchFn)), await syncKeys(fromHex(session.adk)), opts.nowMs, { pull: false });
 }
 
 export async function lastCloudSync(db: SqlDriver): Promise<{ at: number | null; error: string | null }> {

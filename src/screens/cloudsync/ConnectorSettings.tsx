@@ -10,7 +10,7 @@ import { failed, MsgLine, type Msg } from "../../ui/common";
 import { StatusBadge, Switch } from "../../ui/controls";
 
 /**
- * Settings > Connections > Claude, with Claude connector chosen (docs/users.md section 10): Claude's own apps, on the owner's Claude
+ * Settings > Connections > Claude, beside the Chat tab's API key (docs/users.md section 10): Claude's own apps, on the owner's Claude
  * plan, ask about and add to Even's data through the sync server. Here the owner finds the address
  * to add in Claude, turns it on (the consents the server reads from the synced consents table),
  * sees and cuts off its connections, and undoes what it added.
@@ -56,7 +56,10 @@ export function ConnectorSettings({ db, session, onConnect, onSync, version }: P
   if (!session) {
     return (
       <section className="card">
-        <h2>Claude connector</h2>
+        <div className="card-head">
+          <h2>Claude connector</h2>
+          <StatusBadge status="info">off</StatusBadge>
+        </div>
         <p className="muted small">The connector reaches your data through your Even account: connect this device first.</p>
         <div className="actions">
           <button type="button" onClick={onConnect}>
@@ -71,7 +74,8 @@ export function ConnectorSettings({ db, session, onConnect, onSync, version }: P
 
 function Connector({ db, session, onSync, version }: { db: SqlDriver; session: SyncSession; onSync: () => Promise<void>; version: number }) {
   const api = sessionApi(session, deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }));
-  const url = `${session.serverUrl.replace(/\/+$/, "")}${HEALTH_MCP_PATH}`;
+  // The web app talks to its own origin, so its session has no server address: Claude needs the full one.
+  const url = `${(session.serverUrl || location.origin).replace(/\/+$/, "")}${HEALTH_MCP_PATH}`;
   const [on, setOn] = useState<Record<ConnectorScope, boolean> | null>(null);
   const [aggregates, setAggregates] = useState(true);
   const [grants, setGrants] = useState<McpGrant[]>([]);
@@ -129,10 +133,13 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
   return (
     <>
       <section className="card">
-        <h2>Use Claude with your Claude plan</h2>
+        <div className="card-head">
+          <h2>Claude connector</h2>
+          {on && (on["claude.connector"] ? <StatusBadge status="good">on</StatusBadge> : <StatusBadge status="info">off</StatusBadge>)}
+        </div>
         <p className="muted small">
-          Ask about your data in Claude itself (claude.ai, the Claude app) instead of the Chat tab, on your Claude subscription rather than an API key. In
-          Claude: Settings &gt; Connectors &gt; Add custom connector, with this address, then sign in with your Even email and passphrase.
+          Ask about your data in Claude itself (claude.ai, the Claude app), on your Claude plan, with or without the Chat tab. In Claude: Settings &gt;
+          Connectors &gt; Add custom connector, with this address, then sign in with your Even email and passphrase.
         </p>
         <p>
           <code>{url}</code>

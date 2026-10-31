@@ -21,6 +21,7 @@ import {
   signupBody,
   suspendBody,
   SYNC_PAGE,
+  syncRow,
 } from "../src/core/syncWire.js";
 import { AuthError, SUSPENDED, type AccountStore } from "./accounts.js";
 import type { Actor, AdminStore } from "./admin.js";
@@ -175,6 +176,18 @@ export function createApp(s: Stores, opts: { publicUrl?: string; garminFetch?: t
     const device = c.get("device");
     const res = await s.sync.pull(device.ownerId, after, limit);
     log.info("pull", { device: device.id, rows: res.rows.length, more: res.more });
+    return c.json(res);
+  });
+  app.get("/v1/pull/newest", async (c) => {
+    const { after, limit } = cursor(c);
+    const b = c.req.query("before");
+    const before = b === undefined ? null : Number(b);
+    const tbl = c.req.query("tbl") ?? null;
+    if ((before !== null && (!Number.isSafeInteger(before) || before <= after)) || (tbl !== null && !syncRow.shape.tbl.safeParse(tbl).success))
+      throw new AuthError(400, "bad request");
+    const device = c.get("device");
+    const res = await s.sync.pullNewest(device.ownerId, after, before, limit, tbl);
+    log.info("pull newest", { device: device.id, rows: res.rows.length, more: res.more, oneTable: tbl !== null });
     return c.json(res);
   });
 
