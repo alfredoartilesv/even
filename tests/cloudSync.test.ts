@@ -6,7 +6,8 @@ import { open, rowKey, seal, syncKeys } from "../src/domain/cloudsync/seal";
 import { fromHex, newAdk, passphraseHint } from "../src/domain/cloudsync/keys";
 import { serverBase, SyncHttpError, syncApi, transportOf } from "../src/domain/cloudsync/api";
 import { sessionApi } from "../src/domain/cloudsync/session";
-import { pushSettingsNow, syncNow } from "../src/domain/cloudsync/syncNow";
+import { pullFirst, pushPending, pushSettingsNow, syncNow } from "../src/domain/cloudsync/syncNow";
+import { deleteFood } from "../src/domain/food/food";
 import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
 import { addFood, byPassphrase, firstPhone, foods, lastWriteWins, paging, roundTrip, softDelete, syncedDigest, type Phone } from "../scripts/lib/syncScenario";
@@ -403,6 +404,34 @@ test("syncNow tells the screens after each page it stores", async () => {
   let shown = 0;
   await syncNow(b.db, b.session, { fetchFn: server.fetchFn, today: "2026-10-31", nowMs: 3_000, onProgress: () => shown++ });
   assert.equal(shown, 2);
+});
+
+test("a delete goes up on its own within seconds, and the other device's light pull takes the row away", async () => {
+  const { a, b } = await twoDevices();
+  await addFood(a, "f", "toast", 200, 1_000);
+  await addFood(a, "g", "eggs", 300, 1_100);
+  await a.sync(1_200);
+  await b.sync(1_300);
+  await deleteFood(b.db, "f", 2_000);
+  assert.equal(await pushPending(b.db, b.session, { fetchFn: server.fetchFn }), 1, "only the deleted row goes up");
+  assert.equal(await pendingPush(b.db), 0);
+  await pullFirst(a.db, a.session, { fetchFn: server.fetchFn, nowMs: 2_100 });
+  assert.deepEqual(
+    (await foods(a)).filter((f) => f.deleted_at === null).map((f) => f.id),
+    ["g"],
+    "the phone no longer shows it, so it is not deleted or logged twice",
+  );
+});
+
+test("with nothing changed, a push between syncs sends no request", async () => {
+  const { a } = await twoDevices();
+  let calls = 0;
+  const counting: typeof fetch = (input, init) => {
+    calls++;
+    return server.fetchFn!(input, init);
+  };
+  assert.equal(await pushPending(a.db, a.session, { fetchFn: counting }), 0);
+  assert.equal(calls, 0);
 });
 
 test("server migrations are numbered in order and split into statements", () => {
