@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BarChart, CalendarHeatmap, LineChart, StatTile } from "../src/ui/charts";
-import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, segments } from "../src/ui/charts/scale";
+import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, present, segments } from "../src/ui/charts/scale";
 import { DefrostTimeline, StockAlerts } from "../src/ui/mealprep/components";
 import { daysCovered, timelineDays } from "../src/ui/mealprep/timeline";
 import { MacroSplit } from "../src/ui/nutrition";
@@ -106,6 +106,15 @@ test("charts: accessible name, table toggle, empty state, target in words", () =
   );
   assert.match(multi, /viz-legend/);
   assert.match(multi, /var\(--series-4\)/, "an explicit slot keeps its color");
+
+  // Missing days break the line (two lone days, two dots), unless connectGaps joins them in one line.
+  const gappy = { title: "Mood", x, series: [{ id: "a", label: "Mood", values: [3, null, 5] }] };
+  assert.equal((render(h(LineChart, gappy)).match(/class="viz-line"/g) ?? []).length, 0);
+  assert.equal((render(h(LineChart, { ...gappy, connectGaps: true })).match(/class="viz-line"/g) ?? []).length, 1);
+  assert.deepEqual(present([null, 3, null, null, 5, Number.NaN]), [
+    [1, 3],
+    [4, 5],
+  ]);
 
   const empty = render(h(LineChart, { title: "Nothing", x, series: [{ id: "a", label: "x", values: [null, null, null] }] }));
   assert.match(empty, /No data for this range/);
