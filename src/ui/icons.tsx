@@ -154,6 +154,14 @@ const PATHS = {
       <path d="M14 3v4h4M9 12h6M9 16h6" />
     </>
   ),
+  qr: (
+    <>
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <path d="M14 14h2v2M20 14v.01M14 20h.01M17 17h3v3h-3z" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof PATHS;

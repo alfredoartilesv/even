@@ -5,8 +5,9 @@ import { keepNothing } from "../../platform/idb";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { SecretInput, Switch } from "../../ui/controls";
 import { Segmented } from "../../ui/layout";
+import { QrCode } from "../../ui/QrCode";
 import { checkPassphrase, passphraseHint } from "../../domain/cloudsync/keys";
-import { createAccount, signInWithPassphrase, startPairing, type PairingRequest, type SyncSession } from "../../domain/cloudsync/session";
+import { createAccount, pairingQrText, signInWithPassphrase, startPairing, type PairingRequest, type SyncSession } from "../../domain/cloudsync/session";
 
 type Mode = "signin" | "pair" | "create";
 
@@ -42,7 +43,7 @@ function browserName(): string {
 // One line under the chooser, so a first-time owner knows which way is theirs before reading a form.
 const MODE_HINT: Record<Mode, string> = {
   signin: "You already have an account: your email and recovery passphrase open it here.",
-  pair: "A phone or browser of yours is already connected and at hand: approve this one from it, no passphrase needed.",
+  pair: "A phone or browser of yours is already connected and at hand: scan this screen with it, no passphrase needed.",
   create: "First time here: you have an invite code and want to start your account.",
 };
 
@@ -60,7 +61,9 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   const device = shared ? { ...plain, name: `${plain.name} (shared)` } : plain;
   // Chosen before anything is stored: the session and the data then stay in this tab's memory.
   const before = () => shared && keepNothing();
-  const flow = { server, secrets, device, fetchFn, before, onConnected, onMode: setMode };
+  // On the web the server is this origin; on the phone the code waits for an address that can work.
+  const serverReady = !isNative || isUrl(server.trim());
+  const flow = { server, serverReady, secrets, device, fetchFn, before, onConnected, onMode: setMode };
   return (
     <div className="stack">
       <Segmented
@@ -93,8 +96,18 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   );
 }
 
+function isUrl(s: string): boolean {
+  try {
+    return /^https?:$/.test(new URL(s).protocol);
+  } catch {
+    return false;
+  }
+}
+
 interface FlowProps {
   server: string;
+  /** The server address is complete enough to ask it for a pairing code without the owner pressing anything. */
+  serverReady: boolean;
   secrets: SecretStore;
   device: { name: string; kind: "phone" | "web" };
   fetchFn: typeof fetch | undefined;
@@ -179,7 +192,11 @@ function useCountdown(until: number | null): string | null {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function Pair({ server, secrets, device, fetchFn, before, onConnected }: FlowProps) {
+// A code lasts 5 minutes. Left open longer, the screen fetches a fresh one by itself this many times,
+// so a phone fetched from another room still finds a live code, without asking the server forever.
+const AUTO_RENEWALS = 3;
+
+function Pair({ server, serverReady, secrets, device, fetchFn, before, onConnected }: FlowProps) {
   const [req, setReq] = useState<PairingRequest | null>(null);
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -187,6 +204,7 @@ function Pair({ server, secrets, device, fetchFn, before, onConnected }: FlowPro
   // Made per code, not once per mount: React's development double mount runs the unmount cleanup
   // straight away, which aborted a controller kept in state before the first code was even asked for.
   const stop = useRef<AbortController | null>(null);
+  const renewals = useRef(0);
   useEffect(() => () => stop.current?.abort(), []);
   const left = useCountdown(req?.expiresAt ?? null);
 
@@ -198,25 +216,38 @@ function Pair({ server, secrets, device, fetchFn, before, onConnected }: FlowPro
     setCopied(false);
     setAsking(true);
     try {
-      before();
-      const r = await startPairing(server, secrets, device, { fetchFn, signal: ctl.signal });
+      // The shared-computer choice applies when the keys arrive, not now: it can still change while the code shows.
+      const r = await startPairing(server, secrets, device, { fetchFn, signal: ctl.signal, beforeSave: before });
+      if (ctl.signal.aborted) return;
       setReq(r);
       r.done.then(onConnected, (err) => {
         if (ctl.signal.aborted) return;
         setReq(null);
+        const expired = Date.now() >= r.expiresAt || /expired/i.test(err instanceof Error ? err.message : "");
+        if (expired && renewals.current < AUTO_RENEWALS) {
+          renewals.current++;
+          void begin();
+          return;
+        }
         setMsg(failed(err, "cloudsync"));
       });
     } catch (err) {
-      setMsg(failed(err, "cloudsync"));
+      if (!ctl.signal.aborted) setMsg(failed(err, "cloudsync"));
     } finally {
-      setAsking(false);
+      if (stop.current === ctl) setAsking(false);
     }
   }
+  const beginRef = useRef(begin);
+  beginRef.current = begin;
 
-  function cancel() {
-    stop.current?.abort();
-    setReq(null);
-  }
+  // The code is the whole point of this screen, so it comes without a button press. A new one when
+  // this device's name changes (the shared-computer switch) or the phone's server address settles.
+  useEffect(() => {
+    if (!serverReady) return;
+    renewals.current = 0;
+    const t = setTimeout(() => void beginRef.current(), 400);
+    return () => clearTimeout(t);
+  }, [serverReady, server, device.name]);
 
   async function copy(code: string) {
     try {
@@ -230,38 +261,56 @@ function Pair({ server, secrets, device, fetchFn, before, onConnected }: FlowPro
   if (!req) {
     return (
       <div className="stack">
-        <ol className="steps small">
-          <li>Get a code here.</li>
-          <li>
-            On the device that is already connected, open Settings, then <b>Sync &amp; devices</b>, and type the code under <b>Add a device</b>.
-          </li>
-          <li>Approve there. This screen opens by itself.</li>
-        </ol>
-        <button type="button" onClick={() => void begin()} disabled={asking}>
-          {asking ? "Getting a code…" : msg ? "Get a new code" : "Get a pairing code"}
-        </button>
+        {asking ? (
+          <div className="pair-qr pending" aria-busy="true">
+            <p className="muted small">Getting a pairing code…</p>
+          </div>
+        ) : (
+          <>
+            <PairSteps />
+            <button type="button" onClick={() => ((renewals.current = 0), void begin())} disabled={!server.trim() && !serverReady}>
+              {msg ? "Get a new code" : "Show the pairing code"}
+            </button>
+          </>
+        )}
         <MsgLine msg={msg} />
       </div>
     );
   }
   return (
     <div className="stack" aria-live="polite">
-      <p className="pairing-code" aria-label={`Pairing code ${req.code.split("").join(" ")}`}>
-        {req.code}
+      <div className="pair-qr">
+        <QrCode text={pairingQrText(req.code)} label="Pairing QR code. Scan it from Even on your connected device." />
+      </div>
+      <PairSteps />
+      <p className="muted small center">
+        Waiting for the approval… This code works once, for {left ?? "5:00"} more. Your keys come straight to this device, sealed; the server cannot read them.
       </p>
-      <div className="row">
-        <button type="button" className="grow" onClick={() => void copy(req.code)}>
+      <details className="more">
+        <summary className="small accent">Can't scan? Type the code instead</summary>
+        <p className="pairing-code" aria-label={`Pairing code ${req.code.split("").join(" ")}`}>
+          {req.code}
+        </p>
+        <button type="button" className="secondary" onClick={() => void copy(req.code)}>
           {copied ? "Copied" : "Copy the code"}
         </button>
-        <button type="button" className="secondary grow" onClick={cancel}>
-          Cancel
-        </button>
-      </div>
-      <p className="muted small">
-        Type it on your connected device: Settings, then <b>Sync &amp; devices</b>, then <b>Add a device</b>. Waiting for the approval… The code works once, for{" "}
-        {left ?? "5:00"} more. Your keys come straight to this device, sealed; the server cannot read them.
-      </p>
+      </details>
     </div>
+  );
+}
+
+/** The three steps on the device that is already connected. */
+function PairSteps() {
+  return (
+    <ol className="steps small">
+      <li>
+        On your phone or browser that is already connected, open Even, then Settings, <b>Sync &amp; devices</b>.
+      </li>
+      <li>
+        Under <b>Add a device</b>, tap <b>Scan the QR code</b> and point the camera at this screen. (Use Even's scanner, not the camera app.)
+      </li>
+      <li>Check the name it shows and approve. This screen opens by itself.</li>
+    </ol>
   );
 }
 

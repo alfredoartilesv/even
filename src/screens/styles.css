@@ -1713,6 +1713,54 @@ html {
   color: var(--fg);
   user-select: all;
 }
+/* The pairing QR: centred on a white plate (cameras need the contrast in dark mode too), with a
+   fixed height while the code loads so the steps under it do not jump. */
+.pair-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 236px;
+}
+.qr-code {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  padding: 8px;
+  background: var(--qr-light);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+/* The scanner: a square camera view, the area to aim at marked and the rest dimmed. */
+.qr-viewfinder {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--camera-bg);
+}
+.qr-viewfinder video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.qr-frame {
+  position: absolute;
+  inset: 15%;
+  border: 3px solid var(--qr-light);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 999px var(--scrim);
+  pointer-events: none;
+}
+button.with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
 /* Numbered how-to lines (pairing): the number in the accent colour, the text wrapping under itself */
 ol.steps {
   margin: 0;

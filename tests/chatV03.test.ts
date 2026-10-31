@@ -25,7 +25,7 @@ import { upsertSamples } from "../src/domain/metrics/samples";
 import type { SampleInput } from "../src/domain/sync/types";
 import { listMeasurements } from "../src/domain/journal/entries";
 import { migratedDb } from "./helpers";
-import { addRecognitionQuery } from "../scripts/android-manifest.mjs";
+import { addCameraPermission, addRecognitionQuery } from "../scripts/android-manifest.mjs";
 import { MICROPHONE_USAGE, patchInfoPlist, SPEECH_USAGE } from "../scripts/ios-project.mjs";
 
 type BetaMessage = Anthropic.Beta.Messages.BetaMessage;
@@ -446,11 +446,25 @@ test("Android: the speech service is declared visible once, so the recognizer is
   assert.throws(() => addRecognitionQuery("<manifest>"), /no <\/manifest>/);
 });
 
+test("Android: the camera is declared once for the pairing scanner, and optional so devices without one still install", () => {
+  const generated = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="Even" />
+</manifest>
+`;
+  const once = addCameraPermission(generated);
+  assert.match(once, /<uses-permission android:name="android\.permission\.CAMERA" \/>/);
+  assert.match(once, /<uses-feature android:name="android\.hardware\.camera" android:required="false" \/>/);
+  assert.equal(addCameraPermission(once), once, "idempotent");
+  assert.throws(() => addCameraPermission("<manifest>"), /no <\/manifest>/);
+});
+
 test("iOS: the microphone and speech recognition texts are in Info.plist, once", () => {
   const plist = `<plist><dict>\n\t<key>CFBundleDisplayName</key>\n\t<string>x</string>\n</dict></plist>`;
   const once = patchInfoPlist(plist, "Even");
   assert.match(once, /<key>NSMicrophoneUsageDescription<\/key>\s*<string>[^<]*not kept or sent to Claude/);
   assert.match(once, /<key>NSSpeechRecognitionUsageDescription<\/key>/);
+  assert.match(once, /<key>NSCameraUsageDescription<\/key>\s*<string>[^<]*pairing QR/);
   assert.equal(patchInfoPlist(once, "Even"), once);
   assert.ok(MICROPHONE_USAGE.length > 20 && SPEECH_USAGE.length > 20);
 });
