@@ -155,3 +155,27 @@ Claude (on claude.ai or the Claude apps, on the owner's Pro plan) manages Even a
 
 Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel function as the API. `PUBLIC_URL` (for example `https://even.vercel.app`) fixes the issuer and resource address; without it they come from the request.
 
+
+## 10. The health connector (decided 31 Oct 2026)
+
+The owner asks about their own data in Claude itself (claude.ai, the Claude apps) on their **Claude plan**, instead of the Chat tab on an API key. Claude's apps cannot call into the phone, so the connector runs on the sync server at `<server>/mcp/health` (`server/healthMcp.ts`), for any account, its own data only. Using a subscription's OAuth token inside Even was rejected: Anthropic allows those tokens only in Claude's own apps and Claude Code.
+
+**What it can do:** the Chat tab's tools, with the same names, schemas and limits (`src/domain/chat/tools.ts`, `actions.ts`), plus `get_context` (today in the owner's time zone and the Chat tab's opening snapshot). Read tools are read-only; write tools only add, as in the Chat tab. Claude asks before each write tool call (they are marked not read-only), and the owner can undo each change in Settings > Claude connector.
+
+**Consent** (`src/domain/chat/consent.ts`), given on the phone and read by the server from the synced `consents` rows:
+- `claude.connector`: nothing is read without it.
+- `claude.connector_changes`: the write tools.
+- Each read tool still needs its class's consent (`claude.aggregates`, `claude.raw_series`, `claude.notes`), the same switches as the Chat tab.
+Every result sent is logged in `ai_disclosures` (summary "Connector: ...", no conversation) and every change in `agent_actions`; both sync to the phone's "Sent to Claude" list and the connector page.
+
+**Sign-in** (`server/oauth.ts`, scope `health`; the admin scope and `/mcp` are unchanged):
+1. Claude finds `/.well-known/oauth-protected-resource/mcp/health`, registers, and opens `/oauth/authorize` with the `/mcp/health` resource.
+2. The page derives the passphrase's two keys in the browser and sends the proof to `/oauth/authorize/start`, which checks it (the usual rate limits), makes a code with no keys yet, and returns it with the wrapped account data key.
+3. The browser unwraps the account data key, derives the **two sync keys** from it (`seal.ts syncKeyBits`) and posts only those, with the code and its time zone. The account data key and the passphrase never leave the browser, so the server still cannot open the identity key or friends' shares.
+4. The server checks the keys open one of the account's rows, seals them with the code (`server/connectorKeys.ts`), and redirects to Claude. A code without keys cannot be exchanged.
+5. At the token exchange the keys are sealed again with the access token and with the refresh token (and on every refresh). Postgres keeps only the SHA-256 of codes and tokens, so the sealed keys open only for a request that brings a live token. The HKDF salt is `SERVER_SECRET`: changing it disconnects every health connector.
+6. The grant gets its own device (`added_by` `connector`, no usable token), which its changes are pushed as.
+
+**Each request:** the token opens the keys; the server keeps an in-memory copy of the owner's database for the grant (node:sqlite with the app's migrations, at most 3 copies, dropped after 15 minutes idle), brought up to date with the phone's own sync code (`cloudSync`, without photos, chats and the disclosure log), runs the tool, then pushes what it wrote. Nothing readable is written to Postgres or the logs.
+
+**Stopping it:** Disconnect in Settings > Claude connector (or in Claude), turning `claude.connector` off, removing the connector's device, or suspending the account. Disconnecting deletes the grant's sealed keys and removes its device.
