@@ -3,7 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
 import type { LastSync } from "../sync/runSync";
 import { transportOf } from "./api";
-import { cloudPull, cloudSync, cloudSyncSettings, type CloudSyncReport, type SyncOptions } from "./cloudSync";
+import { cloudPull, cloudPush, cloudSync, cloudSyncSettings, pendingPush, type CloudSyncReport, type SyncOptions } from "./cloudSync";
 import { pushShares } from "./friends";
 import { fromHex } from "./keys";
 import { syncKeys } from "./seal";
@@ -54,6 +54,13 @@ export async function pullFirst(db: SqlDriver, session: SyncSession, opts: SyncO
   const keys = await syncKeys(fromHex(session.adk));
   if ((await cloudSyncSettings(db, transport, keys, opts.nowMs)).pulled > 0) opts.onProgress?.();
   await cloudPull(db, transport, keys, opts.nowMs, opts);
+}
+
+/** What this device changed since its last push, sent now. With nothing waiting it costs one local query and no request. */
+export async function pushPending(db: SqlDriver, session: SyncSession, opts: { fetchFn?: typeof fetch } = {}): Promise<number> {
+  if ((await pendingPush(db)) === 0) return 0;
+  const report = await cloudPush(db, transportOf(sessionApi(session, opts.fetchFn)), await syncKeys(fromHex(session.adk)));
+  return report.pushed;
 }
 
 /** A profile or photo change, sent at once instead of with the next sync. */
