@@ -322,6 +322,17 @@ input.qty.wide {
 .suggestion.dim {
   opacity: 0.7;
 }
+/* Which day the drink taps log for: day (and time for an earlier day) on one line, wrapping on a narrow phone. */
+.drink-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.drink-when .link {
+  min-height: 44px;
+}
 /* Saved drinks as tiles to log one with a tap: name first, size and strength under it. */
 .drink-picks {
   display: grid;
