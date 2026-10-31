@@ -2,6 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, type Tool } from "@modelcontextprotocol/sdk/types.js";
 import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { createLogger } from "../src/core/log.js";
 import { HEALTH_MCP_PATH } from "../src/core/syncWire.js";
 import type { SqlDriver } from "../src/db/driver.js";
@@ -15,6 +16,7 @@ import { cloudSync } from "../src/domain/cloudsync/cloudSync.js";
 import type { SyncKeys } from "../src/domain/cloudsync/seal.js";
 import { syncKeysOf } from "./connectorKeys.js";
 import { originOf, type Connector, type OAuthStore } from "./oauth.js";
+import { firstLoad } from "./ownerCopy.js";
 import { migratedNodeDb } from "./sqlite.js";
 import type { SyncStore } from "./store.js";
 
@@ -43,8 +45,9 @@ const MAX_CACHED = 3;
 const IDLE_MS = 15 * 60_000;
 
 interface OwnerCopy {
-  db: SqlDriver;
-  keys: SyncKeys;
+  /** Made by the first request in the queue, so two first requests never make two copies. */
+  db: SqlDriver | null;
+  keys: SyncKeys | null;
   usedAt: number;
   /** One request at a time per copy: sync and tools share the database. */
   queue: Promise<unknown>;
@@ -64,10 +67,7 @@ function evict(nowMs: number): void {
 async function withOwnerData<T>(sync: SyncStore, conn: Connector, fn: (db: SqlDriver) => Promise<T>, nowMs = Date.now()): Promise<T> {
   let copy = copies.get(conn.grantId);
   if (!copy) {
-    const { db } = await migratedNodeDb(":memory:");
-    // Rows the migrations seeded are not the owner's: they must never be pushed over the owner's own.
-    await db.run("DELETE FROM cloud_sync_outbox");
-    copy = { db, keys: await syncKeysOf(conn.keys), usedAt: nowMs, queue: Promise.resolve() };
+    copy = { db: null, keys: null, usedAt: nowMs, queue: Promise.resolve() };
     copies.set(conn.grantId, copy);
   }
   copy.usedAt = nowMs;
@@ -79,9 +79,19 @@ async function withOwnerData<T>(sync: SyncStore, conn: Connector, fn: (db: SqlDr
   };
   const run = c.queue.then(async () => {
     const done = log.time("connector request", "info");
-    const before = await cloudSync(c.db, transport, c.keys, Date.now());
-    const out = await fn(c.db);
-    const after = await cloudSync(c.db, transport, c.keys, Date.now());
+    if (!c.db || !c.keys) {
+      const { db } = await migratedNodeDb(":memory:");
+      // Rows the migrations seeded are not the owner's: they must never be pushed over the owner's own.
+      await db.run("DELETE FROM cloud_sync_outbox");
+      const loaded = await firstLoad(db, transport.pull, Buffer.from(conn.keys.enc, "base64"), Date.now());
+      log.info("connector copy made", { grant: conn.grantId, ...loaded });
+      c.keys = await syncKeysOf(conn.keys);
+      c.db = db;
+    }
+    const { db, keys } = c;
+    const before = await cloudSync(db, transport, keys, Date.now());
+    const out = await fn(db);
+    const after = await cloudSync(db, transport, keys, Date.now());
     done({ pulled: before.pulled + after.pulled, pushed: after.pushed, rejected: before.rejected + after.rejected });
     return out;
   });
@@ -135,6 +145,13 @@ const INSTRUCTIONS = `Even is the owner's personal health app. These tools read 
 /** One tool call on the owner's data, with the phone's consent rules, logged as the phone logs it. */
 async function callTool(db: SqlDriver, conn: Connector, name: string, input: unknown, nowMs: number): Promise<CallToolResult> {
   if (!(await hasConsent(db, "claude.connector"))) return text(NOT_ON, true);
+  // As in the Chat tab, nothing at all without the aggregates consent: a write tool's checks and
+  // answers read existing data too (a batch's name, how many portions are left).
+  if (!(await hasConsent(db, SCOPE_FOR.aggregate)))
+    return text(
+      `The owner has not allowed sending summaries of their data (${SCOPE_FOR.aggregate}), which every use needs. Tell them they can allow it in Even's Settings > Privacy & data.`,
+      true,
+    );
   const tz = conn.keys.timeZone;
 
   const writer = WRITE_TOOLS_BY_NAME.get(name);
@@ -152,11 +169,12 @@ async function callTool(db: SqlDriver, conn: Connector, name: string, input: unk
       const applied = await prepared.apply();
       await logAgentAction(db, { ...entry, status: "applied", rows: applied.rows, now: nowMs });
       log.info("connector change saved", { tool: name, rows: applied.rows.length });
-      return text(JSON.stringify({ status: "saved", saved: prepared.lines, ...(applied.result as object) }));
+      return text(JSON.stringify({ status: "saved", ...(applied.result as object) }));
     } catch (err) {
       const message = errorText(err);
       await logAgentAction(db, { ...entry, status: "failed", error: message, now: nowMs });
-      log.error("connector change failed, nothing saved", { tool: name, err });
+      // The error's name only: messages can carry food or drink names, and server logs leave the phone.
+      log.error("connector change failed, nothing saved", { tool: name, error: (err as Error)?.name ?? "unknown" });
       return text(`Saving failed, nothing was saved: ${message}`, true);
     }
   }
@@ -205,9 +223,9 @@ export function healthMcpServer(sync: SyncStore, conn: Connector): Server {
     try {
       return await withOwnerData(sync, conn, (db) => callTool(db, conn, req.params.name, req.params.arguments ?? {}, nowMs));
     } catch (err) {
-      // A copy that failed to sync is rebuilt on the next call rather than kept half made.
-      dropOwnerData(conn.grantId);
-      log.error("connector call failed", { tool: req.params.name, err });
+      // The copy is kept: each sync page is its own transaction, and what is still in its outbox
+      // (a change and its action log entry) goes up on the next call. A copy never made is retried.
+      log.error("connector call failed", { tool: req.params.name, error: (err as Error)?.name ?? "unknown" });
       return text("Even could not open the owner's data just now. Try again in a moment.", true);
     }
   });
@@ -217,7 +235,7 @@ export function healthMcpServer(sync: SyncStore, conn: Connector): Server {
 /** /mcp/health: a bearer token from the OAuth flow, of the health scope (server/oauth.ts). */
 export function healthMcpApp(s: { oauth: OAuthStore; sync: SyncStore }, opts: { publicUrl?: string }): Hono {
   const app = new Hono();
-  app.all(HEALTH_MCP_PATH, async (c: Context) => {
+  app.all(HEALTH_MCP_PATH, bodyLimit({ maxSize: 1_000_000, onError: (c) => c.json({ error: "too large" }, 413) }), async (c: Context) => {
     const token = /^Bearer (\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
     const conn = token ? await s.oauth.connectorFor(token) : null;
     if (!conn) {

@@ -230,3 +230,47 @@ test("a refreshed token still opens the data; disconnecting in the app stops it 
   const [d] = await server.pg.query<{ revoked_at: number | null }>("SELECT revoked_at FROM devices WHERE id = $1", [g.device_id]);
   assert.notEqual(d.revoked_at, null);
 });
+
+test("the code's copy of the keys is cleared once used, and a refresh token works once only", async () => {
+  const { email, phone } = await owner();
+  await allow(phone, "claude.connector", "claude.aggregates");
+  const { tokens, clientId } = await connect(email);
+  const codes = await server.pg.query<{ keys_sealed: string | null }>("SELECT keys_sealed FROM oauth_codes WHERE account_id = $1", [phone.session.accountId]);
+  assert.ok(codes.length > 0 && codes.every((c) => c.keys_sealed === null));
+  const refresh = () => client.req("/oauth/token", client.form({ grant_type: "refresh_token", refresh_token: tokens!.refresh_token, client_id: clientId }));
+  const [first, second] = await Promise.all([refresh(), refresh()]);
+  assert.deepEqual([first.status, second.status].sort(), [200, 400]);
+});
+
+test("without the summaries consent even a write tool answers nothing about existing data", async () => {
+  const { email, phone } = await owner();
+  await allow(phone, "claude.connector", "claude.connector_changes");
+  const { tokens } = await connect(email);
+  const res = await call(tokens!.access_token, "add_day_note", { day: localDay(Date.now(), TZ), mood: 3, energy: 3, note: "x" });
+  assert.ok(res.isError);
+  assert.match(res.text, /claude\.aggregates/);
+  await phone.sync();
+  assert.equal((await phone.db.all("SELECT 1 FROM day_notes")).length, 0);
+});
+
+test("removing the connector's device, or suspending the account, stops it; deleting the account removes its grants", async () => {
+  const { email, phone } = await owner();
+  await allow(phone, "claude.connector", "claude.aggregates");
+  const api = syncApi(BASE, server.fetchFn, phone.session.token);
+  const one = await connect(email);
+  const [g] = await server.pg.query<{ device_id: string }>("SELECT device_id FROM mcp_grants WHERE account_id = $1", [phone.session.accountId]);
+  await api.revokeDevice(g.device_id);
+  assert.equal((await client.rpc(HEALTH, one.tokens!.access_token, "tools/list")).status, 401);
+  assert.deepEqual(await api.connectorGrants(), [], "its grant goes with it");
+
+  const two = await connect(email);
+  await server.stores.admin.setSuspended({ id: "cli", via: "cli" }, phone.session.accountId, true);
+  assert.equal((await client.rpc(HEALTH, two.tokens!.access_token, "tools/list")).status, 401);
+  await server.stores.admin.setSuspended({ id: "cli", via: "cli" }, phone.session.accountId, false);
+
+  await api.deleteAccount();
+  for (const t of ["mcp_grants", "oauth_codes", "devices"]) {
+    const col = t === "devices" ? "owner_id" : "account_id";
+    assert.equal((await server.pg.query(`SELECT 1 FROM ${t} WHERE ${col} = $1`, [phone.session.accountId])).length, 0, t);
+  }
+});

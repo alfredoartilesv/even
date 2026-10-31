@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { uuidv7 } from "../src/core/uuidv7.js";
 import type { DeviceInfo, DeviceKind, Joined, Me, PairingStatus, RecoveryStart, RecoveryUpdateBody, SignupBody } from "../src/core/syncWire.js";
 import type { Pg } from "./pg.js";
+import { revokeDeviceGrants } from "./store.js";
 import { sha256Hex } from "../src/core/hash.js";
 
 /**
@@ -291,6 +292,7 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
         nowMs,
       ]);
       if (rows.length === 0) throw new AuthError(404, "No such device on this account");
+      await revokeDeviceGrants(pg, deviceId, nowMs);
     },
 
     async quotaLeft(accountId: string): Promise<number> {
@@ -310,6 +312,9 @@ export function accountStore(pg: Pg, opts: { serverSecret: string; rateLimits?: 
         await q.query("DELETE FROM friend_invites WHERE account_id = $1", [accountId]);
         await q.query("DELETE FROM sync_rows WHERE owner_id = $1", [accountId]);
         await q.query("DELETE FROM pairings WHERE account_id = $1", [accountId]);
+        // Claude's sign-ins go too: health grants hold sealed sync keys and point at a device.
+        await q.query("DELETE FROM mcp_grants WHERE account_id = $1", [accountId]);
+        await q.query("DELETE FROM oauth_codes WHERE account_id = $1", [accountId]);
         await q.query("DELETE FROM devices WHERE owner_id = $1", [accountId]);
         await q.query("DELETE FROM account_keys WHERE account_id = $1", [accountId]);
         await q.query("UPDATE invites SET account_id = NULL WHERE account_id = $1", [accountId]);
