@@ -71,7 +71,8 @@ export function ConnectorSettings({ db, session, onConnect, onSync, version }: P
 
 function Connector({ db, session, onSync, version }: { db: SqlDriver; session: SyncSession; onSync: () => Promise<void>; version: number }) {
   const api = sessionApi(session, deviceFetch({ connectTimeoutMs: 15_000, readTimeoutMs: 30_000 }));
-  const url = `${session.serverUrl.replace(/\/+$/, "")}${HEALTH_MCP_PATH}`;
+  // The web app talks to its own origin, so its session has no server address: Claude needs the full one.
+  const url = `${(session.serverUrl || location.origin).replace(/\/+$/, "")}${HEALTH_MCP_PATH}`;
   const [on, setOn] = useState<Record<ConnectorScope, boolean> | null>(null);
   const [aggregates, setAggregates] = useState(true);
   const [grants, setGrants] = useState<McpGrant[]>([]);
