@@ -33,6 +33,9 @@
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
  *   --brand-ring  the logo's ring track
  *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
+ *   --qr-dark, --qr-light  a QR code's modules and plate: black on white in both themes, since
+ *                 cameras read that contrast best (the pairing code, the scanner's aiming frame)
+ *   --camera-bg   behind the camera view before the picture comes
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -80,6 +83,9 @@
   --brand: #0f766e;
   --brand-ring: #7fd1c6;
   --on-brand: #ffffff;
+  --qr-dark: #000000;
+  --qr-light: #ffffff;
+  --camera-bg: #000000;
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
@@ -163,6 +169,7 @@ code { font-size: 0.9em; }
 <tr><td><code>--brand</code></td><td>the Even logo tile: launcher icon, splash icon, favicon (same in both themes)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td></tr>
 <tr><td><code>--brand-ring</code></td><td>the logo's ring track</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td></tr>
 <tr><td><code>--on-brand</code></td><td>the logo's mark (the filled half of the ring, the equals sign)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td></tr>
+<tr><td><code>--camera-bg</code></td><td>behind the camera view before the picture comes</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#000000;vertical-align:middle"></span> <code>#000000</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#000000;vertical-align:middle"></span> <code>#000000</code></td></tr>
 </tbody></table>
 <h2>Chart series</h2>
 <p class="muted">The validated categorical palette for charts with several series, in this order. One-series charts use the accent.</p>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createLogger } from "../../core/log";
 import type { FrameAccount, FrameProps } from "../../shell/target";
-import { TABS, type Tab } from "../../shell/tabs";
+import { TABS, type Tab, type TabItem } from "../../shell/tabs";
 import { Icon } from "../../ui/icons";
 import { NavMenu } from "../../ui/layout";
 import { Logo } from "../../ui/logo";
@@ -63,7 +63,19 @@ export function useSideNav(): SideNavState {
  * upright it slides in over the page from the menu button and closes on a choice, a tap outside or
  * Escape; on a wider screen it stays docked on the left, with a button to narrow it to icons and back.
  */
-export function SideNav({ tab, onTab, nav, account }: { tab: Tab; onTab: (t: Tab) => void; nav: SideNavState; account: FrameAccount | null }) {
+export function SideNav({
+  tab,
+  onTab,
+  nav,
+  account,
+  tabs = TABS,
+}: {
+  tab: Tab;
+  onTab: (t: Tab) => void;
+  nav: SideNavState;
+  account: FrameAccount | null;
+  tabs?: TabItem[];
+}) {
   const { docked, open, rail, setOpen, toggleRail } = nav;
   const ref = useRef<HTMLElement>(null);
 
@@ -103,7 +115,7 @@ export function SideNav({ tab, onTab, nav, account }: { tab: Tab; onTab: (t: Tab
           </button>
         </div>
         <ul>
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <li key={t.id}>
               <button
                 type="button"
@@ -160,11 +172,11 @@ function AccountFoot({ account, rail }: { account: FrameAccount; rail: boolean }
  * The web app's frame: the side menu beside the page, and the menu button for PageHeader. Docked,
  * the page moves over by the menu's width (web.css).
  */
-export function SideNavFrame({ tab, onTab, account, children }: FrameProps) {
+export function SideNavFrame({ tab, onTab, tabs, account, children }: FrameProps) {
   const nav = useSideNav();
   return (
     <div className={`app-frame${nav.rail ? " rail" : ""}`}>
-      <SideNav nav={nav} tab={tab} onTab={onTab} account={account} />
+      <SideNav nav={nav} tab={tab} onTab={onTab} tabs={tabs} account={account} />
       <NavMenu value={{ open: nav.open, onOpen: () => nav.setOpen(true) }}>{children}</NavMenu>
     </div>
   );

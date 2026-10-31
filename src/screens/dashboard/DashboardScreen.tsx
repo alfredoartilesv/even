@@ -53,7 +53,8 @@ let lastSpan: Span = "day";
 export interface DashboardLinks {
   logFood: () => void;
   logDrink: () => void;
-  askClaude: () => void;
+  /** Left out when there is no Chat tab (no API key on this device). */
+  askClaude?: () => void;
   mealPrep: () => void;
   profile: () => void;
   /** The journal on the check-in of a day (today by default), or on the measurements. */
@@ -200,7 +201,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         actions={[
           { id: "food", label: "Log food", icon: "food", onClick: go.logFood },
           { id: "drink", label: "Log a drink", icon: "alcohol", onClick: go.logDrink },
-          { id: "chat", label: "Ask Claude", icon: "sparkle", onClick: go.askClaude },
+          ...(go.askClaude ? [{ id: "chat", label: "Ask Claude", icon: "sparkle" as const, onClick: go.askClaude }] : []),
           { id: "checkin", label: "Check-in", icon: "note", onClick: () => go.checkIn() },
         ]}
       />
