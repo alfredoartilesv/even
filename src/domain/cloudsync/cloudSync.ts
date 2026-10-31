@@ -111,6 +111,16 @@ export function bySize(rows: SyncRow[], max = MAX_PUSH_BYTES): SyncRow[][] {
   return parts;
 }
 
+/** Inside a pull's transaction: triggers queue changes again, and the next pull starts after `upto`. Also the health connector's first load (server/ownerCopy.ts). */
+export async function endPull(db: SqlDriver, upto: number, nowMs: number): Promise<void> {
+  await db.run("DELETE FROM cloud_sync_pulling");
+  await db.run(
+    `INSERT INTO cloud_sync_cursors (name, upto, updated_at) VALUES ('pull', ?, ?)
+     ON CONFLICT (name) DO UPDATE SET upto = excluded.upto, updated_at = excluded.updated_at`,
+    [upto, nowMs],
+  );
+}
+
 async function pullCursor(db: SqlDriver): Promise<number> {
   const [row] = await db.all<{ upto: number }>("SELECT upto FROM cloud_sync_cursors WHERE name = 'pull'");
   return row ? Number(row.upto) : -1;
@@ -155,13 +165,8 @@ async function pullAll(db: SqlDriver, server: SyncTransport, keys: SyncKeys, rep
           }
         }
       }
-      await db.run("DELETE FROM cloud_sync_pulling");
       after = page.next;
-      await db.run(
-        `INSERT INTO cloud_sync_cursors (name, upto, updated_at) VALUES ('pull', ?, ?)
-         ON CONFLICT (name) DO UPDATE SET upto = excluded.upto, updated_at = excluded.updated_at`,
-        [after, nowMs],
-      );
+      await endPull(db, after, nowMs);
       await db.exec("COMMIT");
     } catch (err) {
       await db.exec("ROLLBACK");

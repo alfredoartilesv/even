@@ -2,6 +2,14 @@ import { sha256Hex } from "../src/core/hash.js";
 import type { PullResult, PushResult, SyncRow } from "../src/core/syncWire.js";
 import type { Pg } from "./pg.js";
 
+/** A removed device takes the health connector grant pushing as it along: tokens and sealed keys. */
+export async function revokeDeviceGrants(pg: Pick<Pg, "query">, deviceId: string, nowMs: number): Promise<void> {
+  await pg.query("UPDATE mcp_grants SET revoked_at = $2, keys_access = NULL, keys_refresh = NULL WHERE device_id = $1 AND revoked_at IS NULL", [
+    deviceId,
+    nowMs,
+  ]);
+}
+
 export interface Device {
   id: string;
   ownerId: string;

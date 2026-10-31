@@ -150,8 +150,12 @@ export function oauthStore(pg: Pg, opts: { serverSecret: string }) {
         scope: McpScope;
         keys_sealed: string | null;
       }>(
-        `UPDATE oauth_codes SET used_at = $2 WHERE code_hash = $1 AND used_at IS NULL AND expires_at > $2
-          RETURNING account_id, client_id, redirect_uri, code_challenge, scope, keys_sealed`,
+        // The keys sealed with the code are cleared as it is used: a code travels in a URL, so it may
+        // be kept somewhere (history, logs) long after it is spent.
+        `UPDATE oauth_codes o SET used_at = $2, keys_sealed = NULL
+           FROM (SELECT code_hash, keys_sealed FROM oauth_codes WHERE code_hash = $1 AND used_at IS NULL AND expires_at > $2 FOR UPDATE) old
+          WHERE o.code_hash = old.code_hash
+          RETURNING o.account_id, o.client_id, o.redirect_uri, o.code_challenge, o.scope, old.keys_sealed`,
         [await sha256Hex(o.code), nowMs],
       );
       if (!c || c.client_id !== o.clientId || c.redirect_uri !== o.redirectUri || c.code_challenge !== (await s256(o.verifier))) return null;
@@ -175,8 +179,12 @@ export function oauthStore(pg: Pg, opts: { serverSecret: string }) {
 
     /** A refresh token is good once: it is replaced with the new access token. */
     async refresh(o: { refreshToken: string; clientId: string }, nowMs = Date.now()) {
+      // Spent in the same statement that finds it, so two uses of one refresh token cannot both win.
       const [g] = await pg.query<{ id: string; client_id: string; scope: McpScope; keys_refresh: string | null }>(
-        "SELECT id, client_id, scope, keys_refresh FROM mcp_grants WHERE refresh_hash = $1 AND refresh_expires_at > $2 AND revoked_at IS NULL",
+        `UPDATE mcp_grants g SET refresh_hash = 'spent-' || g.id || '-' || $2::text
+           FROM (SELECT id, keys_refresh FROM mcp_grants WHERE refresh_hash = $1 AND refresh_expires_at > $2 AND revoked_at IS NULL FOR UPDATE) old
+          WHERE g.id = old.id
+          RETURNING g.id, g.client_id, g.scope, old.keys_refresh`,
         [await sha256Hex(o.refreshToken), nowMs],
       );
       if (!g || g.client_id !== o.clientId) return null;
@@ -243,6 +251,8 @@ export function oauthStore(pg: Pg, opts: { serverSecret: string }) {
 
     /** Stops the grant's tokens. A health grant's sealed keys are deleted and its device removed. */
     async revoke(accountId: string, grantId: string, scope: McpScope = "admin", nowMs = Date.now()): Promise<void> {
+      // Health codes not yet exchanged would otherwise keep their sealed keys until they expire.
+      if (scope === "health") await pg.query("UPDATE oauth_codes SET keys_sealed = NULL WHERE account_id = $1 AND keys_sealed IS NOT NULL", [accountId]);
       const rows = await pg.query<{ device_id: string | null }>(
         `UPDATE mcp_grants SET revoked_at = $3, keys_access = NULL, keys_refresh = NULL
           WHERE id = $1 AND account_id = $2 AND scope = $4 AND revoked_at IS NULL RETURNING device_id`,
