@@ -1,10 +1,12 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { type SyncRow } from "../src/core/syncWire";
-import { bySize, cloudSync, pendingPush, SYNC_TABLES } from "../src/domain/cloudsync/cloudSync";
+import { SYNC_PAGE, type SyncRow } from "../src/core/syncWire";
+import { bySize, cloudPull, cloudSync, cloudSyncSettings, pendingPush, SYNC_TABLES, type SyncTransport } from "../src/domain/cloudsync/cloudSync";
 import { open, rowKey, seal, syncKeys } from "../src/domain/cloudsync/seal";
 import { fromHex, newAdk, passphraseHint } from "../src/domain/cloudsync/keys";
-import { serverBase, syncApi, transportOf } from "../src/domain/cloudsync/api";
+import { serverBase, SyncHttpError, syncApi, transportOf } from "../src/domain/cloudsync/api";
+import { sessionApi } from "../src/domain/cloudsync/session";
+import { pushSettingsNow, syncNow } from "../src/domain/cloudsync/syncNow";
 import { BACKUP_TABLES, exportBackup } from "../src/domain/backup/backup";
 import { serverMigrations, statements } from "../server/migrate";
 import { addFood, byPassphrase, firstPhone, foods, lastWriteWins, paging, roundTrip, softDelete, syncedDigest, type Phone } from "../scripts/lib/syncScenario";
@@ -271,6 +273,136 @@ test("cloud sync bookkeeping stays out of backups", async () => {
   const { rows } = await exportBackup(a.db, "password123", { iterations: 1_000 });
   for (const t of ["cloud_sync_cursors", "cloud_sync_outbox", "cloud_sync_pulling"]) assert.ok(!(t in rows), t);
   assert.ok("food_entries" in rows);
+});
+
+/** Rows another device wrote over time: many older ones in one sync, then one for today. */
+async function historyThenToday(a: Phone, n: number): Promise<void> {
+  await a.db.exec("BEGIN");
+  for (let i = 0; i < n; i++) await addFood(a, `old-${String(i).padStart(5, "0")}`, "older day", i, 1_000);
+  await a.db.exec("COMMIT");
+  await a.sync(1_001);
+  await addFood(a, "today", "lunch today", 600, 2_000);
+  await a.sync(2_001);
+}
+
+const transportFor = async (p: Phone) => ({ server: transportOf(sessionApi(p.session, server.fetchFn)), keys: await syncKeys(fromHex(p.session.adk)) });
+const cursorNames = async (p: Phone) => (await p.db.all<{ name: string }>("SELECT name FROM cloud_sync_cursors ORDER BY name")).map((r) => r.name);
+
+test("a device catching up gets today's rows in its first page, and a catch-up cut short goes on where it stopped", async () => {
+  const { a, b } = await twoDevices();
+  await historyThenToday(a, SYNC_PAGE * 2);
+  const { server: real, keys } = await transportFor(b);
+  let calls = 0;
+  const cut: SyncTransport = {
+    ...real,
+    pullNewest: async (...args) => {
+      if (++calls > 1) throw new SyncHttpError(0);
+      return real.pullNewest!(...args);
+    },
+  };
+  let shown = 0;
+  await assert.rejects(cloudPull(b.db, cut, keys, 3_000, { onProgress: () => shown++ }));
+  const first = await foods(b);
+  assert.ok(
+    first.some((f) => f.id === "today"),
+    "today's row came in the first page",
+  );
+  assert.equal(first.length, SYNC_PAGE);
+  assert.equal(shown, 1, "the screens were told after the first page");
+  assert.deepEqual(await cursorNames(b), ["pull.head", "pull.low"]);
+
+  const rest = await b.sync(3_001);
+  assert.equal(rest.pulled, SYNC_PAGE + 1, "only the rows the first try did not get");
+  assert.equal((await foods(b)).length, SYNC_PAGE * 2 + 1);
+  assert.deepEqual(await cursorNames(b), ["pull"], "the catch-up is over");
+  assert.equal((await b.sync(3_002)).pulled, 0);
+});
+
+test("rows pushed while a device catches up are pulled in the same sync", async () => {
+  const { a, b } = await twoDevices();
+  await historyThenToday(a, SYNC_PAGE + 10);
+  const { server: real, keys } = await transportFor(b);
+  let added = false;
+  const meanwhile: SyncTransport = {
+    ...real,
+    pullNewest: async (...args) => {
+      const page = await real.pullNewest!(...args);
+      if (!added) {
+        added = true;
+        await addFood(a, "meanwhile", "logged during the catch-up", 1, 2_500);
+        await a.sync(2_501);
+      }
+      return page;
+    },
+  };
+  await cloudPull(b.db, meanwhile, keys, 3_000);
+  assert.ok((await foods(b)).some((f) => f.id === "meanwhile"));
+});
+
+test("a child row pushed after its parent's page still merges, though it arrives first", async () => {
+  const { a, b } = await twoDevices();
+  await a.db.run("INSERT INTO meal_preps (id, name, created_at, updated_at, origin_device_id) VALUES ('prep', 'chili', 1000, 1000, 'a')");
+  await a.sync(1_001);
+  await historyThenToday(a, SYNC_PAGE);
+  await a.db.run(
+    "INSERT INTO meal_prep_tags (id, meal_prep_id, tag, created_at, updated_at, origin_device_id) VALUES ('tag', 'prep', 'batch', 3000, 3000, 'a')",
+  );
+  await a.sync(3_001);
+  const r = await b.sync(4_000);
+  assert.equal(r.rejected, 0);
+  assert.deepEqual(await b.db.all("SELECT id, meal_prep_id FROM meal_prep_tags"), [{ id: "tag", meal_prep_id: "prep" }]);
+  assert.deepEqual(await b.db.all("PRAGMA foreign_key_check"), [], "every parent is there once the pull is over");
+  assert.equal((await b.db.all<{ foreign_keys: number }>("PRAGMA foreign_keys"))[0].foreign_keys, 1, "foreign keys are on again");
+});
+
+test("a profile change goes up on its own at once, and reaches another device before the rest of its pull", async () => {
+  const { a, b } = await twoDevices();
+  await addFood(a, "f", "toast", 200, 1_000);
+  await saveProfile(a.db, { name: "Alex Doe", heightCm: 180 }, "2026-10-31", 1_000);
+  await pushSettingsNow(a.db, a.session, { fetchFn: server.fetchFn });
+  assert.equal(await pendingPush(a.db), 1, "only the settings went: the food entry waits for the sync");
+
+  const { server: transport, keys } = await transportFor(b);
+  await cloudSyncSettings(b.db, transport, keys, 1_100);
+  assert.equal((await loadProfile(b.db)).name, "Alex Doe");
+  assert.deepEqual(await cursorNames(b), [], "the pull cursor did not move, so the full pull misses nothing");
+  await a.sync(1_200);
+  await b.sync(1_300);
+  assert.deepEqual(
+    (await foods(b)).map((f) => f.id),
+    ["f"],
+  );
+});
+
+test("against a server without the newest-first pull, the pull goes oldest first as before", async () => {
+  const { a, b } = await twoDevices();
+  await addFood(a, "f", "toast", 200, 1_000);
+  await a.sync(1_001);
+  const { server: real, keys } = await transportFor(b);
+  const old: SyncTransport = {
+    ...real,
+    pullNewest: async () => {
+      throw new SyncHttpError(404);
+    },
+  };
+  assert.equal((await cloudSync(b.db, old, keys, 1_100)).pulled, 1);
+  assert.deepEqual(await cursorNames(b), ["pull"]);
+});
+
+test("the newest-first pull refuses an empty range or a table name that is not one", async () => {
+  const { a } = await twoDevices();
+  const get = (q: string) => server.fetchFn(`${server.base}/v1/pull/newest?${q}`, { headers: { authorization: `Bearer ${a.session.token}` } });
+  assert.equal((await get("after=5&before=5")).status, 400);
+  assert.equal((await get("after=-1&tbl=food_entries;drop")).status, 400);
+  assert.equal((await get("after=-1&tbl=food_entries")).status, 200);
+});
+
+test("syncNow tells the screens after each page it stores", async () => {
+  const { a, b } = await twoDevices();
+  await historyThenToday(a, SYNC_PAGE + 1);
+  let shown = 0;
+  await syncNow(b.db, b.session, { fetchFn: server.fetchFn, today: "2026-10-31", nowMs: 3_000, onProgress: () => shown++ });
+  assert.equal(shown, 2);
 });
 
 test("server migrations are numbered in order and split into statements", () => {

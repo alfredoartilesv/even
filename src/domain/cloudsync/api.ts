@@ -103,6 +103,8 @@ export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch
 
     push: (rows: SyncRow[]) => call<PushResult>("POST", "/v1/push", { rows }),
     pull: (after: number, limit: number) => call<PullResult>("GET", `/v1/pull?${page(after, limit)}`),
+    pullNewest: (after: number, before: number | null, limit: number, tbl?: string) =>
+      call<PullResult>("GET", `/v1/pull/newest?${page(after, limit)}${before === null ? "" : `&before=${before}`}${tbl ? `&tbl=${tbl}` : ""}`),
 
     friends: () => call<Friend[]>("GET", "/v1/friends"),
     friendInvite: () => call<{ code: string; expiresAt: number }>("POST", "/v1/friends/invites"),
@@ -142,4 +144,4 @@ export function syncApi(baseUrl: string, fetchFn: typeof fetch = (...a) => fetch
 export type SyncApi = ReturnType<typeof syncApi>;
 
 /** The push and pull a sync needs, from a signed-in API. */
-export const transportOf = (api: SyncApi): SyncTransport => ({ push: api.push, pull: api.pull });
+export const transportOf = (api: SyncApi): SyncTransport => ({ push: api.push, pull: api.pull, pullNewest: api.pullNewest });
