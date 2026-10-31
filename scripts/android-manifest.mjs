@@ -22,3 +22,19 @@ export function addRecognitionQuery(manifest) {
   if (!/<\/manifest>/.test(manifest)) throw new Error("AndroidManifest.xml has no </manifest>");
   return manifest.replace(/<\/manifest>/, `${QUERY}</manifest>`);
 }
+
+const CAMERA_MARK = "android.permission.CAMERA";
+const CAMERA = `    <uses-permission android:name="${CAMERA_MARK}" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+`;
+
+/**
+ * The pairing QR scanner reads the camera through the WebView (getUserMedia). Capacitor's WebView
+ * asks the owner for the camera on the first scan, but only for a permission the manifest declares.
+ * The camera is optional, so the app still installs on a device without one. Idempotent.
+ */
+export function addCameraPermission(manifest) {
+  if (manifest.includes(CAMERA_MARK)) return manifest;
+  if (!/<\/manifest>/.test(manifest)) throw new Error("AndroidManifest.xml has no </manifest>");
+  return manifest.replace(/<\/manifest>/, `${CAMERA}</manifest>`);
+}

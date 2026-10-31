@@ -20,7 +20,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { patchGradle, versionCode } from "./android-gradle.mjs";
-import { addRecognitionQuery } from "./android-manifest.mjs";
+import { addCameraPermission, addRecognitionQuery } from "./android-manifest.mjs";
 import { ANDROID_STYLES_XML, androidColorsXml, readPalette } from "./palette.mjs";
 
 const main = join(import.meta.dirname, "../android/app/src/main");
@@ -72,6 +72,8 @@ manifest = manifest.replace(app[0], tag);
 // Chat dictation: Android 11+ hides the speech recognition service from apps that do not declare
 // it, and the recognizer then reports itself unavailable.
 manifest = addRecognitionQuery(manifest);
+// Pairing: the QR scanner in Settings > Sync & devices.
+manifest = addCameraPermission(manifest);
 writeFileSync(manifestPath, manifest);
 
 console.log("Android backup disabled: allowBackup=false, fullBackupContent=false, data_extraction_rules excludes everything.");

@@ -6,10 +6,21 @@ import { deviceFetch } from "../../platform/device";
 import { googleSignIn, googleSignInAvailable } from "../../platform/googleSignIn";
 import { failed, MsgLine, plural, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge } from "../../ui/controls";
+import { Icon } from "../../ui/icons";
 import { pendingPush } from "../../domain/cloudsync/cloudSync";
-import { approvePairing, changePassphrase, deleteAccount, disconnect, sessionApi, type SyncSession } from "../../domain/cloudsync/session";
+import {
+  approvePairing,
+  changePassphrase,
+  deleteAccount,
+  disconnect,
+  lookUpPairing,
+  parsePairingCode,
+  sessionApi,
+  type SyncSession,
+} from "../../domain/cloudsync/session";
 import { lastCloudSync } from "../../domain/cloudsync/syncNow";
 import { ConnectPanel } from "./ConnectPanel";
+import { QrScanner } from "./QrScanner";
 
 interface Props {
   db: SqlDriver;
@@ -192,37 +203,112 @@ function Devices({ me, busy, onRemove }: { me: Me | null; busy: boolean; onRemov
   );
 }
 
+/** Who asked to join, looked up from the code before anything is sent: the owner approves a name, not a code. */
+interface Asking {
+  code: string;
+  deviceName: string;
+  deviceKind: string;
+}
+
 function AddDevice({ session, fetchFn, onAdded }: { session: SyncSession; fetchFn: typeof fetch | undefined; onAdded: () => Promise<void> }) {
   const [code, setCode] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [asking, setAsking] = useState<Asking | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+
+  async function lookUp(c: string) {
     setBusy(true);
+    setMsg(null);
     try {
-      const { deviceName } = await approvePairing(session, code, { fetchFn });
-      setMsg({ kind: "ok", text: `${deviceName} is connected. It is downloading your data now.` });
-      setCode("");
-      await onAdded();
+      setAsking({ code: c, ...(await lookUpPairing(session, c, { fetchFn })) });
     } catch (err) {
       setMsg(failed(err, "cloudsync"));
     } finally {
       setBusy(false);
     }
   }
+
+  function scanned(text: string): boolean {
+    if (!parsePairingCode(text)) return false;
+    setScanning(false);
+    void lookUp(text);
+    return true;
+  }
+
+  async function approve(a: Asking) {
+    setBusy(true);
+    try {
+      const { deviceName } = await approvePairing(session, a.code, { fetchFn });
+      setMsg({ kind: "ok", text: `${deviceName} is connected. It is downloading your data now.` });
+      setAsking(null);
+      setCode("");
+      await onAdded();
+    } catch (err) {
+      setAsking(null);
+      setMsg(failed(err, "cloudsync"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    void lookUp(code);
+  }
+
   return (
     <section className="card">
       <h2>Add a device</h2>
-      <p className="muted small">On the new phone or browser choose Pair; it shows a code. Type it here. Only approve a code you see on your own device.</p>
-      <form onSubmit={submit} className="stack">
-        <label>
-          Pairing code
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="ABC234-XYZ567" autoCapitalize="characters" autoComplete="off" required />
-        </label>
-        <button type="submit" disabled={busy || code.replace(/[^0-9a-z]/gi, "").length < 12}>
-          {busy ? "Sending your keys…" : "Approve"}
-        </button>
-      </form>
+      {asking ? (
+        <div className="stack" aria-live="polite">
+          <p>
+            <b>{asking.deviceName}</b> wants to join your account.
+          </p>
+          <p className="muted small">
+            It gets your keys and can read all your data. Approve only if that {asking.deviceKind === "phone" ? "phone" : "browser"} is in front of you and you
+            just asked it to pair.
+          </p>
+          <div className="row">
+            <button type="button" className="grow" disabled={busy} onClick={() => void approve(asking)}>
+              {busy ? "Sending your keys…" : "Approve"}
+            </button>
+            <button type="button" className="secondary grow" disabled={busy} onClick={() => setAsking(null)}>
+              Not this one
+            </button>
+          </div>
+        </div>
+      ) : scanning ? (
+        <QrScanner accept={scanned} onCancel={() => setScanning(false)} hint="Point the camera at the QR code on the new phone or browser." />
+      ) : (
+        <div className="stack">
+          <p className="muted small">On the new phone or browser choose Pair: it shows a QR code. Scan it here, or type the code under it.</p>
+          <button type="button" className="with-icon" disabled={busy} onClick={() => (setMsg(null), setScanning(true))}>
+            <Icon name="qr" size={20} />
+            Scan the QR code
+          </button>
+          <details className="more">
+            <summary className="small accent">Type the code instead</summary>
+            <form onSubmit={submit} className="stack">
+              <label>
+                Pairing code
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="ABC234-XYZ567"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                />
+              </label>
+              <button type="submit" disabled={busy || !parsePairingCode(code)}>
+                {busy ? "Checking the code…" : "Continue"}
+              </button>
+            </form>
+          </details>
+        </div>
+      )}
       <MsgLine msg={msg} />
     </section>
   );
