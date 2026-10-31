@@ -133,7 +133,7 @@ function NewInvite({ api, serverUrl, onMade }: { api: AdminApi; serverUrl: strin
 
   // What the invited person needs: where, which email, the code. Sent however the admin likes.
   const message = made
-    ? `You're invited to Even. Open ${serverUrl || location.origin}, choose "New account", and use the email ${made.email} with the invite code ${made.code}. It works once.`
+    ? `You're invited to Even. Open ${serverUrl || location.origin}, choose "Sign up", and use the email ${made.email} with the invite code ${made.code}. It works once.`
     : "";
   return (
     <section className="card">

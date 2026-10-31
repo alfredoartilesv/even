@@ -93,6 +93,11 @@ export function nearestIndex(x: number, left: number, width: number, count: numb
 }
 
 /** Runs of consecutive non-null values, so a line breaks at missing days instead of bridging them. */
+/** The points that have a value, as [index, value], for a line drawn straight across the gaps. */
+export function present(values: (number | null)[]): [number, number][] {
+  return values.flatMap((v, i) => (v === null || !Number.isFinite(v) ? [] : [[i, v] as [number, number]]));
+}
+
 export function segments(values: (number | null)[]): { start: number; values: number[] }[] {
   const out: { start: number; values: number[] }[] = [];
   let cur: { start: number; values: number[] } | null = null;

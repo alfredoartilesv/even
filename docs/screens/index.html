@@ -33,6 +33,9 @@
  *   --brand       the Even logo tile: launcher icon, splash icon, favicon (same in both themes)
  *   --brand-ring  the logo's ring track
  *   --on-brand    the logo's mark (the filled half of the ring, the equals sign)
+ *   --qr-dark, --qr-light  a QR code's modules and plate: black on white in both themes, since
+ *                 cameras read that contrast best (the pairing code, the scanner's aiming frame)
+ *   --camera-bg   behind the camera view before the picture comes
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -80,6 +83,9 @@
   --brand: #0f766e;
   --brand-ring: #7fd1c6;
   --on-brand: #ffffff;
+  --qr-dark: #000000;
+  --qr-light: #ffffff;
+  --camera-bg: #000000;
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
   --radius-sm: 8px;
@@ -246,10 +252,6 @@ code { font-size: 0.9em; }
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="Settings: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="Settings: Privacy &amp; data (dark)" loading="lazy"></div>
   <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-logs.webp" alt="Settings: Debug logs (light)" loading="lazy"><img class="dark" src="img/dark-settings-logs.webp" alt="Settings: Debug logs (dark)" loading="lazy"></div>
-  <figcaption><strong>Debug logs</strong><span class="muted">This run's log records, the level, and an export as a Markdown report to hand to Claude.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-settings-about.webp" alt="Settings: About (light)" loading="lazy"><img class="dark" src="img/dark-settings-about.webp" alt="Settings: About (dark)" loading="lazy"></div>

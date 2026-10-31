@@ -19,6 +19,7 @@ const garmin = (async (input: string | URL | Request, init?: RequestInit) => {
   if (down) throw new TypeError("fetch failed");
   if (url.endsWith("/token"))
     return auth === "ApiKey bad" ? new Response("no", { status: 401 }) : new Response("garmin-access-token-0123456789", { status: 200 });
+  if (url.includes("/weight-service/")) return new Response(null, { status: 204 });
   return Response.json({ summaries: [{ calendarDate: "2026-10-30", totalSteps: 9522 }] });
 }) as typeof fetch;
 
@@ -68,6 +69,10 @@ test("a signed-in browser syncs through the relay: Garmin gets the Garmin creden
     ],
   );
   assert.ok(asked.every((a) => !a.auth?.includes(session.token)));
+});
+
+test("a range Garmin has no data for (204, no body) comes through the relay as empty, not as a server error", async () => {
+  assert.equal(await api("good-key").get("/weight-service/weight/range/2026-10-01/2026-10-28"), null);
 });
 
 test("Garmin refusing the key still reads as a refused key; the server refusing the browser does not", async () => {

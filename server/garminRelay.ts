@@ -6,6 +6,8 @@ const log = createLogger("server.garmin");
 
 /** Garmin's answers are small JSON; well under Vercel's function limit even for a slow day. */
 const TIMEOUT_MS = 25_000;
+/** Statuses the Response constructor refuses a body for. */
+const NULL_BODY = new Set([204, 205, 304]);
 
 /**
  * Passes one of the web app's Garmin requests on (docs/architecture.md section 6c). Behind the
@@ -31,7 +33,10 @@ export async function relayToGarmin(c: Context, fetchFn: typeof fetch = (...a) =
     return c.json({ error: "Garmin unreachable" }, 502);
   }
   log.info("relayed", { service, status: res.status, ms: Date.now() - started });
-  return new Response(await res.arrayBuffer(), {
+  // Garmin answers 204 for a range with no data; a Response with that status may not carry a body,
+  // even an empty one, and the throw came back to the browser as the server's own 500.
+  const body = NULL_BODY.has(res.status) ? null : await res.arrayBuffer();
+  return new Response(body, {
     status: res.status,
     headers: { "content-type": res.headers.get("content-type") ?? "application/octet-stream", "cache-control": "no-store", [GARMIN_RELAYED_HEADER]: "1" },
   });
