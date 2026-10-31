@@ -445,23 +445,89 @@ pre.logs {
     animation: none;
   }
 }
+/* Floats over the top of the page, below the status bar and above the side menu's scrim, as wide as
+   the page column at most. */
 .banner {
-  display: flex;
+  position: fixed;
+  top: calc(var(--safe-top) + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  box-sizing: border-box;
+  width: calc(100% - 2 * 16px);
+  max-width: 36rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  border: 1px solid var(--warning);
-  color: var(--warning);
+  gap: 0.6rem;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
   border-radius: var(--radius);
-  padding: 0.6rem 0.75rem;
-  margin: 0.5rem 0 0.75rem;
+  box-shadow: var(--shadow-pop);
+  padding: 0.5rem 0.4rem 0.5rem 0.75rem;
+  animation: banner-in var(--normal) var(--ease);
+}
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -0.75rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
+}
+.banner-icon {
+  display: flex;
+  color: var(--warning);
+}
+.banner-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .banner strong {
   font-weight: 600;
 }
 .banner .small {
   color: var(--muted);
+  margin-top: 0.15rem;
+}
+.banner-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  background: var(--surface);
+}
+.banner-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  border-radius: 50%;
+}
+/* On a phone a notice with an error line drops the button under the text instead of squeezing it
+   to a few words a line; the close button stays top right. */
+@media (max-width: 30rem) {
+  .banner.detailed {
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+  }
+  .banner.detailed .banner-icon {
+    padding-top: 0.6rem;
+  }
+  .banner.detailed .banner-text {
+    padding-top: 0.55rem;
+  }
+  .banner.detailed .banner-action {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .banner.detailed .banner-close {
+    grid-column: 3;
+    grid-row: 1;
+  }
 }
 a.file-button {
   color: var(--fg);
