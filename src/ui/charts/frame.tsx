@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 /**
  * The parts every chart is made of: its frame (title, legend, table view), the tooltip, and the
@@ -14,20 +14,23 @@ export const seriesColor = (slot: number) => `var(--series-${slot})`;
 /** A chart with one series uses the app accent. */
 export const SINGLE = "var(--accent)";
 
-/** Width of the element, following resizes. Starts at `fallback` (also what server rendering and tests see). */
+/**
+ * Width of the element, following resizes. Starts at `fallback` (also what server rendering and tests see).
+ * A callback ref, not a ref object: the plot mounts later than the chart (after the empty state while
+ * data loads, or on Table -> Chart), and a ref object read once at mount would leave it at the fallback.
+ */
 export function useWidth<T extends HTMLElement>(fallback = 320) {
-  const ref = useRef<T>(null);
+  const [el, setEl] = useState<T | null>(null);
   const [width, setWidth] = useState(fallback);
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     setWidth(el.clientWidth || fallback);
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width) || fallback));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [fallback]);
-  return [ref, width] as const;
+  }, [el, fallback]);
+  return [setEl, width] as const;
 }
 
 export interface LegendItem {
