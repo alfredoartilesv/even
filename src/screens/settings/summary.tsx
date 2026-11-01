@@ -71,7 +71,7 @@ export const backupDue = (s: SettingsSummary, nowMs: number = Date.now()) => s.l
 /** What is stored, as label and count cells, with the days it spans; empty kinds in one line under. */
 export function InventoryGrid({ rows, wide = false }: { rows: InventoryRow[]; wide?: boolean }) {
   const stored = rows.filter((r) => r.count > 0 && !r.label.startsWith("Data sent"));
-  const empty = rows.filter((r) => r.count === 0);
+  const empty = rows.filter((r) => r.count === 0 && !r.label.startsWith("Data sent"));
   return (
     <>
       <dl className={wide ? "inventory wide" : "inventory"}>

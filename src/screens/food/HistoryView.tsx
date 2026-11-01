@@ -61,30 +61,34 @@ export function HistoryView({ db, version, onOpenDay }: Props) {
         onCurrent={weekEnd === now ? null : () => setWeekEnd(now)}
         currentLabel="Back to this week"
       />
-      <BarChart
-        title="Calories"
-        subtitle="Food and drinks, tap a day to open it"
-        x={week.map((d) => d.day)}
-        values={week.map((d) => d.calories)}
-        formatX={weekdayLetter}
-        formatXLong={(d) => fmtDay(d)}
-        formatValue={kcal}
-        unit="kcal"
-        target={targets.calories}
-        onSelect={onOpenDay}
-      />
-      <p className="muted small">
-        {logged.length === 0
-          ? "Nothing logged these 7 days."
-          : `${logged.length} of 7 days logged${targets.calories !== null ? `, ${overDays} over the calorie target` : ""}.`}
-      </p>
+      <div className="wide-grid">
+        <div className="span-8">
+          <BarChart
+            title="Calories"
+            subtitle="Food and drinks, tap a day to open it"
+            x={week.map((d) => d.day)}
+            values={week.map((d) => d.calories)}
+            formatX={weekdayLetter}
+            formatXLong={(d) => fmtDay(d)}
+            formatValue={kcal}
+            unit="kcal"
+            target={targets.calories}
+            onSelect={onOpenDay}
+          />
+          <p className="muted small">
+            {logged.length === 0
+              ? "Nothing logged these 7 days."
+              : `${logged.length} of 7 days logged${targets.calories !== null ? `, ${overDays} over the calorie target` : ""}.`}
+          </p>
+        </div>
 
-      {logged.length > 0 && (
-        <>
-          <SectionHeader title="Daily average" />
-          <MacroBudget eaten={{ calories: avg("calories"), proteinG: avg("proteinG"), carbsG: avg("carbsG"), fatG: avg("fatG") }} targets={targets} />
-        </>
-      )}
+        {logged.length > 0 && (
+          <div className="span-4">
+            <SectionHeader title="Daily average" />
+            <MacroBudget eaten={{ calories: avg("calories"), proteinG: avg("proteinG"), carbsG: avg("carbsG"), fatG: avg("fatG") }} targets={targets} />
+          </div>
+        )}
+      </div>
 
       <SectionHeader title="Days" />
       <div className="menu-group">

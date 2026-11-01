@@ -78,61 +78,63 @@ export function ShoppingView({ db, version, onChanged, onRecipes }: Props) {
   const ticked = items.length - open.length;
 
   return (
-    <div>
-      <SectionHeader title="Shopping list" action="Add from recipes" onAction={onRecipes} />
-      {items.length > 0 && (
-        <p className="muted small">
-          {open.length ? `${open.length} to buy` : "Everything is in the basket"}
-          {ticked > 0 && ` · ${ticked} ticked`}
-        </p>
-      )}
-      <form className="ingredient" onSubmit={add}>
-        <input aria-label="Item" placeholder="Add an item" value={name} onChange={(e) => setName(e.target.value)} />
-        <input aria-label="Quantity" placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
-        <UnitSelect value={unit} onChange={setUnit} />
-        <button type="submit" aria-label="Add item">
-          <Icon name="plus" size={18} />
-        </button>
-      </form>
-      <MsgLine msg={msg} />
+    <div className="wide-grid">
+      <section className="span-4">
+        <SectionHeader title="Shopping list" action="Add from recipes" onAction={onRecipes} />
+        {items.length > 0 && (
+          <p className="muted small">
+            {open.length ? `${open.length} to buy` : "Everything is in the basket"}
+            {ticked > 0 && ` · ${ticked} ticked`}
+          </p>
+        )}
+        <form className="ingredient" onSubmit={add}>
+          <input aria-label="Item" placeholder="Add an item" value={name} onChange={(e) => setName(e.target.value)} />
+          <input aria-label="Quantity" placeholder="Qty" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
+          <UnitSelect value={unit} onChange={setUnit} />
+          <button type="submit" aria-label="Add item">
+            <Icon name="plus" size={18} />
+          </button>
+        </form>
+        <MsgLine msg={msg} />
 
-      {items.length > 0 ? (
-        <ul className="checklist">
-          {items.map((i) => (
-            <li key={i.id} className={i.checked ? "done" : ""}>
-              <label>
-                <input type="checkbox" checked={i.checked} onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(changed)} />
-                <span>{i.name}</span>
-                <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
-              </label>
-              <button className="icon-button ghost" aria-label={`Remove ${i.name}`} onClick={() => void removeShoppingItem(db, i.id).then(changed)}>
-                <Icon name="trash" size={18} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted small">The list is empty. Add items above, or pick recipes and how many batches you will cook in Recipes.</p>
-      )}
+        {items.length > 0 ? (
+          <ul className="checklist">
+            {items.map((i) => (
+              <li key={i.id} className={i.checked ? "done" : ""}>
+                <label>
+                  <input type="checkbox" checked={i.checked} onChange={(e) => void setShoppingChecked(db, i.id, e.target.checked).then(changed)} />
+                  <span>{i.name}</span>
+                  <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
+                </label>
+                <button className="icon-button ghost" aria-label={`Remove ${i.name}`} onClick={() => void removeShoppingItem(db, i.id).then(changed)}>
+                  <Icon name="trash" size={18} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted small">The list is empty. Add items above, or pick recipes and how many batches you will cook in Recipes.</p>
+        )}
 
-      {items.length > 0 && (
-        <div className="actions">
-          <button className="secondary" onClick={share} disabled={!open.length}>
-            {isNative ? "Share list" : "Copy list"}
-          </button>
-          <button className="secondary" disabled={!ticked} onClick={() => void clearShopping(db).then(changed)}>
-            Clear ticked
-          </button>
-          <button
-            className="secondary danger"
-            onClick={() => {
-              if (confirm("Empty the whole shopping list?")) void clearShopping(db, { all: true }).then(changed);
-            }}
-          >
-            Clear all
-          </button>
-        </div>
-      )}
+        {items.length > 0 && (
+          <div className="actions">
+            <button className="secondary" onClick={share} disabled={!open.length}>
+              {isNative ? "Share list" : "Copy list"}
+            </button>
+            <button className="secondary" disabled={!ticked} onClick={() => void clearShopping(db).then(changed)}>
+              Clear ticked
+            </button>
+            <button
+              className="secondary danger"
+              onClick={() => {
+                if (confirm("Empty the whole shopping list?")) void clearShopping(db, { all: true }).then(changed);
+              }}
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+      </section>
 
       <SpendingView db={db} version={version + listVersion} onChanged={onChanged} />
     </div>

@@ -656,6 +656,9 @@ body:has(.app-frame) {
   .app-frame .drink-picks {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .app-frame .alcohol-tiles .viz-tile:nth-child(4) {
+    grid-column: auto;
+  }
   .app-frame .alcohol-tiles {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -702,5 +705,43 @@ body:has(.app-frame) {
   }
   .app-frame .chat-layout .chat {
     min-height: calc(100dvh - 7rem);
+  }
+  /* A component whose parts are cells of the page's grid. */
+  .app-frame .wide-contents {
+    display: contents;
+  }
+  .app-frame .recipe-grid,
+  .app-frame ul.note-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+  .app-frame .recipe-grid > .card {
+    margin-bottom: 0;
+  }
+  .app-frame ul.note-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .app-frame ul.note-grid li {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  /* Settings pages made of cards, and meal prep batches: cards side by side. */
+  .app-frame .settings-cards,
+  .app-frame .batch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+  .app-frame .batch-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .app-frame :is(.settings-cards, .batch-grid) > * {
+    margin-bottom: 0;
   }
 }
