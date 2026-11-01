@@ -533,33 +533,33 @@ body:has(.app-frame) {
     align-items: stretch;
   }
   /* Without a span a child takes the whole row. */
-  .app-frame .wide-grid > * {
+  .app-frame :is(.wide-grid, .wide-contents) > * {
     grid-column: 1 / -1;
     min-width: 0;
     margin-bottom: 0;
   }
-  .app-frame .wide-grid > .span-3 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-3 {
     grid-column: span 3;
   }
-  .app-frame .wide-grid > .span-4 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-4 {
     grid-column: span 4;
   }
-  .app-frame .wide-grid > .span-5 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-5 {
     grid-column: span 5;
   }
-  .app-frame .wide-grid > .span-6 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-6 {
     grid-column: span 6;
   }
-  .app-frame .wide-grid > .span-7 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-7 {
     grid-column: span 7;
   }
-  .app-frame .wide-grid > .span-8 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-8 {
     grid-column: span 8;
   }
-  .app-frame .wide-grid > .span-9 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-9 {
     grid-column: span 9;
   }
-  .app-frame .wide-grid > .span-12 {
+  .app-frame :is(.wide-grid, .wide-contents) > .span-12 {
     grid-column: 1 / -1;
   }
   /* A column of cards inside the grid. */
