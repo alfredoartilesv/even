@@ -412,24 +412,52 @@ ul.entries li > .status {
   justify-content: space-between;
   gap: 0.6rem;
 }
-.saved-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+ul.saved-list {
+  display: flex;
+  flex-direction: column;
+}
+.saved-row {
+  display: flex;
+  align-items: center;
   gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
 }
-.card.saved {
-  margin: 0;
+.saved-row:last-child {
+  border-bottom: none;
+}
+.saved-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  color: inherit;
+}
+.saved-text {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  min-width: 0;
 }
-.card.saved .link {
+.saved-log {
+  flex: none;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.4rem;
 }
-.card.saved .row {
-  flex-wrap: nowrap;
+.saved-log input.qty {
+  width: 3.25rem;
+}
+@media (min-width: 60rem) {
+  ul.saved-list:not(.most) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1.25rem;
+  }
+  ul.saved-list:not(.most) .saved-row:nth-last-child(2) {
+    border-bottom: none;
+  }
 }
 pre.logs {
   font-size: 0.75rem;
@@ -1712,7 +1740,8 @@ a.button {
 /* The four nutrition targets as label / value lines in one card. */
 .goal-lines {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 0.35rem 1rem;
   margin: 0.5rem 0 0;
 }
@@ -1724,8 +1753,70 @@ a.button {
 }
 .goal-lines dd {
   margin: 0;
-  text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.goal-lines .viz-meter {
+  margin-top: 0.25rem;
+}
+/* The goals not set yet, as dashed cards that open the form with their usual target. */
+.goal-ideas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.goal-idea {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+.goal-idea .accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 30rem) {
+  /* A phone stacks each nutrition line: value and bar, then the week and the badge. */
+  .goal-lines {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .goal-lines dd.muted {
+    grid-column: 2;
+  }
+}
+@media (min-width: 60rem) {
+  .goal-ideas {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .me-layout > .segmented {
+    order: -1;
+    justify-self: start;
+    min-width: 20rem;
+  }
+  .me-layout > .me-head {
+    grid-column: span 3;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: stretch;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .me-layout > .me-tiles {
+    grid-column: span 9;
+    align-self: stretch;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .me-layout > .section-head:first-of-type {
+    display: none;
+  }
 }
 /* The watch's numbers for a day, two to a row. */
 .synced-grid {
