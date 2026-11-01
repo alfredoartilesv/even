@@ -313,8 +313,6 @@ export function App({ target }: { target: Target }) {
           ? `mealprep|${mealPrepView}`
           : tab;
 
-  // Marks the page a wide screen may spread into columns (the web app's styles); other screens keep a readable width.
-  const wide = tab === "dashboard" && !overlay;
   const { Frame } = target;
 
   return (
@@ -329,7 +327,8 @@ export function App({ target }: { target: Target }) {
         go(t);
       }}
     >
-      <main className={`shell with-nav${wide ? " wide" : ""}`}>
+      {/* "wide": a wide screen may spread every page into columns (the web app's styles). */}
+      <main className="shell with-nav wide">
         <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
           <Suspense>
@@ -379,7 +378,14 @@ export function App({ target }: { target: Target }) {
                 </section>
               )
             ) : tab === "chat" ? (
-              <ChatScreen db={ready} secrets={secretStore} version={version} onChanged={changed} onConnect={() => openSettings("connections")} />
+              <ChatScreen
+                db={ready}
+                secrets={secretStore}
+                version={version}
+                onChanged={changed}
+                onConnect={() => openSettings("connections")}
+                onPrivacy={() => openSettings("privacy")}
+              />
             ) : tab === "mealprep" ? (
               <MealPrepScreen db={ready} view={mealPrepView} onView={setMealPrepView} version={version} onChanged={changed} />
             ) : tab === "alcohol" ? (

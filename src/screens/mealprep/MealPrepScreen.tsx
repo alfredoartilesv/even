@@ -8,9 +8,10 @@ import { SavedView } from "../food/SavedView";
 import { DayView } from "../food/DayView";
 import { RecipesView } from "./RecipesView";
 import { ShoppingView } from "./ShoppingView";
+import { PlanView } from "./PlanView";
 import { StockView } from "./StockView";
 
-export type MealPrepView = "log" | "history" | "saved" | "stock" | "recipes" | "shopping";
+export type MealPrepView = "log" | "history" | "saved" | "plan" | "stock" | "recipes" | "shopping";
 
 export type MealPrepGroup = "food" | "prep";
 
@@ -28,6 +29,7 @@ export const MEAL_PREP_GROUPS: (Choice<MealPrepGroup> & { views: Choice<MealPrep
     id: "prep",
     label: "Meal prep",
     views: [
+      { id: "plan", label: "Plan" },
       { id: "stock", label: "Stock" },
       { id: "recipes", label: "Recipes" },
       { id: "shopping", label: "Shopping" },
@@ -54,8 +56,8 @@ interface Props {
 /**
  * The third tab: everything about eating, in two groups. Food log: a day's log (today, or any past
  * day), the history by week, saved meals. Meal prep, in the order it happens: recipes (cook, or
- * put on the shopping list), shopping (the list, what it cost, the month's spending) and stock
- * (what to defrost, eat). The views link to each other along the way.
+ * put on the shopping list), shopping (the list, what it cost, the month's spending), stock
+ * (what to defrost, eat) and, first, the plan: which tupper each day and what to cook next. The views link to each other along the way.
  */
 export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) {
   const [tags, setTags] = useState<string[]>([]);
@@ -71,7 +73,7 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
   const v = version + local;
   const group = groupOf(view);
   // Switching group goes back to the view last open in it.
-  const last = useRef<Record<MealPrepGroup, MealPrepView>>({ food: "log", prep: "stock" });
+  const last = useRef<Record<MealPrepGroup, MealPrepView>>({ food: "log", prep: "plan" });
   last.current[group] = view;
   const views = MEAL_PREP_GROUPS.find((g) => g.id === group)!.views;
 
@@ -103,7 +105,8 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
         />
       )}
       {view === "saved" && <SavedView db={db} version={v} onChanged={changed} />}
-      {view === "stock" && <StockView db={db} tag={tag} version={v} onChanged={changed} onRecipes={() => onView("recipes")} />}
+      {view === "plan" && <PlanView db={db} version={v} onChanged={changed} onRecipes={() => onView("recipes")} onShopping={() => onView("shopping")} />}
+      {view === "stock" && <StockView db={db} tag={tag} version={v} onChanged={changed} onRecipes={() => onView("recipes")} onPlan={() => onView("plan")} />}
       {view === "recipes" && (
         <RecipesView db={db} tag={tag} allTags={tags} version={v} onChanged={changed} onShopping={() => onView("shopping")} onStock={() => onView("stock")} />
       )}

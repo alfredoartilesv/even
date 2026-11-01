@@ -236,168 +236,177 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
         currentLabel="Back to today"
       />
 
-      <MacroBudget eaten={totals} targets={targets} fromDrinks={drinks} />
-      {(totals.proteinG ?? 0) + (totals.carbsG ?? 0) + (totals.fatG ?? 0) > 0 && (
-        <div className="meter-card">
-          <MacroSplit proteinG={totals.proteinG} carbsG={totals.carbsG} fatG={totals.fatG} />
-        </div>
-      )}
+      <div className="wide-grid">
+        <div className="span-8 wide-col">
+          <MacroBudget eaten={totals} targets={targets} fromDrinks={drinks} />
+          {(totals.proteinG ?? 0) + (totals.carbsG ?? 0) + (totals.fatG ?? 0) > 0 && (
+            <div className="meter-card">
+              <MacroSplit proteinG={totals.proteinG} carbsG={totals.carbsG} fatG={totals.fatG} />
+            </div>
+          )}
 
-      {editTargets === null ? (
-        <button
-          className="link small accent"
-          onClick={() => {
-            setEditTargets(Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as never);
-            const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;
-            setSplit(splitOf(open));
-            setMacrosTouched(false);
-          }}
-        >
-          {noTargets ? "Set daily targets for calories and macros" : "Change targets"}
-        </button>
-      ) : (
-        <form className="card stack" onSubmit={saveTargets}>
-          <strong>Daily targets</strong>
-          <div className="grid">
-            {NUTRIENTS.map((n) => (
-              <label key={n}>
-                {TARGET_LABEL[n]}
-                <input
-                  inputMode="decimal"
-                  value={editTargets[n]}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (n !== "calories") {
-                      setMacrosTouched(true);
-                      return setEditTargets({ ...editTargets, [n]: v });
-                    }
-                    const k = Number(v.replace(",", "."));
-                    if (macrosTouched || !(k > 0)) return setEditTargets({ ...editTargets, calories: v });
-                    const m = macrosFromCalories(k, split);
-                    setEditTargets({ calories: v, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
-                  }}
-                />
-              </label>
-            ))}
-          </div>
-          {macrosTouched ? (
+          {editTargets === null ? (
             <button
-              type="button"
               className="link small accent"
-              disabled={!(Number(editTargets.calories.replace(",", ".")) > 0)}
               onClick={() => {
-                const m = macrosFromCalories(Number(editTargets.calories.replace(",", ".")));
-                setEditTargets({ ...editTargets, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
+                setEditTargets(Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as never);
                 const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;
                 setSplit(splitOf(open));
                 setMacrosTouched(false);
               }}
             >
-              Fill macros from kcal again (30% protein, 40% carbs, 30% fat)
+              {noTargets ? "Set daily targets for calories and macros" : "Change targets"}
             </button>
           ) : (
-            <span className="muted small">Macros follow the kcal, keeping their split (30% protein, 40% carbs, 30% fat to start), until you change one.</span>
-          )}
-          <span className="muted small">Leave a field empty to remove that target. Targets also show as goals on your profile.</span>
-          <div className="actions">
-            <button type="submit">Save targets</button>
-            <button type="button" className="secondary" onClick={() => setEditTargets(null)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-
-      <MsgWithUndo
-        msg={msg}
-        onUndo={
-          undo
-            ? async () => {
-                await deleteFood(db, undo);
-                setUndo(null);
-                setMsg({ kind: "ok", text: "Undone." });
-                reload();
-              }
-            : null
-        }
-      />
-
-      {prep.length > 0 && (
-        <section>
-          <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
-          <div className="suggest">
-            {prep.map((s) => {
-              const pressed = ate?.batchId === s.batch.id;
-              return (
+            <form className="card stack" onSubmit={saveTargets}>
+              <strong>Daily targets</strong>
+              <div className="grid">
+                {NUTRIENTS.map((n) => (
+                  <label key={n}>
+                    {TARGET_LABEL[n]}
+                    <input
+                      inputMode="decimal"
+                      value={editTargets[n]}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (n !== "calories") {
+                          setMacrosTouched(true);
+                          return setEditTargets({ ...editTargets, [n]: v });
+                        }
+                        const k = Number(v.replace(",", "."));
+                        if (macrosTouched || !(k > 0)) return setEditTargets({ ...editTargets, calories: v });
+                        const m = macrosFromCalories(k, split);
+                        setEditTargets({ calories: v, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+              {macrosTouched ? (
                 <button
-                  key={s.batch.id}
-                  className={pressed ? "suggestion pressed" : "suggestion secondary"}
-                  aria-pressed={pressed}
-                  onClick={() => void eatPrep(s)}
+                  type="button"
+                  className="link small accent"
+                  disabled={!(Number(editTargets.calories.replace(",", ".")) > 0)}
+                  onClick={() => {
+                    const m = macrosFromCalories(Number(editTargets.calories.replace(",", ".")));
+                    setEditTargets({ ...editTargets, proteinG: String(m.proteinG), carbsG: String(m.carbsG), fatG: String(m.fatG) });
+                    const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;
+                    setSplit(splitOf(open));
+                    setMacrosTouched(false);
+                  }}
                 >
+                  Fill macros from kcal again (30% protein, 40% carbs, 30% fat)
+                </button>
+              ) : (
+                <span className="muted small">
+                  Macros follow the kcal, keeping their split (30% protein, 40% carbs, 30% fat to start), until you change one.
+                </span>
+              )}
+              <span className="muted small">Leave a field empty to remove that target. Targets also show as goals on your profile.</span>
+              <div className="actions">
+                <button type="submit">Save targets</button>
+                <button type="button" className="secondary" onClick={() => setEditTargets(null)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          <MsgWithUndo
+            msg={msg}
+            onUndo={
+              undo
+                ? async () => {
+                    await deleteFood(db, undo);
+                    setUndo(null);
+                    setMsg({ kind: "ok", text: "Undone." });
+                    reload();
+                  }
+                : null
+            }
+          />
+        </div>
+
+        <div className="span-4 wide-col">
+          {prep.length > 0 && (
+            <section>
+              <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
+              <div className="suggest">
+                {prep.map((s) => {
+                  const pressed = ate?.batchId === s.batch.id;
+                  return (
+                    <button
+                      key={s.batch.id}
+                      className={pressed ? "suggestion pressed" : "suggestion secondary"}
+                      aria-pressed={pressed}
+                      onClick={() => void eatPrep(s)}
+                    >
+                      <span>
+                        {pressed ? `✓ Ate 1 · ${s.batch.name}` : `Eat 1 · ${s.batch.name}`}
+                        <span className="muted small block">{pressed ? "Tap again to undo" : `${plural(s.fridgeCount, "portion")} in the fridge`}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {adding ? null : (
+            <button className="wide-button" onClick={() => setAdding(true)}>
+              Log a meal{on}
+            </button>
+          )}
+        </div>
+
+        {suggested.length > 0 && (
+          <section className="span-12">
+            <h3>Eat again</h3>
+            <div className="suggest">
+              {suggested.map((c) => (
+                <button key={c.key} className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"} onClick={() => void quickLog(c)}>
+                  <PhotoThumb db={db} id={c.photoId} size={40} />
                   <span>
-                    {pressed ? `✓ Ate 1 · ${s.batch.name}` : `Eat 1 · ${s.batch.name}`}
-                    <span className="muted small block">{pressed ? "Tap again to undo" : `${plural(s.fridgeCount, "portion")} in the fridge`}</span>
+                    {c.savedMealId && "★ "}
+                    {c.name}
+                    <span className="muted small block">
+                      {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
+                    </span>
                   </span>
                 </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {suggested.length > 0 && (
-        <section>
-          <h3>Eat again</h3>
-          <div className="suggest">
-            {suggested.map((c) => (
-              <button key={c.key} className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"} onClick={() => void quickLog(c)}>
-                <PhotoThumb db={db} id={c.photoId} size={40} />
-                <span>
-                  {c.savedMealId && "★ "}
-                  {c.name}
-                  <span className="muted small block">
-                    {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
-                  </span>
-                </span>
+        {adding ? (
+          <form className="card stack span-12" onSubmit={add}>
+            <MealFields draft={draft} onChange={setDraft} saved={saved} />
+            <label>
+              <span>
+                Time <span className="muted small">{isToday ? "optional, now if empty" : "optional, the meal's usual time if empty"}</span>
+              </span>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </label>
+            <PhotoPicker
+              value={photo}
+              onChange={(p) => {
+                setPhoto(p);
+                if (p) setBookmark(true);
+              }}
+            />
+            <label className="inline">
+              <input type="checkbox" checked={bookmark || Boolean(photo)} disabled={Boolean(photo)} onChange={(e) => setBookmark(e.target.checked)} />
+              Save to favourites{photo ? " (photos are kept with saved meals)" : ""}
+            </label>
+            <div className="actions">
+              <button type="submit">Log meal{on}</button>
+              <button type="button" className="secondary" onClick={() => setAdding(false)}>
+                Cancel
               </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {adding ? (
-        <form className="card stack" onSubmit={add}>
-          <MealFields draft={draft} onChange={setDraft} saved={saved} />
-          <label>
-            <span>
-              Time <span className="muted small">{isToday ? "optional, now if empty" : "optional, the meal's usual time if empty"}</span>
-            </span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          </label>
-          <PhotoPicker
-            value={photo}
-            onChange={(p) => {
-              setPhoto(p);
-              if (p) setBookmark(true);
-            }}
-          />
-          <label className="inline">
-            <input type="checkbox" checked={bookmark || Boolean(photo)} disabled={Boolean(photo)} onChange={(e) => setBookmark(e.target.checked)} />
-            Save to favourites{photo ? " (photos are kept with saved meals)" : ""}
-          </label>
-          <div className="actions">
-            <button type="submit">Log meal{on}</button>
-            <button type="button" className="secondary" onClick={() => setAdding(false)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button className="wide-button" onClick={() => setAdding(true)}>
-          Log a meal{on}
-        </button>
-      )}
+            </div>
+          </form>
+        ) : null}
+      </div>
 
       <div className="row group-head">
         <h2>{cap(fmtDay(day))}</h2>

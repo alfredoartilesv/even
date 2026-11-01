@@ -16,6 +16,8 @@ import {
   saveDrinkType,
   servingKcal,
   setCurrency,
+  typeUsesSince,
+  updateDrink,
   weightWithoutAlcohol,
 } from "../src/domain/alcohol/alcohol";
 import { undoAgentAction, listAgentActions } from "../src/domain/chat/actions";
@@ -68,6 +70,24 @@ test("drink types: unique names, estimated kcal, delete keeps the drinks", async
     ],
     "history keeps the values it was logged with",
   );
+});
+
+test("edit one logged drink: its values, time and day change, its type stays as it was", async () => {
+  const { db } = await migratedDb();
+  const id = await saveDrinkType(db, MAHOU, { nowMs: NOW });
+  const [a, b] = await logDrink(db, { typeId: id, count: 2, atMs: NOW, timeZone: TZ });
+  await updateDrink(db, a, { name: "Mahou 50 cl", volumeMl: 500, abvPercent: 5.5, calories: null, price: 2, atMs: NOW - 24 * H, timeZone: TZ }, NOW + 1);
+  const drinks = await listDrinks(db, "2026-10-24", "2026-10-25");
+  assert.deepEqual(
+    drinks.map((d) => [d.id === a, d.name, d.localDay, d.price, d.kcalEstimated]),
+    [
+      [false, "Mahou 33 cl", "2026-10-25", 1.2, false],
+      [true, "Mahou 50 cl", "2026-10-24", 2, true],
+    ],
+  );
+  assert.equal((await findDrinkType(db, "Mahou 33 cl"))!.price, 1.2, "the favourite keeps its own values");
+  await assert.rejects(updateDrink(db, b, { ...MAHOU, atMs: NOW + H, timeZone: TZ }, NOW), /not happened yet/);
+  assert.deepEqual([...(await typeUsesSince(db, "2026-10-25"))], [[id, 1]], "uses count from the day given");
 });
 
 test("totals in drinks, alcohol, kcal and money; drink kcal per day", async () => {

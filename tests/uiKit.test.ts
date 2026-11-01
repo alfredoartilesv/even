@@ -4,7 +4,7 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BarChart, CalendarHeatmap, LineChart, StatTile } from "../src/ui/charts";
 import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, present, segments } from "../src/ui/charts/scale";
-import { DefrostTimeline, StockAlerts } from "../src/ui/mealprep/components";
+import { batchColors, PlanDays, StockAlerts } from "../src/ui/mealprep/components";
 import { daysCovered, timelineDays } from "../src/ui/mealprep/timeline";
 import { MacroSplit } from "../src/ui/nutrition";
 import { Logo } from "../src/ui/logo";
@@ -79,9 +79,9 @@ test("defrost timeline: one row per day, late defrosts and waste on the right da
   assert.equal(daysCovered(plan, "2026-10-26"), 5);
   assert.equal(daysCovered({ coveredThrough: null }, "2026-10-26"), 0);
 
-  const html = renderToStaticMarkup(h(DefrostTimeline, { plan, today: "2026-10-26" }));
+  const html = renderToStaticMarkup(h(PlanDays, { plan, today: "2026-10-26", horizon: 7, colors: batchColors([]) }));
   assert.match(html, /Defrost now/);
-  assert.match(html, /1 portion short/);
+  assert.match(html, /No tupper/);
 });
 
 const render = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);

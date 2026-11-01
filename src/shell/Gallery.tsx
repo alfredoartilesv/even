@@ -5,7 +5,7 @@ import { fmtDay, today } from "../ui/common";
 import { ChipGroup, RangePicker, StatusBadge, Stepper } from "../ui/controls";
 import { Icon, ICON_NAMES } from "../ui/icons";
 import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../ui/layout";
-import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../ui/mealprep/components";
+import { BatchBar, batchColors, PlanDays, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
 import { SyncBanner } from "../screens/sync/SyncStatus";
 import type { LastSync } from "../domain/sync/runSync";
@@ -151,7 +151,7 @@ export default function Gallery() {
           { id: "3", kind: "thawing", text: "1 portion of Lentil curry defrosting, ready Tue 18:00." },
         ]}
       />
-      <DefrostTimeline plan={plan} today={end} />
+      <PlanDays plan={plan} today={end} horizon={7} colors={batchColors([])} />
       <div className="card">
         <h3>Chili, cooked Sunday</h3>
         <BatchBar cooked={8} eaten={3} fridge={2} freezer={2} discarded={1} />

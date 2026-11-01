@@ -88,7 +88,7 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
   const empty = inventory.filter((r) => r.count === 0);
 
   return (
-    <div>
+    <div className="settings-cards">
       <section className="card">
         <div className="card-head">
           <h2>What Claude may see</h2>

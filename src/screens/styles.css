@@ -412,25 +412,44 @@ ul.entries li > .status {
   justify-content: space-between;
   gap: 0.6rem;
 }
-.saved-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+ul.saved-list {
+  display: flex;
+  flex-direction: column;
+}
+.saved-row {
+  display: flex;
+  align-items: center;
   gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
 }
-.card.saved {
-  margin: 0;
+.saved-row:last-child {
+  border-bottom: none;
+}
+.saved-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  color: inherit;
+}
+.saved-text {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  min-width: 0;
 }
-.card.saved .link {
+.saved-log {
+  flex: none;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.4rem;
 }
-.card.saved .row {
-  flex-wrap: nowrap;
+.saved-log input.qty {
+  width: 3.25rem;
 }
+
 pre.logs {
   font-size: 0.75rem;
   line-height: 1.35;
@@ -1712,7 +1731,8 @@ a.button {
 /* The four nutrition targets as label / value lines in one card. */
 .goal-lines {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 0.35rem 1rem;
   margin: 0.5rem 0 0;
 }
@@ -1724,9 +1744,44 @@ a.button {
 }
 .goal-lines dd {
   margin: 0;
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.goal-lines .viz-meter {
+  margin-top: 0.25rem;
+}
+/* The goals not set yet, as dashed cards that open the form with their usual target. */
+.goal-ideas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.goal-idea {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+.goal-idea .accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 30rem) {
+  /* A phone stacks each nutrition line: value and bar, then the week and the badge. */
+  .goal-lines {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .goal-lines dd.muted {
+    grid-column: 2;
+  }
+}
+
 /* The watch's numbers for a day, two to a row. */
 .synced-grid {
   display: grid;
@@ -1992,4 +2047,196 @@ ol.steps li::marker {
 .friend-table th {
   color: var(--muted);
   font-weight: 500;
+}
+
+/* Alcohol: favourites with their +1, the fields of a drink, and a drink being edited in the list. */
+.eyebrow {
+  margin: 0.25rem 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.drink-plus {
+  flex: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.drink-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.drink-when-fields {
+  display: grid;
+  grid-template-columns: 6rem repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.drink-when-fields input.qty {
+  width: 100%;
+}
+.edit-panel {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+ul.drink-list li {
+  flex-wrap: wrap;
+  align-items: center;
+}
+ol.drink-days {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  height: 7rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+ol.drink-days li {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+}
+.drink-day-bar {
+  width: 70%;
+  max-height: 4.5rem;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+
+/* On a phone the weight estimate takes its own row under the three counts. */
+.alcohol-tiles {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.alcohol-tiles .viz-tile:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+/* Settings: where each page stands under its row, the backup nudge, and the facts of About. */
+.menu-hint {
+  display: block;
+  color: var(--accent);
+}
+.menu-row.active {
+  background: var(--accent-soft);
+}
+.backup-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.backup-nudge > span {
+  flex: 1;
+}
+dl.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+}
+dl.facts > div {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+}
+dl.facts dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+ul.flows li {
+  display: flex;
+  flex-direction: column;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+ul.flows li:last-child {
+  border-bottom: none;
+}
+dl.inventory {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+  margin: 0;
+}
+dl.inventory > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+dl.inventory dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+dl.overview-lines {
+  margin: 0;
+}
+dl.overview-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+dl.overview-lines > div:last-child {
+  border-bottom: none;
+}
+dl.overview-lines dd {
+  margin: 0;
+  text-align: right;
+}
+.settings-page-title {
+  margin: 0.4rem 0 1rem;
+  font-size: 1.4rem;
+}
+
+/* Chat: today's numbers before a new chat, the starters two to a row, and what Claude may see. */
+.today-in-even dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.4rem 0 0;
+}
+.today-in-even dd {
+  margin: 0;
+  font-weight: 600;
+}
+.chat-prompts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.chat-prompts button {
+  min-height: 44px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  text-align: left;
+}
+.consent-line .link {
+  min-height: 0;
+  padding: 0;
+}
+.chat-list .link.current {
+  color: var(--accent);
+  font-weight: 600;
 }
