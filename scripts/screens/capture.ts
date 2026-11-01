@@ -444,6 +444,65 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    id: "wide-mealprep-plan",
+    tab: "Web app",
+    web: true,
+    title: "Tupper plan on a computer",
+    about:
+      "The four tiles in a row, the next 14 days as a two-week calendar (the days with nothing spread over their columns), Cook next beside the shopping list.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Meal prep");
+      await p.click(".segmented button", "Meal prep");
+      await sub(p, "Plan");
+    },
+  },
+  {
+    id: "wide-mealprep-saved",
+    tab: "Web app",
+    web: true,
+    title: "Saved meals on a computer",
+    about: "Saved meals two to a row and the meals eaten most this month, with the form for a new saved meal beside them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await p.click(".segmented button", "Food log");
+      await sub(p, "Saved meals");
+    },
+  },
+  {
+    id: "wide-alcohol",
+    tab: "Web app",
+    web: true,
+    title: "Alcohol on a computer",
+    about: "Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Alcohol");
+    },
+  },
+  {
+    id: "wide-settings",
+    tab: "Web app",
+    web: true,
+    title: "Settings on a computer",
+    about: "The menu stays on the left with where each page stands; beside it every page at a glance until one is picked.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Settings");
+    },
+  },
+  {
+    id: "wide-settings-about",
+    tab: "Web app",
+    web: true,
+    title: "About on a computer",
+    about: "A page opens beside the menu, which marks it.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await p.click(".menu-row", "About");
+    },
+  },
+  {
     id: "tablet-dashboard",
     tab: "Web app",
     web: true,

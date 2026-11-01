@@ -428,70 +428,11 @@ ul.alerts li {
 }
 
 /*
- * Wide layouts. A phone stacks everything in one column; from 60rem (a tablet on its side, a
- * computer) a screen lays its cards on a 12-column grid: .wide-grid holds them, .span-N says how
- * many columns each takes. .wide-only is extra context a phone leaves out, .narrow-only the
- * reverse.
+ * Wide layouts are the web app's (apps/web/web.css): there a page lays its cards on a 12-column
+ * grid. The phone app keeps one column on any screen, so what only a wide page shows stays hidden.
  */
-.wide-only {
+body:not(:has(.app-frame)) .wide-only {
   display: none !important;
-}
-@media (min-width: 60rem) {
-  .wide-only {
-    display: revert !important;
-  }
-  .narrow-only {
-    display: none !important;
-  }
-  .wide-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 1rem;
-    align-items: start;
-    margin-bottom: 1rem;
-  }
-  .wide-grid.stretch {
-    align-items: stretch;
-  }
-  /* Without a span a child takes the whole row. */
-  .wide-grid > * {
-    grid-column: 1 / -1;
-    min-width: 0;
-    margin-bottom: 0;
-  }
-  .wide-grid > .span-3 {
-    grid-column: span 3;
-  }
-  .wide-grid > .span-4 {
-    grid-column: span 4;
-  }
-  .wide-grid > .span-5 {
-    grid-column: span 5;
-  }
-  .wide-grid > .span-6 {
-    grid-column: span 6;
-  }
-  .wide-grid > .span-7 {
-    grid-column: span 7;
-  }
-  .wide-grid > .span-8 {
-    grid-column: span 8;
-  }
-  .wide-grid > .span-9 {
-    grid-column: span 9;
-  }
-  .wide-grid > .span-12 {
-    grid-column: 1 / -1;
-  }
-  /* A column of cards inside the grid. */
-  .wide-col {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-  .wide-col > * {
-    margin-bottom: 0;
-  }
 }
 
 /* The tupper plan: a list of days on a phone, a two-week calendar on a wide screen. */
@@ -642,51 +583,4 @@ ol.plan-strip li.none .plan-strip-cell {
 }
 ol.plan-strip li.eaten .plan-strip-cell {
   background: var(--line);
-}
-@media (min-width: 60rem) {
-  .plan-tiles {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-  .plan-tiles .plan-per-day {
-    grid-column: auto;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  ol.plan-days {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 0.6rem;
-  }
-  .plan-day {
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.6rem;
-    min-height: 8rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--surface);
-  }
-  .plan-day.today {
-    border-color: var(--accent);
-  }
-  .plan-date {
-    width: auto;
-    flex-direction: row;
-    gap: 0.35rem;
-    padding: 0;
-    align-items: baseline;
-  }
-  .plan-day.today .plan-date {
-    background: none;
-    color: var(--accent);
-  }
-  .plan-meal {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 0.45rem 0.55rem;
-  }
-  /* A gap of several days spreads over their columns. */
-  .plan-day.gap {
-    grid-column: span var(--gap-days, 1);
-  }
 }
