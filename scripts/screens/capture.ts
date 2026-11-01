@@ -347,8 +347,16 @@ const SCREENS: Screen[] = [
     id: "alcohol",
     tab: "Alcohol",
     title: "Alcohol",
-    about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.",
+    about:
+      "Log a drink first: favourites with how often each was had in 7 days and a +1, and a one-off drink for anything else (a phone opens its form, a wide screen keeps it beside). Then the period's drinks, kcal, money and weight without alcohol, and the drinks logged, each with a pencil to change it and a bin. On a wide screen the favourites sit beside the list; on a phone Favourites › opens them.",
     go: (p) => tab(p, "Alcohol"),
+  },
+  {
+    id: "alcohol-favourites",
+    tab: "Alcohol",
+    title: "Alcohol: Favourites",
+    about: "The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.",
+    go: (p) => p.click("button", "Favourites ›"),
   },
   {
     id: "settings-menu",
