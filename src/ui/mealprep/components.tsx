@@ -1,7 +1,10 @@
+import type { CSSProperties } from "react";
 import { StackedBar, StatTile } from "../charts/figures";
+import { seriesColor } from "../charts/frame";
 import { StatusBadge, type Status } from "../controls";
 import { fmtDay, plural } from "../common";
-import { daysCovered, timelineDays, type PlanLike } from "./timeline";
+import { addDays } from "../../core/tz";
+import { daysCovered, planRows, timelineDays, type PlanLike, type TimelineDay } from "./timeline";
 
 /**
  * Meal prep, drawn: what is in stock, how long it lasts, what to take out of the freezer when,
@@ -35,42 +38,6 @@ export function StockSummary({
         note={perDay > 0 ? `at ${plural(perDay, "portion")} a day` : "no portions planned"}
       />
     </div>
-  );
-}
-
-/**
- * The next days in a row: each says covered or how many portions are missing, what to take
- * out of the freezer that day, and what runs out. Today first; late defrosts show on today.
- */
-export function DefrostTimeline({ plan, today, horizon = 7 }: { plan: PlanLike; today: string; horizon?: number }) {
-  const days = timelineDays(plan, today, horizon);
-  return (
-    <ol className="timeline" aria-label="Meal prep for the next days">
-      {days.map((d) => (
-        <li key={d.day} className={d.state === "short" ? "short" : undefined}>
-          <div className="timeline-day">
-            <strong>{fmtDay(d.day, today)}</strong>
-            {d.state === "short" ? (
-              <StatusBadge status="warning">{plural(d.missing, "portion")} short</StatusBadge>
-            ) : (
-              <StatusBadge status="good">covered</StatusBadge>
-            )}
-          </div>
-          {d.takeOut.map((t) => (
-            <div key={`${t.name}-${t.forDay}`} className="small">
-              {t.late ? <StatusBadge status="critical">Defrost now</StatusBadge> : <span className="muted">Take out </span>} {plural(t.portions, "portion")} of{" "}
-              {t.name}
-              <span className="muted"> for {fmtDay(t.forDay, today)}</span>
-            </div>
-          ))}
-          {d.expiring.map((w) => (
-            <div key={w.name} className="small">
-              <StatusBadge status="warning">Eat or freeze</StatusBadge> {plural(w.portions, "portion")} of {w.name}
-            </div>
-          ))}
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -110,4 +77,128 @@ export function BatchBar({ cooked, eaten, fridge, freezer, discarded }: { cooked
     { label: "Thrown out", value: discarded, slot: 4 },
   ].filter((p) => p.value > 0);
   return <StackedBar parts={parts} label={`${plural(cooked, "portion")} cooked`} />;
+}
+
+/** "Sat" and "31" for a day, the way a calendar shows it. */
+function dayParts(day: string): { weekday: string; date: string } {
+  const [y, m, d] = day.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" });
+  return { weekday, date: String(d) };
+}
+
+/** A batch's color in the plan: the same slot on the strip, the legend and every day row. */
+export type BatchColors = Map<string, number>;
+
+export function batchColors(ids: string[]): BatchColors {
+  return new Map(ids.map((id, i) => [id, (i % 5) + 1]));
+}
+
+/** "Tonight: take 1 turkey chili out of the freezer for Wed", or "Defrost now" when it is late. */
+function takeOutLine(t: TimelineDay["takeOut"][number], today: string) {
+  return (
+    <span className="plan-thaw small">
+      {t.late ? <StatusBadge status="critical">Defrost now</StatusBadge> : "Tonight: "}take {t.portions} {t.name.toLowerCase()} out of the freezer for{" "}
+      {fmtDay(t.forDay, today)}
+    </span>
+  );
+}
+
+/**
+ * The plan day by day: the date, which tupper is eaten (fridge or thawed, and until when), what to
+ * take out of the freezer that night, and the days with nothing folded into one row. On a wide
+ * screen the CSS lays the days out as a calendar.
+ */
+export function PlanDays({ plan, today, horizon = 14, colors }: { plan: PlanLike; today: string; horizon?: number; colors: BatchColors }) {
+  const days = timelineDays(plan, today, horizon);
+  const lastMeal = [...days].reverse().find((d) => d.meals.length > 0)?.day;
+  return (
+    <ol className="plan-days" aria-label={`Meal prep for the next ${horizon} days`}>
+      {planRows(days).map((r) => {
+        if (r.kind === "gap") {
+          const a = dayParts(r.from);
+          const b = dayParts(r.to);
+          return (
+            <li key={r.from} className="plan-day gap" style={{ "--gap-days": Math.min(r.days, 7) } as CSSProperties}>
+              <span className="plan-date">
+                <span className="small muted">{r.days > 1 ? `${a.weekday}–${b.weekday}` : a.weekday}</span>
+                <strong>{r.days > 1 ? `${a.date}–${b.date}` : a.date}</strong>
+              </span>
+              <span className="plan-empty">
+                <span>No tupper{r.days > 1 ? ` for ${plural(r.days, "day")}` : ""}</span>
+                <span className="small">cook by {fmtDay(addDays(r.from, -1), today)}</span>
+              </span>
+            </li>
+          );
+        }
+        const d = r.day;
+        const p = dayParts(d.day);
+        const isToday = d.day === today;
+        return (
+          <li key={d.day} className={isToday ? "plan-day today" : "plan-day"}>
+            <span className="plan-date">
+              <span className="small">{isToday ? "Today" : p.weekday}</span>
+              <strong>{p.date}</strong>
+            </span>
+            <span className="plan-body">
+              {d.meals.map((m) => (
+                <span key={m.batchId} className="plan-meal" style={{ borderLeftColor: seriesColor(colors.get(m.batchId) ?? 1) }}>
+                  <span className="grow">
+                    <strong>
+                      {m.name}
+                      {m.portions > 1 ? ` ×${m.portions}` : ""}
+                    </strong>
+                    <span className="small muted">
+                      {d.day === lastMeal
+                        ? "the last tupper"
+                        : m.from === "fridge"
+                          ? `eat by ${fmtDay(m.eatBy ?? d.day, today)}`
+                          : m.thawDay && m.thawDay < d.day
+                            ? `taken out ${dayParts(m.thawDay).weekday}`
+                            : "defrosted"}
+                    </span>
+                  </span>
+                  <span className={m.from === "fridge" ? "plan-where fridge" : "plan-where thawed"}>{m.from === "fridge" ? "Fridge" : "Thawed"}</span>
+                </span>
+              ))}
+              {d.meals.length === 0 && d.state === "covered" && <span className="small muted">Already eaten today</span>}
+              {d.state === "short" && d.meals.length > 0 && <StatusBadge status="warning">{plural(d.missing, "tupper")} short</StatusBadge>}
+              {d.takeOut.map((t) => (
+                <span key={`${t.name}-${t.forDay}`}>{takeOutLine(t, today)}</span>
+              ))}
+              {d.expiring.map((w) => (
+                <span key={w.name} className="small">
+                  <StatusBadge status="warning">Eat or freeze</StatusBadge> {plural(w.portions, "portion")} of {w.name}
+                </span>
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** The plan as a row of small day cells, colored by batch, for the Stock view. */
+export function PlanStrip({ plan, today, horizon = 14, colors }: { plan: PlanLike; today: string; horizon?: number; colors: BatchColors }) {
+  const days = timelineDays(plan, today, horizon);
+  return (
+    <ol className="plan-strip" aria-label={`Tuppers planned for the next ${horizon} days`}>
+      {days.map((d) => {
+        const p = dayParts(d.day);
+        const m = d.meals[0];
+        const what = m ? m.name : d.state === "short" ? "no tupper" : "already eaten";
+        return (
+          <li key={d.day} className={m ? "has" : d.state === "short" ? "none" : "eaten"} aria-label={`${fmtDay(d.day, today)}: ${what}`}>
+            <span aria-hidden className="small muted">
+              {p.weekday.slice(0, 1)}
+            </span>
+            <span aria-hidden className="small">
+              {p.date}
+            </span>
+            <span aria-hidden className="plan-strip-cell" style={m ? { background: seriesColor(colors.get(m.batchId) ?? 1) } : undefined} />
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
