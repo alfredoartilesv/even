@@ -198,6 +198,39 @@ export async function deleteDrink(db: SqlDriver, id: string, nowMs: number = Dat
   log.info("drink deleted", { id });
 }
 
+export interface DrinkUpdate {
+  name: string;
+  volumeMl: number;
+  abvPercent: number;
+  calories: number | null;
+  price: number | null;
+  atMs: number;
+  timeZone: string;
+}
+
+/** Change one logged drink. Its type, if any, keeps its own values: this is about that drink. */
+export async function updateDrink(db: SqlDriver, id: string, d: DrinkUpdate, nowMs: number = Date.now()): Promise<void> {
+  const t: DrinkTypeInput = { name: d.name.trim(), volumeMl: d.volumeMl, abvPercent: d.abvPercent, calories: d.calories, price: d.price };
+  check(t);
+  if (d.atMs > nowMs) throw new Error("That time has not happened yet");
+  await db.run(
+    `UPDATE drink_entries SET name = ?, volume_ml = ?, abv_percent = ?, calories = ?, price = ?, drunk_at_ms = ?, offset_min = ?, local_day = ?, updated_at = ?
+     WHERE id = ? AND deleted_at IS NULL`,
+    [t.name, t.volumeMl, t.abvPercent, t.calories, t.price, d.atMs, tzOffsetMinutes(d.atMs, d.timeZone), localDay(d.atMs, d.timeZone), nowMs, id],
+  );
+  log.info("drink updated", { id, hasCalories: t.calories !== null, hasPrice: t.price !== null });
+}
+
+/** How many drinks of each type were logged from a local day on, by type id. */
+export async function typeUsesSince(db: SqlDriver, from: string): Promise<Map<string, number>> {
+  const rows = await db.all<{ id: string; n: number }>(
+    `SELECT drink_type_id AS id, COUNT(*) AS n FROM drink_entries
+     WHERE deleted_at IS NULL AND drink_type_id IS NOT NULL AND local_day >= ? GROUP BY drink_type_id`,
+    [from],
+  );
+  return new Map(rows.map((r) => [r.id, r.n]));
+}
+
 export interface DrinkEntry {
   id: string;
   drunkAtMs: number;

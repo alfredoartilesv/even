@@ -195,8 +195,23 @@ export interface WasteRisk {
   eatBy: string;
 }
 
+/** A planned meal: which batch is eaten that day, and where it comes from. */
+export interface PlannedMeal {
+  day: string;
+  batchId: string;
+  name: string;
+  portions: number;
+  /** "fridge": cooked and kept in the fridge. "thawed": out of the freezer for this day. */
+  from: "fridge" | "thawed";
+  /** Fridge: the last day it is good to eat. Thawed: the day it comes out of the freezer. */
+  eatBy: string | null;
+  thawDay: string | null;
+}
+
 export interface Plan {
   thaw: ThawAdvice[];
+  /** Day by day, what the plan eats, in the order it is eaten. */
+  meals: PlannedMeal[];
   /** Days in the horizon when fridge and freezer together cannot cover the planned portions. */
   short: { day: string; missing: number }[];
   /** Last day of the unbroken run (from today) that is fully covered, or null if today is short. */
@@ -227,7 +242,7 @@ export interface PlanOptions {
 export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
   const horizon = opts.horizonDays ?? 7;
   const perDay = Math.max(0, Math.trunc(opts.portionsPerDay));
-  type FLot = { batch: BatchInfo; portions: number; readyDay: string; eatBy: string };
+  type FLot = { batch: BatchInfo; portions: number; readyDay: string; eatBy: string; thawed: boolean };
   type ZLot = { batch: BatchInfo; portions: number; bestBefore: string; frozenDay: string };
 
   const fridge: FLot[] = [];
@@ -236,7 +251,7 @@ export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
     for (const l of s.fridge) {
       // Ready during the day counts for that day (meals are later than the thaw finishing, usually).
       const readyDay = l.readyAtMs <= opts.nowMs ? opts.today : localDay(l.readyAtMs, opts.timeZone);
-      fridge.push({ batch: s.batch, portions: l.portions, readyDay, eatBy: l.eatBy });
+      fridge.push({ batch: s.batch, portions: l.portions, readyDay, eatBy: l.eatBy, thawed: l.thawed });
     }
     for (const l of s.freezer) freezer.push({ batch: s.batch, portions: l.portions, bestBefore: l.bestBefore, frozenDay: l.frozenDay });
   }
@@ -245,6 +260,7 @@ export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
 
   const plan: Plan = {
     thaw: [],
+    meals: [],
     short: [],
     coveredThrough: null,
     waste: [],
@@ -263,6 +279,7 @@ export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
       const k = Math.min(l.portions, need);
       l.portions -= k;
       need -= k;
+      plan.meals.push({ day, batchId: l.batch.id, name: l.batch.name, portions: k, from: l.thawed ? "thawed" : "fridge", eatBy: l.eatBy, thawDay: null });
     }
 
     for (const z of freezer) {
@@ -274,6 +291,7 @@ export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
       const ideal = addDays(day, -thawDays(z.batch.thawHours));
       const late = ideal < opts.today;
       const start = late ? opts.today : ideal;
+      plan.meals.push({ day, batchId: z.batch.id, name: z.batch.name, portions: k, from: "thawed", eatBy: null, thawDay: start });
       const same = plan.thaw.find((t) => t.day === start && t.forDay === day && t.batchId === z.batch.id);
       if (same) same.portions += k;
       else plan.thaw.push({ day: start, forDay: day, batchId: z.batch.id, name: z.batch.name, portions: k, late });

@@ -132,66 +132,70 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
         </button>
       </div>
 
-      <form key={day} className="card stack fade-in" onSubmit={save}>
-        <strong>{isToday ? "How is the day going?" : "How was the day?"}</strong>
-        <ScaleRating label="Mood" value={mood} onChange={setMood} words={SCALE} />
-        <ScaleRating label="Energy" value={energy} onChange={setEnergy} words={SCALE} />
-        <label>
-          Note
-          <textarea
-            rows={4}
-            value={body}
-            maxLength={4000}
-            placeholder="Sleep, stress, what you ate, how training went…"
-            onChange={(e) => setBody(e.target.value)}
-          />
-        </label>
-        {saved?.createdBy === "assistant" && <p className="muted small">Added by the assistant. Edit it as you like.</p>}
-        <div className="actions">
-          <button type="submit" disabled={!dirty}>
-            {saved ? "Save changes" : "Save"}
-          </button>
-          {saved && (
-            <button
-              type="button"
-              className="secondary danger"
-              onClick={async () => {
-                if (!confirm(`Delete the note for ${fmtDay(day)}?`)) return;
-                await deleteDayNote(db, saved.id);
-                setMsg({ kind: "ok", text: "Note deleted." });
-                onChanged();
-                await load();
-              }}
-            >
-              Delete
+      <div className="wide-grid stretch">
+        <form key={day} className="card stack fade-in span-5" onSubmit={save}>
+          <strong>{isToday ? "How is the day going?" : "How was the day?"}</strong>
+          <ScaleRating label="Mood" value={mood} onChange={setMood} words={SCALE} />
+          <ScaleRating label="Energy" value={energy} onChange={setEnergy} words={SCALE} />
+          <label>
+            Note
+            <textarea
+              rows={4}
+              value={body}
+              maxLength={4000}
+              placeholder="Sleep, stress, what you ate, how training went…"
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </label>
+          {saved?.createdBy === "assistant" && <p className="muted small">Added by the assistant. Edit it as you like.</p>}
+          <div className="actions">
+            <button type="submit" disabled={!dirty}>
+              {saved ? "Save changes" : "Save"}
             </button>
-          )}
-        </div>
-        <MsgLine msg={msg} />
-      </form>
+            {saved && (
+              <button
+                type="button"
+                className="secondary danger"
+                onClick={async () => {
+                  if (!confirm(`Delete the note for ${fmtDay(day)}?`)) return;
+                  await deleteDayNote(db, saved.id);
+                  setMsg({ kind: "ok", text: "Note deleted." });
+                  onChanged();
+                  await load();
+                }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          <MsgLine msg={msg} />
+        </form>
 
-      {rated.length >= 2 && (
-        <LineChart
-          title="Mood and energy"
-          subtitle="Last 30 days, 1 (very low) to 5 (very good)"
-          x={days30}
-          series={[
-            { id: "mood", label: "Mood", values: days30.map((d) => by.get(d)?.mood ?? null) },
-            { id: "energy", label: "Energy", values: days30.map((d) => by.get(d)?.energy ?? null) },
-          ]}
-          formatX={(d) => String(Number(d.slice(8)))}
-          formatXLong={(d) => fmtDay(d)}
-          formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
-          connectGaps
-          height={150}
-        />
-      )}
+        {rated.length >= 2 && (
+          <div className="span-7">
+            <LineChart
+              title="Mood and energy"
+              subtitle="Last 30 days, 1 (very low) to 5 (very good)"
+              x={days30}
+              series={[
+                { id: "mood", label: "Mood", values: days30.map((d) => by.get(d)?.mood ?? null) },
+                { id: "energy", label: "Energy", values: days30.map((d) => by.get(d)?.energy ?? null) },
+              ]}
+              formatX={(d) => String(Number(d.slice(8)))}
+              formatXLong={(d) => fmtDay(d)}
+              formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
+              connectGaps
+              height={150}
+            />
+          </div>
+        )}
+      </div>
 
       <SectionHeader title="Last 30 days" />
       {recent.length === 0 ? (
         <p className="muted small">No notes yet. A line a day is enough to spot what makes good days good.</p>
       ) : (
-        <ul className="entries">
+        <ul className="entries note-grid">
           {(showAll ? recent : recent.slice(0, 7)).map((n) => (
             <li key={n.id}>
               <button type="button" className="link grow note-row" onClick={() => setDay(n.day)} aria-current={n.day === day ? "true" : undefined}>
@@ -281,64 +285,68 @@ function Measurements({ db, version, onChanged }: { db: SqlDriver; version: numb
 
   return (
     <>
-      <form className="card stack" onSubmit={add}>
-        <strong>Add a measurement</strong>
-        <ChipGroup options={options.map((k) => ({ id: k, label: kindLabel(k) }))} value={kind} onChange={setKind} label="What" />
-        {p.shape === "text" ? (
-          <label>
-            {p.label}
-            <input value={text} maxLength={200} placeholder={p.hint} onChange={(e) => setText(e.target.value)} />
-          </label>
-        ) : (
-          <div className="grid">
+      <div className="wide-grid">
+        <form className="card stack span-4" onSubmit={add}>
+          <strong>Add a measurement</strong>
+          <ChipGroup options={options.map((k) => ({ id: k, label: kindLabel(k) }))} value={kind} onChange={setKind} label="What" />
+          {p.shape === "text" ? (
             <label>
-              <span>
-                {p.shape === "pair" ? "Systolic" : p.label}
-                {p.unit && <span className="muted small"> {p.unit}</span>}
-              </span>
-              <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
+              {p.label}
+              <input value={text} maxLength={200} placeholder={p.hint} onChange={(e) => setText(e.target.value)} />
             </label>
-            {p.shape === "pair" && (
+          ) : (
+            <div className="grid">
               <label>
                 <span>
-                  Diastolic<span className="muted small"> {p.unit}</span>
+                  {p.shape === "pair" ? "Systolic" : p.label}
+                  {p.unit && <span className="muted small"> {p.unit}</span>}
                 </span>
-                <input inputMode="decimal" value={value2} onChange={(e) => setValue2(e.target.value)} />
+                <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
               </label>
-            )}
+              {p.shape === "pair" && (
+                <label>
+                  <span>
+                    Diastolic<span className="muted small"> {p.unit}</span>
+                  </span>
+                  <input inputMode="decimal" value={value2} onChange={(e) => setValue2(e.target.value)} />
+                </label>
+              )}
+            </div>
+          )}
+          <div className="grid">
+            <label>
+              Day
+              <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
+            </label>
+            <label>
+              Time
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </label>
           </div>
-        )}
-        <div className="grid">
-          <label>
-            Day
-            <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
-          </label>
-          <label>
-            Time
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          </label>
-        </div>
-        <NoteField value={notes} onChange={setNotes} />
-        <button type="submit">Save {p.label.toLowerCase()}</button>
-        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
-      </form>
+          <NoteField value={notes} onChange={setNotes} />
+          <button type="submit">Save {p.label.toLowerCase()}</button>
+          <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
+        </form>
 
-      <SectionHeader title="Your measurements" />
-      {kinds.length === 0 ? (
-        <p className="muted small">Nothing logged yet. Weight logged here also feeds the estimates in your profile and the alcohol screen.</p>
-      ) : (
-        kinds.map((k) => (
-          <KindCard
-            key={k.kind}
-            db={db}
-            summary={k}
-            open={open === k.kind}
-            onToggle={() => setOpen(open === k.kind ? null : k.kind)}
-            onDelete={remove}
-            version={version}
-          />
-        ))
-      )}
+        <div className="span-8">
+          <SectionHeader title="Your measurements" />
+          {kinds.length === 0 ? (
+            <p className="muted small">Nothing logged yet. Weight logged here also feeds the estimates in your profile and the alcohol screen.</p>
+          ) : (
+            kinds.map((k) => (
+              <KindCard
+                key={k.kind}
+                db={db}
+                summary={k}
+                open={open === k.kind}
+                onToggle={() => setOpen(open === k.kind ? null : k.kind)}
+                onDelete={remove}
+                version={version}
+              />
+            ))
+          )}
+        </div>
+      </div>
     </>
   );
 }

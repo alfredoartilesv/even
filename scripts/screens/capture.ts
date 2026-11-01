@@ -312,12 +312,20 @@ const SCREENS: Screen[] = [
     go: (p) => sub(p, "Saved meals"),
   },
   {
+    id: "mealprep-plan",
+    tab: "Meal prep",
+    title: "Meal prep: Plan",
+    about:
+      "The second group opens on the tupper plan: days covered and tuppers in stock, tuppers a day (1 or 2), the next defrost, then the next 14 days with the tupper eaten each day (from the fridge or thawed) and the night to take each out of the freezer, the days with nothing folded into one row, and what to cook next with a button that puts it on the shopping list. On a wide screen the days are a two-week calendar beside the shopping list.",
+    go: (p) => p.click(".segmented button", "Meal prep"),
+  },
+  {
     id: "mealprep-stock",
     tab: "Meal prep",
     title: "Meal prep: Stock",
     about:
-      "The second group. Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the defrost plan (portions a day, what to take out today, the next 7 days), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
-    go: (p) => p.click(".segmented button", "Meal prep"),
+      "Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the next 14 days as a strip colored by batch (Plan › opens them day by day), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
+    go: (p) => sub(p, "Stock"),
   },
   {
     id: "mealprep-recipes",
@@ -339,8 +347,16 @@ const SCREENS: Screen[] = [
     id: "alcohol",
     tab: "Alcohol",
     title: "Alcohol",
-    about: "One-tap logging from drink types first; then drinks per period with standard drinks, kcal and money, weight without alcohol, and the list.",
+    about:
+      "Log a drink first: favourites with how often each was had in 7 days and a +1, and a one-off drink for anything else (a phone opens its form, a wide screen keeps it beside). Then the period's drinks, kcal, money and weight without alcohol, and the drinks logged, each with a pencil to change it and a bin. On a wide screen the favourites sit beside the list; on a phone Favourites › opens them.",
     go: (p) => tab(p, "Alcohol"),
+  },
+  {
+    id: "alcohol-favourites",
+    tab: "Alcohol",
+    title: "Alcohol: Favourites",
+    about: "The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.",
+    go: (p) => p.click("button", "Favourites ›"),
   },
   {
     id: "settings-menu",
@@ -421,10 +437,80 @@ const SCREENS: Screen[] = [
     tab: "Web app",
     web: true,
     title: "Chat on a computer",
-    about: "Screens other than the Dashboard keep a readable width beside the menu.",
+    about: "The conversations on the left, the chat in the middle, and on the right today's numbers, what Claude may see and the last send.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
       await tab(p, "Chat");
+    },
+  },
+  {
+    id: "wide-mealprep-plan",
+    tab: "Web app",
+    web: true,
+    title: "Tupper plan on a computer",
+    about:
+      "The four tiles in a row, the next 14 days as a two-week calendar (the days with nothing spread over their columns), Cook next beside the shopping list.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Meal prep");
+      await p.click(".segmented button", "Meal prep");
+      await sub(p, "Plan");
+    },
+  },
+  {
+    id: "wide-mealprep-shopping",
+    tab: "Web app",
+    web: true,
+    title: "Shopping on a computer",
+    about: "The list, what was paid and the month's spending side by side, the six months and the shops under them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await sub(p, "Shopping");
+    },
+  },
+  {
+    id: "wide-mealprep-saved",
+    tab: "Web app",
+    web: true,
+    title: "Saved meals on a computer",
+    about: "Saved meals two to a row and the meals eaten most this month, with the form for a new saved meal beside them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await p.click(".segmented button", "Food log");
+      await sub(p, "Saved meals");
+    },
+  },
+  {
+    id: "wide-alcohol",
+    tab: "Web app",
+    web: true,
+    title: "Alcohol on a computer",
+    about: "Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Alcohol");
+    },
+  },
+  {
+    id: "wide-settings",
+    tab: "Web app",
+    web: true,
+    title: "Settings on a computer",
+    about: "The menu stays on the left with where each page stands; beside it every page at a glance until one is picked.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await tab(p, "Settings");
+    },
+  },
+  {
+    id: "wide-settings-about",
+    tab: "Web app",
+    web: true,
+    title: "About on a computer",
+    about: "A page opens beside the menu, which marks it.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await p.click(".menu-row", "About");
     },
   },
   {
@@ -553,7 +639,7 @@ function indexHtml(): string {
     ],
     ["StatusBadge, Stepper", "src/ui/controls.tsx", "States as icon and words; portion counts."],
     ["CalorieMeter, MacroSplit", "src/ui/nutrition.tsx", "Calories against the target, macro shares (Log food)."],
-    ["StockSummary, DefrostTimeline, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the defrost plan."],
+    ["StockSummary, PlanDays, PlanStrip, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the tupper plan."],
   ];
   return `${docHead("Even screens")}
 <body data-show="light">

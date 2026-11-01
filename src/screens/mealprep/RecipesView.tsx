@@ -341,86 +341,88 @@ export function RecipesView({ db, tag, allTags, version, onChanged, onShopping, 
           </button>
         )}
       </div>
-      {shown.map((p) => (
-        <section key={p.id} className="card recipe-card">
-          <div className="row">
-            <strong className="grow">{p.name}</strong>
-            <span className="muted small">{plural(p.portions, "portion")}</span>
-          </div>
-          {macroLine(p) && <div className="small">{macroLine(p)}</div>}
-          <div className="muted small">
-            Fridge {p.fridgeDays} d · freezer {p.freezerDays} d{p.thawHours ? ` · defrost ${p.thawHours} h` : ""}
-          </div>
-          {p.tags.length > 0 && (
-            <div className="chips">
-              {p.tags.map((t) => (
-                <span key={t} className="chip static">
-                  {t}
-                </span>
-              ))}
+      <div className="recipe-grid">
+        {shown.map((p) => (
+          <section key={p.id} className="card recipe-card">
+            <div className="row">
+              <strong className="grow">{p.name}</strong>
+              <span className="muted small">{plural(p.portions, "portion")}</span>
             </div>
-          )}
-          {p.ingredients.length > 0 && (
-            <details className="more">
-              <summary className="small muted">{plural(p.ingredients.length, "ingredient")}</summary>
-              <div className="small">{ingredientText(p)}</div>
-            </details>
-          )}
-          {p.notes && <div className="muted small clamp">{p.notes}</div>}
+            {macroLine(p) && <div className="small">{macroLine(p)}</div>}
+            <div className="muted small">
+              Fridge {p.fridgeDays} d · freezer {p.freezerDays} d{p.thawHours ? ` · defrost ${p.thawHours} h` : ""}
+            </div>
+            {p.tags.length > 0 && (
+              <div className="chips">
+                {p.tags.map((t) => (
+                  <span key={t} className="chip static">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+            {p.ingredients.length > 0 && (
+              <details className="more">
+                <summary className="small muted">{plural(p.ingredients.length, "ingredient")}</summary>
+                <div className="small">{ingredientText(p)}</div>
+              </details>
+            )}
+            {p.notes && <div className="muted small clamp">{p.notes}</div>}
 
-          {cooking?.id === p.id ? (
-            <form className="stack tight cook-form" onSubmit={cook}>
-              <div className="row">
-                <span className="small grow">Portions made</span>
+            {cooking?.id === p.id ? (
+              <form className="stack tight cook-form" onSubmit={cook}>
+                <div className="row">
+                  <span className="small grow">Portions made</span>
+                  <Stepper
+                    value={cooking.portions}
+                    min={1}
+                    max={50}
+                    label="Portions made"
+                    onChange={(n) => setCooking({ ...cooking, portions: n, frozen: Math.min(cooking.frozen, n) })}
+                  />
+                </div>
+                <div className="row">
+                  <span className="small grow">Straight to the freezer</span>
+                  <Stepper
+                    value={cooking.frozen}
+                    min={0}
+                    max={cooking.portions}
+                    label="Portions to freeze"
+                    onChange={(n) => setCooking({ ...cooking, frozen: n })}
+                  />
+                </div>
+                <div className="actions">
+                  <button type="submit">Log batch</button>
+                  <button type="button" className="secondary" onClick={() => setCooking(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="recipe-actions">
+                <div className="actions compact">
+                  <button className="secondary" onClick={() => setDraft(toDraft(p))}>
+                    Edit
+                  </button>
+                  <button className="secondary" onClick={() => setCooking({ id: p.id, portions: p.portions, frozen: 0 })}>
+                    Cook
+                  </button>
+                  <button className="secondary" onClick={() => setDraft(copyDraft(p))}>
+                    Duplicate
+                  </button>
+                </div>
                 <Stepper
-                  value={cooking.portions}
-                  min={1}
-                  max={50}
-                  label="Portions made"
-                  onChange={(n) => setCooking({ ...cooking, portions: n, frozen: Math.min(cooking.frozen, n) })}
-                />
-              </div>
-              <div className="row">
-                <span className="small grow">Straight to the freezer</span>
-                <Stepper
-                  value={cooking.frozen}
+                  value={batches[p.id] ?? 0}
                   min={0}
-                  max={cooking.portions}
-                  label="Portions to freeze"
-                  onChange={(n) => setCooking({ ...cooking, frozen: n })}
+                  max={20}
+                  label={`Batches of ${p.name} to shop for`}
+                  onChange={(n) => setBatches({ ...batches, [p.id]: n })}
                 />
               </div>
-              <div className="actions">
-                <button type="submit">Log batch</button>
-                <button type="button" className="secondary" onClick={() => setCooking(null)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="recipe-actions">
-              <div className="actions compact">
-                <button className="secondary" onClick={() => setDraft(toDraft(p))}>
-                  Edit
-                </button>
-                <button className="secondary" onClick={() => setCooking({ id: p.id, portions: p.portions, frozen: 0 })}>
-                  Cook
-                </button>
-                <button className="secondary" onClick={() => setDraft(copyDraft(p))}>
-                  Duplicate
-                </button>
-              </div>
-              <Stepper
-                value={batches[p.id] ?? 0}
-                min={0}
-                max={20}
-                label={`Batches of ${p.name} to shop for`}
-                onChange={(n) => setBatches({ ...batches, [p.id]: n })}
-              />
-            </div>
-          )}
-        </section>
-      ))}
+            )}
+          </section>
+        ))}
+      </div>
       {!shown.length && <p className="muted">{q ? "No recipe matches." : `No recipes${tag ? ` tagged ${tag}` : ""} yet. Add one with New recipe.`}</p>}
       {preps.length > 0 && (
         <div className="sticky-action">

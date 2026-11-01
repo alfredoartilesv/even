@@ -8,16 +8,17 @@ import {
   loadStock,
   logBatch,
   portionsEatenOn,
-  setPortionsPerDay,
   undoMove,
   type MealPrep,
   type StockEntry,
 } from "../../domain/mealprep/mealPrep";
 import { planDefrost, stockAlerts, type Alert, type Location, type MoveKind, type Plan } from "../../domain/mealprep/stock";
 import { failed, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
-import { ChipGroup, StatusBadge, Stepper } from "../../ui/controls";
+import { ChipGroup, Stepper } from "../../ui/controls";
 import { addDays, localDateTimeToMs } from "../../core/tz";
-import { BatchBar, DefrostTimeline, StockAlerts, StockSummary } from "../../ui/mealprep/components";
+import { BatchBar, batchColors, PlanStrip, StockAlerts, StockSummary } from "../../ui/mealprep/components";
+import { Legend } from "../../ui/charts";
+import { SectionHeader } from "../../ui/layout";
 
 interface Props {
   db: SqlDriver;
@@ -28,6 +29,8 @@ interface Props {
   onChanged: () => void;
   /** Open Recipes (to cook when stock runs short). */
   onRecipes: () => void;
+  /** Open the tupper plan, day by day. */
+  onPlan: () => void;
 }
 
 const MOVE_LABEL: Record<MoveKind, string> = { freeze: "froze", thaw: "started defrosting", eat: "ate", discard: "threw out" };
@@ -59,10 +62,10 @@ function alertText(a: Alert): string {
 
 /**
  * What is in the fridge and freezer: the totals and days covered, what needs doing now (eat soon,
- * defrost), the defrost plan by day, then each batch with where its portions are and Eat, Freeze,
+ * defrost), the next two weeks at a glance (the Plan view has them day by day), then each batch with where its portions are and Eat, Freeze,
  * Defrost. Eating writes the food log. Cooking is logged here or from a recipe.
  */
-export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
+export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Props) {
   const [stock, setStock] = useState<StockEntry[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [perDay, setPerDay] = useState(1);
@@ -83,7 +86,16 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
     setStock(s);
     setPerDay(ppd);
     setPreps(p);
-    setPlan(planDefrost(s, { today: day, nowMs: Date.now(), timeZone: timeZone(), portionsPerDay: ppd, eatenToday: await portionsEatenOn(db, day, tag) }));
+    setPlan(
+      planDefrost(s, {
+        today: day,
+        nowMs: Date.now(),
+        timeZone: timeZone(),
+        portionsPerDay: ppd,
+        eatenToday: await portionsEatenOn(db, day, tag),
+        horizonDays: 14,
+      }),
+    );
   }, [db, tag]);
 
   useEffect(() => {
@@ -175,7 +187,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const fridge = stock.reduce((n, s) => n + s.fridgeCount, 0);
   const frozen = stock.reduce((n, s) => n + s.freezerCount, 0);
   const todayStr = today();
-  const doNow = plan ? plan.thaw.filter((t) => t.late || t.day === todayStr) : [];
+  const colors = batchColors(stock.map((st) => st.batch.id));
 
   return (
     <div>
@@ -183,112 +195,91 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
 
       <StockAlerts alerts={alerts.map((a, i) => ({ id: `${a.kind}|${a.batchId}|${i}`, kind: a.kind, text: alertText(a) }))} />
 
-      <section className="card">
-        <div className="row">
-          <h3 className="grow">Defrost plan</h3>
-          <Stepper value={perDay} min={0} max={9} label="Prep portions a day" onChange={(n) => void setPortionsPerDay(db, n, tag).then(load)} />
-        </div>
-        <p className="muted small">Prep portions you eat a day: the plan says what to take out of the freezer, and when.</p>
-        {plan && perDay > 0 ? (
-          <>
-            {doNow.length > 0 && (
-              <ul className="plain">
-                {doNow.map((t) => (
-                  <li key={`${t.day}|${t.forDay}|${t.batchId}`} className="small">
-                    <StatusBadge status={t.late ? "critical" : "warning"}>{t.late ? "Defrost now" : "Today"}</StatusBadge> Take {plural(t.portions, "portion")}{" "}
-                    of {t.name} out of the freezer (for {fmtDay(t.forDay)})
-                  </li>
-                ))}
-              </ul>
-            )}
-            <details className="more" open={plan.short.length > 0}>
-              <summary className="small muted">
-                {plan.coveredThrough ? `Covered through ${fmtDay(plan.coveredThrough)}` : "Nothing ready for today"}
-                {plan.short.length ? ` · short on ${plural(plan.short.length, "day")}` : ""}
-              </summary>
-              <DefrostTimeline plan={plan} today={todayStr} />
-            </details>
-            {plan.short.length > 0 && (
-              <button type="button" className="link small accent" onClick={onRecipes}>
-                Not enough for {fmtDay(plan.short[0].day)}: time to cook ›
-              </button>
-            )}
-          </>
-        ) : (
-          <p className="muted small">Set how many prep portions you eat a day to get defrost reminders.</p>
-        )}
-      </section>
+      {plan && perDay > 0 && (
+        <section className="card">
+          <SectionHeader title="Next 14 days" action="Plan" onAction={onPlan} />
+          <PlanStrip plan={plan} today={todayStr} colors={colors} />
+          <Legend items={stock.map((st) => ({ label: st.batch.name, slot: colors.get(st.batch.id) ?? 1, mark: "rect" as const }))} />
+          {plan.short.length > 0 && (
+            <button type="button" className="link small accent" onClick={onRecipes}>
+              Not enough for {fmtDay(plan.short[0].day)}: time to cook ›
+            </button>
+          )}
+        </section>
+      )}
 
       <MsgLine msg={msg} />
 
-      {stock.map((s) => {
-        const n = amount[s.batch.id] ?? 1;
-        const max = Math.max(1, s.fridgeCount, s.freezerCount);
-        return (
-          <section key={s.batch.id} className="card">
-            <div className="row">
-              <div className="grow">
-                <strong>{s.batch.name}</strong>
-                <div className="muted small">
-                  Cooked {fmtDay(s.batch.localDay)} · {s.left} of {s.batch.portions} left
+      <div className="batch-grid">
+        {stock.map((s) => {
+          const n = amount[s.batch.id] ?? 1;
+          const max = Math.max(1, s.fridgeCount, s.freezerCount);
+          return (
+            <section key={s.batch.id} className="card">
+              <div className="row">
+                <div className="grow">
+                  <strong>{s.batch.name}</strong>
+                  <div className="muted small">
+                    Cooked {fmtDay(s.batch.localDay)} · {s.left} of {s.batch.portions} left
+                  </div>
                 </div>
               </div>
-            </div>
-            <BatchBar cooked={s.batch.portions} eaten={s.eaten} fridge={s.fridgeCount} freezer={s.freezerCount} discarded={s.discarded} />
-            <ul className="plain small">
-              {s.fridge.map((l, i) => (
-                <li key={`f${i}`}>
-                  Fridge: {l.portions}
-                  {l.thawed ? (l.readyAtMs > Date.now() ? " defrosting" : " defrosted") : ""}, eat by {fmtDay(l.eatBy)}
-                </li>
-              ))}
-              {s.freezer.map((l, i) => (
-                <li key={`z${i}`}>
-                  Freezer: {l.portions}, frozen {fmtDay(l.frozenDay)}, best by {fmtDay(l.bestBefore)}
-                </li>
-              ))}
-            </ul>
-            <div className="row">
-              <span className="small muted grow">Portions</span>
-              <Stepper
-                value={Math.min(n, max)}
-                min={1}
-                max={max}
-                label={`Portions of ${s.batch.name}`}
-                onChange={(v) => setAmount({ ...amount, [s.batch.id]: v })}
-              />
-            </div>
-            <div className="actions">
-              {moveButton(s, "eat", "Eat", s.fridgeCount, true)}
-              {moveButton(s, "freeze", "Freeze", s.fridgeCount)}
-              {moveButton(s, "thaw", "Defrost", s.freezerCount)}
-            </div>
-            {/* Rarer moves stay one tap away, so the everyday ones lead. */}
-            <details className="more">
-              <summary className="small muted">More</summary>
-              <div className="actions compact">
-                {moveButton(s, "discard", "Toss (fridge)", s.fridgeCount, false, "fridge")}
-                {moveButton(s, "discard", "Toss (freezer)", s.freezerCount, false, "freezer")}
-                {s.lastMove && s.lastMove.id !== done?.moveId && (
-                  <button className="secondary" onClick={() => act(() => undoMove(db, s.lastMove!.id), "Undone.")}>
-                    Undo last: {MOVE_LABEL[s.lastMove.kind]} {s.lastMove.portions}
-                  </button>
-                )}
-                <button
-                  className="secondary danger"
-                  onClick={() => {
-                    if (confirm(`Delete this batch of ${s.batch.name}? Meals logged from it are removed from the food log too.`)) {
-                      void act(() => deleteBatch(db, s.batch.id), "Batch deleted.");
-                    }
-                  }}
-                >
-                  Delete batch
-                </button>
+              <BatchBar cooked={s.batch.portions} eaten={s.eaten} fridge={s.fridgeCount} freezer={s.freezerCount} discarded={s.discarded} />
+              <ul className="plain small">
+                {s.fridge.map((l, i) => (
+                  <li key={`f${i}`}>
+                    Fridge: {l.portions}
+                    {l.thawed ? (l.readyAtMs > Date.now() ? " defrosting" : " defrosted") : ""}, eat by {fmtDay(l.eatBy)}
+                  </li>
+                ))}
+                {s.freezer.map((l, i) => (
+                  <li key={`z${i}`}>
+                    Freezer: {l.portions}, frozen {fmtDay(l.frozenDay)}, best by {fmtDay(l.bestBefore)}
+                  </li>
+                ))}
+              </ul>
+              <div className="row">
+                <span className="small muted grow">Portions</span>
+                <Stepper
+                  value={Math.min(n, max)}
+                  min={1}
+                  max={max}
+                  label={`Portions of ${s.batch.name}`}
+                  onChange={(v) => setAmount({ ...amount, [s.batch.id]: v })}
+                />
               </div>
-            </details>
-          </section>
-        );
-      })}
+              <div className="actions">
+                {moveButton(s, "eat", "Eat", s.fridgeCount, true)}
+                {moveButton(s, "freeze", "Freeze", s.fridgeCount)}
+                {moveButton(s, "thaw", "Defrost", s.freezerCount)}
+              </div>
+              {/* Rarer moves stay one tap away, so the everyday ones lead. */}
+              <details className="more">
+                <summary className="small muted">More</summary>
+                <div className="actions compact">
+                  {moveButton(s, "discard", "Toss (fridge)", s.fridgeCount, false, "fridge")}
+                  {moveButton(s, "discard", "Toss (freezer)", s.freezerCount, false, "freezer")}
+                  {s.lastMove && s.lastMove.id !== done?.moveId && (
+                    <button className="secondary" onClick={() => act(() => undoMove(db, s.lastMove!.id), "Undone.")}>
+                      Undo last: {MOVE_LABEL[s.lastMove.kind]} {s.lastMove.portions}
+                    </button>
+                  )}
+                  <button
+                    className="secondary danger"
+                    onClick={() => {
+                      if (confirm(`Delete this batch of ${s.batch.name}? Meals logged from it are removed from the food log too.`)) {
+                        void act(() => deleteBatch(db, s.batch.id), "Batch deleted.");
+                      }
+                    }}
+                  >
+                    Delete batch
+                  </button>
+                </div>
+              </details>
+            </section>
+          );
+        })}
+      </div>
       {!stock.length && <p className="muted">No meal prep in stock{tag ? ` tagged ${tag}` : ""}.</p>}
 
       <form className="card stack cook-card" onSubmit={cook}>
