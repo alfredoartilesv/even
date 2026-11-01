@@ -420,32 +420,271 @@ g[role="button"]:focus-visible .viz-hit {
 }
 
 /* Meal prep */
-ol.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 0.75rem;
-  display: flex;
-  flex-direction: column;
-}
-ol.timeline li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem 0 0.5rem 0.75rem;
-  border-left: 2px solid var(--accent);
-}
-ol.timeline li.short {
-  border-left-color: var(--warning);
-}
-.timeline-day {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
 ul.alerts li {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
   flex-wrap: wrap;
+}
+
+/*
+ * Wide layouts. A phone stacks everything in one column; from 60rem (a tablet on its side, a
+ * computer) a screen lays its cards on a 12-column grid: .wide-grid holds them, .span-N says how
+ * many columns each takes. .wide-only is extra context a phone leaves out, .narrow-only the
+ * reverse.
+ */
+.wide-only {
+  display: none !important;
+}
+@media (min-width: 60rem) {
+  .wide-only {
+    display: revert !important;
+  }
+  .narrow-only {
+    display: none !important;
+  }
+  .wide-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+    margin-bottom: 1rem;
+  }
+  .wide-grid.stretch {
+    align-items: stretch;
+  }
+  .wide-grid > * {
+    min-width: 0;
+    margin-bottom: 0;
+  }
+  .wide-grid > .span-3 {
+    grid-column: span 3;
+  }
+  .wide-grid > .span-4 {
+    grid-column: span 4;
+  }
+  .wide-grid > .span-5 {
+    grid-column: span 5;
+  }
+  .wide-grid > .span-6 {
+    grid-column: span 6;
+  }
+  .wide-grid > .span-7 {
+    grid-column: span 7;
+  }
+  .wide-grid > .span-8 {
+    grid-column: span 8;
+  }
+  .wide-grid > .span-9 {
+    grid-column: span 9;
+  }
+  .wide-grid > .span-12 {
+    grid-column: 1 / -1;
+  }
+  /* A column of cards inside the grid. */
+  .wide-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .wide-col > * {
+    margin-bottom: 0;
+  }
+}
+
+/* The tupper plan: a list of days on a phone, a two-week calendar on a wide screen. */
+ol.plan-days {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.plan-day {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.plan-date {
+  flex: none;
+  width: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.3rem 0;
+  border-radius: var(--radius-sm);
+}
+.plan-day.today .plan-date {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.plan-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.plan-meal {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+}
+.plan-meal > .grow {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.plan-where {
+  flex: none;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.plan-where.thawed {
+  background: color-mix(in srgb, var(--series-1) 14%, transparent);
+  color: var(--info, var(--series-1));
+}
+.plan-thaw {
+  color: var(--info, var(--series-1));
+  padding-left: 0.25rem;
+}
+.plan-empty {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--line-strong, var(--line));
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.plan-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+  color: var(--info, var(--series-1));
+}
+.plan-tiles .plan-per-day {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.plan-per-day-text {
+  display: flex;
+  flex-direction: column;
+}
+.plan-per-day .chips {
+  margin: 0;
+}
+.plan-cook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+}
+.actions.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+ul.plan-shopping {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem 1rem;
+}
+ul.plan-shopping li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+}
+ol.plan-strip {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 3px;
+  text-align: center;
+}
+ol.plan-strip li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.plan-strip-cell {
+  width: 100%;
+  height: 1.4rem;
+  border-radius: 4px;
+}
+ol.plan-strip li.none .plan-strip-cell {
+  border: 1px dashed var(--line-strong, var(--muted));
+}
+ol.plan-strip li.eaten .plan-strip-cell {
+  background: var(--line);
+}
+@media (min-width: 60rem) {
+  .plan-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .plan-tiles .plan-per-day {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  ol.plan-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+  .plan-day {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    min-height: 8rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .plan-day.today {
+    border-color: var(--accent);
+  }
+  .plan-date {
+    width: auto;
+    flex-direction: row;
+    gap: 0.35rem;
+    padding: 0;
+    align-items: baseline;
+  }
+  .plan-day.today .plan-date {
+    background: none;
+    color: var(--accent);
+  }
+  .plan-meal {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.45rem 0.55rem;
+  }
+  /* A gap of several days spreads over their columns. */
+  .plan-day.gap {
+    grid-column: span var(--gap-days, 1);
+  }
 }

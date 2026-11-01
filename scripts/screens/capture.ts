@@ -312,12 +312,20 @@ const SCREENS: Screen[] = [
     go: (p) => sub(p, "Saved meals"),
   },
   {
+    id: "mealprep-plan",
+    tab: "Meal prep",
+    title: "Meal prep: Plan",
+    about:
+      "The second group opens on the tupper plan: days covered and tuppers in stock, tuppers a day (1 or 2), the next defrost, then the next 14 days with the tupper eaten each day (from the fridge or thawed) and the night to take each out of the freezer, the days with nothing folded into one row, and what to cook next with a button that puts it on the shopping list. On a wide screen the days are a two-week calendar beside the shopping list.",
+    go: (p) => p.click(".segmented button", "Meal prep"),
+  },
+  {
     id: "mealprep-stock",
     tab: "Meal prep",
     title: "Meal prep: Stock",
     about:
-      "The second group. Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the defrost plan (portions a day, what to take out today, the next 7 days), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
-    go: (p) => p.click(".segmented button", "Meal prep"),
+      "Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the next 14 days as a strip colored by batch (Plan › opens them day by day), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
+    go: (p) => sub(p, "Stock"),
   },
   {
     id: "mealprep-recipes",
@@ -553,7 +561,7 @@ function indexHtml(): string {
     ],
     ["StatusBadge, Stepper", "src/ui/controls.tsx", "States as icon and words; portion counts."],
     ["CalorieMeter, MacroSplit", "src/ui/nutrition.tsx", "Calories against the target, macro shares (Log food)."],
-    ["StockSummary, DefrostTimeline, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the defrost plan."],
+    ["StockSummary, PlanDays, PlanStrip, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the tupper plan."],
   ];
   return `${docHead("Even screens")}
 <body data-show="light">
