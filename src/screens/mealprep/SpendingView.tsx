@@ -126,145 +126,154 @@ export function SpendingView({ db, version, onChanged }: Props) {
 
   const delta = sum && prev !== null ? sum.total - prev : null;
 
+  // Its parts are cells of the shopping page's grid on a wide screen: paid, the month, the chart, the shops.
   return (
-    <div>
-      <SectionHeader title="Paid at the shop" />
-      <form className="card stack" onSubmit={add}>
-        <label>
-          Supermarket
-          <input value={shop} maxLength={60} placeholder="e.g. Mercadona" autoComplete="off" onChange={(e) => setShop(e.target.value)} />
-        </label>
-        {shops.length > 0 && (
-          <div className="chips" role="group" aria-label="Supermarkets used before">
-            {shops.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={s.toLowerCase() === shop.trim().toLowerCase() ? "chip active" : "chip"}
-                aria-pressed={s.toLowerCase() === shop.trim().toLowerCase()}
-                onClick={() => setShop(s)}
-              >
-                {s}
-              </button>
-            ))}
+    <div className="wide-contents">
+      <section className="span-4">
+        <SectionHeader title="Paid at the shop" />
+        <form className="card stack" onSubmit={add}>
+          <label>
+            Supermarket
+            <input value={shop} maxLength={60} placeholder="e.g. Mercadona" autoComplete="off" onChange={(e) => setShop(e.target.value)} />
+          </label>
+          {shops.length > 0 && (
+            <div className="chips" role="group" aria-label="Supermarkets used before">
+              {shops.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={s.toLowerCase() === shop.trim().toLowerCase() ? "chip active" : "chip"}
+                  aria-pressed={s.toLowerCase() === shop.trim().toLowerCase()}
+                  onClick={() => setShop(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="grid">
+            <label>
+              <span>
+                Paid<span className="muted small"> {currency}</span>
+              </span>
+              <input inputMode="decimal" value={amount} placeholder="0.00" onChange={(e) => setAmount(e.target.value)} />
+            </label>
+            <label>
+              Day
+              <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
+            </label>
           </div>
-        )}
-        <div className="grid">
-          <label>
-            <span>
-              Paid<span className="muted small"> {currency}</span>
-            </span>
-            <input inputMode="decimal" value={amount} placeholder="0.00" onChange={(e) => setAmount(e.target.value)} />
-          </label>
-          <label>
-            Day
-            <input type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} />
-          </label>
+          <NoteField value={notes} onChange={setNotes} />
+          {ticked > 0 && (
+            <label className="inline">
+              <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
+              Clear the {plural(ticked, "ticked item")} from the shopping list
+            </label>
+          )}
+          <button type="submit">{ticked > 0 && clear ? `Save and clear ${plural(ticked, "ticked item")}` : "Save what I paid"}</button>
+          <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
+        </form>
+      </section>
+
+      <section className="span-4">
+        <SectionHeader title="Spending" />
+        <PeriodNav
+          title={cap(monthName(month))}
+          unit="month"
+          onPrev={() => setMonth(addMonths(month, -1))}
+          onNext={() => setMonth(addMonths(month, 1))}
+          nextDisabled={month >= thisMonth}
+          onCurrent={month === thisMonth ? null : () => setMonth(thisMonth)}
+          currentLabel="Back to this month"
+        />
+
+        <div className="viz-tiles pairs">
+          <StatTile
+            label="Spent"
+            value={sum ? money(sum.total) : null}
+            delta={delta !== null && delta !== 0 ? { value: delta, period: `vs ${monthName(addMonths(month, -1), "short")}`, good: "down" } : null}
+            formatDelta={money}
+            note={month === thisMonth ? "so far this month" : undefined}
+          />
+          <StatTile
+            label="Shops"
+            value={sum ? String(sum.trips) : null}
+            note={sum && sum.trips > 0 ? `${money(sum.total / sum.trips)} each on average` : undefined}
+          />
         </div>
-        <NoteField value={notes} onChange={setNotes} />
-        {ticked > 0 && (
-          <label className="inline">
-            <input type="checkbox" checked={clear} onChange={(e) => setClear(e.target.checked)} />
-            Clear the {plural(ticked, "ticked item")} from the shopping list
-          </label>
-        )}
-        <button type="submit">{ticked > 0 && clear ? `Save and clear ${plural(ticked, "ticked item")}` : "Save what I paid"}</button>
-        <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
-      </form>
 
-      <SectionHeader title="Spending" />
-      <PeriodNav
-        title={cap(monthName(month))}
-        unit="month"
-        onPrev={() => setMonth(addMonths(month, -1))}
-        onNext={() => setMonth(addMonths(month, 1))}
-        nextDisabled={month >= thisMonth}
-        onCurrent={month === thisMonth ? null : () => setMonth(thisMonth)}
-        currentLabel="Back to this month"
-      />
-
-      <div className="viz-tiles pairs">
-        <StatTile
-          label="Spent"
-          value={sum ? money(sum.total) : null}
-          delta={delta !== null && delta !== 0 ? { value: delta, period: `vs ${monthName(addMonths(month, -1), "short")}`, good: "down" } : null}
-          formatDelta={money}
-          note={month === thisMonth ? "so far this month" : undefined}
-        />
-        <StatTile
-          label="Shops"
-          value={sum ? String(sum.trips) : null}
-          note={sum && sum.trips > 0 ? `${money(sum.total / sum.trips)} each on average` : undefined}
-        />
-      </div>
-
-      {sum && sum.shops.length > 0 && (
-        <>
-          <SectionHeader title="By supermarket" />
-          <div className="card stack">
-            {sum.shops.map((s) => (
-              <div key={s.shop}>
-                <div className="row">
-                  <span className="grow">{s.shop}</span>
-                  <span className="muted small">{plural(s.trips, "shop")}</span>
-                  <strong>{money(s.total)}</strong>
+        {sum && sum.shops.length > 0 && (
+          <>
+            <SectionHeader title="By supermarket" />
+            <div className="card stack">
+              {sum.shops.map((s) => (
+                <div key={s.shop}>
+                  <div className="row">
+                    <span className="grow">{s.shop}</span>
+                    <span className="muted small">{plural(s.trips, "shop")}</span>
+                    <strong>{money(s.total)}</strong>
+                  </div>
+                  <Meter value={s.total} max={sum.total} label={`${s.shop}: ${Math.round((s.total / sum.total) * 100)}% of the month`} />
                 </div>
-                <Meter value={s.total} max={sum.total} label={`${s.shop}: ${Math.round((s.total / sum.total) * 100)}% of the month`} />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+              ))}
+            </div>
+          </>
+        )}
+      </section>
 
       {months.some((m) => m.total > 0) && (
-        <BarChart
-          title="Groceries per month"
-          subtitle="Last 6 months"
-          x={months.map((m) => m.month)}
-          values={months.map((m) => (m.total > 0 ? m.total : null))}
-          formatX={(m) => monthName(m, "short")}
-          formatXLong={(m) => cap(monthName(m))}
-          formatValue={money}
-          selected={month}
-          onSelect={setMonth}
-          height={150}
-        />
+        <div className="span-6">
+          <BarChart
+            title="Groceries per month"
+            subtitle="Last 6 months"
+            x={months.map((m) => m.month)}
+            values={months.map((m) => (m.total > 0 ? m.total : null))}
+            formatX={(m) => monthName(m, "short")}
+            formatXLong={(m) => cap(monthName(m))}
+            formatValue={money}
+            selected={month}
+            onSelect={setMonth}
+            height={150}
+          />
+        </div>
       )}
 
-      <SectionHeader title={`Shops in ${monthName(month, "short")}`} />
-      {trips.length === 0 ? (
-        <p className="muted small">
-          {month === thisMonth ? "Nothing logged this month. After paying at the supermarket, log it above." : "Nothing logged that month."}
-        </p>
-      ) : (
-        <>
-          <ul className="entries">
-            {(showAll ? trips : trips.slice(0, 7)).map((t) => (
-              <li key={t.id}>
-                <div className="grow">
-                  <div>
-                    {t.shop} · <strong>{money(t.amount)}</strong>
+      <section className="span-6">
+        <SectionHeader title={`Shops in ${monthName(month, "short")}`} />
+        {trips.length === 0 ? (
+          <p className="muted small">
+            {month === thisMonth ? "Nothing logged this month. After paying at the supermarket, log it above." : "Nothing logged that month."}
+          </p>
+        ) : (
+          <>
+            <ul className="entries">
+              {(showAll ? trips : trips.slice(0, 7)).map((t) => (
+                <li key={t.id}>
+                  <div className="grow">
+                    <div>
+                      {t.shop} · <strong>{money(t.amount)}</strong>
+                    </div>
+                    <div className="muted small">
+                      {cap(fmtDay(t.day))}
+                      {t.items ? ` · ${plural(t.items, "item")} from the list` : ""}
+                      {t.notes && ` · ${t.notes}`}
+                      {t.createdBy === "assistant" && " · added by the assistant"}
+                    </div>
                   </div>
-                  <div className="muted small">
-                    {cap(fmtDay(t.day))}
-                    {t.items ? ` · ${plural(t.items, "item")} from the list` : ""}
-                    {t.notes && ` · ${t.notes}`}
-                    {t.createdBy === "assistant" && " · added by the assistant"}
-                  </div>
-                </div>
-                <button type="button" className="icon-button ghost" aria-label={`Delete ${t.shop}, ${fmtDay(t.day)}`} onClick={() => void remove(t)}>
-                  <Icon name="trash" size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
-          {trips.length > 7 && (
-            <button type="button" className="link small accent" onClick={() => setShowAll(!showAll)}>
-              {showAll ? "Show the last 7" : `Show all ${trips.length}`}
-            </button>
-          )}
-        </>
-      )}
+                  <button type="button" className="icon-button ghost" aria-label={`Delete ${t.shop}, ${fmtDay(t.day)}`} onClick={() => void remove(t)}>
+                    <Icon name="trash" size={18} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {trips.length > 7 && (
+              <button type="button" className="link small accent" onClick={() => setShowAll(!showAll)}>
+                {showAll ? "Show the last 7" : `Show all ${trips.length}`}
+              </button>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }

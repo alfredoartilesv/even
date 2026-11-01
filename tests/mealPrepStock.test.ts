@@ -138,3 +138,17 @@ test("plan: portions still defrosting count from the day they are ready", () => 
   assert.deepEqual(plan.short, [{ day: "2026-10-20", missing: 1 }]);
   assert.equal(plan.coveredThrough, null);
 });
+
+test("plan: says which batch is eaten each day, from the fridge or thawed, and when it comes out", () => {
+  const s = foldBatch(batch(), [move("freeze", 4, COOKED + H, "2026-10-20")]);
+  const plan = planDefrost([s], { today: "2026-10-21", nowMs: COOKED + 20 * H, timeZone: TZ, portionsPerDay: 1, horizonDays: 4 });
+  assert.deepEqual(
+    plan.meals.map((m) => [m.day, m.name, m.from, m.eatBy, m.thawDay]),
+    [
+      ["2026-10-21", "Chili", "fridge", s.fridge[0].eatBy, null],
+      ["2026-10-22", "Chili", "fridge", s.fridge[0].eatBy, null],
+      ["2026-10-23", "Chili", "thawed", null, "2026-10-22"],
+      ["2026-10-24", "Chili", "thawed", null, "2026-10-23"],
+    ],
+  );
+});

@@ -197,13 +197,26 @@ export interface MenuItem<T extends string> {
   id: T;
   label: string;
   description?: string;
+  /** Where the page stands now, in a few words ("No backup yet"). */
+  hint?: string;
   icon: IconName;
   /** Shown in place of the icon, e.g. the profile picture. */
   picture?: ReactNode;
 }
 
-/** Rows that open a page: icon, title, a line on what is inside, and a chevron. Groups get a small heading. */
-export function MenuList<T extends string>({ groups, onOpen }: { groups: { title?: string; items: MenuItem<T>[] }[]; onOpen: (id: T) => void }) {
+/**
+ * Rows that open a page: icon, title, a line on what is inside, where it stands, and a chevron.
+ * Groups get a small heading. The open page (beside the menu on a wide screen) is aria-current.
+ */
+export function MenuList<T extends string>({
+  groups,
+  onOpen,
+  current = null,
+}: {
+  groups: { title?: string; items: MenuItem<T>[] }[];
+  onOpen: (id: T) => void;
+  current?: T | null;
+}) {
   return (
     <div className="menu">
       {groups.map((g, i) => (
@@ -212,7 +225,12 @@ export function MenuList<T extends string>({ groups, onOpen }: { groups: { title
           <ul>
             {g.items.map((it) => (
               <li key={it.id}>
-                <button type="button" className="menu-row" onClick={() => onOpen(it.id)}>
+                <button
+                  type="button"
+                  className={it.id === current ? "menu-row active" : "menu-row"}
+                  aria-current={it.id === current ? "page" : undefined}
+                  onClick={() => onOpen(it.id)}
+                >
                   {it.picture ?? (
                     <span className="menu-icon">
                       <Icon name={it.icon} size={20} />
@@ -221,6 +239,7 @@ export function MenuList<T extends string>({ groups, onOpen }: { groups: { title
                   <span className="grow">
                     <span className="menu-label">{it.label}</span>
                     {it.description && <span className="menu-desc muted small">{it.description}</span>}
+                    {it.hint && <span className="menu-hint small">{it.hint}</span>}
                   </span>
                   <Icon name="chevron" size={18} />
                 </button>
