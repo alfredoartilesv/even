@@ -118,7 +118,7 @@ export function MeScreen({
   ];
 
   return (
-    <section>
+    <section className="wide-grid me-layout">
       <div className="me-head">
         <label className="avatar-pick" title="Change picture">
           <Avatar photo={photo} name={profile.name} />
@@ -155,7 +155,7 @@ export function MeScreen({
       ) : (
         <>
           <SectionHeader title="Last 30 days" />
-          <div className="viz-tiles">
+          <div className="viz-tiles me-tiles">
             <StatTile
               label="Workouts"
               value={String(now30.sessions)}

@@ -453,7 +453,9 @@ ul.alerts li {
   .wide-grid.stretch {
     align-items: stretch;
   }
+  /* Without a span a child takes the whole row. */
   .wide-grid > * {
+    grid-column: 1 / -1;
     min-width: 0;
     margin-bottom: 0;
   }
