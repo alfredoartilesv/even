@@ -59,7 +59,7 @@ const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? un
 /** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude: API key or connector). */
 export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, version }: Props) {
   return (
-    <div>
+    <div className="settings-cards">
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
       <GarminSync db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />

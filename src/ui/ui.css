@@ -494,10 +494,10 @@ ol.plan-days {
 }
 .plan-where.thawed {
   background: color-mix(in srgb, var(--series-1) 14%, transparent);
-  color: var(--info, var(--series-1));
+  color: var(--series-1);
 }
 .plan-thaw {
-  color: var(--info, var(--series-1));
+  color: var(--series-1);
   padding-left: 0.25rem;
 }
 .plan-empty {
@@ -507,7 +507,7 @@ ol.plan-days {
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.75rem;
-  border: 1px dashed var(--line-strong, var(--line));
+  border: 1px dashed var(--line);
   border-radius: var(--radius-sm);
   color: var(--muted);
 }
@@ -516,10 +516,15 @@ ol.plan-days {
   padding: 0.6rem 0.75rem;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--series-1) 12%, transparent);
-  color: var(--info, var(--series-1));
+  color: var(--series-1);
+}
+.plan-tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .plan-tiles .plan-per-day {
   grid-column: 1 / -1;
+  flex-direction: row;
+  text-align: left;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -579,7 +584,7 @@ ol.plan-strip li {
   border-radius: 4px;
 }
 ol.plan-strip li.none .plan-strip-cell {
-  border: 1px dashed var(--line-strong, var(--muted));
+  border: 1px dashed var(--muted);
 }
 ol.plan-strip li.eaten .plan-strip-cell {
   background: var(--line);

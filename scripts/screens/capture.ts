@@ -437,7 +437,7 @@ const SCREENS: Screen[] = [
     tab: "Web app",
     web: true,
     title: "Chat on a computer",
-    about: "Screens other than the Dashboard keep a readable width beside the menu.",
+    about: "The conversations on the left, the chat in the middle, and on the right today's numbers, what Claude may see and the last send.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
       await tab(p, "Chat");
@@ -455,6 +455,17 @@ const SCREENS: Screen[] = [
       await tab(p, "Meal prep");
       await p.click(".segmented button", "Meal prep");
       await sub(p, "Plan");
+    },
+  },
+  {
+    id: "wide-mealprep-shopping",
+    tab: "Web app",
+    web: true,
+    title: "Shopping on a computer",
+    about: "The list, what was paid and the month's spending side by side, the six months and the shops under them.",
+    viewport: { width: 1440, height: 900, mobile: false },
+    go: async (p) => {
+      await sub(p, "Shopping");
     },
   },
   {

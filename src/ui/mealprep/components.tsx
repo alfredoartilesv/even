@@ -151,7 +151,9 @@ export function PlanDays({ plan, today, horizon = 14, colors }: { plan: PlanLike
                       {d.day === lastMeal
                         ? "the last tupper"
                         : m.from === "fridge"
-                          ? `eat by ${fmtDay(m.eatBy ?? d.day, today)}`
+                          ? m.eatBy === d.day
+                            ? "its last good day"
+                            : `eat by ${fmtDay(m.eatBy ?? d.day, today)}`
                           : m.thawDay && m.thawDay < d.day
                             ? `taken out ${dayParts(m.thawDay).weekday}`
                             : "defrosted"}
