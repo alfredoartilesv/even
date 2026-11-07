@@ -805,3 +805,25 @@ body:has(.app-frame) {
     margin-bottom: 0;
   }
 }
+/* Under the log in card: three short lines on where the data lives (handoff 0.7, "Your data, your rules"). */
+.connect-rules {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 1.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.connect-rules li::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}

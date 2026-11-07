@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
+import { BarChart, Ring, StatTile } from "../../ui/charts";
 import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroSplit } from "../../ui/nutrition";
@@ -24,6 +24,7 @@ import {
 } from "../../domain/dashboard/dashboard";
 import { greeting } from "../../domain/dashboard/greeting";
 import { SyncedNumbers } from "./SyncedNumbers";
+import { PinnedCharts } from "./PinnedCharts";
 import { appleHealthSupported } from "../../platform/health";
 
 const log = createLogger("dashboard");
@@ -171,7 +172,6 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const headline = (f: Figure | undefined) => (f && f.total !== null ? (many ? f.avg : f.total) : null);
 
   const d = data;
-  const x = d?.days.map((r) => r.day) ?? [];
   const axis = span === "week" ? (day: string) => short(day, { weekday: "narrow" }) : (day: string) => String(Number(day.slice(8)));
   const openDay = (day: string) => {
     setSpan("day");
@@ -201,7 +201,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         actions={[
           { id: "food", label: "Log food", icon: "food", onClick: go.logFood },
           { id: "drink", label: "Log a drink", icon: "alcohol", onClick: go.logDrink },
-          ...(go.askClaude ? [{ id: "chat", label: "Ask Claude", icon: "sparkle" as const, onClick: go.askClaude }] : []),
+          ...(go.askClaude ? [{ id: "chat", label: "Ask Coach", icon: "sparkle" as const, onClick: go.askClaude }] : []),
           { id: "checkin", label: "Check-in", icon: "note", onClick: () => go.checkIn() },
         ]}
       />
@@ -294,41 +294,12 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
               onSelect={openDay}
             />
           )}
-
-          {many && d && (
-            <>
-              <BarChart
-                title="Steps"
-                subtitle="Tap a day to open it"
-                x={x}
-                values={d.days.map((r) => r.steps)}
-                formatX={axis}
-                formatXLong={(day) => fmtDay(day)}
-                formatValue={int}
-                onSelect={openDay}
-              />
-              <LineChart
-                title="Calories in and out"
-                x={x}
-                series={[
-                  { id: "eaten", label: "Eaten", values: d.days.map((r) => r.eatenKcal) },
-                  { id: "burned", label: "Burned", values: d.days.map((r) => r.burnedKcal) },
-                ]}
-                formatX={axis}
-                formatXLong={(day) => fmtDay(day)}
-                formatValue={int}
-                unit="kcal"
-                target={d.targets.kcal}
-                zero
-              />
-            </>
-          )}
         </div>
 
         {d && <Recovery d={d} many={many} />}
 
         <div className="dash-block">
-          <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
+          <SectionHeader title="Workouts" action="Activity" onAction={go.profile} />
           {d && d.workouts.count > 0 ? (
             <div className="viz-tiles pairs">
               <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
@@ -362,6 +333,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           </div>
         </div>
       </div>
+
+      {many && d && <PinnedCharts db={db} d={d} period={isCurrent ? `this ${span}` : spanTitle(span, anchor)} formatX={axis} onDay={openDay} />}
 
       {span === "day" && metrics.length > 0 && <SyncedNumbers metrics={metrics} />}
     </section>
