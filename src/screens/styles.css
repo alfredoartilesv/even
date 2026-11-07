@@ -4081,3 +4081,36 @@ h2.chat-title {
   flex-direction: row;
   align-items: center;
 }
+
+/* Journal's check-in (journal/JournalScreen.tsx), as the board: how the day is, and the note, side by side on a wide screen. */
+.checkin-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.checkin-board > .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.checkin-board h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.checkin-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.checkin-scale .chips {
+  margin: 0;
+}
+.checkin-note textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+body[data-area="journal"] .screen > section > .segmented {
+  max-width: 24rem;
+}

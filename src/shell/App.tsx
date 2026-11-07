@@ -457,7 +457,7 @@ export function App({ target }: { target: Target }) {
               </section>
             ) : tab === "journal" ? (
               <section>
-                <PageHeader title="Journal" subtitle="Check-ins and measurements." />
+                <PageHeader title="Journal" subtitle="A minute a day is plenty." />
                 <JournalScreen
                   db={ready}
                   version={version}
