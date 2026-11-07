@@ -3016,3 +3016,16 @@ button {
   font-size: 2rem;
   font-weight: 700;
 }
+
+/* Today's header on a phone: the greeting wraps rather than being cut, and the sync pill stays compact. */
+.today .topbar h1 {
+  white-space: normal;
+  overflow: visible;
+  font-size: 1.3rem;
+  color: var(--area-deep, var(--fg));
+}
+.today .topbar .sync-pill {
+  max-width: 9.5rem;
+  text-align: left;
+  line-height: 1.2;
+}
