@@ -26,7 +26,7 @@ import { mealForHour, usualMeal, type Candidate } from "../../domain/food/sugges
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import { failed, fmtDay, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { PeriodNav, SectionHeader } from "../../ui/layout";
-import { MacroBudget, MacroSplit } from "../../ui/nutrition";
+import { MacroBars } from "../../ui/nutrition";
 import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
 import { entryActions } from "./entryActions";
 
@@ -238,12 +238,27 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
 
       <div className="wide-grid">
         <div className="span-8 wide-col">
-          <MacroBudget eaten={totals} targets={targets} fromDrinks={drinks} />
-          {(totals.proteinG ?? 0) + (totals.carbsG ?? 0) + (totals.fatG ?? 0) > 0 && (
-            <div className="meter-card">
-              <MacroSplit proteinG={totals.proteinG} carbsG={totals.carbsG} fatG={totals.fatG} />
+          <section className="card left-card" aria-label="What is left">
+            <div className="left-head">
+              <span className="left-big">
+                {targets.calories !== null ? kcal(Math.abs(targets.calories - (totals.calories ?? 0))) : kcal(totals.calories ?? 0)}
+                <span className="muted">
+                  {targets.calories === null ? " kcal eaten" : (totals.calories ?? 0) > targets.calories ? " kcal over" : " kcal left"}
+                </span>
+              </span>
+              {targets.calories !== null && (
+                <span className="muted small">
+                  {kcal(totals.calories ?? 0)} of {kcal(targets.calories)}
+                  {drinks ? ` · ${kcal(drinks)} from drinks` : ""}
+                </span>
+              )}
             </div>
-          )}
+            <MacroBars
+              mode="left"
+              grams={{ protein: totals.proteinG, carbs: totals.carbsG, fat: totals.fatG }}
+              targets={{ protein: targets.proteinG, carbs: targets.carbsG, fat: targets.fatG }}
+            />
+          </section>
 
           {editTargets === null ? (
             <button
@@ -325,13 +340,22 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
                 : null
             }
           />
+          <section className="card day-meals" aria-label="Meals">
+            <div className="row group-head">
+              <h2>{cap(fmtDay(day))}</h2>
+              <span className="muted small">
+                {entries.length ? `${entries.length} ${entries.length === 1 ? "entry" : "entries"} · ${kcal(food)} kcal` : ""}
+              </span>
+            </div>
+            <EntryList db={db} entries={entries} timeZone={timeZone()} {...entryActions(db, reload, setMsg, day)} />
+          </section>
         </div>
 
         <div className="span-4 wide-col">
           {prep.length > 0 && (
             <section>
               <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
-              <div className="suggest">
+              <div className="suggest column">
                 {prep.map((s) => {
                   const pressed = ate?.batchId === s.batch.id;
                   return (
@@ -356,27 +380,30 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
               Log a meal{on}
             </button>
           )}
-        </div>
-
-        {suggested.length > 0 && (
-          <section className="span-12">
-            <h3>Eat again</h3>
-            <div className="suggest">
-              {suggested.map((c) => (
-                <button key={c.key} className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"} onClick={() => void quickLog(c)}>
-                  <PhotoThumb db={db} id={c.photoId} size={40} />
-                  <span>
-                    {c.savedMealId && "★ "}
-                    {c.name}
-                    <span className="muted small block">
-                      {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
+          {suggested.length > 0 && (
+            <section className="eat-again">
+              <h3>Eat again</h3>
+              <div className="suggest column">
+                {suggested.map((c) => (
+                  <button
+                    key={c.key}
+                    className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"}
+                    onClick={() => void quickLog(c)}
+                  >
+                    <PhotoThumb db={db} id={c.photoId} size={40} />
+                    <span>
+                      {c.savedMealId && "★ "}
+                      {c.name}
+                      <span className="muted small block">
+                        {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
 
         {adding ? (
           <form className="card stack span-12" onSubmit={add}>
@@ -407,12 +434,6 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
           </form>
         ) : null}
       </div>
-
-      <div className="row group-head">
-        <h2>{cap(fmtDay(day))}</h2>
-        <span className="muted small">{entries.length ? `${entries.length} ${entries.length === 1 ? "entry" : "entries"} · ${kcal(food)} kcal` : ""}</span>
-      </div>
-      <EntryList db={db} entries={entries} timeZone={timeZone()} {...entryActions(db, reload, setMsg, day)} />
     </div>
   );
 }

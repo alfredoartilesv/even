@@ -248,7 +248,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
   if (deps === null) {
     return (
       <section>
-        <PageHeader title="Chat" />
+        <PageHeader title="Coach" />
         <div className="card">
           <p>Connect Claude to ask about your data, log meals from a photo and plan your meal prep.</p>
           <p className="muted small">The chat uses your own Claude API key, kept in the phone's secure storage.</p>
@@ -269,7 +269,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
   return (
     <section className="chat-layout">
       <PageHeader
-        title="Chat"
+        title="Coach"
         actions={
           <>
             <button type="button" className="secondary small-button narrow-only" aria-expanded={showList} onClick={() => setShowList((s) => !s)}>

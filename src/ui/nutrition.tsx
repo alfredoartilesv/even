@@ -162,7 +162,10 @@ export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft
 export function MacroBars({
   grams,
   targets,
+  mode = "of",
 }: {
+  /** "of": 80 / 150 g (Today). "left": 70 g left (Food's log). */
+  mode?: "of" | "left";
   grams: { protein: number | null; carbs: number | null; fat: number | null };
   targets: { protein: number | null; carbs: number | null; fat: number | null };
 }) {
@@ -183,7 +186,15 @@ export function MacroBars({
             <span className="macro-track" aria-hidden>
               <span style={{ width: `${pct}%`, background: `var(--series-${m.slot})` }} />
             </span>
-            <span className="macro-num">{t ? `${Math.round(g)} / ${Math.round(t)} g` : `${Math.round(g)} g`}</span>
+            <span className="macro-num">
+              {!t
+                ? `${Math.round(g)} g`
+                : mode === "of"
+                  ? `${Math.round(g)} / ${Math.round(t)} g`
+                  : g > t
+                    ? `${Math.round(g - t)} g over`
+                    : `${Math.round(t - g)} g left`}
+            </span>
           </div>
         );
       })}

@@ -8,6 +8,7 @@ import { SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { latestWeight, type Weight } from "../../domain/alcohol/alcohol";
 import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto, EMPTY_PROFILE, type Profile } from "../../domain/settings/profile";
 import { ActivityHistory } from "./ActivityHistory";
+import { ActivityWeek } from "./ActivityWeek";
 import { goalProgress, listGoals } from "../../domain/me/goals";
 import { goalScore, GoalsView, type GoalRow } from "./GoalsView";
 import { SPORT_LABEL, SPORTS, type SportId } from "../../domain/me/sports";
@@ -160,6 +161,7 @@ export function MeScreen({
         <GoalsView db={db} goals={goals} onChanged={load} />
       ) : (
         <>
+          {only === "activity" && <ActivityWeek db={db} version={version} />}
           <SectionHeader title="Last 30 days" />
           <div className="viz-tiles me-tiles">
             <StatTile

@@ -143,7 +143,12 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
       </div>
       <div className={page === null ? "settings-page wide-only" : "settings-page"}>
         {page === null ? (
-          summary && <SettingsOverview summary={summary} onPage={onPage} />
+          // A wide screen opens You on Targets beside the menu (handoff 0.7); the overview follows.
+          <>
+            <h2 className="settings-page-title">Targets</h2>
+            {targets}
+            {summary && <SettingsOverview summary={summary} onPage={onPage} />}
+          </>
         ) : (
           <>
             <div className="narrow-only">
