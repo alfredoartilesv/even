@@ -49,11 +49,11 @@
  */
 :root {
   color-scheme: light dark;
-  --bg: #fafaf9;
+  --bg: #f4f6f3;
   --surface: #ffffff;
-  --fg: #1c1917;
-  --muted: #6b6460;
-  --line: #e7e5e4;
+  --fg: #1b1f1e;
+  --muted: #56625f;
+  --line: #e3e8e5;
   --accent: #0f766e;
   --on-accent: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
@@ -70,8 +70,8 @@
   --series-6: #008300;
   --series-7: #6250d6;
   --series-8: #e34948;
-  --viz-grid: #e7e5e4;
-  --viz-axis: #c3c2b7;
+  --viz-grid: #e9eeeb;
+  --viz-axis: #c3cbc7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
   --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
@@ -88,13 +88,41 @@
   --camera-bg: #000000;
 
   --area-today: #0f766e;
-  --area-food: #b5481a;
+  --area-food: #c2501f;
   --area-prep: #2e7d4f;
   --area-activity: #1d5fb0;
   --area-journal: #8a2f6a;
   --area-coach: #3f31a3;
   --area-you: #3d5a80;
   --nav-ink: #0f2623;
+  --area-today-soft: #dcefeb;
+  --area-today-deep: #0b5a54;
+  --area-today-wash: #eef5f2;
+  --area-today-line: #cfe3de;
+  --area-food-soft: #fbe4d8;
+  --area-food-deep: #8a3512;
+  --area-food-wash: #fbf1ec;
+  --area-food-line: #f0cdbb;
+  --area-prep-soft: #dff0e5;
+  --area-prep-deep: #1d5233;
+  --area-prep-wash: #eff6f1;
+  --area-prep-line: #c8e2d1;
+  --area-activity-soft: #e0ebf9;
+  --area-activity-deep: #14477f;
+  --area-activity-wash: #eef3fa;
+  --area-activity-line: #c6d9f1;
+  --area-journal-soft: #f6e1ee;
+  --area-journal-deep: #5f1f47;
+  --area-journal-wash: #faf0f5;
+  --area-journal-line: #e8c7da;
+  --area-coach-soft: #ece8fa;
+  --area-coach-deep: #2f2480;
+  --area-coach-wash: #f3f0fb;
+  --area-coach-line: #d8d1f3;
+  --area-you-soft: #e4ebf3;
+  --area-you-deep: #27405f;
+  --area-you-wash: #eff2f7;
+  --area-you-line: #cdd8e5;
   --on-nav: #ffffff;
   --on-nav-muted: #b4c8c3;
   --nav-active: rgb(255 255 255 / 0.13);
@@ -146,5 +174,33 @@
     --area-coach: #ab9ff6;
     --area-you: #9db8da;
     --nav-ink: #0b1c1a;
+    --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+    --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+    --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+    --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+    --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+    --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+    --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+    --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+    --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+    --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+    --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+    --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+    --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+    --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+    --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+    --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+    --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+    --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+    --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+    --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+    --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+    --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+    --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+    --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+    --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+    --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+    --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+    --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
   }
 }

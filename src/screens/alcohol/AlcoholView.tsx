@@ -6,13 +6,14 @@ import { StatTile } from "../../ui/charts";
 import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
+import { listGoals } from "../../domain/me/goals";
+import { AddDrink, draftFrom, DrinksWeek, type Draft } from "./AddDrink";
 import {
   deleteDrink,
   deleteDrinkType,
   getCurrency,
   listDrinks,
   listDrinkTypes,
-  logDrink,
   saveDrinkType,
   servingKcal,
   setCurrency,
@@ -123,32 +124,6 @@ function TypeFields({ d, set, currency }: { d: TypeDraft; set: (d: TypeDraft) =>
   );
 }
 
-/** Drinks a day for the last week, as small bars with the count on top. */
-function DrinksPerDay({ drinks, to }: { drinks: DrinkEntry[]; to: string }) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(to, i - 6));
-  const counts = days.map((d) => drinks.filter((x) => x.localDay === d).length);
-  const max = Math.max(1, ...counts);
-  return (
-    <div className="wide-only">
-      <h3>Drinks per day</h3>
-      <p className="muted small">{counts.filter((n) => n > 0).length} of 7 days with a drink</p>
-      <ol className="drink-days" aria-label="Drinks per day, last 7 days">
-        {days.map((d, i) => (
-          <li key={d} aria-label={`${fmtDay(d)}: ${counts[i]}`}>
-            <span aria-hidden className="small">
-              {counts[i] || ""}
-            </span>
-            <span aria-hidden className="drink-day-bar" style={{ height: `${(counts[i] / max) * 100}%` }} />
-            <span aria-hidden className="small muted">
-              {new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", timeZone: "UTC" })}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
 /**
  * Drinks: favourites logged in one tap (on a day picked first, for one forgotten), a one-off form
  * for anything else, what the period adds up to, the drinks logged (each can be changed or
@@ -167,10 +142,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [lastIds, setLastIds] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false);
 
-  const [oneOff, setOneOff] = useState<TypeDraft>({ ...emptyType });
-  const [oneOffOpen, setOneOffOpen] = useState(false);
-  const [count, setCount] = useState("1");
-  const [saveAsFav, setSaveAsFav] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [limit, setLimit] = useState<number | null>(null);
   const [editingFav, setEditingFav] = useState<TypeDraft | null>(null);
   const [editingDrink, setEditingDrink] = useState<DrinkDraft | null>(null);
   const [curInput, setCurInput] = useState<string | null>(null);
@@ -189,14 +162,18 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     const to = today();
     const from = addDays(to, -(PERIODS.find((p) => p.key === period)!.days - 1));
     const weekFrom = addDays(to, -6);
-    const [w, t, r, d, wk, c] = await Promise.all([
+    const [w, t, r, d, wk, c, goals] = await Promise.all([
       weightWithoutAlcohol(db, from, to),
       listDrinkTypes(db),
       typeUsesSince(db, weekFrom),
       listDrinks(db, from, to),
       listDrinks(db, weekFrom, to),
       getCurrency(db),
+      listGoals(db, to),
     ]);
+    // The weekly limit from the goals: drinks, or grams of alcohol as standard drinks (10 g).
+    const g = goals.find((x) => x.targetKind === "drink" && x.period === "week" && x.comparator === "<=" && x.targetNum !== null);
+    setLimit(g ? (g.metric === "alcohol_g" ? Math.round(g.targetNum! / 10) : g.targetNum) : null);
     setImpact(w);
     setTypes(t);
     setRecent(r);
@@ -218,29 +195,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     if (isToday) return undefined;
     if (day > today()) throw new Error("That day has not happened yet");
     return localDateTimeToMs(day, at, timeZone()).ms;
-  }
-
-  async function quickLog(t: DrinkType) {
-    await run(async () => setLastIds(await logDrink(db, { typeId: t.id, atMs: drunkAt(), timeZone: timeZone() })), `Logged 1 ${t.name}${forDay}.`);
-  }
-
-  async function logOneOff(e: FormEvent) {
-    e.preventDefault();
-    const t = fromDraft(oneOff);
-    const n = Number(count || 1);
-    const ok = await run(
-      async () => {
-        const typeId = saveAsFav ? await saveDrinkType(db, t) : null;
-        setLastIds(await logDrink(db, { ...t, typeId, count: n, atMs: drunkAt(), timeZone: timeZone() }));
-      },
-      `Logged ${n} ${t.name.trim()}${forDay}${saveAsFav ? " and saved it as a favourite" : ""}.`,
-    );
-    if (ok) {
-      setOneOff({ ...emptyType });
-      setOneOffOpen(false);
-      setCount("1");
-      setSaveAsFav(false);
-    }
   }
 
   async function saveFav(e: FormEvent) {
@@ -272,9 +226,9 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const favourite = editingDrink ? types.find((x) => x.id === drinks.find((d) => d.id === editingDrink.entryId)?.typeId) : undefined;
 
   const favourites = (
-    <section className={managing ? "card span-4" : "card span-4 wide-only"}>
+    <section className="card">
       <h3>Favourites</h3>
-      <p className="muted small">Shown first under Log a drink, for one-tap logging</p>
+      <p className="muted small">Shown first under Drinks, one tap to add</p>
       {types.length === 0 && <p className="muted small">Log a one-off drink with Also save as a favourite, or add one here.</p>}
       <ul className="entries">
         {types.map((d) => (
@@ -342,26 +296,20 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 
   return (
     <div>
-      <div className="wide-grid stretch">
-        <section className="card span-7">
-          <div className="section-head">
-            <h2>Log a drink</h2>
-            <button type="button" className="link accent small narrow-only" onClick={() => onManage(true)}>
-              Favourites ›
-            </button>
-          </div>
-          <p className="muted small wide-only">One tap logs a favourite now; pick another day first if you forgot one</p>
+      <div className="drinks-top">
+        <div className="drinks-col">
+          <DrinksWeek week={week} limit={limit} currency={currency} />
           <div className="drink-when">
-            <label>
-              Day
-              <input type="date" value={day} max={today()} onChange={(e) => pickDay(e.target.value || today())} />
-            </label>
             {isToday ? (
               <button type="button" className="link small" onClick={() => pickDay(addDays(today(), -1))}>
                 Forgot one yesterday?
               </button>
             ) : (
               <>
+                <label>
+                  Day
+                  <input type="date" value={day} max={today()} onChange={(e) => pickDay(e.target.value || today())} />
+                </label>
                 <label>
                   Time
                   <input type="time" value={at} onChange={(e) => setAt(e.target.value || EVENING)} />
@@ -372,82 +320,74 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               </>
             )}
           </div>
-          {types.length > 0 && <div className="eyebrow">Favourites · one tap</div>}
-          <div className="drink-picks">
-            {types.map((d) => (
-              <button key={d.id} className="drink-pick secondary" onClick={() => quickLog(d)} aria-label={`Log one ${d.name}${forDay}`}>
-                <span className="drink-pick-text grow">
-                  <strong>{d.name}</strong>
-                  <span className="muted small">{typeLine(d)}</span>
-                  <span className="muted small">{usedLine(d)}</span>
-                </span>
-                <span className="drink-plus" aria-hidden>
-                  +1
-                </span>
-              </button>
-            ))}
-            {!oneOffOpen && (
-              <button className="drink-pick other secondary narrow-only" onClick={() => setOneOffOpen(true)}>
-                <span className="quick-icon">
-                  <Icon name="plus" size={20} />
-                </span>
-                <span className="drink-pick-text">
-                  <strong>One-off drink</strong>
-                  <span className="muted small">something you won&apos;t repeat: name, size, strength, price</span>
-                </span>
-              </button>
-            )}
-          </div>
-          <MsgLine msg={msg} />
-          {lastIds.length > 0 && (
-            <button
-              className="link small accent"
-              onClick={() =>
-                void run(async () => {
-                  for (const id of lastIds) await deleteDrink(db, id);
-                  setLastIds([]);
-                }, "Undone.")
-              }
-            >
-              Undo
-            </button>
+        </div>
+        <div className="drinks-col">
+          {draft && (
+            <AddDrink
+              db={db}
+              draft={draft}
+              setDraft={setDraft}
+              currency={currency}
+              atMs={drunkAt}
+              dayLabel={forDay}
+              onClose={() => setDraft(null)}
+              onLogged={(ids, text) => {
+                setLastIds(ids);
+                setDraft(null);
+                setMsg({ kind: "ok", text });
+                void load();
+                onChanged();
+              }}
+            />
           )}
-          <DrinksPerDay drinks={week} to={today()} />
-        </section>
-
-        <form className={oneOffOpen ? "card stack span-5" : "card stack span-5 wide-only"} onSubmit={logOneOff}>
-          <div>
-            <h3>One-off drink</h3>
-            <p className="muted small">Logged once, not kept for one-tap logging</p>
-          </div>
-          <TypeFields d={oneOff} set={setOneOff} currency={currency} />
-          <div className="drink-when-fields">
-            <label>
-              How many
-              <input className="qty" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} />
-            </label>
-            <label>
-              Day
-              <input type="date" value={day} max={today()} onChange={(e) => pickDay(e.target.value || today())} />
-            </label>
-            {!isToday && (
-              <label>
-                Time
-                <input type="time" value={at} onChange={(e) => setAt(e.target.value || EVENING)} />
-              </label>
-            )}
-          </div>
-          <label className="inline">
-            <input type="checkbox" checked={saveAsFav} onChange={(e) => setSaveAsFav(e.target.checked)} />
-            Also save as a favourite
-          </label>
-          <div className="actions">
-            <button type="button" className="secondary narrow-only" onClick={() => setOneOffOpen(false)}>
-              Cancel
+          <section className="card drink-favs" aria-labelledby="drink-favs">
+            <div className="section-head">
+              <h2 id="drink-favs">Favourites</h2>
+              <button type="button" className="link accent small" onClick={() => onManage(true)}>
+                Manage ›
+              </button>
+            </div>
+            <p className="muted small">Tap one to add it. The usual price is filled in and you can change it.</p>
+            <div className="drink-fav-list">
+              {types.map((d) => (
+                <button key={d.id} type="button" className="drink-fav" onClick={() => setDraft(draftFrom(d))} aria-label={`Add ${d.name}${forDay}`}>
+                  <span className="grow">
+                    <strong>{d.name}</strong>
+                    <span className="muted small block">
+                      {typeLine(d)} · {usedLine(d)}
+                    </span>
+                  </span>
+                  <span className="drink-plus" aria-hidden>
+                    +
+                  </span>
+                </button>
+              ))}
+              {types.length === 0 && <p className="muted small">No favourites yet. Add a drink and keep it as a favourite.</p>}
+            </div>
+            <button type="button" className="secondary drink-another" onClick={() => setDraft(draftFrom(null))}>
+              + Add another drink
             </button>
-            <button type="submit">Log drink{forDay}</button>
-          </div>
-        </form>
+            {lastIds.length > 0 && msg?.kind === "ok" ? (
+              <div className="drink-added" role="status">
+                <span>{msg.text}</span>
+                <button
+                  type="button"
+                  className="link accent"
+                  onClick={() =>
+                    void run(async () => {
+                      for (const id of lastIds) await deleteDrink(db, id);
+                      setLastIds([]);
+                    }, "Undone.")
+                  }
+                >
+                  Undo
+                </button>
+              </div>
+            ) : (
+              <MsgLine msg={msg} />
+            )}
+          </section>
+        </div>
       </div>
 
       <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
@@ -539,7 +479,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
             <p className="muted">No drinks in this period.</p>
           )}
         </section>
-        {favourites}
       </div>
     </div>
   );

@@ -3029,3 +3029,311 @@ button {
   text-align: left;
   line-height: 1.2;
 }
+
+/*
+ * Motion from the handoff boards (ev-motion): a section's cards rise in one after another, bars
+ * grow from the baseline, lines draw, a status pops, buttons give under the finger, switches
+ * slide with a little overshoot, and the quick add's box gets a turning ring of the app's
+ * colours while it has focus. All of it off under prefers-reduced-motion.
+ */
+@property --ev-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes ev-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes ev-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+@keyframes ev-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes ev-draw {
+  from {
+    stroke-dashoffset: 1400;
+  }
+}
+@keyframes ev-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ev-ride {
+  to {
+    --ev-a: 360deg;
+  }
+}
+button,
+.chip,
+input[type="checkbox"].switch {
+  transition:
+    transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1),
+    background-color 0.22s,
+    box-shadow 0.25s,
+    filter 0.2s,
+    border-color 0.2s;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .screen > section > *,
+  .today-grid > *,
+  .today-stack > *,
+  .pinned-grid > * {
+    animation: ev-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .screen > section > *:nth-child(2),
+  .today-grid > *:nth-child(2),
+  .pinned-grid > *:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  .screen > section > *:nth-child(3),
+  .today-grid > *:nth-child(3),
+  .pinned-grid > *:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  .screen > section > *:nth-child(4),
+  .today-grid > *:nth-child(4),
+  .pinned-grid > *:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+  .screen > section > *:nth-child(5),
+  .today-grid > *:nth-child(5) {
+    animation-delay: 0.26s;
+  }
+  .screen > section > *:nth-child(n + 6),
+  .today-grid > *:nth-child(n + 6) {
+    animation-delay: 0.32s;
+  }
+  [role="status"] {
+    animation: ev-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .viz-plot path.viz-bar,
+  .viz-plot path[class^="viz-bar"] {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: ev-grow 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .viz-plot .viz-line {
+    stroke-dasharray: 1400;
+    animation: ev-draw 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.15s backwards;
+  }
+  .viz-plot .viz-area {
+    animation: ev-fade 0.9s ease-out 0.4s backwards;
+  }
+  .balance-ring .fill {
+    animation: ev-fade 0.6s ease-out backwards;
+  }
+  .macro-track > span {
+    transform-origin: left;
+    animation: ev-grow-x 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+  }
+  .quick-add-bar:focus-within,
+  .add-ask:focus-within {
+    border-color: transparent;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      conic-gradient(from var(--ev-a), var(--area-today), var(--area-activity), var(--area-coach), var(--area-today)) border-box;
+    border: 1.5px solid transparent;
+    animation: ev-ride 3s linear infinite;
+  }
+}
+@keyframes ev-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Drinks (alcohol/AlcoholView.tsx, AddDrink.tsx): the week, then favourites as full rows and the add panel. */
+.drinks-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.drinks-top > * {
+  margin: 0;
+}
+.drinks-week {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.drinks-week-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.drinks-week-big {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.drinks-week-big .muted {
+  font-size: 1rem;
+  font-weight: 500;
+}
+.drinks-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  text-align: center;
+}
+.drinks-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.drinks-week-day .dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--area-line, var(--line));
+  box-sizing: border-box;
+}
+.drinks-week-day .dot.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.drinks-week-day .dot.many {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+.drink-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+.drink-favs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.drink-favs .section-head {
+  margin: 0;
+}
+.drink-favs h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.drink-fav-list {
+  display: flex;
+  flex-direction: column;
+}
+.drink-fav {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 60px;
+  padding: 0.5rem 0;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.drink-fav:first-child {
+  border-top: none;
+}
+.drink-fav .drink-plus {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.drink-another {
+  align-self: flex-start;
+}
+.drink-added {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.add-drink {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    var(--lift);
+}
+.add-drink-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.add-drink-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.add-drink-steppers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+.stepper-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.add-drink-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.drinks-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.drinks-col > * {
+  margin: 0;
+}
+@media (min-width: 60rem) {
+  .drinks-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+}
