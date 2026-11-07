@@ -450,18 +450,6 @@ ul.saved-list {
   width: 3.25rem;
 }
 
-pre.logs {
-  font-size: 0.75rem;
-  line-height: 1.35;
-  max-height: 22rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem;
-  margin: 0;
-}
 .sync-button {
   display: inline-flex;
   align-items: center;
@@ -2461,4 +2449,168 @@ dl.overview-lines dd {
   align-items: center;
   gap: 0.75rem;
   margin: 1rem 0 2rem;
+}
+
+/* Today's pinned charts (dashboard/PinnedCharts.tsx): one column on a phone, two or three on a wide screen. */
+.pinned-charts {
+  margin-top: 1rem;
+}
+.pinned-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pinned-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+.pinned-empty {
+  padding: 1rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+}
+.pin-button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+}
+.pin-button.on {
+  background: var(--accent-soft);
+  border-color: var(--area-line, var(--line));
+  color: var(--accent);
+}
+.pin-button.on .icon {
+  fill: currentColor;
+}
+
+/* Debug logs (logs/LogsScreen.tsx): by day, one row per record that opens to its fields. */
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.log-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+.log-day-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.log-rows {
+  padding: 0 0.75rem;
+}
+.log-row + .log-row {
+  border-top: 1px solid var(--line);
+}
+.log-row-head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 56px;
+  padding: 0.6rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.log-row-head[aria-expanded="true"] .icon {
+  transform: rotate(90deg);
+}
+.log-time {
+  flex: none;
+  width: 5.5rem;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.log-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.log-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.log-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.log-tag.warn {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.log-tag.error {
+  background: color-mix(in srgb, var(--error) 14%, var(--bg));
+  color: var(--error);
+}
+.log-detail {
+  margin: 0 0 0.75rem 6.25rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--area-wash, var(--bg));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.log-detail dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.log-detail dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.log-detail dt {
+  color: var(--muted);
+}
+.log-detail dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 30rem) {
+  .log-detail {
+    margin-left: 0;
+  }
+}
+/* Admin's status row (handoff 0.7, Admin): four tiles, two on a phone. */
+.admin-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 45%), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }

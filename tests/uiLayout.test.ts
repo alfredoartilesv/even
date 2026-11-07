@@ -132,13 +132,13 @@ test("web side menu: every section but You in the list, each with a tile in its 
 });
 
 test("web side menu: a closed drawer is inert and has no scrim; docked it never is, and as icons it offers to expand", () => {
-  const closed = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({}), account: null }));
+  const closed = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({}), account: null }));
   assert.match(closed, /<nav[^>]*inert=""/);
   assert.doesNotMatch(closed, /nav-scrim/);
-  const docked = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true }), account: null }));
+  const docked = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true }), account: null }));
   assert.doesNotMatch(docked, /inert/);
   assert.match(docked, /aria-label="Collapse menu" aria-expanded="true"/);
-  const rail = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true, rail: true }), account: null }));
+  const rail = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true, rail: true }), account: null }));
   assert.match(rail, /class="sidenav rail"/);
   assert.match(rail, /aria-label="Expand menu" aria-expanded="false"/);
   // Icons only: the label stays in the button for screen readers, the title shows it on hover.
@@ -147,12 +147,12 @@ test("web side menu: a closed drawer is inert and has no scrim; docked it never 
 
 test("web side menu: a connected account shows at the foot with Sign out, named on hover when the menu is icons only; none without one", () => {
   const account = { email: "alex@example.com", signOut: async () => {} };
-  const html = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true }), account }));
+  const html = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true }), account }));
   assert.match(html, /class="sidenav-foot"[^]*alex@example\.com[^]*<span class="sidenav-label">Sign out<\/span>/);
-  const rail = renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({ docked: true, rail: true }), account }));
+  const rail = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true, rail: true }), account }));
   assert.match(rail, /title="alex@example\.com"/);
   assert.match(rail, /title="Sign out"/);
-  assert.doesNotMatch(renderToStaticMarkup(h(SideNav, { tab: "chat", onTab: noop, nav: navState({}), account: null })), /sidenav-foot/);
+  assert.doesNotMatch(renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({}), account: null })), /sidenav-foot/);
 });
 
 test("PageHeader: a frame's menu button opens the side menu at the top of a tab, not on a page with a way back; without one there is none", () => {

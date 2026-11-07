@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useState, type KeyboardEvent, type ReactNode, type PointerEvent } from "react";
 import { ChartFrame, EmptyPlot, seriesColor, SINGLE, Tooltip, useWidth, type LegendItem } from "./frame";
 import { compact, extent, fmtValue, labelIndexes, lastValueIndex, linear, linePath, nearestIndex, niceTicks, present, segments } from "./scale";
 
@@ -31,6 +31,8 @@ export interface LineChartProps {
   connectGaps?: boolean;
   height?: number;
   dim?: boolean;
+  /** A button in the card's head beside Table (Today's pin). */
+  action?: ReactNode;
 }
 
 const PAD = { top: 12, right: 12, bottom: 24, left: 40 };
@@ -55,6 +57,7 @@ export function LineChart({
   connectGaps = false,
   height = 180,
   dim,
+  action,
 }: LineChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -72,7 +75,7 @@ export function LineChart({
 
   if (!ext || !x.length) {
     return (
-      <ChartFrame title={title} subtitle={subtitle} dim={dim}>
+      <ChartFrame title={title} subtitle={subtitle} dim={dim} action={action}>
         <EmptyPlot height={height} />
       </ChartFrame>
     );
@@ -97,7 +100,7 @@ export function LineChart({
   };
 
   return (
-    <ChartFrame title={title} subtitle={subtitle} legend={legend} table={table} dim={dim}>
+    <ChartFrame title={title} subtitle={subtitle} legend={legend} table={table} dim={dim} action={action}>
       <div ref={ref} className="viz-plot">
         <svg
           width={width}

@@ -22,7 +22,7 @@ export function connectGate({ session, connect }: GateState, notice: string | nu
   }
   if (session !== null) return null;
   return (
-    <main className="shell connect-gate">
+    <main className="shell connect-gate" data-area="today">
       <div className="connect-brand">
         <PageHeader
           title="Even"
@@ -44,6 +44,11 @@ export function connectGate({ session, connect }: GateState, notice: string | nu
           />
         </Suspense>
       </section>
+      <ul className="connect-rules" aria-label="Your data, your rules">
+        <li>Everything is stored in this browser and on your phone, encrypted.</li>
+        <li>Nothing goes to Claude unless you turn it on and choose what to share.</li>
+        <li>You can sign out and remove this copy at any time.</li>
+      </ul>
     </main>
   );
 }
