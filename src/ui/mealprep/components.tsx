@@ -251,3 +251,18 @@ export function DayStrip({
     </div>
   );
 }
+
+/** A batch's portions as dots (handoff 0.7, Stock): filled in the fridge, ringed in the freezer, faint once eaten or tossed. */
+export function PortionDots({ fridge, freezer, gone }: { fridge: number; freezer: number; gone: number }) {
+  const dots = [...Array(fridge).fill("fridge"), ...Array(freezer).fill("freezer"), ...Array(gone).fill("gone")] as string[];
+  return (
+    <div className="portion-dots" role="img" aria-label={`${plural(fridge, "portion")} in the fridge, ${freezer} in the freezer, ${gone} gone`}>
+      {dots.map((k, i) => (
+        <span key={i} className={`portion-dot ${k}`} />
+      ))}
+      <span className="portion-legend muted small">
+        {fridge} fridge · {freezer} freezer
+      </span>
+    </div>
+  );
+}

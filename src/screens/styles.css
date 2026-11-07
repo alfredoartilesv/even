@@ -3580,3 +3580,62 @@ button:active:not(:disabled) {
     align-items: start;
   }
 }
+
+/* Meal prep, Stock and Shopping: a batch card with a dot per portion; the basket's progress. */
+.batch-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.batch-name {
+  font-size: 1.1rem;
+}
+.batch-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.portion-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0.6rem 0;
+}
+.portion-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.portion-dot.fridge {
+  background: var(--accent);
+}
+.portion-dot.freezer {
+  border: 2.5px solid var(--area-activity);
+}
+.portion-dot.gone {
+  background: var(--viz-grid);
+}
+.portion-legend {
+  margin-left: 0.4rem;
+}
+.basket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.basket-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--viz-grid);
+  overflow: hidden;
+}
+.basket-track > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 0.4s var(--ease);
+}

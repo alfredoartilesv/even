@@ -798,8 +798,9 @@ body:has(.app-frame) {
     gap: 1rem;
     align-items: start;
   }
+  /* As many batches as fit, each stretching, so a row never ends in empty space. */
   .app-frame .batch-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
   }
   .app-frame :is(.settings-cards, .batch-grid) > * {
     margin-bottom: 0;
