@@ -167,14 +167,14 @@ test("PageHeader: a frame's menu button opens the side menu at the top of a tab,
   assert.doesNotMatch(renderToStaticMarkup(h(PageHeader, { title: "Chat" })), /menu-button/);
 });
 
-test("food and drinks: the log, drinks, history and saved meals; meal prep: plan, stock, recipes, shopping", () => {
+test("food and drinks: the log, drinks, history and saved meals; meal prep: plan, stock, shopping, recipes", () => {
   assert.deepEqual(
     FOOD_VIEWS.map((v) => v.id),
     ["log", "drinks", "history", "saved"],
   );
   assert.deepEqual(
     MEAL_PREP_VIEWS.map((v) => v.id),
-    ["plan", "stock", "recipes", "shopping"],
+    ["plan", "stock", "shopping", "recipes"],
   );
 });
 

@@ -14,8 +14,8 @@ export type MealPrepView = "plan" | "stock" | "recipes" | "shopping";
 export const MEAL_PREP_VIEWS: Choice<MealPrepView>[] = [
   { id: "plan", label: "Plan" },
   { id: "stock", label: "Stock" },
-  { id: "recipes", label: "Recipes" },
   { id: "shopping", label: "Shopping" },
+  { id: "recipes", label: "Recipes" },
 ];
 
 interface Props {
@@ -61,7 +61,7 @@ export function MealPrepScreen({ db, view, onView, version, onChanged }: Props) 
       <SubTabs items={MEAL_PREP_VIEWS} value={view} onChange={onView} label="Meal prep views" />
       {(view === "stock" || view === "recipes") && <TagChips tags={tags} value={tag} onChange={setTag} />}
       {view === "plan" && <PlanView db={db} version={v} onChanged={changed} onRecipes={() => onView("recipes")} onShopping={() => onView("shopping")} />}
-      {view === "stock" && <StockView db={db} tag={tag} version={v} onChanged={changed} onRecipes={() => onView("recipes")} onPlan={() => onView("plan")} />}
+      {view === "stock" && <StockView db={db} tag={tag} version={v} onChanged={changed} onRecipes={() => onView("recipes")} />}
       {view === "recipes" && (
         <RecipesView db={db} tag={tag} allTags={tags} version={v} onChanged={changed} onShopping={() => onView("shopping")} onStock={() => onView("stock")} />
       )}
