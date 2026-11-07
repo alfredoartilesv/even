@@ -266,7 +266,7 @@ body.nav-open {
 .app-frame {
   --radius: 18px;
   --radius-sm: 12px;
-  --glass: color-mix(in srgb, var(--surface) 88%, transparent);
+  --glass: var(--surface);
 }
 /* A flat wash of the open section's colour (body[data-area], set by the shell): no gradients. */
 body:has(.app-frame) {
