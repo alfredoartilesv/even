@@ -21,6 +21,8 @@ function screen<P extends object>(loader: () => Promise<ComponentType<P>>) {
 export const ChatScreen = screen(() => import("../screens/chat/ChatScreen").then((m) => m.ChatScreen));
 export const MealPrepScreen = screen(() => import("../screens/mealprep/MealPrepScreen").then((m) => m.MealPrepScreen));
 export const FoodScreen = screen(() => import("../screens/food/FoodScreen").then((m) => m.FoodScreen));
+/** Quick add: the phone's Add sheet and Today's bar on a wide screen (screens/add). */
+export const QuickAdd = screen(() => import("../screens/add/QuickAdd").then((m) => m.QuickAdd));
 /** First run: connect the data and Coach, then units, body and targets (screens/start). */
 export const FirstRun = screen(() => import("../screens/start/FirstRun").then((m) => m.FirstRun));
 export const SettingsScreen = screen(() => import("../screens/settings/SettingsScreen").then((m) => m.SettingsScreen));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { AddActions, FrameProps } from "../../shell/target";
 import { TABS, type Tab, type TabItem } from "../../shell/tabs";
 import { Icon, type IconName } from "../../ui/icons";
@@ -29,7 +29,7 @@ export function TabBar({ tab, onTab, tabs = TABS, onAdd }: { tab: Tab; onTab: (t
   );
 }
 
-const ADD_TILES: { id: Exclude<keyof AddActions, "coach">; label: string; sub: string; icon: IconName; area: Tab }[] = [
+const ADD_TILES: { id: Exclude<keyof AddActions, "coach" | "quick">; label: string; sub: string; icon: IconName; area: Tab }[] = [
   { id: "food", label: "Food", sub: "A meal, a snack, a saved meal", icon: "food", area: "food" },
   { id: "drink", label: "Drink", sub: "A favourite or a one-off", icon: "alcohol", area: "food" },
   { id: "checkIn", label: "Check-in", sub: "Mood, energy and a note", icon: "note", area: "journal" },
@@ -44,7 +44,7 @@ export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => voi
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>("button")?.focus();
+    ref.current?.querySelector<HTMLElement>("input, button")?.focus();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
     return () => {
@@ -66,6 +66,8 @@ export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => voi
             <Icon name="close" />
           </button>
         </div>
+        <Suspense>{add.quick(onClose)}</Suspense>
+        <h3 className="add-more">Or pick from</h3>
         <div className="add-tiles">
           {ADD_TILES.map((t) => (
             <button key={t.id} type="button" className="add-tile" data-area={t.area} onClick={pick(add[t.id])}>
