@@ -3,7 +3,7 @@ import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { LineChart, Sparkline } from "../../ui/charts";
 import { failed, fmtDay, MsgLine, MsgWithUndo, NoteField, numOrNull, timeZone, today, type Msg } from "../../ui/common";
-import { ChipGroup, ScaleRating } from "../../ui/controls";
+import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import {
@@ -132,25 +132,40 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
         </button>
       </div>
 
-      <div className="wide-grid stretch">
-        <form key={day} className="card stack fade-in span-5" onSubmit={save}>
-          <strong>{isToday ? "How is the day going?" : "How was the day?"}</strong>
-          <ScaleRating label="Mood" value={mood} onChange={setMood} words={SCALE} />
-          <ScaleRating label="Energy" value={energy} onChange={setEnergy} words={SCALE} />
-          <label>
-            Note
-            <textarea
-              rows={4}
-              value={body}
-              maxLength={4000}
-              placeholder="Sleep, stress, what you ate, how training went…"
-              onChange={(e) => setBody(e.target.value)}
+      <form key={day} className="checkin-board fade-in" onSubmit={save}>
+        <section className="card checkin-scales" aria-label={isToday ? "How is today?" : "How was the day?"}>
+          <h2>{isToday ? "How is today?" : "How was the day?"}</h2>
+          <div className="checkin-scale">
+            <span className="muted small">Mood</span>
+            <ChipGroup label="Mood" value={mood ?? 0} onChange={(v) => setMood(v === mood ? null : v)} options={SCALE.map((w, i) => ({ id: i + 1, label: w }))} />
+          </div>
+          <div className="checkin-scale">
+            <span className="muted small">Energy</span>
+            <ChipGroup
+              label="Energy"
+              value={energy ?? 0}
+              onChange={(v) => setEnergy(v === energy ? null : v)}
+              options={SCALE.map((w, i) => ({ id: i + 1, label: w }))}
             />
+          </div>
+        </section>
+        <section className="card checkin-note" aria-label={isToday ? "A note for today" : "A note for the day"}>
+          <h2>{isToday ? "A note for today" : "A note for the day"}</h2>
+          <label className="sr-only" htmlFor="checkin-note">
+            Note
           </label>
+          <textarea
+            id="checkin-note"
+            rows={5}
+            value={body}
+            maxLength={4000}
+            placeholder="Anything worth remembering: sleep, stress, what you ate, how training went"
+            onChange={(e) => setBody(e.target.value)}
+          />
           {saved?.createdBy === "assistant" && <p className="muted small">Added by the assistant. Edit it as you like.</p>}
           <div className="actions">
             <button type="submit" disabled={!dirty}>
-              {saved ? "Save changes" : "Save"}
+              {saved ? "Save changes" : "Save check-in"}
             </button>
             {saved && (
               <button
@@ -169,27 +184,26 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
             )}
           </div>
           <MsgLine msg={msg} />
-        </form>
+          <span className="muted small">Coach can use your check-ins when you allow it.</span>
+        </section>
+      </form>
 
-        {rated.length >= 2 && (
-          <div className="span-7">
-            <LineChart
-              title="Mood and energy"
-              subtitle="Last 30 days, 1 (very low) to 5 (very good)"
-              x={days30}
-              series={[
-                { id: "mood", label: "Mood", values: days30.map((d) => by.get(d)?.mood ?? null) },
-                { id: "energy", label: "Energy", values: days30.map((d) => by.get(d)?.energy ?? null) },
-              ]}
-              formatX={(d) => String(Number(d.slice(8)))}
-              formatXLong={(d) => fmtDay(d)}
-              formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
-              connectGaps
-              height={150}
-            />
-          </div>
-        )}
-      </div>
+      {rated.length >= 2 && (
+        <LineChart
+          title="Mood and energy"
+          subtitle="Last 30 days, 1 (very low) to 5 (very good)"
+          x={days30}
+          series={[
+            { id: "mood", label: "Mood", values: days30.map((d) => by.get(d)?.mood ?? null) },
+            { id: "energy", label: "Energy", values: days30.map((d) => by.get(d)?.energy ?? null) },
+          ]}
+          formatX={(d) => String(Number(d.slice(8)))}
+          formatXLong={(d) => fmtDay(d)}
+          formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
+          connectGaps
+          height={150}
+        />
+      )}
 
       <SectionHeader title="Last 30 days" />
       {recent.length === 0 ? (
