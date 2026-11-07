@@ -138,7 +138,7 @@
   --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #14110f;
     --surface: #1e1a17;
     --fg: #f5f5f4;
@@ -203,4 +203,74 @@
     --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
     --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
   }
+}
+/* Picked in You > About (ui/theme.ts): dark or light whatever the system says. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --fg: #f5f5f4;
+  --muted: #a8a29e;
+  --line: #292524;
+  --accent: #2dd4bf;
+  --on-accent: #14110f;
+  --good: #0ca30c;
+  --warning: #facc15;
+  --error: #f87171;
+  --shadow: none;
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+  --lift: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);
+  --lift-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --viz-grid: #2c2a27;
+  --viz-axis: #44403c;
+
+  --area-today: #2dd4bf;
+  --area-food: #f4925f;
+  --area-prep: #5fcf8c;
+  --area-activity: #74aaf2;
+  --area-journal: #e98ac6;
+  --area-coach: #ab9ff6;
+  --area-you: #9db8da;
+  --nav-ink: #0b1c1a;
+  --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+  --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+  --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+  --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+  --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+  --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+  --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+  --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+  --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+  --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+  --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+  --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+  --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+  --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+  --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+  --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+  --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+  --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+  --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+  --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+  --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+  --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+  --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+  --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+  --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+  --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+  --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+  --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
