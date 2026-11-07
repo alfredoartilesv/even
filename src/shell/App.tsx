@@ -11,7 +11,19 @@ import type { SettingsPage } from "../screens/settings/SettingsScreen";
 import { ProfileButton } from "../screens/dashboard/ProfileButton";
 import type { JournalView } from "../screens/journal/JournalScreen";
 import { Loading } from "../screens/start/Loading";
-import { ChatScreen, FirstRun, FoodScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, QuickAdd, SettingsScreen } from "./screens";
+import {
+  ChatScreen,
+  FirstRun,
+  FoodScreen,
+  TargetsPage,
+  JournalScreen,
+  LogsScreen,
+  MealPrepScreen,
+  MeScreen,
+  preloadScreens,
+  QuickAdd,
+  SettingsScreen,
+} from "./screens";
 import type { AddActions, Target } from "./target";
 import { disconnect, loadSession, type SyncSession } from "../domain/cloudsync/session";
 import { today } from "../ui/common";
@@ -499,7 +511,15 @@ export function App({ target }: { target: Target }) {
                 onSession={connect}
                 onLink={(to) => go(to)}
                 onCoach={changed}
-                targets={<MeScreen db={ready} version={version} only="goals" onEditProfile={() => setSettingsPage("profile")} onChanged={changed} />}
+                targets={
+                  <TargetsPage
+                    db={ready}
+                    version={version}
+                    onChanged={changed}
+                    ask={askCoach ? () => askCoach("Suggest daily targets for me from my weight and activity.") : undefined}
+                    goals={<MeScreen db={ready} version={version} only="goals" onEditProfile={() => setSettingsPage("profile")} onChanged={changed} />}
+                  />
+                }
               />
             )}
           </Suspense>

@@ -4114,3 +4114,44 @@ h2.chat-title {
 body[data-area="journal"] .screen > section > .segmented {
   max-width: 24rem;
 }
+
+/* You > Targets (me/TargetsPage.tsx): a row per target with − and +. */
+.targets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.targets-page > * {
+  margin: 0;
+}
+.targets-card {
+  display: flex;
+  flex-direction: column;
+}
+.target-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 64px;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--line);
+}
+.target-row:first-child {
+  border-top: none;
+}
+.target-row .stepper output {
+  min-width: 6.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+.targets-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--area-coach-soft);
+}
+.targets-more {
+  margin-top: 0.75rem;
+}

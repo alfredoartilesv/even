@@ -137,7 +137,12 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
           <h2>{isToday ? "How is today?" : "How was the day?"}</h2>
           <div className="checkin-scale">
             <span className="muted small">Mood</span>
-            <ChipGroup label="Mood" value={mood ?? 0} onChange={(v) => setMood(v === mood ? null : v)} options={SCALE.map((w, i) => ({ id: i + 1, label: w }))} />
+            <ChipGroup
+              label="Mood"
+              value={mood ?? 0}
+              onChange={(v) => setMood(v === mood ? null : v)}
+              options={SCALE.map((w, i) => ({ id: i + 1, label: w }))}
+            />
           </div>
           <div className="checkin-scale">
             <span className="muted small">Energy</span>
