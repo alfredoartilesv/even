@@ -6,7 +6,7 @@ import { failed, MsgLine, plural, type Msg } from "../../ui/common";
 import { StatusBadge } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { PageHeader } from "../../ui/layout";
-import { ConsentLine, LastSent, TodayInEven } from "./ChatSide";
+import { ConsentLine, LastSent, ShareSwitches, TodayInEven } from "./ChatSide";
 import { downscalePhoto, photoInputUrl } from "../food/photo";
 import type { PhotoInput } from "../../domain/food/food";
 import type { SecretStore } from "../../domain/settings/secrets";
@@ -42,7 +42,7 @@ type Pending =
 const fetchImpl = deviceFetch({ connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 });
 
 const ERROR_TITLE: Record<string, string> = {
-  billing: "Out of API credits",
+  billing: "Coach is paused: no API credits left",
   auth: "API key not accepted",
   rate_limit: "Too many requests",
   overloaded: "Claude is busy",
@@ -275,7 +275,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
             <button type="button" className="secondary small-button narrow-only" aria-expanded={showList} onClick={() => setShowList((s) => !s)}>
               History
             </button>
-            <button type="button" className="secondary small-button" disabled={busy} onClick={newChat}>
+            <button type="button" className="secondary small-button narrow-only" disabled={busy} onClick={newChat}>
               New
             </button>
           </>
@@ -283,7 +283,11 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       />
 
       <aside className={showList ? "chat-history" : "chat-history wide-only"} aria-label="Conversations">
-        <h2 className="eyebrow wide-only">History</h2>
+        <button type="button" className="chat-new wide-only" disabled={busy} onClick={newChat}>
+          <Icon name="plus" size={18} />
+          New chat
+        </button>
+        <h2 className="eyebrow">Recent</h2>
         <ul className="entries chat-list">
           {conversations.length === 0 && <li className="muted small">No conversations yet.</li>}
           {conversations.map((c) => (
@@ -303,7 +307,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
               </button>
               <button
                 type="button"
-                className="secondary danger small-button"
+                className="icon-button ghost chat-delete"
                 aria-label={`Delete ${c.title ?? "conversation"}`}
                 onClick={async () => {
                   await deleteConversation(db, c.id);
@@ -311,7 +315,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
                   await loadList();
                 }}
               >
-                Delete
+                <Icon name="trash" size={16} />
               </button>
             </li>
           ))}
@@ -319,19 +323,16 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       </aside>
 
       <div className="chat">
-        {current && <div className="muted small chat-title">{title}</div>}
+        {current && <h2 className="chat-title">{title}</h2>}
 
         <div className="chat-log" aria-live="polite">
           {bubbles.length === 0 && !busy && (
-            <div className="stack tight">
-              <div className="narrow-only">
-                <TodayInEven db={db} version={version} />
-              </div>
-              <h2 className="wide-only">New chat</h2>
-              <p className="muted small">
-                Ask about your sleep, training or meals (type or dictate), send a photo of a meal to log it, attach a lab report or an export, or start from one
-                of these:
-              </p>
+            <div className="coach-start">
+              <span className="coach-start-icon" aria-hidden>
+                <Icon name="sparkle" size={26} />
+              </span>
+              <h2>What do you want to know?</h2>
+              <p className="muted">Ask about food, sleep, training or your plan. Coach can also log things for you, once you confirm.</p>
               <div className="chat-prompts">
                 {QUICK_PROMPTS.map((q) => (
                   <button
@@ -347,9 +348,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
                   </button>
                 ))}
               </div>
-              <div className="narrow-only">
-                <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
-              </div>
+              <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
             </div>
           )}
           {bubbles.map((b) => (
@@ -606,12 +605,9 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       </div>
 
       <aside className="chat-side wide-only" aria-label="Context">
-        <TodayInEven db={db} version={version} />
-        <section className="card">
-          <h3>What Claude can see</h3>
-          <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
-        </section>
+        <ShareSwitches db={db} version={version} onChanged={onChanged} />
         <LastSent db={db} version={version} />
+        <TodayInEven db={db} version={version} />
       </aside>
     </section>
   );
