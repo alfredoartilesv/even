@@ -43,7 +43,7 @@ export function PageHeader({
   backLabel = "Back",
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   leading?: ReactNode;
   actions?: ReactNode;
   onBack?: () => void;

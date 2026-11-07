@@ -6,7 +6,7 @@ import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
 import { fmtDay, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroBars } from "../../ui/nutrition";
-import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
+import { PageHeader, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
@@ -15,7 +15,6 @@ import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
 import { nextUp, partOfDay, slotAt, type NextUp } from "../../domain/dashboard/today";
-import { SyncedNumbers } from "./SyncedNumbers";
 import { PinnedCharts } from "./PinnedCharts";
 import { appleHealthSupported } from "../../platform/health";
 
@@ -45,6 +44,8 @@ function remember(key: string, s: Shown) {
 }
 /** Day, week or month: the one last looked at, so coming back to Today shows the same view. */
 let lastSpan: Span = "day";
+/** The Coach panel open or closed, kept for the app's run. */
+let railOpen = true;
 
 /** Where Today's buttons go; the app shell switches section. */
 export interface DashboardLinks {
@@ -83,6 +84,8 @@ const SPANS: Choice<Span>[] = [
 ];
 
 const int = (n: number) => Math.round(n).toLocaleString();
+/** "6 h 23", as the board writes a night's sleep. */
+const hm = (seconds: number) => `${Math.floor(seconds / 3600)} h ${String(Math.round((seconds % 3600) / 60)).padStart(2, "0")}`;
 const utc = (day: string) => new Date(`${day}T12:00:00Z`);
 const short = (day: string, opts: Intl.DateTimeFormatOptions) => utc(day).toLocaleDateString(undefined, { ...opts, timeZone: "UTC" });
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -114,6 +117,9 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const setAnchor = (day: string, sp: Span = span) => setPicked(pinnedAnchor(sp, day, now));
   const [shown, setShown] = useState<Shown | null>(() => shownCache.get(cacheKey(span, anchor)) ?? null);
   const [local, setLocal] = useState(0);
+  // The Coach panel beside Today on a wide screen (the board opens with it), while Coach is on.
+  const [rail, setRailState] = useState(railOpen);
+  const setRail = (on: boolean) => setRailState((railOpen = on));
 
   // Loads overlap (a sync finishing, quick taps on ‹ ›, Day / Week / Month): only the newest may
   // show, or an older, slower answer would put another period's numbers under this title.
@@ -170,80 +176,104 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const dateLine = utc(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
+  const period = (
+    <Segmented
+      items={SPANS}
+      value={span}
+      label="Period"
+      onChange={(id) => {
+        setSpan(id);
+        setAnchor(isCurrent ? now : current.from, id);
+      }}
+    />
+  );
 
   return (
-    <section className="today">
-      <PageHeader
-        title={many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}
-        subtitle={many ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}` : dateLine}
-        leading={profile}
-        actions={sync}
-      />
-
-      {syncWarnings.map((w) => (
-        <p key={w} className="warning small">
-          {w}
-        </p>
-      ))}
-      {!configured && !hasAny && (
-        <p className="muted small">
-          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in You, Connections" : "Add your Garmin key in You, Connections"} to bring in
-          steps and calories burned, or import your Garmin export.
-        </p>
-      )}
-
-      <div className="today-controls">
-        <Segmented
-          items={SPANS}
-          value={span}
-          label="Period"
-          onChange={(id) => {
-            setSpan(id);
-            setAnchor(isCurrent ? now : current.from, id);
-          }}
+    <section className={rail ? "today with-rail" : "today"}>
+      <div className="today-main">
+        <PageHeader
+          title={many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}
+          subtitle={
+            <span className="today-date muted">
+              <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
+                ‹
+              </button>
+              {many ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}` : isCurrent ? dateLine : cap(fmtDay(anchor))}
+              <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
+                ›
+              </button>
+              <span className="wide-only today-sync">{sync}</span>
+              {!isCurrent && (
+                <button type="button" className="link accent small" onClick={() => setAnchor(now)}>
+                  Back to {span === "day" ? "today" : `this ${span}`}
+                </button>
+              )}
+            </span>
+          }
+          leading={<span className="narrow-only">{profile}</span>}
+          actions={
+            <div className="today-tools">
+              <span className="wide-only">{period}</span>
+              {go.askClaude && (
+                <button
+                  type="button"
+                  className={rail ? "rail-toggle on wide-only" : "rail-toggle wide-only"}
+                  aria-pressed={rail}
+                  onClick={() => setRail(!rail)}
+                >
+                  <Icon name="sparkle" size={18} />
+                  {rail ? "Hide Coach" : "Ask Coach"}
+                </button>
+              )}
+              <span className="narrow-only">{sync}</span>
+            </div>
+          }
         />
-        <PeriodNav
-          title={spanTitle(span, anchor)}
-          unit={span}
-          onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-          onNext={() => setAnchor(next)}
-          nextDisabled={next > now}
-          onCurrent={isCurrent ? null : () => setAnchor(now)}
-          currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
-        />
+        <div className="narrow-only today-period">{period}</div>
+
+        {syncWarnings.map((w) => (
+          <p key={w} className="warning small">
+            {w}
+          </p>
+        ))}
+        {!configured && !hasAny && (
+          <p className="muted small">
+            {appleHealthSupported ? "Connect Apple Health or add your Garmin key in You, Connections" : "Add your Garmin key in You, Connections"} to bring in
+            steps and calories burned, or import your Garmin export.
+          </p>
+        )}
+
+        {quickAdd && <div className="quick-add wide-only">{quickAdd}</div>}
+
+        {d && !many && shown && (
+          <DayView
+            db={db}
+            d={d}
+            shown={shown}
+            day={anchor}
+            isToday={anchor === now}
+            hour={hour}
+            go={go}
+            onOpenDay={openDay}
+            onChanged={() => {
+              setLocal((v) => v + 1);
+              onChanged?.();
+            }}
+          />
+        )}
+        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} />}
+
+        {chartsData && (
+          <PinnedCharts
+            db={db}
+            d={chartsData}
+            period={many ? (isCurrent ? `this ${span}` : spanTitle(span, anchor)) : "last 7 days"}
+            formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
+            onDay={openDay}
+          />
+        )}
       </div>
-
-      {quickAdd && <div className="quick-add wide-only">{quickAdd}</div>}
-
-      {d && !many && shown && (
-        <DayView
-          db={db}
-          d={d}
-          shown={shown}
-          day={anchor}
-          isToday={anchor === now}
-          hour={hour}
-          go={go}
-          onOpenDay={openDay}
-          onChanged={() => {
-            setLocal((v) => v + 1);
-            onChanged?.();
-          }}
-        />
-      )}
-      {d && many && <PeriodView d={d} span={span} axis={axis} go={go} />}
-
-      {chartsData && (
-        <PinnedCharts
-          db={db}
-          d={chartsData}
-          period={many ? (isCurrent ? `this ${span}` : spanTitle(span, anchor)) : "this week"}
-          formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
-          onDay={openDay}
-        />
-      )}
-
-      {!many && shown && shown.metrics.length > 0 && <SyncedNumbers metrics={shown.metrics} />}
+      {rail && go.askClaude && d && <CoachRail d={d} name={first ?? null} ask={go.askClaude} onClose={() => setRail(false)} />}
     </section>
   );
 }
@@ -287,60 +317,61 @@ function DayView({
               : "Nicely balanced, with a little room left."
             : "Within the target this day.";
   return (
-    <div className="today-grid">
-      <section className="card balance-card" aria-label="Balance">
-        <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
-        <div className="balance-side">
-          <p className="balance-line">{heroLine}</p>
-          <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
-        </div>
-      </section>
+    <>
+      <div className="today-grid">
+        <section className="card balance-card" aria-label="Balance">
+          <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
+          <div className="balance-side">
+            <p className="balance-line">{heroLine}</p>
+            <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+          </div>
+        </section>
 
-      <div className="today-stack">
-        {isToday && (
-          <NextUpCard
-            db={db}
-            next={shown.next}
-            left={left}
-            protein={{ eaten: d.protein.total, target: d.targets.protein }}
-            hour={hour}
-            go={go}
-            onChanged={onChanged}
+        <div className="today-stack">
+          {isToday && (
+            <NextUpCard
+              db={db}
+              next={shown.next}
+              left={left}
+              protein={{ eaten: d.protein.total, target: d.targets.protein }}
+              hour={hour}
+              go={go}
+              onChanged={onChanged}
+            />
+          )}
+          <section className="today-tiles" aria-label="Recovery">
+            <StatTile
+              label="Sleep"
+              value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
+              note={d.body.sleepScore.total !== null ? `score ${int(d.body.sleepScore.total)}` : undefined}
+            />
+            <StatTile
+              label="Body Battery"
+              value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
+              note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
+            />
+            <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
+          </section>
+        </div>
+
+        <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} />
+
+        {d.activityTrend.steps.some((v) => v !== null) && (
+          <BarChart
+            title="Steps, last two weeks"
+            subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
+            x={d.trendDays}
+            values={d.activityTrend.steps}
+            formatX={(x) => String(Number(x.slice(8)))}
+            formatXLong={(x) => fmtDay(x)}
+            formatValue={int}
+            selected={day}
+            onSelect={onOpenDay}
           />
         )}
-        <section className="today-tiles" aria-label="Recovery">
-          <StatTile
-            label="Sleep"
-            value={d.body.sleep.total !== null ? fmtDuration(d.body.sleep.total) : null}
-            note={d.body.sleepScore.total !== null ? `score ${int(d.body.sleepScore.total)}` : undefined}
-          />
-          <StatTile
-            label="Body Battery"
-            value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
-            note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
-          />
-          <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
-        </section>
       </div>
-
-      <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} />
-
-      {d.activityTrend.steps.some((v) => v !== null) && (
-        <BarChart
-          title="Steps, last two weeks"
-          subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
-          x={d.trendDays}
-          values={d.activityTrend.steps}
-          formatX={(x) => String(Number(x.slice(8)))}
-          formatXLong={(x) => fmtDay(x)}
-          formatValue={int}
-          selected={day}
-          onSelect={onOpenDay}
-        />
-      )}
-
       <Noticed d={d} next={shown.next} go={go} isToday={isToday} />
-    </div>
+    </>
   );
 }
 
@@ -510,18 +541,16 @@ function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; 
   } else if (d.targets.steps && d.steps.total !== null && d.steps.total < d.targets.steps) {
     text = `${int(d.targets.steps - d.steps.total)} steps to your goal ${isToday ? "today" : "that day"}.`;
   }
-  if (!text) return null;
+  if (!text || !go.askClaude) return null;
   return (
-    <section className="card noticed" aria-labelledby="noticed">
+    <section className="noticed" aria-labelledby="noticed">
       <div className="grow">
-        <h2 id="noticed">Worth a look</h2>
+        <h2 id="noticed">Coach noticed</h2>
         <p>{text}</p>
       </div>
-      {go.askClaude && (
-        <button type="button" className="secondary" onClick={() => go.askClaude!()}>
-          Ask Coach for ideas
-        </button>
-      )}
+      <button type="button" className="noticed-go" onClick={() => go.askClaude!(text)}>
+        Show me ideas
+      </button>
     </section>
   );
 }
@@ -601,5 +630,61 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
         </button>
       </section>
     </div>
+  );
+}
+
+/**
+ * Coach beside Today on a wide screen (handoff 0.7): what it can see of the day, three questions
+ * to start from, and a box to ask anything. Each opens Coach with the question ready to send; the
+ * summary here is worked out on this device, nothing is sent until the owner sends it.
+ */
+function CoachRail({ d, name, ask, onClose }: { d: Dashboard; name: string | null; ask: (draft?: string) => void; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const eaten = d.eaten.total;
+  const proteinLeft = d.targets.protein !== null ? Math.max(0, d.targets.protein - (d.protein.total ?? 0)) : null;
+  const questions = ["What should dinner be?", "How did I sleep this week?", "Plan next week's tuppers"];
+  return (
+    <aside className="coach-rail wide-only" aria-label="Coach" data-area="coach">
+      <div className="coach-rail-head">
+        <h2>Coach</h2>
+        <button type="button" className="icon-button ghost" aria-label="Close Coach" onClick={onClose}>
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+      <div className="coach-bubble">
+        Hi{name ? ` ${name}` : ""}. I can see today so far: {eaten !== null ? <strong>{int(eaten).toString()} kcal</strong> : "nothing logged yet"}
+        {eaten !== null ? " eaten" : ""}
+        {proteinLeft ? (
+          <>
+            {" "}
+            and <strong>{int(proteinLeft)} g</strong> of protein still to go
+          </>
+        ) : null}
+        . What would you like help with?
+      </div>
+      <div className="grow" />
+      <div className="coach-questions" role="group" aria-label="Suggested questions">
+        {questions.map((q) => (
+          <button key={q} type="button" className="coach-question" onClick={() => ask(q)}>
+            {q}
+          </button>
+        ))}
+      </div>
+      <form
+        className="coach-ask"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) ask(text.trim());
+        }}
+      >
+        <label className="sr-only" htmlFor="rail-ask">
+          Ask Coach
+        </label>
+        <input id="rail-ask" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask anything" />
+        <button type="submit" aria-label="Send" disabled={!text.trim()}>
+          <Icon name="send" size={18} />
+        </button>
+      </form>
+    </aside>
   );
 }

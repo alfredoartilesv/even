@@ -5,6 +5,7 @@ import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { BarChart, StackedBar, StatTile } from "../../ui/charts";
 import { fmtDay, today } from "../../ui/common";
+import { SyncedNumbers } from "../dashboard/SyncedNumbers";
 
 const int = (n: number) => Math.round(n).toLocaleString();
 const STAGES = [
@@ -64,6 +65,8 @@ export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }
           )}
         </section>
       </div>
+      {/* Every number the watch sent today, moved here from Today (the board keeps Today to the essentials). */}
+      {night.length > 0 && <SyncedNumbers metrics={night} />}
     </div>
   );
 }

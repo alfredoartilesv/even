@@ -3002,7 +3002,13 @@ button {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
+}
+/* Tiles share the row, however many there are. */
+.me-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 45%), 1fr));
+  gap: 0.75rem;
 }
 .activity-pair > * {
   margin: 0;
@@ -3011,6 +3017,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  justify-content: space-between;
 }
 .sleep-big {
   font-size: 2rem;
@@ -3638,4 +3645,320 @@ button:active:not(:disabled) {
   border-radius: var(--radius-pill);
   background: var(--accent);
   transition: width 0.4s var(--ease);
+}
+/* In a column (Food's log beside the meals), each suggestion is a full-width row, no empty space beside it. */
+.suggest.column .suggestion {
+  max-width: none;
+  min-height: 56px;
+}
+
+/* Today, as the board (V2Today, V2MobToday): header, the Period pill, two columns of cards, Coach noticed, and Coach beside it. */
+.today.with-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.today-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.today-main > * {
+  margin: 0;
+}
+.today-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+}
+.today-head > .narrow-only {
+  flex: none;
+}
+.today-title {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.today-title h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--area-deep, var(--fg));
+}
+.today-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+.date-step {
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.date-step:disabled {
+  opacity: 0.3;
+}
+.today-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.today .segmented {
+  display: inline-grid;
+  margin: 0;
+  background: var(--surface);
+  box-shadow: var(--lift);
+}
+.today .segmented button {
+  min-width: 84px;
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+.today-period .segmented {
+  display: grid;
+  width: 100%;
+}
+.rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--area-coach-line);
+  background: var(--surface);
+  color: var(--area-coach);
+  font-size: 0.9rem;
+}
+.rail-toggle.on {
+  background: var(--area-coach-soft);
+}
+.today-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+}
+.today-grid .card,
+.today-grid figure.viz {
+  border-radius: 24px;
+  padding: 1.25rem 1.4rem;
+}
+.balance-card {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.balance-side {
+  flex: 1 1 200px;
+}
+.today-stack .next-up {
+  flex: 1;
+  justify-content: space-between;
+}
+.today-tiles .viz-tile {
+  border-radius: 18px;
+}
+.noticed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 1.1rem 1.4rem;
+  border-radius: 24px;
+  background: var(--area-coach-soft);
+  color: var(--area-coach-deep);
+}
+.noticed .grow {
+  flex: 1 1 22rem;
+}
+.noticed h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: var(--area-coach-deep);
+}
+.noticed p {
+  margin: 0;
+  font-weight: 500;
+}
+.noticed-go {
+  min-height: 46px;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--area-coach);
+}
+.coach-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.5rem 1.25rem;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--area-coach-line),
+    var(--lift);
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  box-sizing: border-box;
+}
+.coach-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.coach-rail-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.coach-bubble {
+  padding: 0.75rem 0.9rem;
+  border-radius: 18px 18px 18px 6px;
+  background: var(--bg);
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
+.coach-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.coach-question {
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 0 1rem;
+  border: 1px solid var(--area-coach-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--area-coach);
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.coach-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.coach-ask input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 1rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.coach-ask button {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--area-today);
+  border-color: var(--area-today);
+}
+@media (min-width: 75rem) {
+  .today.with-rail {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+  .app-frame .shell.wide:has(.today.with-rail) {
+    max-width: 92rem;
+  }
+}
+@media (min-width: 64rem) {
+  .today-head {
+    flex-wrap: nowrap;
+  }
+  .today-title {
+    flex: 1 1 auto;
+  }
+  .coach-rail {
+    min-height: calc(100vh - 3rem);
+  }
+}
+.balance-card .balance-ring {
+  width: 168px;
+  height: 168px;
+}
+.balance-side {
+  flex: 1 1 180px;
+}
+.today-tiles .viz-tile-value strong {
+  font-size: 1.35rem;
+  white-space: nowrap;
+}
+.today-title h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-sync {
+  margin-left: 0.5rem;
+}
+.today-sync .sync-pill {
+  min-height: 28px;
+  padding: 0.15rem 0.6rem;
+  box-shadow: none;
+  background: transparent;
+}
+.today-tools {
+  flex-wrap: nowrap;
+}
+@media (min-width: 64rem) {
+  .balance-card .balance-ring {
+    width: 150px;
+    height: 150px;
+  }
+  .balance-side {
+    flex-basis: 160px;
+  }
+}
+.rail-toggle {
+  white-space: nowrap;
+}
+/* Today's header is the shared PageHeader, laid out as the board's: title and date left, the period and Coach right. */
+.today .topbar {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  margin: 0;
+  padding: 0;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.today .topbar h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--area-deep, var(--fg));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today .topbar-title > .muted.small {
+  font-size: 0.9rem;
+}
+@media (min-width: 64rem) {
+  .today .topbar {
+    flex-wrap: nowrap;
+  }
 }
