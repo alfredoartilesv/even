@@ -3988,3 +3988,96 @@ body:not(:has(.app-frame)) .today .topbar h1 {
 body:not(:has(.app-frame)) .today .date-step {
   display: none;
 }
+
+/* Coach (chat/ChatScreen.tsx), as the board: New chat over Recent, the open chat's title, a start card, and what Claude can see. */
+.chat-new {
+  width: 100%;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+.chat-list li {
+  align-items: center;
+}
+.chat-list .link.current {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.chat-delete {
+  opacity: 0.55;
+}
+.chat-delete:hover {
+  opacity: 1;
+  color: var(--error);
+}
+h2.chat-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  color: var(--area-deep, var(--fg));
+}
+.coach-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin: 2rem auto;
+  padding: 2rem 1.5rem;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--area-line, var(--line)),
+    var(--lift);
+  text-align: center;
+}
+.coach-start-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.coach-start h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--area-deep, var(--fg));
+}
+.coach-start p {
+  margin: 0;
+}
+.coach-start .chat-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.coach-start .chat-prompts button {
+  min-height: 44px;
+  border-radius: var(--radius-pill);
+  border-color: var(--area-line, var(--line));
+  color: var(--accent);
+}
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.share-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent);
+}
+.share-head h3 {
+  margin: 0;
+  color: var(--fg);
+}
+.chat-new {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
