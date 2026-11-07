@@ -26,6 +26,7 @@ export const QuickAdd = screen(() => import("../screens/add/QuickAdd").then((m) 
 /** First run: connect the data and Coach, then units, body and targets (screens/start). */
 export const FirstRun = screen(() => import("../screens/start/FirstRun").then((m) => m.FirstRun));
 export const SettingsScreen = screen(() => import("../screens/settings/SettingsScreen").then((m) => m.SettingsScreen));
+export const TargetsPage = screen(() => import("../screens/me/TargetsPage").then((m) => m.TargetsPage));
 export const MeScreen = screen(() => import("../screens/me/MeScreen").then((m) => m.MeScreen));
 export const JournalScreen = screen(() => import("../screens/journal/JournalScreen").then((m) => m.JournalScreen));
 export const LogsScreen = screen(() => import("../screens/logs/LogsScreen").then((m) => m.LogsScreen));
