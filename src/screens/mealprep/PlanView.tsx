@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { addDays } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import {
+  addMove,
+  undoMove,
   getPortionsPerDay,
   listMealPreps,
   loadStock,
@@ -10,14 +12,14 @@ import {
   type MealPrep,
   type StockEntry,
 } from "../../domain/mealprep/mealPrep";
-import { addRecipesToShopping, formatQuantity, listShopping, type ShoppingItem } from "../../domain/mealprep/shopping";
+import { addRecipesToShopping, listShopping, type ShoppingItem } from "../../domain/mealprep/shopping";
 import { planDefrost, type Plan } from "../../domain/mealprep/stock";
-import { StatTile } from "../../ui/charts";
+import { seriesColor } from "../../ui/charts";
 import { changeRunner, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup } from "../../ui/controls";
-import { SectionHeader } from "../../ui/layout";
-import { batchColors, PlanDays } from "../../ui/mealprep/components";
-import { daysCovered } from "../../ui/mealprep/timeline";
+import { Icon } from "../../ui/icons";
+import { batchColors, DayStrip } from "../../ui/mealprep/components";
+import { daysCovered, timelineDays } from "../../ui/mealprep/timeline";
 
 interface Props {
   db: SqlDriver;
@@ -52,6 +54,9 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
   const [preps, setPreps] = useState<MealPrep[]>([]);
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [msg, setMsg] = useState<Msg>(null);
+  const [picked, setPicked] = useState(today());
+  const [thawed, setThawed] = useState<{ moveId: string; name: string; forDay: string } | null>(null);
+  const [added, setAdded] = useState(0);
 
   const load = useCallback(async () => {
     const day = today();
@@ -87,116 +92,174 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
   const nightOf = (d: string) =>
     d === day ? "Tonight" : `${new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })} night`;
 
+  const days = timelineDays(plan, day, HORIZON);
+  const sel = days.find((d) => d.day === picked) ?? days[0];
+  const recipesShown = [...new Map(plan.meals.map((m) => [m.batchId, m.name])).entries()];
+
   return (
     <div className="plan-view">
-      <div className="viz-tiles plan-tiles">
-        <StatTile
-          label="Covered"
-          value={String(covered)}
-          unit={covered === 1 ? "day" : "days"}
-          note={plan.coveredThrough ? `through ${fmtDay(plan.coveredThrough)}` : "nothing ready today"}
-        />
-        <StatTile label="Tuppers" value={String(fridge + frozen)} note={`${fridge} fridge · ${frozen} freezer`} />
-        {nextThaw && (
-          <div className="viz-tile wide-only">
-            <div className="muted small">Defrost next</div>
-            <div className="viz-tile-value">
-              <strong>{nextThaw.late ? "Now" : nightOf(nextThaw.day)}</strong>
+      <p className="plan-status muted small">
+        {plural(fridge + frozen, "tupper")} ready ({fridge} fridge, {frozen} freezer) ·{" "}
+        {plan.coveredThrough ? `${plural(covered, "day")} covered, through ${fmtDay(plan.coveredThrough)}` : "nothing ready today"}
+      </p>
+      <div className="plan-board">
+        <div className="plan-col">
+          {nextThaw && !thawed && (
+            <section className="card plan-tonight" aria-label="Tonight">
+              <span className="plan-tonight-icon" aria-hidden>
+                <Icon name="box" size={20} />
+              </span>
+              <span className="grow">
+                <strong>{nextThaw.late ? "Defrost now:" : `${nightOf(nextThaw.day)}:`}</strong> take {plural(nextThaw.portions, "")}
+                {nextThaw.name.toLowerCase()} out of the freezer for {fmtDay(nextThaw.forDay)}.
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  void run(async () => {
+                    const moveId = await addMove(db, { batchId: nextThaw.batchId, kind: "thaw", portions: nextThaw.portions, timeZone: timeZone() });
+                    setThawed({ moveId, name: nextThaw.name, forDay: nextThaw.forDay });
+                  }, "")
+                }
+              >
+                Done
+              </button>
+            </section>
+          )}
+          {thawed && (
+            <section className="card plan-tonight done" role="status">
+              <span className="grow">
+                <strong>Thawing.</strong> {thawed.name} will be ready for {fmtDay(thawed.forDay)}.
+              </span>
+              <button
+                type="button"
+                className="link accent"
+                onClick={() =>
+                  void run(async () => {
+                    await undoMove(db, thawed.moveId);
+                    setThawed(null);
+                  }, "")
+                }
+              >
+                Undo
+              </button>
+            </section>
+          )}
+          <section className="card plan-days-card" aria-labelledby="plan-days">
+            <div className="plan-days-head">
+              <h2 id="plan-days">Next {HORIZON} days</h2>
+              <span className="plan-legend">
+                {recipesShown.map(([id, name]) => (
+                  <span key={id} className="small">
+                    <span className="day-dot" style={{ background: seriesColor(colors.get(id) ?? 1) }} aria-hidden />
+                    {name}
+                  </span>
+                ))}
+              </span>
             </div>
-            <div className="muted small">
-              {nextThaw.portions} {nextThaw.name.toLowerCase()}, for {fmtDay(nextThaw.forDay)}
+            {perDay > 0 ? (
+              <DayStrip days={days} value={sel.day} onChange={setPicked} colors={colors} today={day} />
+            ) : (
+              <p className="muted small">Set how many tuppers you eat a day to get a plan.</p>
+            )}
+            <div className="plan-per-day">
+              <span className="grow">
+                <strong>Tuppers a day</strong>
+                <span className="muted small"> lunch, dinner or both</span>
+              </span>
+              <ChipGroup
+                options={choices}
+                value={perDay}
+                label="Tuppers a day"
+                onChange={(n) => void run(() => setPortionsPerDay(db, n), `${plural(n, "tupper")} a day.`)}
+              />
             </div>
-          </div>
-        )}
-        <div className="viz-tile plan-per-day">
-          <div className="plan-per-day-text">
-            <strong>Tuppers a day</strong>
-            <span className="muted small">lunch, dinner or both</span>
-          </div>
-          <ChipGroup
-            options={choices}
-            value={perDay}
-            label="Tuppers a day"
-            onChange={(n) => void run(() => setPortionsPerDay(db, n), `${plural(n, "tupper")} a day.`)}
-          />
+          </section>
         </div>
-      </div>
 
-      {nextThaw && (
-        <p className="plan-banner small narrow-only">
-          <strong>{nextThaw.late ? "Defrost now:" : `${nightOf(nextThaw.day)}:`}</strong> take {nextThaw.portions} {nextThaw.name.toLowerCase()} out of the
-          freezer for {fmtDay(nextThaw.forDay)}.
-        </p>
-      )}
-      <MsgLine msg={msg} />
+        <div className="plan-col">
+          <section className="card plan-selected" aria-label={fmtDay(sel.day, day)}>
+            <div className="plan-selected-head">
+              <span className="muted small">{sel.day === day ? "Today" : fmtDay(sel.day, day)}</span>
+              {sel.meals[0] && <span className="next-pill">{sel.meals[0].from === "thawed" ? "Thawed" : "Fridge"}</span>}
+            </div>
+            {sel.meals.length ? (
+              sel.meals.map((m, i) => (
+                <div key={i} className="plan-selected-meal">
+                  <strong className="next-name">
+                    {m.portions > 1 ? `${m.portions} × ` : ""}
+                    {m.name}
+                  </strong>
+                  <span className="muted small">
+                    {m.from === "thawed" && m.thawDay
+                      ? `Out of the freezer ${nightOf(m.thawDay).toLowerCase()}`
+                      : m.eatBy
+                        ? `Eat by ${fmtDay(m.eatBy, day)}`
+                        : ""}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <>
+                <strong className="next-name">No tupper</strong>
+                <span className="muted small">Cook before then, or plan something else.</span>
+              </>
+            )}
+            {sel.takeOut.map((t, i) => (
+              <span key={i} className="plan-thaw small">
+                {t.late ? "Defrost now: " : "Tonight: "}take {t.portions} {t.name.toLowerCase()} out of the freezer for {fmtDay(t.forDay, day)}.
+              </span>
+            ))}
+          </section>
 
-      <section>
-        <div className="section-head">
-          <div>
-            <h2>Next {HORIZON} days</h2>
-            <div className="muted small">Which tupper you eat each day, and when to defrost</div>
-          </div>
-        </div>
-        {perDay > 0 ? (
-          <PlanDays plan={plan} today={day} horizon={HORIZON} colors={colors} />
-        ) : (
-          <p className="muted small">Set how many tuppers you eat a day to get a plan.</p>
-        )}
-      </section>
-
-      <div className="wide-grid">
-        <section className="card span-6">
-          <h3>Cook next</h3>
-          <p className="muted small">{plan.coveredThrough ? `Your tuppers run out after ${fmtDay(plan.coveredThrough)}` : "Nothing in stock for today"}</p>
-          {recipe ? (
-            <>
-              <div className="plan-cook">
-                <strong>Cook by {fmtDay(cookBy)}</strong>
-                <span className="small">
-                  One batch of {recipe.name.toLowerCase()} ({plural(recipe.portions, "portion")}) covers {fmtDay(coversFrom)}
+          <section className="card plan-cook-card" aria-labelledby="cook-next">
+            <h2 id="cook-next">Cook next</h2>
+            {recipe ? (
+              <>
+                <p>
+                  <strong>By {fmtDay(cookBy)}.</strong> One batch of {recipe.name.toLowerCase()} ({plural(recipe.portions, "portion")}) covers{" "}
+                  {fmtDay(coversFrom)}
                   {coversDays > 1 ? ` to ${fmtDay(addDays(coversFrom, coversDays - 1))}` : ""}.
-                </span>
-              </div>
-              <div className="actions two">
-                <button
-                  type="button"
-                  onClick={() =>
-                    void run(() => addRecipesToShopping(db, [{ mealPrepId: recipe.id, batches: 1 }]), `Added ${recipe.name} to the shopping list.`)
-                  }
-                >
-                  Add to shopping list
-                </button>
-                <button type="button" className="secondary" onClick={onRecipes}>
-                  Pick a recipe
-                </button>
-              </div>
-            </>
-          ) : (
-            <button type="button" className="secondary" onClick={onRecipes}>
-              Add a recipe
-            </button>
-          )}
-        </section>
-        <section className="card span-6 wide-only">
-          <SectionHeader title="Shopping list" action="Shopping" onAction={onShopping} />
-          <p className="muted small">
-            {toBuy.length} to buy · {shopping.length - toBuy.length} ticked
-          </p>
-          {toBuy.length ? (
-            <ul className="plain plan-shopping">
-              {toBuy.map((i) => (
-                <li key={i.id}>
-                  <span>{i.name}</span>
-                  <span className="muted">{formatQuantity(i.quantity, i.unit)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted small">Nothing to buy.</p>
-          )}
-        </section>
+                </p>
+                {added ? (
+                  <div className="drink-added" role="status">
+                    <span>
+                      <strong>{plural(added, "item")} added.</strong> Ready when you shop.
+                    </span>
+                    <button type="button" className="link accent" onClick={onShopping}>
+                      Open list
+                    </button>
+                  </div>
+                ) : (
+                  <div className="actions two">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void run(async () => {
+                          const before = (await listShopping(db)).length;
+                          await addRecipesToShopping(db, [{ mealPrepId: recipe.id, batches: 1 }]);
+                          setAdded(Math.max(1, (await listShopping(db)).length - before));
+                        }, "")
+                      }
+                    >
+                      Add ingredients to the list
+                    </button>
+                    <button type="button" className="secondary" onClick={onRecipes}>
+                      Pick another recipe
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <button type="button" className="secondary" onClick={onRecipes}>
+                Add a recipe
+              </button>
+            )}
+            <span className="muted small">{toBuy.length ? `${plural(toBuy.length, "item")} on your shopping list.` : "Nothing on your shopping list."}</span>
+          </section>
+        </div>
       </div>
-      <p className="muted small">The plan says when to take each tupper out of the freezer; change tuppers a day and it follows.</p>
+      <MsgLine msg={msg} />
     </div>
   );
 }

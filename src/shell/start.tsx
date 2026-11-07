@@ -4,6 +4,7 @@ import { App } from "./App";
 import { initLogging } from "./logging";
 import { startOpeningDatabase } from "./startup";
 import type { Target } from "./target";
+import { applyTheme, storedTheme } from "../ui/theme";
 import "../ui/palette.css";
 import "../ui/areas.css";
 // The design's face, bundled with the app (no font service at run time); each subset loads only for its characters.
@@ -16,6 +17,7 @@ import "../screens/styles.css";
  */
 export function startApp(target: Target): void {
   initLogging();
+  applyTheme(storedTheme());
   startOpeningDatabase();
 
   // The UI kit gallery (?gallery) exists in dev builds only; production never loads it.

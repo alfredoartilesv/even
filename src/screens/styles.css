@@ -3427,3 +3427,156 @@ button:active:not(:disabled) {
 .quick.compact .quick-preview {
   max-width: 44rem;
 }
+.theme-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.theme-pick .segmented {
+  margin: 0;
+  min-width: 16rem;
+}
+
+/* Meal prep, Plan (mealprep/PlanView.tsx): Tonight, the day strip, the chosen day and Cook next. */
+.plan-status {
+  margin: 0 0 0.75rem;
+}
+.plan-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+.plan-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.plan-col > * {
+  margin: 0;
+}
+.plan-tonight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1.5px var(--area-line, var(--line));
+}
+.plan-tonight.done {
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.plan-tonight-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.plan-days-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.plan-days-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.plan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.plan-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.day-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 72px;
+  padding: 0.4rem 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-weight: 500;
+}
+.day-pick strong {
+  font-size: 1.05rem;
+}
+.day-pick.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+.day-dots {
+  display: flex;
+  gap: 3px;
+  min-height: 8px;
+}
+.day-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.day-dot.none {
+  border: 1.5px solid var(--line);
+  box-sizing: border-box;
+}
+.plan-days-card .plan-per-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.plan-days-card .plan-per-day .chips {
+  margin: 0;
+}
+.plan-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow:
+    0 0 0 1.5px var(--area-line, var(--line)),
+    var(--lift);
+}
+.plan-selected-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.plan-selected-meal {
+  display: flex;
+  flex-direction: column;
+}
+.plan-cook-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.plan-cook-card p {
+  margin: 0 0 0.75rem;
+}
+@media (min-width: 60rem) {
+  .plan-board {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
