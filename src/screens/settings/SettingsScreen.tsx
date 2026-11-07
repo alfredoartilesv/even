@@ -50,11 +50,11 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage | YouL
   {
     title: "Your health",
     items: [
-      { id: "targets", label: "Targets", description: "Calories, protein, steps, drinks and your other goals", icon: "flame" },
       { id: "profile", label: "Profile", description: "Picture, name, body, units", icon: "user" },
+      { id: "targets", label: "Targets", description: "Calories, protein, steps, drinks and your other goals", icon: "flame" },
+      { id: "friends", label: "Friends", description: "Who sees which daily numbers", icon: "user" },
       { id: "activity", label: "Activity and sleep", description: "Workouts, steps and sleep from Garmin", icon: "pulse" },
       { id: "journal", label: "Journal", description: "Check-ins and measurements", icon: "book" },
-      { id: "friends", label: "Friends", description: "Who sees which daily numbers", icon: "user" },
     ],
   },
   {
@@ -138,8 +138,8 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
     <section className="settings-layout">
       <div className={page === null ? "settings-menu" : "settings-menu wide-only"}>
         <PageHeader title="You" />
-        <MenuList groups={groups} onOpen={(id) => (isLink(id) ? onLink(id) : onPage(id))} current={page} />
         {nudge}
+        <MenuList groups={groups} onOpen={(id) => (isLink(id) ? onLink(id) : onPage(id))} current={page} />
       </div>
       <div className={page === null ? "settings-page wide-only" : "settings-page"}>
         {page === null ? (

@@ -705,7 +705,11 @@ body:has(.app-frame) {
   .app-frame .me-layout > .me-tiles {
     grid-column: span 9;
     align-self: stretch;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(11rem, 45%), 1fr));
+  }
+  /* Activity on its own (no profile head beside the tiles): the week and the tiles take the whole row. */
+  .app-frame .me-layout:not(:has(> .me-head)) > :is(.me-tiles, .activity-week) {
+    grid-column: 1 / -1;
   }
   .app-frame .me-layout > .section-head:first-of-type {
     display: none;
