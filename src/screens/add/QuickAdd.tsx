@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { getCurrency, latestWeight, listDrinkTypes, servingKcal, type DrinkType } from "../../domain/alcohol/alcohol";
 import { suggestions } from "../../domain/food/food";
@@ -10,6 +10,7 @@ import { fmtWeight } from "../../core/units";
 import { failed, fmtMoney, MsgLine, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup, Stepper } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
+import { SheetClose } from "../../ui/layout";
 
 const SLOTS: { id: Meal; label: string }[] = [
   { id: "breakfast", label: "Breakfast" },
@@ -37,7 +38,9 @@ interface Props {
  * food gets a meal), then Log it, with Undo. Parts it does not know go to Coach, or are added by
  * hand. Nothing leaves the device (domain/food/quickAdd.ts).
  */
-export function QuickAdd({ db, onCoach, version, onChanged, onDone, compact = false }: Props) {
+export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compact = false }: Props) {
+  const sheetClose = useContext(SheetClose);
+  const onDone = done_ ?? sheetClose ?? undefined;
   const [text, setText] = useState("");
   const [lines, setLines] = useState<QuickLine[] | null>(null);
   const [foods, setFoods] = useState<Candidate[]>([]);

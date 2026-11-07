@@ -402,7 +402,7 @@ export function App({ target }: { target: Target }) {
     checkIn: () => openJournal("checkin"),
     weight: () => openJournal("measurements"),
     coach: chatOn ? () => go("coach") : undefined,
-    quick: (onDone) => <QuickAdd db={ready} version={version} onChanged={changed} onCoach={askCoach} onDone={onDone} />,
+    quick: <QuickAdd db={ready} version={version} onChanged={changed} onCoach={askCoach} />,
   };
 
   return (

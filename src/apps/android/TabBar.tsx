@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { AddActions, FrameProps } from "../../shell/target";
 import { TABS, type Tab, type TabItem } from "../../shell/tabs";
 import { Icon, type IconName } from "../../ui/icons";
+import { SheetClose } from "../../ui/layout";
 
 /**
  * The phone's sections (Today, Food, Prep, Coach: Activity, Journal and You open from Today and
@@ -66,7 +67,9 @@ export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => voi
             <Icon name="close" />
           </button>
         </div>
-        <Suspense>{add.quick(onClose)}</Suspense>
+        <SheetClose value={onClose}>
+          <Suspense>{add.quick}</Suspense>
+        </SheetClose>
         <h3 className="add-more">Or pick from</h3>
         <div className="add-tiles">
           {ADD_TILES.map((t) => (
