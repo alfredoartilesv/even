@@ -6,7 +6,7 @@ import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
 import { fmtDay, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroBars } from "../../ui/nutrition";
-import { MenuButton, PeriodNav, Segmented, type Choice } from "../../ui/layout";
+import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
@@ -171,15 +171,12 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
 
   return (
     <section className="today">
-      <header className="today-head">
-        <MenuButton />
-        {profile}
-        <div className="grow today-title">
-          <h1>{many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}</h1>
-          <span className="muted small">{many ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}` : dateLine}</span>
-        </div>
-        {sync}
-      </header>
+      <PageHeader
+        title={many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}
+        subtitle={many ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}` : dateLine}
+        leading={profile}
+        actions={sync}
+      />
 
       {syncWarnings.map((w) => (
         <p key={w} className="warning small">
