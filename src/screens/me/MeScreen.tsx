@@ -40,6 +40,7 @@ export function MeScreen({
   onEditProfile,
   onChanged,
   view: initialView,
+  only,
 }: {
   db: SqlDriver;
   version: number;
@@ -47,8 +48,11 @@ export function MeScreen({
   onChanged: () => void;
   /** Open on this view (the Dashboard's "Your activity"); otherwise the one last open. */
   view?: MeView;
+  /** One view on its own, without the profile head: Activity is its own section, the goals are You > Targets. */
+  only?: MeView;
 }) {
-  const [view, setViewState] = useState<MeView>(initialView ?? lastView);
+  const [chosen, setViewState] = useState<MeView>(initialView ?? lastView);
+  const view = only ?? chosen;
   const setView = (v: MeView) => setViewState((lastView = v));
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -119,36 +123,38 @@ export function MeScreen({
 
   return (
     <section className="wide-grid me-layout">
-      <div className="me-head">
-        <label className="avatar-pick" title="Change picture">
-          <Avatar photo={photo} name={profile.name} />
-          <input type="file" accept="image/*" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
-        </label>
-        <div className="grow">
-          <h2>{profile.name ?? "You"}</h2>
-          {facts && <div className="muted small">{facts}</div>}
-          <div className="actions compact">
-            <button className="secondary" onClick={onEditProfile}>
-              Edit profile
-            </button>
-            {photo && (
-              <button
-                className="secondary"
-                onClick={async () => {
-                  await saveProfilePhoto(db, null);
-                  setPhoto(null);
-                  onChanged();
-                }}
-              >
-                Remove picture
+      {!only && (
+        <div className="me-head">
+          <label className="avatar-pick" title="Change picture">
+            <Avatar photo={photo} name={profile.name} />
+            <input type="file" accept="image/*" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
+          </label>
+          <div className="grow">
+            <h2>{profile.name ?? "You"}</h2>
+            {facts && <div className="muted small">{facts}</div>}
+            <div className="actions compact">
+              <button className="secondary" onClick={onEditProfile}>
+                Edit profile
               </button>
-            )}
+              {photo && (
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await saveProfilePhoto(db, null);
+                    setPhoto(null);
+                    onChanged();
+                  }}
+                >
+                  Remove picture
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <MsgLine msg={msg} />
 
-      <Segmented items={views} value={view} onChange={setView} label="Activity or goals" />
+      {!only && <Segmented items={views} value={view} onChange={setView} label="Activity or goals" />}
 
       {view === "goals" ? (
         <GoalsView db={db} goals={goals} onChanged={load} />

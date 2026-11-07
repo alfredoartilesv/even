@@ -5,6 +5,7 @@ import type { SyncSession } from "../../domain/cloudsync/session";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../../domain/chat/client";
+import { coachSwitchedOff, setCoachSwitchedOff } from "../../domain/chat/mode";
 import {
   CLAUDE_KEYS_URL,
   claudeConnection,
@@ -38,8 +39,10 @@ interface Props {
   onConnected: () => void;
   /** Sync and wait: the connector's consents count on the server once they are synced. */
   onSync: () => Promise<void>;
-  /** Settings > Sync & devices, for the connector, which needs an account. */
+  /** You > Sync & devices, for the connector, which needs an account. */
   onOpenSync: () => void;
+  /** The Coach switch changed, so the shell shows or hides Coach. */
+  onCoach: () => void;
   version: number;
 }
 
@@ -57,13 +60,22 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
 /** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude: API key or connector). */
-export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, version }: Props) {
+export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, onCoach, version }: Props) {
   return (
     <div className="settings-cards">
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
       <GarminSync db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />
-      <ClaudeCard db={db} secrets={secrets} session={session} onChanged={onChanged} onSync={onSync} onOpenSync={onOpenSync} version={version} />
+      <ClaudeCard
+        db={db}
+        secrets={secrets}
+        session={session}
+        onChanged={onChanged}
+        onSync={onSync}
+        onOpenSync={onOpenSync}
+        onCoach={onCoach}
+        version={version}
+      />
     </div>
   );
 }
@@ -93,7 +105,7 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
       }
       await setAppleHealthEnabled(db, true);
       setOn(true);
-      setMsg({ kind: "ok", text: "Connected. Use the sync button at the top of the Dashboard to bring in the last 30 days." });
+      setMsg({ kind: "ok", text: "Connected. Use the sync button at the top of Today to bring in the last 30 days." });
       onChanged();
     } catch (err) {
       setMsg(failed(err, "settings"));
@@ -196,7 +208,7 @@ const GARMIN_STEPS = [
   "Copy it and paste it here. The app checks it with Garmin before saving it in this device's secure storage.",
 ] as const;
 
-function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Omit<Props, "onSync" | "onOpenSync" | "version">) {
+export function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Omit<Props, "onSync" | "onOpenSync" | "onCoach" | "version">) {
   const [conn, setConn] = useState<GarminConnection | null>(null);
   const [key, setKey] = useState("");
   const [remind, setRemind] = useState(true);
@@ -428,6 +440,7 @@ function ClaudeCard({
   onChanged,
   onSync,
   onOpenSync,
+  onCoach,
   version,
 }: {
   db: SqlDriver;
@@ -436,9 +449,14 @@ function ClaudeCard({
   onChanged: () => void;
   onSync: () => Promise<void>;
   onOpenSync: () => void;
+  onCoach: () => void;
   version: number;
 }) {
   const [claude, setClaude] = useState<ClaudeConnection | null>(null);
+  const [coachOff, setCoachOff] = useState(false);
+  useEffect(() => {
+    void coachSwitchedOff(db).then(setCoachOff, () => {});
+  }, [db, version]);
   const [claudeKey, setClaudeKey] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [checking, setChecking] = useState(false);
@@ -459,7 +477,7 @@ function ClaudeCard({
       if (!res.ok) return setMsg({ kind: "error", text: res.message });
       setClaude(res.connection);
       setClaudeKey("");
-      setMsg({ kind: "ok", text: "Connected. Claude accepted the key: the Chat tab is ready." });
+      setMsg({ kind: "ok", text: "Connected. Claude accepted the key: Coach is ready." });
       onChanged();
     } catch (err) {
       setMsg(failed(err, "settings.claude"));
@@ -481,7 +499,7 @@ function ClaudeCard({
           <DisconnectButton
             onClick={async () => {
               await disconnectClaude(db, secrets);
-              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone and the Chat tab is hidden; your chats stay." });
+              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone and Coach is hidden; your chats stay." });
               await load();
               onChanged();
             }}
@@ -489,7 +507,7 @@ function ClaudeCard({
         </>
       ) : (
         <>
-          <p className="muted small">Add a key to show the Chat tab. Billing is per use, on your Claude Console account.</p>
+          <p className="muted small">Add a key to turn Coach on. Billing is per use, on your Claude Console account.</p>
           <KeySteps steps={CONNECT_STEPS} href={CLAUDE_KEYS_URL} open="Open the Claude Console" />
         </>
       )}
@@ -511,13 +529,25 @@ function ClaudeCard({
     <>
       <section className="card">
         <div className="card-head">
-          <h2>Chat in Even</h2>
+          <h2>Coach</h2>
           <ConnectionBadge status={claude?.status} />
         </div>
         <p className="muted small">
-          Two ways to ask Claude about your data, and you can use both: the Chat tab here, on your own API key, and Claude's own apps through the connector
-          below, on your Claude plan.
+          Two ways to ask Claude about your data, and you can use both: Coach here, on your own API key, and Claude's own apps through the connector below, on
+          your Claude plan.
         </p>
+        {claude && claude.status !== "not_connected" && (
+          <Switch
+            label="Coach"
+            description="Turn it off and it disappears from the whole app. Nothing is sent to Claude from Coach while it is off; the key stays saved."
+            checked={!coachOff}
+            onChange={async (on) => {
+              await setCoachSwitchedOff(db, !on);
+              setCoachOff(!on);
+              onCoach();
+            }}
+          />
+        )}
         {apiKey}
         <MsgLine msg={msg} />
       </section>

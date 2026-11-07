@@ -268,11 +268,9 @@ body.nav-open {
   --radius-sm: 12px;
   --glass: color-mix(in srgb, var(--surface) 88%, transparent);
 }
+/* A flat wash of the open section's colour (body[data-area], set by the shell): no gradients. */
 body:has(.app-frame) {
-  background:
-    radial-gradient(60rem 32rem at 90% -12%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
-    radial-gradient(48rem 30rem at -10% 110%, color-mix(in srgb, var(--series-7) 8%, transparent), transparent 70%), var(--bg);
-  background-attachment: fixed;
+  background: var(--area-wash, var(--bg));
 }
 .app-frame :is(.card, .viz-tile, figure.viz, .macro-tile, .meter-card, .quick-action) {
   border-color: transparent;
@@ -291,16 +289,78 @@ body:has(.app-frame) {
     box-shadow: var(--lift-hover);
   }
 }
+/*
+ * The one bold element: the menu is deep ink green with white text, each section with a filled
+ * icon tile in its own colour (its item's data-area), the open row a lighter panel.
+ */
 .app-frame .sidenav {
   border-right-color: transparent;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface) 40%);
-  box-shadow: 1px 0 0 color-mix(in srgb, var(--fg) 6%, transparent);
+  background: var(--nav-ink);
+  color: var(--on-nav);
 }
 .app-frame .sidenav-head {
   border-bottom-color: transparent;
 }
+.app-frame .sidenav-item,
+.app-frame .sidenav-toggle {
+  color: var(--on-nav-muted);
+}
+.app-frame .sidenav-item {
+  border-radius: var(--radius-sm);
+  padding: 0 0.6rem;
+  gap: 0.75rem;
+}
+.app-frame .sidenav-item:hover,
+.app-frame .sidenav-toggle:hover {
+  background: var(--nav-active);
+  color: var(--on-nav);
+}
 .app-frame .sidenav-item.active {
-  box-shadow: inset 3px 0 0 var(--accent);
+  background: var(--nav-active);
+  color: var(--on-nav);
+  font-weight: 700;
+}
+.app-frame .sidenav-item:focus-visible,
+.app-frame .sidenav-toggle:focus-visible {
+  outline-color: var(--on-nav);
+}
+.sidenav-tile {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.app-frame .sidenav-item .sidenav-tile .icon {
+  color: var(--on-accent);
+}
+.sidenav-you {
+  margin-top: auto;
+  min-height: 56px;
+}
+.sidenav-you-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.sidenav-sub {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--on-nav-muted);
+}
+.app-frame .sidenav-foot {
+  margin-top: 0;
+  border-top-color: var(--nav-active);
+}
+.app-frame .sidenav-email {
+  color: var(--on-nav-muted);
+}
+.app-frame .sidenav-avatar {
+  background: var(--nav-active);
+  color: var(--on-nav);
 }
 
 /* Quick actions: each with its own tint, the icon filling in under the mouse; pills once they sit in a row. */

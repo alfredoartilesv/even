@@ -1,0 +1,45 @@
+/*
+ * Each section's own accent (palette.css, --area-*). The shell sets data-area on the page and
+ * the side menu and tab bar on each of their items; here --accent points at the area's colour,
+ * so every button, chip, switch, link and title follows. Kept out of palette.css, whose two
+ * blocks scripts/palette.mjs reads as the light and dark themes. Only tokens here, no colours.
+ */
+[data-area="today"] {
+  --accent: var(--area-today);
+}
+[data-area="food"] {
+  --accent: var(--area-food);
+}
+[data-area="prep"] {
+  --accent: var(--area-prep);
+}
+[data-area="activity"] {
+  --accent: var(--area-activity);
+}
+[data-area="journal"] {
+  --accent: var(--area-journal);
+}
+[data-area="coach"] {
+  --accent: var(--area-coach);
+}
+[data-area="you"] {
+  --accent: var(--area-you);
+}
+[data-area] {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  --area-wash: color-mix(in srgb, var(--accent) 5%, var(--bg));
+  --area-line: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  --area-deep: color-mix(in srgb, var(--accent) 78%, var(--fg));
+}
+
+/* The page: a flat wash of the area, titles in its deep shade, cards on the surface with a hairline of it. */
+body[data-area] {
+  background: var(--area-wash);
+}
+[data-area] .topbar h1,
+.start-page h1 {
+  color: var(--area-deep);
+}
+[data-area] .card {
+  border-color: var(--area-line);
+}

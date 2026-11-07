@@ -20,7 +20,7 @@ interface Props {
 export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup }: Props & { onSetup: () => void }) {
   const f = freshness(status?.lastOkMs ?? null, nowMs);
   const label = !configured ? "Set up Garmin sync" : syncing ? "Syncing…" : f.state === "never" ? "Not synced yet" : `Synced ${ago(f.ageMs)}`;
-  const action = configured ? "Sync with Garmin now" : "Add your Garmin key in Settings";
+  const action = configured ? "Sync with Garmin now" : "Add your Garmin key in You, Connections";
   const stale = configured && (f.state === "stale" || status?.status === "error");
   return (
     <button

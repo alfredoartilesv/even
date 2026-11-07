@@ -152,7 +152,7 @@ export function toChatError(err: unknown): ChatApiError {
   if (err instanceof ChatApiError) return err;
   if (err instanceof Anthropic.APIConnectionError) return new ChatApiError("network", "Could not reach Claude. Check the connection and try again.", true);
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-    return new ChatApiError("auth", "Claude rejected the API key. Check it in Settings.", false, err.status);
+    return new ChatApiError("auth", "Claude rejected the API key. Check it in You, Connections.", false, err.status);
   }
   if (err instanceof Anthropic.RateLimitError)
     return new ChatApiError("rate_limit", "Claude is rate-limiting this key. Wait a moment and try again.", true, 429);
@@ -457,7 +457,10 @@ async function answerToolCalls(deps: ChatDeps, conversationId: string, toolUses:
     if (!(await consentFor(deps, scope))) {
       chatLog.info("tool blocked: no consent", { tool: call.name, scope });
       results.push(
-        error(call.id, `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in Settings.`),
+        error(
+          call.id,
+          `The owner has not allowed sending this kind of data (${scope}). Answer without it and mention it can be allowed in You, Privacy and data.`,
+        ),
       );
       report.push({ name: call.name, dataClass: tool.dataClass, allowed: false });
       continue;

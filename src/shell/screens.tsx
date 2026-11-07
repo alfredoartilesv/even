@@ -20,15 +20,17 @@ function screen<P extends object>(loader: () => Promise<ComponentType<P>>) {
 
 export const ChatScreen = screen(() => import("../screens/chat/ChatScreen").then((m) => m.ChatScreen));
 export const MealPrepScreen = screen(() => import("../screens/mealprep/MealPrepScreen").then((m) => m.MealPrepScreen));
-export const AlcoholScreen = screen(() => import("../screens/alcohol/AlcoholScreen").then((m) => m.AlcoholScreen));
+export const FoodScreen = screen(() => import("../screens/food/FoodScreen").then((m) => m.FoodScreen));
+/** First run: connect the data and Coach, then units, body and targets (screens/start). */
+export const FirstRun = screen(() => import("../screens/start/FirstRun").then((m) => m.FirstRun));
 export const SettingsScreen = screen(() => import("../screens/settings/SettingsScreen").then((m) => m.SettingsScreen));
 export const MeScreen = screen(() => import("../screens/me/MeScreen").then((m) => m.MeScreen));
 export const JournalScreen = screen(() => import("../screens/journal/JournalScreen").then((m) => m.JournalScreen));
 export const LogsScreen = screen(() => import("../screens/logs/LogsScreen").then((m) => m.LogsScreen));
-/** The web app's first screen; on the phone it is part of Settings > Sync. */
+/** The web app's first screen; on the phone it is part of You > Sync & devices. */
 export const ConnectPanel = screen(() => import("../screens/cloudsync/ConnectPanel").then((m) => m.ConnectPanel));
 
-const ALL = [ChatScreen, MealPrepScreen, AlcoholScreen, SettingsScreen, MeScreen, JournalScreen, LogsScreen];
+const ALL = [ChatScreen, MealPrepScreen, FoodScreen, SettingsScreen, MeScreen, JournalScreen, LogsScreen];
 
 /**
  * Fetch the other screens once the Dashboard shows its first numbers (mark even:dashboard-ready),
