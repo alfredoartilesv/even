@@ -63,27 +63,48 @@ export function RangePicker({
   return <ChipGroup options={options.map((o) => ({ id: o.days, label: o.label }))} value={value} onChange={onChange} label={label} />;
 }
 
-/** − n + for small counts (portions). Buttons are 44px targets; the number is announced on change. */
+/**
+ * − n + for counts (portions) and, with a step and a format, for amounts (height, weight, a
+ * daily target). Buttons are 44px targets; the value is announced on change.
+ */
 export function Stepper({
   value,
   onChange,
   min = 0,
   max = 99,
+  step = 1,
+  format = String,
   label,
 }: {
   value: number;
   onChange: (n: number) => void;
   min?: number;
   max?: number;
+  step?: number;
+  format?: (n: number) => string;
   label: string;
 }) {
+  // Rounded to the step's decimals, so 0.1 steps never show 82.30000000000001.
+  const round = (n: number) => Number(n.toFixed(6));
   return (
     <div className="stepper" role="group" aria-label={label}>
-      <button type="button" className="secondary" aria-label={`Fewer: ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>
+      <button
+        type="button"
+        className="secondary"
+        aria-label={`Fewer: ${label}`}
+        disabled={value <= min}
+        onClick={() => onChange(round(Math.max(min, value - step)))}
+      >
         −
       </button>
-      <output aria-live="polite">{value}</output>
-      <button type="button" className="secondary" aria-label={`More: ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
+      <output aria-live="polite">{format(value)}</output>
+      <button
+        type="button"
+        className="secondary"
+        aria-label={`More: ${label}`}
+        disabled={value >= max}
+        onClick={() => onChange(round(Math.min(max, value + step)))}
+      >
         +
       </button>
     </div>

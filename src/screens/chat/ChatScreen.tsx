@@ -387,7 +387,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
             <div className="card prompt-card" role="alertdialog" aria-label="Permission">
               <strong>Allow this?</strong>
               <p className="small">{pending.text}</p>
-              <p className="muted small">You can change this later in Settings, Privacy & data.</p>
+              <p className="muted small">You can change this later in You, Privacy and data.</p>
               <div className="actions">
                 <button onClick={() => answer(true)}>Allow</button>
                 <button className="secondary" onClick={() => answer(false)}>

@@ -17,12 +17,24 @@ export interface FrameAccount {
   signOut: () => Promise<void>;
 }
 
+/** What a quick Add offers (the phone's Add button): each opens the place to log it. */
+export interface AddActions {
+  food: () => void;
+  drink: () => void;
+  checkIn: () => void;
+  weight: () => void;
+  /** Only while Coach is on. */
+  coach?: () => void;
+}
+
 /** What the shell gives a target's navigation: the open section, a way to change it, and the page. */
 export interface FrameProps {
   tab: Tab;
   onTab: (tab: Tab) => void;
-  /** The sections to offer, in order (visibleTabs): Chat is left out without an API key. */
+  /** The sections to offer, in order (visibleTabs): Coach is left out while it is off. */
   tabs: TabItem[];
+  /** The phone's Add button; a wide screen logs from each section instead. */
+  add: AddActions;
   /** Null when this device is not connected to an account. */
   account: FrameAccount | null;
   /** The page (<main className="shell">), placed by the frame beside or above its navigation. */
@@ -40,8 +52,8 @@ export interface Target {
    */
   gate?: (state: GateState) => ReactNode | null;
   /**
-   * The navigation between the five sections, around the page: Android has a tab bar at the bottom
-   * (thumb reach on the phone), the web app a side menu that docks on a wide screen.
+   * The navigation between the sections, around the page: Android has a tab bar at the bottom
+   * (thumb reach on the phone) with an Add button, the web app a dark side menu that docks on a wide screen.
    */
   Frame: ComponentType<FrameProps>;
 }

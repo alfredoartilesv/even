@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch } from "../../platform/device";
@@ -17,7 +17,10 @@ import { backupDue, hints, useSettingsSummary } from "./summary";
 import { SettingsOverview } from "./SettingsOverview";
 import type { SecretStore } from "../../domain/settings/secrets";
 
-export type SettingsPage = "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about" | "admin";
+export type SettingsPage = "targets" | "profile" | "sync" | "friends" | "connections" | "privacy" | "logs" | "about" | "admin";
+
+/** Rows in You that open another section (Activity, Journal) rather than a page of You. */
+export type YouLink = "activity" | "journal";
 
 interface Props {
   db: SqlDriver;
@@ -35,22 +38,31 @@ interface Props {
   /** This device's sync connection, or null (docs/users.md). */
   session: SyncSession | null;
   onSession: (s: SyncSession | null) => void;
+  /** Activity and Journal are sections of their own; their rows here open them. */
+  onLink: (to: YouLink) => void;
+  /** The goals as You > Targets (MeScreen with only its goals). */
+  targets: ReactNode;
+  /** You > Connections' Coach switch changed: the shell shows or hides Coach. */
+  onCoach: () => void;
 }
 
-export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[] = [
+export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage | YouLink>[] }[] = [
   {
-    title: "You",
+    title: "Your health",
     items: [
-      { id: "profile", label: "Profile", description: "Picture, name, body, goals", icon: "user" },
+      { id: "targets", label: "Targets", description: "Calories, protein, steps, drinks and your other goals", icon: "flame" },
+      { id: "profile", label: "Profile", description: "Picture, name, body, units", icon: "user" },
+      { id: "activity", label: "Activity and sleep", description: "Workouts, steps and sleep from Garmin", icon: "pulse" },
+      { id: "journal", label: "Journal", description: "Check-ins and measurements", icon: "book" },
       { id: "friends", label: "Friends", description: "Who sees which daily numbers", icon: "user" },
     ],
   },
   {
     title: "Data",
     items: [
+      { id: "connections", label: "Connections", description: "Garmin, Coach and Claude", icon: "link" },
       { id: "sync", label: "Sync & devices", description: "Account, phones, passphrase", icon: "sync" },
-      { id: "connections", label: "Connections", description: "Garmin and Claude", icon: "link" },
-      { id: "privacy", label: "Privacy & data", description: "What Claude may see, backup", icon: "shield" },
+      { id: "privacy", label: "Privacy and data", description: "What Claude may see, backup", icon: "shield" },
     ],
   },
   {
@@ -63,7 +75,7 @@ export const SETTINGS_MENU: { title: string; items: MenuItem<SettingsPage>[] }[]
  * Only for an admin account (docs/users.md section 2.6); the server checks it on every request too.
  * Debug logs are this install's own records, offered offline too once the account was seen as admin.
  */
-export const ADMIN_MENU: { title: string; items: MenuItem<SettingsPage>[] } = {
+export const ADMIN_MENU: { title: string; items: MenuItem<SettingsPage | YouLink>[] } = {
   title: "Admin",
   items: [
     { id: "admin", label: "Admin", description: "Invites, accounts, devices and the audit log. Never anyone's data", icon: "settings" },
@@ -71,7 +83,8 @@ export const ADMIN_MENU: { title: string; items: MenuItem<SettingsPage>[] } = {
   ],
 };
 
-const LABEL = Object.fromEntries([...SETTINGS_MENU, ADMIN_MENU].flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage, string>;
+const LABEL = Object.fromEntries([...SETTINGS_MENU, ADMIN_MENU].flatMap((g) => g.items.map((i) => [i.id, i.label]))) as Record<SettingsPage | YouLink, string>;
+const isLink = (id: SettingsPage | YouLink): id is YouLink => id === "activity" || id === "journal";
 
 /**
  * A menu of pages: who you are, where data comes from and goes, what is kept and shared, the app
@@ -79,7 +92,7 @@ const LABEL = Object.fromEntries([...SETTINGS_MENU, ADMIN_MENU].flatMap((g) => g
  * missing backup gets a nudge. A phone shows the menu or one page; a wide screen keeps the menu on
  * the left, with the open page, or an overview of them all, beside it.
  */
-export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync, session, onSession }: Props) {
+export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync, session, onSession, onLink, targets, onCoach }: Props) {
   const summary = useSettingsSummary(db, secrets, version);
   const [admin, setAdmin] = useState(false);
   // Whether to offer Admin: asked of the server once per connection and remembered, so offline the
@@ -103,7 +116,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
 
   // The Profile row shows the picture (or initials) once there is either, and every row where it stands.
   const menu = admin ? [...SETTINGS_MENU, ADMIN_MENU] : SETTINGS_MENU;
-  const status = summary ? (hints(summary) as Partial<Record<SettingsPage, string>>) : {};
+  const status = summary ? (hints(summary) as Partial<Record<SettingsPage | YouLink, string>>) : {};
   const groups = menu.map((g) => ({
     ...g,
     items: g.items.map((i) => ({
@@ -124,8 +137,8 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
   return (
     <section className="settings-layout">
       <div className={page === null ? "settings-menu" : "settings-menu wide-only"}>
-        <PageHeader title="Settings" />
-        <MenuList groups={groups} onOpen={onPage} current={page} />
+        <PageHeader title="You" />
+        <MenuList groups={groups} onOpen={(id) => (isLink(id) ? onLink(id) : onPage(id))} current={page} />
         {nudge}
       </div>
       <div className={page === null ? "settings-page wide-only" : "settings-page"}>
@@ -134,7 +147,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
         ) : (
           <>
             <div className="narrow-only">
-              <PageHeader title={LABEL[page]} onBack={() => onPage(null)} backLabel="Settings" />
+              <PageHeader title={LABEL[page]} onBack={() => onPage(null)} backLabel="You" />
             </div>
             <h2 className="settings-page-title wide-only">{LABEL[page]}</h2>
             {pageBody()}
@@ -146,7 +159,9 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
 
   // A plain function, not a component: a component declared here would remount the page on every render.
   function pageBody() {
-    return page === "profile" ? (
+    return page === "targets" ? (
+      targets
+    ) : page === "profile" ? (
       <ProfileSettings db={db} onChanged={onChanged} connected={session !== null} onOpenSync={() => onPage("sync")} />
     ) : page === "sync" ? (
       <SyncSettings db={db} secrets={secrets} isNative={isNative} session={session} onSession={onSession} onSync={onSync} version={version} />
@@ -162,6 +177,7 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
         onConnected={() => void onSync()}
         onSync={onSync}
         onOpenSync={() => onPage("sync")}
+        onCoach={onCoach}
         version={version}
       />
     ) : page === "privacy" ? (

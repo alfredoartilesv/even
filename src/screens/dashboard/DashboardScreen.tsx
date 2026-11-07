@@ -192,8 +192,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       ))}
       {!configured && !hasAny && (
         <p className="muted small">
-          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in Settings" : "Add your Garmin key in Settings"} to bring in steps and calories
-          burned, or import your Garmin export.
+          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in You, Connections" : "Add your Garmin key in You, Connections"} to bring in
+          steps and calories burned, or import your Garmin export.
         </p>
       )}
 

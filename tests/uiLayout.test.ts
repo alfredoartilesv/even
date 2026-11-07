@@ -10,7 +10,8 @@ import { TABS, visibleTabs } from "../src/shell/tabs";
 import { connectGate } from "../src/apps/web/connectGate";
 import type { SyncSession } from "../src/domain/cloudsync/session";
 import { greeting } from "../src/domain/dashboard/greeting";
-import { MEAL_PREP_GROUPS, MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
+import { MEAL_PREP_VIEWS } from "../src/screens/mealprep/MealPrepScreen";
+import { FOOD_VIEWS } from "../src/screens/food/FoodScreen";
 import { ConnectorSettings } from "../src/screens/cloudsync/ConnectorSettings";
 import { ADMIN_MENU, SETTINGS_MENU } from "../src/screens/settings/SettingsScreen";
 import { Ring } from "../src/ui/charts";
@@ -104,21 +105,28 @@ test("icons: every one is a hidden 24 px line drawing in the current color", () 
 
 const navState = (over: Partial<SideNavState>): SideNavState => ({ docked: false, open: false, rail: false, setOpen: noop, toggleRail: noop, ...over });
 
-test("Android tab bar: the five tabs in order, each with an icon and a label, the open one aria-current", () => {
+test("Android tab bar: Today, Food, Add, Prep and Coach, each with an icon in its area and a short label, the open one aria-current", () => {
   assert.deepEqual(
     TABS.map((t) => t.label),
-    ["Dashboard", "Chat", "Meal prep", "Alcohol", "Settings"],
+    ["Today", "Food and drinks", "Meal prep", "Activity", "Journal", "Coach", "You"],
   );
-  const html = renderToStaticMarkup(h(TabBar, { tab: "alcohol", onTab: noop }));
+  const html = renderToStaticMarkup(h(TabBar, { tab: "food", onTab: noop, onAdd: noop }));
   assert.equal((html.match(/<button/g) ?? []).length, 5);
   assert.equal((html.match(/<svg/g) ?? []).length, 5);
-  assert.match(html, /class="active" aria-current="page"><svg[^]*?<span>Alcohol<\/span>/);
+  assert.match(html, /data-area="food" class="active" aria-current="page"><svg[^]*?<span>Food<\/span>/);
+  assert.match(html, /<span>Food<\/span><\/button><button type="button" class="tabbar-add" aria-label="Add" aria-haspopup="dialog">/, "Add sits in the middle");
+  assert.doesNotMatch(html, />Activity<|>Journal<|>You</);
 });
 
-test("web side menu: the same five sections, each with an icon and a label, the open one aria-current", () => {
-  const html = renderToStaticMarkup(h(SideNav, { tab: "alcohol", onTab: noop, nav: navState({ open: true }), account: null }));
-  assert.equal((html.match(/class="sidenav-item/g) ?? []).length, 5);
-  assert.match(html, /class="sidenav-item active" aria-current="page"><svg[^]*?<span class="sidenav-label">Alcohol<\/span>/);
+test("web side menu: every section but You in the list, each with a tile in its area, You at the foot, the open one aria-current", () => {
+  const html = renderToStaticMarkup(h(SideNav, { tab: "food", onTab: noop, nav: navState({ open: true }), account: null }));
+  assert.equal((html.match(/class="sidenav-item/g) ?? []).length, 7);
+  assert.equal((html.match(/class="sidenav-tile"/g) ?? []).length, 7);
+  assert.match(
+    html,
+    /data-area="food" class="sidenav-item active" aria-current="page"><span class="sidenav-tile"[^]*?<span class="sidenav-label">Food and drinks<\/span>/,
+  );
+  assert.match(html, /class="sidenav-item sidenav-you"[^]*Targets, privacy, backup/);
   assert.match(html, /aria-label="Close menu"/);
   assert.match(html, /class="nav-scrim"/);
 });
@@ -134,7 +142,7 @@ test("web side menu: a closed drawer is inert and has no scrim; docked it never 
   assert.match(rail, /class="sidenav rail"/);
   assert.match(rail, /aria-label="Expand menu" aria-expanded="false"/);
   // Icons only: the label stays in the button for screen readers, the title shows it on hover.
-  assert.match(rail, /title="Settings"[^>]*>[^]*?<span class="sidenav-label">Settings<\/span>/);
+  assert.match(rail, /title="Meal prep"[^>]*>[^]*?<span class="sidenav-label">Meal prep<\/span>/);
 });
 
 test("web side menu: a connected account shows at the foot with Sign out, named on hover when the menu is icons only; none without one", () => {
@@ -159,31 +167,28 @@ test("PageHeader: a frame's menu button opens the side menu at the top of a tab,
   assert.doesNotMatch(renderToStaticMarkup(h(PageHeader, { title: "Chat" })), /menu-button/);
 });
 
-test("meal prep tab: two groups of three, the food log first; shopping holds the list and the spending", () => {
+test("food and drinks: the log, drinks, history and saved meals; meal prep: plan, stock, recipes, shopping", () => {
   assert.deepEqual(
-    MEAL_PREP_GROUPS.map((g) => [g.label, g.views.map((v) => v.id)]),
-    [
-      ["Food log", ["log", "history", "saved"]],
-      ["Meal prep", ["plan", "stock", "recipes", "shopping"]],
-    ],
+    FOOD_VIEWS.map((v) => v.id),
+    ["log", "drinks", "history", "saved"],
   );
   assert.deepEqual(
     MEAL_PREP_VIEWS.map((v) => v.id),
-    ["log", "history", "saved", "plan", "stock", "recipes", "shopping"],
+    ["plan", "stock", "recipes", "shopping"],
   );
 });
 
-test("settings menu: every page once, each with an icon and a description, Debug logs only under Admin", () => {
+test("You menu: every page once, Activity and Journal as links, each with an icon and a description, Debug logs only under Admin", () => {
   const items = SETTINGS_MENU.flatMap((g) => g.items);
-  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "connections", "friends", "privacy", "profile", "sync"]);
+  assert.deepEqual(items.map((i) => i.id).sort(), ["about", "activity", "connections", "friends", "journal", "privacy", "profile", "sync", "targets"]);
   assert.deepEqual(
     ADMIN_MENU.items.map((i) => i.id),
     ["admin", "logs"],
   );
   for (const i of [...items, ...ADMIN_MENU.items]) assert.ok(i.description && ICON_NAMES.includes(i.icon), i.id);
   const html = renderToStaticMarkup(h(MenuList<string>, { groups: SETTINGS_MENU, onOpen: noop }));
-  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 6);
-  assert.match(html, /<h2 class="menu-title">You<\/h2>/);
+  assert.equal((html.match(/class="menu-row"/g) ?? []).length, 9);
+  assert.match(html, /<h2 class="menu-title">Your health<\/h2>/);
   assert.doesNotMatch(html, /Debug logs/);
   const admin = renderToStaticMarkup(h(MenuList<string>, { groups: [...SETTINGS_MENU, ADMIN_MENU], onOpen: noop }));
   assert.match(admin, /<span class="menu-label">Debug logs<\/span><span class="menu-desc muted small">/);
@@ -339,15 +344,15 @@ test("the Claude connector page gives the address to add in Claude, or asks to s
   assert.match(on, /Add custom connector/);
 });
 
-test("without Chat the tab bar and the side menu show the other four sections", () => {
+test("with Coach off the tab bar and the side menu leave it out everywhere", () => {
   assert.deepEqual(
     visibleTabs(false).map((t) => t.id),
-    ["dashboard", "mealprep", "alcohol", "settings"],
+    ["today", "food", "prep", "activity", "journal", "you"],
   );
   assert.deepEqual(visibleTabs(true), TABS);
-  const bar = renderToStaticMarkup(h(TabBar, { tab: "dashboard", onTab: noop, tabs: visibleTabs(false) }));
+  const bar = renderToStaticMarkup(h(TabBar, { tab: "today", onTab: noop, tabs: visibleTabs(false), onAdd: noop }));
   assert.equal((bar.match(/<button/g) ?? []).length, 4);
-  assert.doesNotMatch(bar, />Chat</);
-  const side = renderToStaticMarkup(h(SideNav, { tab: "dashboard", onTab: noop, nav: navState({ docked: true }), account: null, tabs: visibleTabs(false) }));
-  assert.doesNotMatch(side, />Chat</);
+  assert.doesNotMatch(bar, />Coach</);
+  const side = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account: null, tabs: visibleTabs(false) }));
+  assert.doesNotMatch(side, />Coach</);
 });

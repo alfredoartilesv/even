@@ -5,6 +5,7 @@ import { initLogging } from "./logging";
 import { startOpeningDatabase } from "./startup";
 import type { Target } from "./target";
 import "../ui/palette.css";
+import "../ui/areas.css";
 import "../screens/styles.css";
 
 /**

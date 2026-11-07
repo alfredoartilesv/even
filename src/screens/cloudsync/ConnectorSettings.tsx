@@ -138,8 +138,8 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
           {on && (on["claude.connector"] ? <StatusBadge status="good">on</StatusBadge> : <StatusBadge status="info">off</StatusBadge>)}
         </div>
         <p className="muted small">
-          Ask about your data in Claude itself (claude.ai, the Claude app), on your Claude plan, with or without the Chat tab. In Claude: Settings &gt;
-          Connectors &gt; Add custom connector, with this address, then sign in with your Even email and passphrase.
+          Ask about your data in Claude itself (claude.ai, the Claude app), on your Claude plan, with or without Coach. In Claude: Settings &gt; Connectors &gt;
+          Add custom connector, with this address, then sign in with your Even email and passphrase.
         </p>
         <p>
           <code>{url}</code>
@@ -177,7 +177,7 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
           </>
         )}
         <p className="muted small">
-          Which kinds of data it may get (summaries, detailed records, notes) is what you allow in Privacy &amp; data, the same as for the Chat tab.
+          Which kinds of data it may get (summaries, detailed records, notes) is what you allow in Privacy &amp; data, the same as for Coach.
           {!aggregates && " Questions and summaries are off there, so it gets nothing yet."} Everything it is sent is listed there under Sent to Claude.
         </p>
         <MsgLine msg={msg} />

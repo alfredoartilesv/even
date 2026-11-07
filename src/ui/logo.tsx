@@ -14,3 +14,16 @@ export function Logo({ size = 48, decorative = false }: { size?: number; /** Nex
     </svg>
   );
 }
+
+/** The logo inside a spinning ring, for the Loading screen (styles in screens/styles.css, still under reduced motion). */
+export function LoadingMark() {
+  return (
+    <div className="loading-mark">
+      <svg className="loading-ring" width="96" height="96" viewBox="0 0 100 100" aria-hidden>
+        <circle cx="50" cy="50" r="42" />
+        <circle className="spin" cx="50" cy="50" r="42" />
+      </svg>
+      <Logo size={56} decorative />
+    </div>
+  );
+}
