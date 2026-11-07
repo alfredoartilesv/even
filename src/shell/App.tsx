@@ -11,7 +11,7 @@ import type { SettingsPage } from "../screens/settings/SettingsScreen";
 import { ProfileButton } from "../screens/dashboard/ProfileButton";
 import type { JournalView } from "../screens/journal/JournalScreen";
 import { Loading } from "../screens/start/Loading";
-import { ChatScreen, FirstRun, FoodScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, SettingsScreen } from "./screens";
+import { ChatScreen, FirstRun, FoodScreen, JournalScreen, LogsScreen, MealPrepScreen, MeScreen, preloadScreens, QuickAdd, SettingsScreen } from "./screens";
 import type { AddActions, Target } from "./target";
 import { disconnect, loadSession, type SyncSession } from "../domain/cloudsync/session";
 import { today } from "../ui/common";
@@ -387,6 +387,13 @@ export function App({ target }: { target: Target }) {
             ? `journal|${journal.view}`
             : tab;
 
+  // Coach with text to start from (quick add, Today); undefined while Coach is off.
+  const askCoach = chatOn
+    ? (draft?: string) => {
+        setCoachDraft(draft);
+        go("coach");
+      }
+    : undefined;
   const { Frame } = target;
   // What the phone's Add button offers (apps/android/AddSheet.tsx).
   const add: AddActions = {
@@ -395,6 +402,7 @@ export function App({ target }: { target: Target }) {
     checkIn: () => openJournal("checkin"),
     weight: () => openJournal("measurements"),
     coach: chatOn ? () => go("coach") : undefined,
+    quick: (onDone) => <QuickAdd db={ready} version={version} onChanged={changed} onCoach={askCoach} onDone={onDone} />,
   };
 
   return (
@@ -426,15 +434,15 @@ export function App({ target }: { target: Target }) {
                   profile={<ProfileButton db={ready} version={version} onOpen={() => openYou(null)} />}
                   sync={syncButton}
                   onChanged={changed}
+                  quickAdd={
+                    <Suspense>
+                      <QuickAdd db={ready} version={version} onChanged={changed} onCoach={askCoach} compact />
+                    </Suspense>
+                  }
                   go={{
                     logFood: () => openFood("log"),
                     logDrink: () => openFood("drinks"),
-                    askClaude: chatOn
-                      ? (draft) => {
-                          setCoachDraft(draft);
-                          go("coach");
-                        }
-                      : undefined,
+                    askClaude: askCoach,
                     mealPrep: () => openPrep("stock"),
                     profile: () => go("activity"),
                     checkIn: (day) => openJournal("checkin", day),

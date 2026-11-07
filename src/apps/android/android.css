@@ -164,3 +164,8 @@
   display: flex;
   flex-direction: column;
 }
+.add-sheet-head .icon-button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg);
+}

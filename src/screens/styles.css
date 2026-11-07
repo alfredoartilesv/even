@@ -3146,9 +3146,7 @@ button:active:not(:disabled) {
     transform-origin: left;
     animation: ev-grow-x 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
   }
-  .quick-add-bar:focus-within,
   .add-ask:focus-within {
-    border-color: transparent;
     background:
       linear-gradient(var(--surface), var(--surface)) padding-box,
       conic-gradient(from var(--ev-a), var(--area-today), var(--area-activity), var(--area-coach), var(--area-today)) border-box;
@@ -3336,4 +3334,96 @@ button:active:not(:disabled) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     align-items: start;
   }
+}
+
+/* Quick add (add/QuickAdd.tsx): the box, examples from your data, what it understood, and done with Undo. */
+.quick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.add-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem 0.35rem 1rem;
+  border: 1.5px solid var(--area-line, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--lift);
+  color: var(--muted);
+}
+.add-ask input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+  color: var(--fg);
+  min-height: 44px;
+}
+.add-ask button {
+  min-height: 40px;
+}
+.quick-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.quick-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+}
+.quick-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.quick-preview-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.quick-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 52px;
+  border-top: 1px solid var(--line);
+}
+.quick-num {
+  font-weight: 600;
+}
+.quick-unknown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--area-wash, var(--bg));
+}
+.quick-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+.quick-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.add-more {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1rem;
+}
+.quick.compact .quick-preview {
+  max-width: 44rem;
 }

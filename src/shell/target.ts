@@ -25,6 +25,8 @@ export interface AddActions {
   weight: () => void;
   /** Only while Coach is on. */
   coach?: () => void;
+  /** The quick add (type what you ate, drank or weighed) at the top of the sheet; onDone closes it. */
+  quick: (onDone: () => void) => ReactNode;
 }
 
 /** What the shell gives a target's navigation: the open section, a way to change it, and the page. */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
@@ -72,6 +72,8 @@ interface Props {
   go: DashboardLinks;
   /** After Eat 1 portion or its Undo, so the other sections reload. */
   onChanged?: () => void;
+  /** The quick add bar on a wide screen (screens/add, loaded after the first numbers); the phone has its Add button. */
+  quickAdd?: ReactNode;
 }
 
 const SPANS: Choice<Span>[] = [
@@ -101,7 +103,7 @@ function spanTitle(span: Span, anchor: string): string {
  * steps of the last two weeks; for a week or a month, calories per day with a day's numbers on a
  * tap, the averages and the check-ins. Both end with the charts the owner pinned.
  */
-export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go, onChanged }: Props) {
+export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go, onChanged, quickAdd }: Props) {
   const [span, setSpanState] = useState<Span>(lastSpan);
   const setSpan = (s: Span) => setSpanState((lastSpan = s));
   // null = the current period, which moves on by itself when the day changes (the app can stay
@@ -211,7 +213,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
         />
       </div>
 
-      <QuickAdd go={go} />
+      {quickAdd && <div className="quick-add wide-only">{quickAdd}</div>}
 
       {d && !many && shown && (
         <DayView
@@ -243,50 +245,6 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
 
       {!many && shown && shown.metrics.length > 0 && <SyncedNumbers metrics={shown.metrics} />}
     </section>
-  );
-}
-
-/**
- * Tell Even what you ate, drank or weighed (a wide screen; the phone has its Add button): while
- * Coach is on, the text opens Coach with it ready to send, and Coach logs it once the owner
- * confirms. Always, the places to log by hand.
- */
-function QuickAdd({ go }: { go: DashboardLinks }) {
-  const [text, setText] = useState("");
-  const coach = go.askClaude;
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (coach && text.trim()) coach(text.trim());
-  };
-  return (
-    <div className="quick-add wide-only">
-      {coach && (
-        <form onSubmit={submit} className="quick-add-bar">
-          <Icon name="plus" size={20} />
-          <label className="sr-only" htmlFor="quick-add">
-            Quick add
-          </label>
-          <input id="quick-add" value={text} onChange={(e) => setText(e.target.value)} placeholder="Tell Even what you ate, drank or weighed" />
-          <button type="submit" disabled={!text.trim()}>
-            Add
-          </button>
-        </form>
-      )}
-      <div className="quick-add-chips" role="group" aria-label="Log">
-        <button type="button" className="chip" onClick={go.logFood}>
-          Log food
-        </button>
-        <button type="button" className="chip" onClick={go.logDrink}>
-          Log a drink
-        </button>
-        <button type="button" className="chip" onClick={() => go.checkIn()}>
-          Check-in
-        </button>
-        <button type="button" className="chip" onClick={go.measurements}>
-          Weight
-        </button>
-      </div>
-    </div>
   );
 }
 
