@@ -23,6 +23,17 @@ export const NavMenu = createContext<{ open: boolean; onOpen: () => void } | nul
  * Title row: an optional back button ("‹ Dashboard") or leading element (the profile picture),
  * the title with an optional line under it, and actions on the right (sync, History, New).
  */
+/** The side menu's button, at the top of a section on a narrow web screen (nothing without a frame's menu). */
+export function MenuButton() {
+  const menu = useContext(NavMenu);
+  if (!menu) return null;
+  return (
+    <button type="button" className="menu-button" aria-label="Menu" aria-controls="sidenav" aria-expanded={menu.open} onClick={menu.onOpen}>
+      <Icon name="menu" />
+    </button>
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,
@@ -38,15 +49,10 @@ export function PageHeader({
   onBack?: () => void;
   backLabel?: string;
 }) {
-  const menu = useContext(NavMenu);
   return (
     <header className="topbar">
       {/* A page with a way back keeps just that, so the corner holds one button. */}
-      {menu && !onBack && (
-        <button type="button" className="menu-button" aria-label="Menu" aria-controls="sidenav" aria-expanded={menu.open} onClick={menu.onOpen}>
-          <Icon name="menu" />
-        </button>
-      )}
+      {!onBack && <MenuButton />}
       {onBack && (
         <button type="button" className="back-button" onClick={onBack} aria-label={`Back to ${backLabel}`}>
           <Icon name="back" size={20} />

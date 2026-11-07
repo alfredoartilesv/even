@@ -6,7 +6,7 @@ import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
 import { fmtDay, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroBars } from "../../ui/nutrition";
-import { PeriodNav, Segmented, type Choice } from "../../ui/layout";
+import { MenuButton, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
@@ -172,6 +172,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   return (
     <section className="today">
       <header className="today-head">
+        <MenuButton />
         {profile}
         <div className="grow today-title">
           <h1>{many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}</h1>
