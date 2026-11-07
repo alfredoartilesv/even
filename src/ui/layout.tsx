@@ -17,6 +17,9 @@ export interface Choice<T extends string> {
  * of a tab, where a phone held upright keeps the menu out of sight. Without it (Android's tab bar)
  * the header has no menu button.
  */
+/** Closes the sheet a screen is shown in (the phone's Add sheet), for its Done button; null outside one. */
+export const SheetClose = createContext<(() => void) | null>(null);
+
 export const NavMenu = createContext<{ open: boolean; onOpen: () => void } | null>(null);
 
 /**
