@@ -100,8 +100,8 @@
   --nav-active: rgb(255 255 255 / 0.13);
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
-  --radius-sm: 8px;
-  --radius: 12px;
+  --radius-sm: 14px;
+  --radius: 22px;
   --radius-pill: 999px;
 
   /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */

@@ -6,6 +6,8 @@ import { startOpeningDatabase } from "./startup";
 import type { Target } from "./target";
 import "../ui/palette.css";
 import "../ui/areas.css";
+// The design's face, bundled with the app (no font service at run time); each subset loads only for its characters.
+import "@fontsource-variable/plus-jakarta-sans/index.css";
 import "../screens/styles.css";
 
 /**

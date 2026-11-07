@@ -154,3 +154,39 @@ export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft
     </div>
   );
 }
+
+/**
+ * Protein, carbs and fat against their daily targets as three bars (handoff 0.7, Today's balance
+ * card), in the macro colours every screen shares. A bar without a target shows the grams only.
+ */
+export function MacroBars({
+  grams,
+  targets,
+}: {
+  grams: { protein: number | null; carbs: number | null; fat: number | null };
+  targets: { protein: number | null; carbs: number | null; fat: number | null };
+}) {
+  const rows = [
+    { key: "protein", label: "Protein", slot: 1 },
+    { key: "carbs", label: "Carbs", slot: 2 },
+    { key: "fat", label: "Fat", slot: 3 },
+  ] as const;
+  return (
+    <div className="macro-bars">
+      {rows.map((m) => {
+        const g = grams[m.key] ?? 0;
+        const t = targets[m.key];
+        const pct = t ? Math.min(100, (g / t) * 100) : 0;
+        return (
+          <div key={m.key} className="macro-bar">
+            <span className="muted">{m.label}</span>
+            <span className="macro-track" aria-hidden>
+              <span style={{ width: `${pct}%`, background: `var(--series-${m.slot})` }} />
+            </span>
+            <span className="macro-num">{t ? `${Math.round(g)} / ${Math.round(t)} g` : `${Math.round(g)} g`}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

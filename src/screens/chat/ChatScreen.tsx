@@ -27,10 +27,12 @@ interface Props {
   version: number;
   /** After the assistant saved or undid something, so other tabs reload. */
   onChanged: () => void;
-  /** Settings > Connections, to connect Claude. */
+  /** You > Connections, to connect Claude. */
   onConnect: () => void;
-  /** Settings > Privacy & data: what Claude may see, and what was sent. */
+  /** You > Privacy and data: what Claude may see, and what was sent. */
   onPrivacy: () => void;
+  /** Text to start a new chat with (Today's quick add), put in the composer for the owner to send. */
+  draft?: string;
 }
 
 type Pending =
@@ -52,21 +54,21 @@ const ERROR_TITLE: Record<string, string> = {
 const ACTION_BADGE = { applied: "good", declined: "info", failed: "critical", undone: "info" } as const;
 
 /**
- * The second tab: talk with Claude about your data. Text (typed or dictated), photos taken with
+ * Coach: talk with Claude about your data. Text (typed or dictated), photos taken with
  * the camera or picked from the gallery (meals to log, labels, recipes), and files (a lab report
  * PDF, a CSV export). Every kind of data needs the owner's
  * permission once, and every change the assistant wants to save is shown for confirmation, with
  * an undo afterwards. A wide screen keeps the history on the left and, on the right, today's
  * numbers, what Claude may see and what was sent last.
  */
-export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPrivacy }: Props) {
+export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPrivacy, draft }: Props) {
   const [deps, setDeps] = useState<ChatDeps | null | undefined>(undefined);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showList, setShowList] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [actions, setActions] = useState<AgentAction[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft ?? "");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [canDictate, setCanDictate] = useState(false);

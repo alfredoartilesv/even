@@ -51,6 +51,8 @@ export function App({ target }: { target: Target }) {
   const [foodView, setFoodView] = useState<FoodView>("log");
   const [mealPrepView, setMealPrepView] = useState<MealPrepView>("plan");
   const [journal, setJournal] = useState<{ view: JournalView; day?: string }>({ view: "checkin" });
+  // Text from Today's quick add that Coach opens with, ready to send.
+  const [coachDraft, setCoachDraft] = useState<string | undefined>(undefined);
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
   // First run (Connect, About you, Targets): null until it is known whether this install needs it.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
@@ -402,8 +404,9 @@ export function App({ target }: { target: Target }) {
       add={add}
       account={session ? { email: session.email, signOut: () => signOut(session) } : null}
       onTab={(t) => {
-        // A section goes to its top level: You shows its menu.
+        // A section goes to its top level: You shows its menu, Coach opens without a quick add's text.
         if (t === "you") setSettingsPage(null);
+        setCoachDraft(undefined);
         go(t);
       }}
     >
@@ -422,10 +425,16 @@ export function App({ target }: { target: Target }) {
                   syncWarnings={status?.warnings ?? []}
                   profile={<ProfileButton db={ready} version={version} onOpen={() => openYou(null)} />}
                   sync={syncButton}
+                  onChanged={changed}
                   go={{
                     logFood: () => openFood("log"),
                     logDrink: () => openFood("drinks"),
-                    askClaude: chatOn ? () => go("coach") : undefined,
+                    askClaude: chatOn
+                      ? (draft) => {
+                          setCoachDraft(draft);
+                          go("coach");
+                        }
+                      : undefined,
                     mealPrep: () => openPrep("stock"),
                     profile: () => go("activity"),
                     checkIn: (day) => openJournal("checkin", day),
@@ -458,6 +467,7 @@ export function App({ target }: { target: Target }) {
                 onChanged={changed}
                 onConnect={() => openYou("connections")}
                 onPrivacy={() => openYou("privacy")}
+                draft={coachDraft}
               />
             ) : tab === "food" ? (
               <FoodScreen db={ready} view={foodView} onView={setFoodView} version={version} onChanged={changed} onStock={() => openPrep("stock")} />

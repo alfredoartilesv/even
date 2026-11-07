@@ -3,7 +3,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif;
 }
 .shell {
   --gutter: 16px;
@@ -2613,4 +2613,337 @@ dl.overview-lines dd {
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 45%), 1fr));
   gap: 0.75rem;
   margin-bottom: 0.75rem;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Handoff 0.7: cards with a hairline of the section's colour and a soft lift; Today's pieces. */
+:is(.card, .viz-tile, figure.viz) {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--area-line, var(--line)),
+    var(--lift);
+}
+.card,
+figure.viz {
+  padding: 1rem 1.1rem;
+}
+button {
+  min-height: 48px;
+}
+.chip.active {
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
+  color: var(--area-deep, var(--accent));
+}
+.segmented {
+  border-radius: var(--radius-pill);
+}
+.segmented button {
+  border-radius: var(--radius-pill);
+}
+.today-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0 1rem;
+}
+.today-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.today-title h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--area-deep, var(--fg));
+}
+.today-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+.today-controls .segmented {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+  margin: 0;
+}
+.today-controls .period-nav {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+.sync-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+}
+.sync-pill.stale .sync-dot {
+  background: var(--warning);
+}
+.sync-pill.off .sync-dot {
+  background: var(--line);
+}
+.quick-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.quick-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem 0.35rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1.5px var(--area-line, var(--line)),
+    var(--lift);
+}
+.quick-add-bar input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--fg);
+}
+.quick-add-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.today-grid {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.today-grid > * {
+  margin: 0;
+}
+.today-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.balance-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+.balance-side {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.balance-line {
+  margin: 0;
+  font-weight: 500;
+  text-align: center;
+}
+.balance-ring circle {
+  fill: none;
+  stroke-width: 14;
+}
+.balance-ring .track {
+  stroke: var(--accent-soft);
+}
+.balance-ring .fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.balance-ring.over .fill {
+  stroke: var(--warning);
+}
+.balance-ring .big {
+  font-size: 38px;
+  font-weight: 700;
+  fill: var(--fg);
+}
+.balance-ring .small {
+  font-size: 13px;
+  fill: var(--muted);
+}
+.macro-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.macro-bar {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr) 6rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.macro-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--viz-grid);
+  overflow: hidden;
+}
+.macro-track > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+.macro-num {
+  text-align: right;
+  font-weight: 600;
+}
+.today-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.today-tiles.four {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 45%), 1fr));
+}
+.next-up {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.next-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.next-pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep, var(--accent));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.next-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.next-name {
+  font-size: 1.25rem;
+}
+.next-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.next-done {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.next-check {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.so-far-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.35rem;
+}
+.so-far-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.so-far-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 56px;
+  padding: 0.35rem 0;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.so-far-row .accent {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.so-far-num {
+  font-weight: 600;
+}
+.noticed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.noticed h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.noticed p {
+  margin: 0;
+}
+.period-pick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.period-pick strong {
+  grid-column: 1 / -1;
+  color: var(--fg);
+}
+.period-pick b {
+  display: block;
+  color: var(--fg);
+  font-size: 1rem;
+}
+@media (min-width: 60rem) {
+  .today-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .balance-card {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+  .balance-line {
+    text-align: left;
+  }
 }
