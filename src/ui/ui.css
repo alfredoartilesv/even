@@ -662,3 +662,9 @@ ol.plan-strip li.eaten .plan-strip-cell {
 .money-symbol {
   color: var(--muted);
 }
+
+/* A guide line (a running average) under the real values: wider, softer. */
+.viz-line.guide {
+  stroke-width: 3;
+  opacity: 0.45;
+}

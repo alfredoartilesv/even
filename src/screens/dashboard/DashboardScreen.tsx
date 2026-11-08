@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
@@ -15,7 +15,7 @@ import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
-import { nextUp, partOfDay, slotAt, type NextUp } from "../../domain/dashboard/today";
+import { nextUp, slotAt, type NextUp } from "../../domain/dashboard/today";
 import { PinnedCharts } from "./PinnedCharts";
 import { appleHealthSupported } from "../../platform/health";
 
@@ -179,15 +179,17 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const hour = new Date().getHours();
   const first = shown?.name?.split(" ")[0];
   const dateLine = utc(now).toLocaleDateString(undefined, DATE_LONG);
+  // The title is always the greeting (the owner's choice, 8 Nov 2026), so this line names the day
+  // or the period being looked at.
   const dateText = many
     ? isCurrent
-      ? `${fmtDay(current.from)} to today`
-      : null
+      ? `This ${span} · ${fmtDay(current.from)} to today`
+      : spanTitle(span, anchor)
     : isCurrent
       ? dateLine
       : shortDay(anchor) === fmtDay(anchor)
-        ? null
-        : shortDay(anchor);
+        ? shortDay(anchor)
+        : `${cap(fmtDay(anchor))} · ${shortDay(anchor)}`;
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -206,18 +208,14 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     <section className={rail ? "today with-rail" : "today"}>
       <div className="today-main">
         <PageHeader
-          // The greeting only for today; another day, week or month is named instead.
-          title={
-            many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : isCurrent ? `${partOfDay(hour)}${first ? `, ${first}` : ""}` : cap(fmtDay(anchor))
-          }
+          title={`Hi${first ? `, ${first}` : ""}`}
           subtitle={
             <span className="today-date">
               <span className="date-nav">
                 <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
                   <Icon name="back" size={18} />
                 </button>
-                {/* The title already names a past day or period, so the line only adds the short date, never the same words twice. */}
-                {dateText && <span className="today-date-text muted">{dateText}</span>}
+                <span className="today-date-text muted">{dateText}</span>
                 <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
                   <Icon name="chevron" size={18} />
                 </button>
@@ -302,6 +300,41 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 }
 
+const STEPS_HEIGHT = 170;
+const WIDE = "(min-width: 60rem)";
+
+/**
+ * On a wide screen the two columns of a day should end together: the steps chart, last on the
+ * right, grows by what the right column is short of the left (a past day has no Next up, so the
+ * right side is shorter), up to a limit. On a phone it keeps its height.
+ */
+function useEvenColumns(key: string) {
+  const [left, leftRef] = useState<HTMLDivElement | null>(null);
+  const [right, rightRef] = useState<HTMLDivElement | null>(null);
+  const [extra, setExtra] = useState(0);
+  const current = useRef(0);
+  const measure = useCallback(() => {
+    if (!left || !right) return;
+    const wide = window.matchMedia(WIDE).matches;
+    const gap = left.offsetHeight - (right.offsetHeight - current.current);
+    const next = wide ? Math.max(0, Math.min(320, Math.round(gap))) : 0;
+    if (Math.abs(next - current.current) > 2) {
+      current.current = next;
+      setExtra(next);
+    }
+  }, [left, right]);
+  // After every render of another day (its cards differ), and whenever a column changes size.
+  useLayoutEffect(measure, [measure, key]);
+  useEffect(() => {
+    if (!left || !right || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(left);
+    ro.observe(right);
+    return () => ro.disconnect();
+  }, [left, right, measure]);
+  return { leftRef, rightRef, extra };
+}
+
 function DayView({
   db,
   d,
@@ -323,6 +356,7 @@ function DayView({
   onOpenDay: (day: string) => void;
   onChanged: () => void;
 }) {
+  const { leftRef, rightRef, extra } = useEvenColumns(`${day}|${isToday}|${shown.food.length}|${shown.next ? 1 : 0}`);
   const eaten = d.eaten.total;
   const target = d.targets.kcal;
   const left = target !== null ? target - (eaten ?? 0) : null;
@@ -342,57 +376,64 @@ function DayView({
             : "Within the target this day.";
   return (
     <>
+      {/* Two columns that stack on their own on a wide screen (no row is as tall as its taller card);
+          on a phone the wrappers step aside (display: contents) and the order is balance, Next up,
+          the day so far, steps. */}
       <div className="today-grid">
-        <section className="card balance-card" aria-label="Balance">
-          <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
-          <div className="balance-side">
-            <p className="balance-line">{heroLine}</p>
-            <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
-          </div>
-        </section>
-
-        <div className="today-stack">
-          {isToday && (
-            <NextUpCard
-              db={db}
-              next={shown.next}
-              left={left}
-              protein={{ eaten: d.protein.total, target: d.targets.protein }}
-              hour={hour}
-              go={go}
-              onChanged={onChanged}
-            />
-          )}
-          <section className="today-tiles" aria-label="Recovery">
-            <StatTile
-              label="Sleep"
-              value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
-              note={d.body.sleepScore.total !== null ? `score ${int(d.body.sleepScore.total)}` : undefined}
-            />
-            <StatTile
-              label="Body Battery"
-              value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
-              note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
-            />
-            <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
+        <div className="today-col left" ref={leftRef}>
+          <section className="card balance-card" aria-label="Balance">
+            <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
+            <div className="balance-side">
+              <p className="balance-line">{heroLine}</p>
+              <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+            </div>
           </section>
+          <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} wu={shown.weightUnit} />
         </div>
 
-        <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} wu={shown.weightUnit} />
+        <div className="today-col right" ref={rightRef}>
+          <div className="today-stack">
+            {isToday && (
+              <NextUpCard
+                db={db}
+                next={shown.next}
+                left={left}
+                protein={{ eaten: d.protein.total, target: d.targets.protein }}
+                hour={hour}
+                go={go}
+                onChanged={onChanged}
+              />
+            )}
+            <section className="today-tiles" aria-label="Recovery">
+              <StatTile
+                label="Sleep"
+                value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
+                note={d.body.sleepScore.total !== null ? `score ${int(d.body.sleepScore.total)}` : undefined}
+              />
+              <StatTile
+                label="Body Battery"
+                value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
+                note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
+              />
+              <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
+            </section>
+          </div>
 
-        {d.activityTrend.steps.some((v) => v !== null) && (
-          <BarChart
-            title="Steps, last two weeks"
-            subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
-            x={d.trendDays}
-            values={d.activityTrend.steps}
-            formatX={(x) => String(Number(x.slice(8)))}
-            formatXLong={(x) => fmtDay(x)}
-            formatValue={int}
-            selected={day}
-            onSelect={onOpenDay}
-          />
-        )}
+          {d.activityTrend.steps.some((v) => v !== null) && (
+            <BarChart
+              height={STEPS_HEIGHT + extra}
+              title="Steps, last two weeks"
+              subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
+              x={d.trendDays}
+              values={d.activityTrend.steps}
+              formatX={(x) => String(Number(x.slice(8)))}
+              formatXLong={(x) => fmtDay(x)}
+              formatValue={int}
+              selected={day}
+              onSelect={onOpenDay}
+            />
+          )}
+        </div>
       </div>
       <Noticed d={d} next={shown.next} go={go} isToday={isToday} />
     </>

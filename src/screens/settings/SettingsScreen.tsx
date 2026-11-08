@@ -26,6 +26,8 @@ interface Props {
   db: SqlDriver;
   secrets: SecretStore;
   isNative: boolean;
+  /** The target's navigation already lists Activity and Journal (the web), so the menu leaves them out. */
+  navListsAll?: boolean;
   /** Bumped when data changes, so the menu shows a new profile picture. */
   version: number;
   /** The open page, or null for the menu. Owned by the app shell, so other tabs can open a page (Edit profile, Connect Claude). */
@@ -92,7 +94,22 @@ const isLink = (id: SettingsPage | YouLink): id is YouLink => id === "activity" 
  * missing backup gets a nudge. A phone shows the menu or one page; a wide screen keeps the menu on
  * the left, with the open page, or an overview of them all, beside it.
  */
-export function SettingsScreen({ db, secrets, isNative, version, page, onPage, onChanged, onSync, session, onSession, onLink, targets, onCoach }: Props) {
+export function SettingsScreen({
+  db,
+  secrets,
+  isNative,
+  navListsAll = false,
+  version,
+  page,
+  onPage,
+  onChanged,
+  onSync,
+  session,
+  onSession,
+  onLink,
+  targets,
+  onCoach,
+}: Props) {
   const summary = useSettingsSummary(db, secrets, version);
   const [admin, setAdmin] = useState(false);
   // Whether to offer Admin: asked of the server once per connection and remembered, so offline the
@@ -119,11 +136,15 @@ export function SettingsScreen({ db, secrets, isNative, version, page, onPage, o
   const status = summary ? (hints(summary) as Partial<Record<SettingsPage | YouLink, string>>) : {};
   const groups = menu.map((g) => ({
     ...g,
-    items: g.items.map((i) => ({
-      ...i,
-      hint: status[i.id],
-      picture: i.id === "profile" && summary && (summary.photo || summary.name) ? <Avatar photo={summary.photo} name={summary.name} size={36} /> : undefined,
-    })),
+    // Activity and Journal have their own place in the web's side menu, so You lists them only where
+    // the navigation has no room for them, Android's tab bar (the owner's call, 8 Nov 2026).
+    items: g.items
+      .filter((i) => !navListsAll || !isLink(i.id))
+      .map((i) => ({
+        ...i,
+        hint: status[i.id],
+        picture: i.id === "profile" && summary && (summary.photo || summary.name) ? <Avatar photo={summary.photo} name={summary.name} size={36} /> : undefined,
+      })),
   }));
   const nudge = summary && backupDue(summary) && (
     <div className="backup-nudge">

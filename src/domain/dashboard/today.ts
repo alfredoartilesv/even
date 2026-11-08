@@ -42,8 +42,3 @@ export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 export function slotAt(hour: number): MealSlot {
   return hour < 10 ? "breakfast" : hour < 15 ? "lunch" : hour < 21 ? "dinner" : "snack";
 }
-
-/** Good morning, afternoon or evening, by the local hour. */
-export function partOfDay(hour: number): string {
-  return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-}

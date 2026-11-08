@@ -56,6 +56,20 @@ const nowTime = () => {
  * The journal, opened from the Dashboard: the daily check-in (mood, energy and a note) and the
  * things measured by hand (weight, blood pressure, glucose, supplements, symptoms), with trends.
  */
+/** Notes shown before Show all: two full rows of four on a wide screen, so no row ends half empty. */
+const FIRST_NOTES = 8;
+
+/** The average of the last three rated days at each rated day, so the line shows the drift and the dots the days. */
+function runningAverage(values: (number | null)[]): (number | null)[] {
+  const seen: number[] = [];
+  return values.map((v) => {
+    if (v === null) return null;
+    seen.push(v);
+    const last = seen.slice(-3);
+    return Math.round((last.reduce((a, b) => a + b, 0) / last.length) * 10) / 10;
+  });
+}
+
 export function JournalScreen({ db, version, view, onView, initialDay, onChanged }: Props) {
   return (
     <>
@@ -111,6 +125,12 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
   const isToday = day === today();
   const rated = recent.filter((n) => n.mood !== null || n.energy !== null);
   const days30 = Array.from({ length: 30 }, (_, i) => addDays(today(), i - 29));
+  // The chart starts at the first rated day, so a log begun two weeks ago fills the width.
+  const firstRated = days30.findIndex((d) => {
+    const n = recent.find((r) => r.day === d);
+    return n !== undefined && (n.mood !== null || n.energy !== null);
+  });
+  const chartDays = firstRated > 0 ? days30.slice(firstRated) : days30;
   const by = new Map(recent.map((n) => [n.day, n]));
 
   return (
@@ -195,17 +215,22 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
       {rated.length >= 2 && (
         <LineChart
           title="Mood and energy"
-          subtitle="Last 30 days, 1 (very low) to 5 (very good)"
-          x={days30}
+          subtitle={`Since ${fmtDay(chartDays[0])}: a dot for each day you rated, the line the average of the last few`}
+          x={chartDays}
           series={[
-            { id: "mood", label: "Mood", values: days30.map((d) => by.get(d)?.mood ?? null) },
-            { id: "energy", label: "Energy", values: days30.map((d) => by.get(d)?.energy ?? null) },
+            { id: "mood-avg", label: "Mood, average", slot: 1, guide: true, values: runningAverage(chartDays.map((d) => by.get(d)?.mood ?? null)) },
+            { id: "energy-avg", label: "Energy, average", slot: 2, guide: true, values: runningAverage(chartDays.map((d) => by.get(d)?.energy ?? null)) },
+            { id: "mood", label: "Mood", slot: 1, style: "dots", values: chartDays.map((d) => by.get(d)?.mood ?? null) },
+            { id: "energy", label: "Energy", slot: 2, style: "dots", values: chartDays.map((d) => by.get(d)?.energy ?? null) },
           ]}
           formatX={(d) => String(Number(d.slice(8)))}
           formatXLong={(d) => fmtDay(d)}
           formatValue={(v) => SCALE[Math.round(v) - 1] ?? String(v)}
+          domain={[1, 5]}
+          formatTick={(v) => SCALE[v - 1] ?? String(v)}
+          padLeft={76}
           connectGaps
-          height={150}
+          height={210}
         />
       )}
 
@@ -214,26 +239,25 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
         <p className="muted small">No notes yet. A line a day is enough to spot what makes good days good.</p>
       ) : (
         <ul className="entries note-grid">
-          {(showAll ? recent : recent.slice(0, 7)).map((n) => (
+          {(showAll ? recent : recent.slice(0, FIRST_NOTES)).map((n) => (
             <li key={n.id}>
+              {/* The same three lines in every card (the day, mood and energy as chips, the note), so
+                  the cards line up in rows. */}
               <button type="button" className="link grow note-row" onClick={() => setDay(n.day)} aria-current={n.day === day ? "true" : undefined}>
-                <div className="row">
-                  <strong>{cap(fmtDay(n.day))}</strong>
-                  <span className="muted small">
-                    {[n.mood !== null && `mood ${SCALE[n.mood - 1].toLowerCase()}`, n.energy !== null && `energy ${SCALE[n.energy - 1].toLowerCase()}`]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                </div>
-                {n.body && <div className="muted small clamp">{n.body}</div>}
+                <strong>{cap(fmtDay(n.day))}</strong>
+                <span className="note-chips">
+                  {n.mood !== null && <span className="note-chip">Mood {SCALE[n.mood - 1].toLowerCase()}</span>}
+                  {n.energy !== null && <span className="note-chip">Energy {SCALE[n.energy - 1].toLowerCase()}</span>}
+                </span>
+                <span className="muted small clamp">{n.body || "No note"}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {recent.length > 7 && (
+      {recent.length > FIRST_NOTES && (
         <button type="button" className="link small accent" onClick={() => setShowAll(!showAll)}>
-          {showAll ? "Show the last 7" : `Show all ${recent.length}`}
+          {showAll ? `Show the last ${FIRST_NOTES}` : `Show all ${recent.length}`}
         </button>
       )}
     </>
