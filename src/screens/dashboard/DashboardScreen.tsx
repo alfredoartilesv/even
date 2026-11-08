@@ -212,13 +212,16 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           subtitle={
             <span className="today-date">
               <span className="date-nav">
-                <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-                  <Icon name="back" size={18} />
-                </button>
-                <span className="today-date-text muted">{dateText}</span>
-                <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-                  <Icon name="chevron" size={18} />
-                </button>
+                {/* ‹ date › never split and the date never cut; the Today pill moves to its own line when the row is full. */}
+                <span className="date-steps">
+                  <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
+                    <Icon name="back" size={18} />
+                  </button>
+                  <span className="today-date-text muted">{dateText}</span>
+                  <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
+                    <Icon name="chevron" size={18} />
+                  </button>
+                </span>
                 {!isCurrent && (
                   <button
                     type="button"
@@ -664,36 +667,39 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
           </div>
         )}
       </section>
-      <section className="today-tiles four" aria-label="Averages">
-        <StatTile label="Average calories" value={avg(d.eaten)} note={d.targets.kcal ? `target ${int(d.targets.kcal)}` : undefined} />
-        <StatTile
-          label="Average protein"
-          value={avg(d.protein, (n) => `${int(n)} g`)}
-          note={d.targets.protein ? `goal ${int(d.targets.protein)} g` : undefined}
-        />
-        <StatTile label="Average steps" value={avg(d.steps)} note={d.targets.steps ? `goal ${int(d.targets.steps)}` : undefined} />
-        <StatTile
-          label="Average sleep"
-          value={avg(d.body.sleep, fmtDuration)}
-          note={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : undefined}
-        />
-      </section>
-      <section className="card period-journal" aria-labelledby="period-journal">
-        <div className="so-far-head">
-          <h2 id="period-journal">Check-ins</h2>
-          <button type="button" className="link accent small" onClick={() => go.checkIn()}>
-            Journal ›
+      {/* The averages two by two with the check-ins under them, as tall as the chart beside them. */}
+      <div className="period-side">
+        <section className="today-tiles four" aria-label="Averages">
+          <StatTile label="Average calories" value={avg(d.eaten)} note={d.targets.kcal ? `target ${int(d.targets.kcal)}` : undefined} />
+          <StatTile
+            label="Average protein"
+            value={avg(d.protein, (n) => `${int(n)} g`)}
+            note={d.targets.protein ? `goal ${int(d.targets.protein)} g` : undefined}
+          />
+          <StatTile label="Average steps" value={avg(d.steps)} note={d.targets.steps ? `goal ${int(d.targets.steps)}` : undefined} />
+          <StatTile
+            label="Average sleep"
+            value={avg(d.body.sleep, fmtDuration)}
+            note={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : undefined}
+          />
+        </section>
+        <section className="card period-journal" aria-labelledby="period-journal">
+          <div className="so-far-head">
+            <h2 id="period-journal">Check-ins</h2>
+            <button type="button" className="link accent small" onClick={() => go.checkIn()}>
+              Journal ›
+            </button>
+          </div>
+          <p className="muted small">
+            {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
+            {j.mood.avg !== null ? ` · mood about ${word(j.mood.avg)}` : ""}
+            {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
+          </p>
+          <button type="button" className="link small" onClick={go.measurements}>
+            {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
           </button>
-        </div>
-        <p className="muted small">
-          {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
-          {j.mood.avg !== null ? ` · mood about ${word(j.mood.avg)}` : ""}
-          {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
-        </p>
-        <button type="button" className="link small" onClick={go.measurements}>
-          {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
-        </button>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

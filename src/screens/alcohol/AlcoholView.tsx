@@ -417,7 +417,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
       )}
 
       <div>
-        <section className="drinks-list">
+        <section className="card drinks-list">
           <SectionHeader title="Drinks" action={!showAll && drinks.length > FIRST ? `All ${drinks.length}` : undefined} onAction={() => setShowAll(true)} />
           <p className="muted small">
             {periodLabel === "Today" ? "Today" : `Last ${periodLabel}`} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change
