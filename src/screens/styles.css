@@ -4,6 +4,9 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  /* Stated, not left to the browser: a page that hosts the app (the demo artifact) sets 14px on body. */
+  font-size: 1rem;
+  line-height: normal;
 }
 .shell {
   --gutter: 16px;
