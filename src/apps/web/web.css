@@ -454,9 +454,16 @@ body:has(.app-frame) {
     mask-composite: intersect;
   }
 }
-/* Today's header has no band of its own (the board's title sits on the page), so a fade would only dim the greeting's first letters. */
+/* Today's header has no band of its own (the board's title sits on the page), so a fade would only dim the greeting's first letters, and a fill shows as a box. */
 .app-frame .today .topbar {
   mask-image: none;
+  background: none;
+}
+/* A phone held upright: the menu button already leads to You, so the picture steps aside and the greeting keeps one line. */
+@media (max-width: 47.99rem) {
+  .app-frame .today .topbar .profile-button {
+    display: none;
+  }
 }
 .app-frame .drink-pick:not(.other) {
   border-color: transparent;

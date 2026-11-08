@@ -202,19 +202,21 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           }
           subtitle={
             <span className="today-date">
-              <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-                <Icon name="back" size={18} />
-              </button>
-              <span className="today-date-text muted">
-                {many
-                  ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}`
-                  : isCurrent
-                    ? dateLine
-                    : utc(anchor).toLocaleDateString(undefined, DATE_LONG)}
+              <span className="date-nav">
+                <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
+                  <Icon name="back" size={18} />
+                </button>
+                <span className="today-date-text muted">
+                  {many
+                    ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}`
+                    : isCurrent
+                      ? dateLine
+                      : utc(anchor).toLocaleDateString(undefined, DATE_LONG)}
+                </span>
+                <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
+                  <Icon name="chevron" size={18} />
+                </button>
               </span>
-              <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-                <Icon name="chevron" size={18} />
-              </button>
               {!isCurrent && (
                 <button type="button" className="link accent small" onClick={() => setAnchor(now)}>
                   Back to {span === "day" ? "today" : `this ${span}`}
