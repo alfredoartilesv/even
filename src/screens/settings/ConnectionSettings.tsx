@@ -283,8 +283,7 @@ export function GarminSync({ db, secrets, isNative, session, onChanged, onConnec
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, read-only. The key is in{" "}
-            {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
+            Key {conn.keyHint}, read-only. The key is in {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
           <DisconnectButton
