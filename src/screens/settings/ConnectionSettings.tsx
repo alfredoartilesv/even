@@ -3,7 +3,7 @@ import type { SqlDriver } from "../../db/driver";
 import { deviceFetch, garminFetch } from "../../platform/device";
 import type { SyncSession } from "../../domain/cloudsync/session";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
-import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
+import { ConnHead, SecretInput, type Status, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../../domain/chat/client";
 import { coachSwitchedOff, setCoachSwitchedOff } from "../../domain/chat/mode";
 import {
@@ -76,6 +76,19 @@ export function ConnectionSettings({ db, secrets, isNative, session, onChanged, 
         onCoach={onCoach}
         version={version}
       />
+      <section className="card">
+        <ConnHead
+          name={isNative ? "Even on your computer" : "Pair your phone"}
+          tone={session ? "good" : "info"}
+          status={session ? "This device syncs" : "Not paired yet"}
+          note={isNative ? "Show a QR code here and scan it from the web app" : "Scan a QR code with Even on your phone to use it here"}
+          action={
+            <button type="button" onClick={onOpenSync}>
+              {isNative ? "Pair a computer" : "Pair with QR"}
+            </button>
+          }
+        />
+      </section>
     </div>
   );
 }
@@ -121,22 +134,17 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
     onChanged();
   }
 
-  const state = !on ? (
-    <StatusBadge status="info">not connected</StatusBadge>
-  ) : sync?.status === "error" ? (
-    <StatusBadge status="warning">last sync failed</StatusBadge>
-  ) : sync?.lastOkMs ? (
-    <StatusBadge status="good">syncing</StatusBadge>
-  ) : (
-    <StatusBadge status="info">not synced yet</StatusBadge>
-  );
+  const [tone, status]: [Status, string] = !on
+    ? ["info", "Not connected"]
+    : sync?.status === "error"
+      ? ["warning", "Last sync failed"]
+      : sync?.lastOkMs
+        ? ["good", `Synced ${ago(sync.lastOkMs)}`]
+        : ["info", "Not synced yet"];
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Apple Health</h2>
-        {state}
-      </div>
+      <ConnHead name="Apple Health" tone={tone} status={status} note="Steps, sleep, heart rate, weight and workouts" />
       <p className="muted small">
         Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where Garmin has
         the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
@@ -168,10 +176,17 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
 }
 
 /** The two key-based connections (Garmin, Claude) share these: status, Disconnect, how to get a key. */
-function ConnectionBadge({ status }: { status: ConnectionStatus | undefined }) {
-  if (status === "connected") return <StatusBadge status="good">connected</StatusBadge>;
-  if (status === "needs_attention") return <StatusBadge status="warning">needs attention</StatusBadge>;
-  return <StatusBadge status="info">not connected</StatusBadge>;
+function connTone(status: ConnectionStatus | undefined): Status {
+  return status === "connected" ? "good" : status === "needs_attention" ? "warning" : "info";
+}
+
+/** "2 minutes ago", "3 hours ago", or the date: how the board says when a sync last worked. */
+function ago(ms: number): string {
+  const min = Math.round((Date.now() - ms) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
+  if (min < 24 * 60) return `${Math.round(min / 60)} hour${Math.round(min / 60) === 1 ? "" : "s"} ago`;
+  return `on ${when(ms)}`;
 }
 
 function DisconnectButton({ onClick }: { onClick: () => void }) {
@@ -244,14 +259,31 @@ export function GarminSync({ db, secrets, isNative, session, onChanged, onConnec
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Garmin sync</h2>
-        <ConnectionBadge status={conn?.status} />
-      </div>
+      <ConnHead
+        name="Garmin"
+        tone={connTone(conn?.status)}
+        status={
+          conn?.status === "connected"
+            ? conn.lastOkMs
+              ? `Synced ${ago(conn.lastOkMs)}`
+              : "Connected, not synced yet"
+            : conn?.status === "needs_attention"
+              ? "Needs a new key"
+              : "Not connected"
+        }
+        note="Steps, sleep, heart rate and workouts"
+        action={
+          conn?.status === "connected" && (
+            <button type="button" className="secondary" onClick={onConnected}>
+              Sync now
+            </button>
+          )
+        }
+      />
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in{" "}
+            Key {conn.keyHint}, read-only. The key is in{" "}
             {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
@@ -266,7 +298,7 @@ export function GarminSync({ db, secrets, isNative, session, onChanged, onConnec
         </>
       ) : (
         <>
-          <p className="muted small">Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key.</p>
+          <p className="muted small">Read-only, from Garmin Connect with your personal API key.</p>
           <KeySteps steps={GARMIN_STEPS} href={GARMIN_KEY_PAGE} open="Open Garmin Connect">
             {!isNative && (
               <p className="muted small">
@@ -368,11 +400,13 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Garmin history</h2>
-        {/* Nothing until the count is in: a "not imported" flash would be wrong. */}
-        {coverage && (coverage.readings > 0 ? <StatusBadge status="good">imported</StatusBadge> : <StatusBadge status="info">not imported</StatusBadge>)}
-      </div>
+      {/* No word until the count is in: a "not imported" flash would be wrong. */}
+      <ConnHead
+        name="Garmin history"
+        tone={coverage && coverage.readings > 0 ? "good" : "info"}
+        status={!coverage ? "" : coverage.readings > 0 ? "Imported" : "Not imported"}
+        note="Years before the sync's first 30 days, from Garmin's export"
+      />
       <p className="muted small">
         The sync starts with the last 30 days. For everything before, import the export Garmin emails you.{" "}
         {coverage && coverage.readings > 0 && coverage.from && coverage.to
@@ -528,10 +562,20 @@ function ClaudeCard({
   return (
     <>
       <section className="card">
-        <div className="card-head">
-          <h2>Coach</h2>
-          <ConnectionBadge status={claude?.status} />
-        </div>
+        <ConnHead
+          name="Claude"
+          tone={connTone(claude?.status)}
+          status={
+            claude?.status === "connected"
+              ? coachOff
+                ? "Connected, Coach is off"
+                : "Connected"
+              : claude?.status === "needs_attention"
+                ? "Needs attention"
+                : "Not connected"
+          }
+          note="Coach uses your own API key"
+        />
         <p className="muted small">
           Two ways to ask Claude about your data, and you can use both: Coach here, on your own API key, and Claude's own apps through the connector below, on
           your Claude plan.
