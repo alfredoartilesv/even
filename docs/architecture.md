@@ -200,6 +200,20 @@ The owner wants Garmin to connect and sync from the web app too, not only after 
 - **Claude:** move the API key behind a server proxy; add a remote MCP server (TypeScript SDK, OAuth) so Claude.ai can query derived data.
 - **Postgres details:** plain Postgres with partitioned time-series tables. TimescaleDB only if needed. `pg_dump` backups to encrypted storage.
 
+### 6d. Decision 8 Nov 2026: UI v2 from the design handoff
+
+The owner handed over a new design (the Even boards and an addendum: start-up screens, colour per section, navigation, old to new screen mapping). Chosen by the owner:
+
+- Seven sections (Today, Food and drinks, Meal prep, Activity, Journal, Coach, You), each with its own colour; the old Alcohol tab is Drinks inside Food and drinks, Settings is You.
+- First run on the phone asks for the Garmin key and the account (freddy is no longer offered there); Unlock is deferred.
+- Light matches the boards; dark is derived from the same tokens. The owner can force either in You > About.
+- The login and pairing behaviour of the web gate stays as built; the boards' QR screens were a reference for its look only.
+- Quick add parses on the device: nothing in it leaves the device, so it needs no consent or disclosure row. Sending what it could not read to Coach is the owner's tap, and goes through the chat's consent like any message.
+- Height and weight units are a profile setting (synced with the profile); data stays in cm and kg.
+- The health connector's instructions and the chat prompt name the new places (You > Connections, You > Privacy and data) and report the owner's units.
+
+Not done from the boards yet: a "Delete everything" action in Privacy and data (it needs its own design for the encrypted database and the keys), and the measurement form in Journal still logs each measurement in its own unit.
+
 ## 7. Rejected options and why
 
 | Option | Reason rejected |
