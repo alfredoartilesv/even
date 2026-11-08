@@ -91,6 +91,12 @@ export function fmtDay(day: string, ref: string = today()): string {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
+/** The full date, never "yesterday": "Saturday, November 7", for the date row over a day. */
+export function fmtDayLong(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+}
+
 /** An amount in the app currency ("€12.40"), or "12.40 XYZ" for a code the browser does not know. */
 export function fmtMoney(n: number, currency: string): string {
   try {
