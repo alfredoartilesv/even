@@ -1,3 +1,4 @@
+import { BodyUnits } from "./BodyUnits";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { googleSignIn, googleSignInAvailable, googleSignOut, googleWebClientId } from "../../platform/googleSignIn";
@@ -207,6 +208,18 @@ export function ProfileSettings({
       )}
       <MsgLine msg={accountMsg} />
 
+      <BodyUnits
+        db={db}
+        saved={saved}
+        weight={weight}
+        onSaved={(p) => {
+          setSaved(p);
+          setDraft((d) => ({ ...d, heightCm: p.heightCm === null ? "" : String(p.heightCm) }));
+          void latestWeight(db, today()).then(setWeight);
+          onChanged();
+        }}
+      />
+
       <h2>About you</h2>
       <p className="muted small">
         Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every field is optional.
@@ -221,10 +234,6 @@ export function ProfileSettings({
           <label>
             Birth date
             <input type="date" value={draft.birthDate} max={today()} onChange={(e) => set({ birthDate: e.target.value })} />
-          </label>
-          <label>
-            Height cm
-            <input inputMode="decimal" value={draft.heightCm} onChange={(e) => set({ heightCm: e.target.value })} placeholder="e.g. 178" />
           </label>
         </div>
         <fieldset>

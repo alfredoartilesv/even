@@ -71,7 +71,7 @@ export function ActivityHistory({ workouts, mySports }: { workouts: Workout[]; m
     return (
       <>
         <SectionHeader title="Activities" />
-        <p className="muted small">No workouts yet. They arrive from your watch with the Garmin sync, or from the Garmin import in Settings › Connections.</p>
+        <p className="muted small">No workouts yet. They arrive from your watch with the Garmin sync, or from the Garmin import in You › Connections.</p>
       </>
     );
   }

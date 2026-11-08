@@ -204,3 +204,65 @@ export function PlanStrip({ plan, today, horizon = 14, colors }: { plan: PlanLik
     </ol>
   );
 }
+
+/**
+ * The next days as a strip of small buttons (handoff 0.7, Plan): weekday, date and a dot per
+ * tupper in its batch colour, an empty ring on a day with none. The chosen day is pressed.
+ */
+export function DayStrip({
+  days,
+  value,
+  onChange,
+  colors,
+  today,
+}: {
+  days: TimelineDay[];
+  value: string;
+  onChange: (day: string) => void;
+  colors: BatchColors;
+  today: string;
+}) {
+  return (
+    <div className="day-strip" role="group" aria-label="Pick a day">
+      {days.map((d) => {
+        const p = dayParts(d.day);
+        const label = `${fmtDay(d.day, today)}: ${d.meals.length ? d.meals.map((m) => m.name).join(", ") : "no tupper"}`;
+        return (
+          <button
+            key={d.day}
+            type="button"
+            className={d.day === value ? "day-pick on" : "day-pick"}
+            aria-pressed={d.day === value}
+            aria-label={label}
+            onClick={() => onChange(d.day)}
+          >
+            <span className="small">{d.day === today ? "Today" : p.weekday}</span>
+            <strong>{p.date}</strong>
+            <span className="day-dots" aria-hidden>
+              {d.meals.length ? (
+                d.meals.map((m, i) => <span key={i} className="day-dot" style={{ background: `var(--series-${colors.get(m.batchId) ?? 1})` }} />)
+              ) : (
+                <span className="day-dot none" />
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A batch's portions as dots (handoff 0.7, Stock): filled in the fridge, ringed in the freezer, faint once eaten or tossed. */
+export function PortionDots({ fridge, freezer, gone }: { fridge: number; freezer: number; gone: number }) {
+  const dots = [...Array(fridge).fill("fridge"), ...Array(freezer).fill("freezer"), ...Array(gone).fill("gone")] as string[];
+  return (
+    <div className="portion-dots" role="img" aria-label={`${plural(fridge, "portion")} in the fridge, ${freezer} in the freezer, ${gone} gone`}>
+      {dots.map((k, i) => (
+        <span key={i} className={`portion-dot ${k}`} />
+      ))}
+      <span className="portion-legend muted small">
+        {fridge} fridge · {freezer} freezer
+      </span>
+    </div>
+  );
+}

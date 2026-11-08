@@ -39,7 +39,7 @@ export function SettingsOverview({ summary: s, onPage }: { summary: SettingsSumm
               "not connected"
             )}
           </Line>
-          <Line k="Chat in Even">{s.chatOn ? <StatusBadge status="good">on</StatusBadge> : "off"}</Line>
+          <Line k="Coach">{s.chatOn ? <StatusBadge status="good">on</StatusBadge> : "off"}</Line>
         </dl>
       </section>
       <section className="card span-6">

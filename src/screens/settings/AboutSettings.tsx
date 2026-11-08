@@ -5,20 +5,28 @@ import { dataInventory, type InventoryRow } from "../../domain/settings/dataInve
 import { APP_VERSION, BUILD_TIME } from "../../platform/buildInfo";
 import { platformName } from "../../platform/device";
 import { CHAT_MODEL } from "../../domain/chat/engine";
-import { SectionHeader } from "../../ui/layout";
+import { SectionHeader, Segmented, type Choice } from "../../ui/layout";
+import { saveTheme, storedTheme, type Theme } from "../../ui/theme";
 import { Logo } from "../../ui/logo";
 import { InventoryGrid, PLATFORM } from "./summary";
+
+const THEMES: Choice<Theme>[] = [
+  { id: "system", label: "System" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
 
 /** Where the owner's data goes, one line each. */
 const FLOWS: [string, string][] = [
   ["Stays here", "An encrypted database on this phone."],
   ["Garmin", "Read only, when you sync."],
-  ["Claude", "Only what you allow for each kind of data, every send listed in Privacy & data."],
+  ["Claude", "Only what you allow for each kind of data, every send listed in Privacy and data."],
   ["Backups and debug logs", "Only when you export them."],
 ];
 
 /** Which app this is: version, build, where it runs, the facts a bug report needs, where data goes and what is stored. */
 export function AboutSettings({ db, onPrivacy }: { db: SqlDriver; onPrivacy: () => void }) {
+  const [theme, setTheme] = useState<Theme>(storedTheme);
   const [schema, setSchema] = useState<number | null>(null);
   const [device, setDevice] = useState<string | null>(null);
   const [inventory, setInventory] = useState<InventoryRow[]>([]);
@@ -44,6 +52,13 @@ export function AboutSettings({ db, onPrivacy }: { db: SqlDriver; onPrivacy: () 
 
   return (
     <div className="wide-grid">
+      <section className="card span-12 theme-pick" aria-label="Appearance">
+        <span className="grow">
+          <strong>Appearance</strong>
+          <span className="muted small block">Light is the look of the design; dark follows the same colours. System matches this device.</span>
+        </span>
+        <Segmented items={THEMES} value={theme} onChange={(t) => (saveTheme(t), setTheme(t))} label="Appearance" />
+      </section>
       <section className="card span-7">
         <div className="about-head">
           <Logo size={48} decorative />

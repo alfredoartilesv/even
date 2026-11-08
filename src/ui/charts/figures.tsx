@@ -219,3 +219,42 @@ export function Ring({
     </div>
   );
 }
+
+/**
+ * Today's big ring (handoff 0.7): calories eaten against the target, with what is left in the
+ * middle, or how far over in the warning colour. Without a target it shows what was eaten.
+ */
+export function BalanceRing({
+  eaten,
+  target,
+  size = 184,
+  caption = "kcal left today",
+}: {
+  eaten: number | null;
+  target: number | null;
+  size?: number;
+  caption?: string;
+}) {
+  const r = 70;
+  const c = 2 * Math.PI * r;
+  const e = eaten ?? 0;
+  const over = target !== null && e > target;
+  const frac = target ? Math.min(1, e / target) : 0;
+  const big = target === null ? Math.round(e).toLocaleString() : Math.round(Math.abs(target - e)).toLocaleString();
+  const label =
+    target === null
+      ? `${Math.round(e).toLocaleString()} kcal eaten, no target set`
+      : `${Math.round(e).toLocaleString()} of ${Math.round(target).toLocaleString()} kcal eaten, ${big} ${over ? "over" : "left"}`;
+  return (
+    <svg className={`balance-ring${over ? " over" : ""}`} role="img" aria-label={label} width={size} height={size} viewBox="0 0 160 160">
+      <circle className="track" cx="80" cy="80" r={r} />
+      <circle className="fill" cx="80" cy="80" r={r} strokeDasharray={`${(frac * c).toFixed(1)} ${c.toFixed(1)}`} transform="rotate(-90 80 80)" />
+      <text className="big" x="80" y="82" textAnchor="middle">
+        {big}
+      </text>
+      <text className="small" x="80" y="104" textAnchor="middle">
+        {target === null ? "kcal eaten" : over ? "kcal over target" : caption}
+      </text>
+    </svg>
+  );
+}

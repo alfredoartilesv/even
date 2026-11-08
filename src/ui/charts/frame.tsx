@@ -112,6 +112,7 @@ export function ChartFrame({
   legend,
   table,
   dim = false,
+  action,
   children,
 }: {
   title: string;
@@ -120,6 +121,8 @@ export function ChartFrame({
   table?: TableView;
   /** Data is reloading: keep the previous render, faded, instead of a flash. */
   dim?: boolean;
+  /** Another button in the head, before Table. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const [asTable, setAsTable] = useState(false);
@@ -131,6 +134,7 @@ export function ChartFrame({
           <h3 id={`${id}-t`}>{title}</h3>
           {subtitle && <div className="muted small">{subtitle}</div>}
         </div>
+        {action}
         {table && table.rows.length > 0 && (
           <button type="button" className="secondary viz-toggle" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>
             {asTable ? "Chart" : "Table"}

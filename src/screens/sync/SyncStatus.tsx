@@ -12,15 +12,15 @@ interface Props {
 }
 
 /**
- * Header sync button: the sync symbol alone, large and without a frame, so the header keeps room for the greeting. What it would
- * say ("Synced 5 min ago") is its tooltip and screen-reader label; it spins while syncing and turns
- * amber when the last sync is old or failed. Without a Garmin key it opens Settings > Connections
- * (onSetup) instead of sitting there disabled.
+ * Header sync button: the sync symbol alone, without a frame, so the header keeps room for the
+ * greeting (the owner preferred it to the board's pill). What it would say ("Synced 5 min ago") is
+ * its tooltip and screen-reader label; it spins while syncing and turns amber when the last sync is
+ * old or failed. Without a Garmin key it opens You > Connections (onSetup) instead of sitting there disabled.
  */
 export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup }: Props & { onSetup: () => void }) {
   const f = freshness(status?.lastOkMs ?? null, nowMs);
   const label = !configured ? "Set up Garmin sync" : syncing ? "Syncing…" : f.state === "never" ? "Not synced yet" : `Synced ${ago(f.ageMs)}`;
-  const action = configured ? "Sync with Garmin now" : "Add your Garmin key in Settings";
+  const action = configured ? "Sync with Garmin now" : "Add your Garmin key in You, Connections";
   const stale = configured && (f.state === "stale" || status?.status === "error");
   return (
     <button
@@ -32,7 +32,7 @@ export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup
       aria-label={`${label}. ${action}`}
     >
       <span className={syncing ? "spin" : ""}>
-        <Icon name="sync" size={30} />
+        <Icon name="sync" size={28} />
       </span>
     </button>
   );

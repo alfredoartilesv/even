@@ -36,6 +36,13 @@
  *   --qr-dark, --qr-light  a QR code's modules and plate: black on white in both themes, since
  *                 cameras read that contrast best (the pairing code, the scanner's aiming frame)
  *   --camera-bg   behind the camera view before the picture comes
+ *   --area-*      one accent per section (handoff 0.7, "colour carries meaning", areas.css): Today and
+ *                 the start-up teal, Food and drinks paprika, Meal prep herb green, Activity
+ *                 cobalt, Journal plum, Coach violet, You slate. The shell sets data-area on the
+ *                 page and areas.css points --accent at the area's own,
+ *                 so every button, chip, switch, link and title follows without a change.
+ *   --nav-ink     the one bold surface: the wide side menu, Loading, the phone's Add button
+ *   --on-nav, --on-nav-muted, --nav-active  text and the open row on it
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -49,16 +56,17 @@
  */
 :root {
   color-scheme: light dark;
-  --bg: #fafaf9;
+  --bg: #f4f6f3;
   --surface: #ffffff;
-  --fg: #1c1917;
-  --muted: #6b6460;
-  --line: #e7e5e4;
+  --fg: #1b1f1e;
+  --muted: #56625f;
+  --line: #e3e8e5;
   --accent: #0f766e;
   --on-accent: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
   --good: #006300;
-  --warning: #a16207;
+  /* Amber a shade under the board's #a16207, which fell just short of 4.5:1 on a tinted card. */
+  --warning: #96590a;
   --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
   --error: #b91c1c;
 
@@ -70,8 +78,8 @@
   --series-6: #008300;
   --series-7: #6250d6;
   --series-8: #e34948;
-  --viz-grid: #e7e5e4;
-  --viz-axis: #c3c2b7;
+  --viz-grid: #e9eeeb;
+  --viz-axis: #c3cbc7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
   --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
@@ -87,9 +95,49 @@
   --qr-light: #ffffff;
   --camera-bg: #000000;
 
+  --area-today: #0f766e;
+  --area-food: #c2501f;
+  --area-prep: #2e7d4f;
+  --area-activity: #1d5fb0;
+  --area-journal: #8a2f6a;
+  --area-coach: #3f31a3;
+  --area-you: #3d5a80;
+  --nav-ink: #0f2623;
+  --area-today-soft: #dcefeb;
+  --area-today-deep: #0b5a54;
+  --area-today-wash: #eef5f2;
+  --area-today-line: #cfe3de;
+  --area-food-soft: #fbe4d8;
+  --area-food-deep: #8a3512;
+  --area-food-wash: #fbf1ec;
+  --area-food-line: #f0cdbb;
+  --area-prep-soft: #dff0e5;
+  --area-prep-deep: #1d5233;
+  --area-prep-wash: #eff6f1;
+  --area-prep-line: #c8e2d1;
+  --area-activity-soft: #e0ebf9;
+  --area-activity-deep: #14477f;
+  --area-activity-wash: #eef3fa;
+  --area-activity-line: #c6d9f1;
+  --area-journal-soft: #f6e1ee;
+  --area-journal-deep: #5f1f47;
+  --area-journal-wash: #faf0f5;
+  --area-journal-line: #e8c7da;
+  --area-coach-soft: #ece8fa;
+  --area-coach-deep: #2f2480;
+  --area-coach-wash: #f3f0fb;
+  --area-coach-line: #d8d1f3;
+  --area-you-soft: #e4ebf3;
+  --area-you-deep: #27405f;
+  --area-you-wash: #eff2f7;
+  --area-you-line: #cdd8e5;
+  --on-nav: #ffffff;
+  --on-nav-muted: #b4c8c3;
+  --nav-active: rgb(255 255 255 / 0.13);
+
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
-  --radius-sm: 8px;
-  --radius: 12px;
+  --radius-sm: 14px;
+  --radius: 22px;
   --radius-pill: 999px;
 
   /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
@@ -98,7 +146,7 @@
   --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #14110f;
     --surface: #1e1a17;
     --fg: #f5f5f4;
@@ -125,7 +173,114 @@
     --series-8: #e66767;
     --viz-grid: #2c2a27;
     --viz-axis: #44403c;
+
+    --area-today: #2dd4bf;
+    --area-food: #f4925f;
+    --area-prep: #5fcf8c;
+    --area-activity: #74aaf2;
+    --area-journal: #e98ac6;
+    --area-coach: #ab9ff6;
+    --area-you: #9db8da;
+    --nav-ink: #0b1c1a;
+    --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+    --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+    --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+    --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+    --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+    --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+    --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+    --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+    --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+    --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+    --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+    --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+    --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+    --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+    --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+    --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+    --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+    --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+    --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+    --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+    --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+    --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+    --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+    --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+    --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+    --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+    --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+    --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
   }
+}
+/* Picked in You > About (ui/theme.ts): dark or light whatever the system says. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --fg: #f5f5f4;
+  --muted: #a8a29e;
+  --line: #292524;
+  --accent: #2dd4bf;
+  --on-accent: #14110f;
+  --good: #0ca30c;
+  --warning: #facc15;
+  --error: #f87171;
+  --shadow: none;
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+  --lift: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);
+  --lift-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --viz-grid: #2c2a27;
+  --viz-axis: #44403c;
+
+  --area-today: #2dd4bf;
+  --area-food: #f4925f;
+  --area-prep: #5fcf8c;
+  --area-activity: #74aaf2;
+  --area-journal: #e98ac6;
+  --area-coach: #ab9ff6;
+  --area-you: #9db8da;
+  --nav-ink: #0b1c1a;
+  --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+  --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+  --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+  --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+  --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+  --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+  --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+  --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+  --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+  --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+  --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+  --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+  --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+  --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+  --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+  --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+  --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+  --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+  --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+  --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+  --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+  --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+  --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+  --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+  --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+  --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+  --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+  --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
@@ -153,117 +308,127 @@ code { font-size: 0.9em; }
   <button type="button" data-show="dark" aria-pressed="false">Dark</button>
   <button type="button" data-show="both" aria-pressed="false">Side by side</button>
 </div>
-<nav class="toc"><a href="#dashboard">Dashboard</a><a href="#chat">Chat</a><a href="#meal-prep">Meal prep</a><a href="#alcohol">Alcohol</a><a href="#settings">Settings</a><a href="#web-app">Web app</a><a href="#components">Components</a></nav>
+<nav class="toc"><a href="#today">Today</a><a href="#activity">Activity</a><a href="#you">You</a><a href="#journal">Journal</a><a href="#coach">Coach</a><a href="#food-and-drinks">Food and drinks</a><a href="#meal-prep">Meal prep</a><a href="#web-app">Web app</a><a href="#components">Components</a></nav>
 <p>Five sections: <strong>Dashboard</strong>, <strong>Chat</strong>, <strong>Meal prep</strong>, <strong>Alcohol</strong>, <strong>Settings</strong>. On Android they are tabs in a bar at the bottom; the web app has a side menu instead, opened from the menu button on a phone held upright and docked on the left on a wider screen (last section). Sync and the profile sit at the top of the Dashboard.</p>
-<h2 id="dashboard">Dashboard</h2>
+<h2 id="today">Today</h2>
 <div class="grid">
 <figure>
-  <div class="shot"><img class="light" src="img/light-dashboard-day.webp" alt="Dashboard: Day (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-day.webp" alt="Dashboard: Day (dark)" loading="lazy"></div>
-  <figcaption><strong>Day</strong><span class="muted">A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every number the watch sent that day, one kind at a time (Sleep open here, with its stages as a bar).</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-dashboard-day.webp" alt="Today: Day (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-day.webp" alt="Today: Day (dark)" loading="lazy"></div>
+  <figcaption><strong>Day</strong><span class="muted">A greeting with the date (‹ › to other days) and the period (Day, Week, Month). Quick add: type what you ate or drank and it is logged here, nothing leaves the device. The calorie balance ring with protein, carbs and fat left; what is next from the meal prep plan, eaten in one tap with undo; recovery from the watch (sleep, resting heart rate, Body Battery); so far today (meals, drinks, weight); steps for the week; what Coach noticed while Coach is on; the pinned charts.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-dashboard-week.webp" alt="Dashboard: Week (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-week.webp" alt="Dashboard: Week (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-dashboard-week.webp" alt="Today: Week (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-week.webp" alt="Today: Week (dark)" loading="lazy"></div>
   <figcaption><strong>Week</strong><span class="muted">Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it, intensity minutes against 150 a week, recovery as daily averages with a line per day. Steps per day (tap a day to open it) and calories in and out against the calorie target.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-dashboard-month.webp" alt="Dashboard: Month (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-month.webp" alt="Dashboard: Month (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-dashboard-month.webp" alt="Today: Month (light)" loading="lazy"><img class="dark" src="img/dark-dashboard-month.webp" alt="Today: Month (dark)" loading="lazy"></div>
   <figcaption><strong>Month</strong><span class="muted">The same figures for a calendar month: daily averages and totals, and the charts per day.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-profile.webp" alt="Dashboard: Profile (light)" loading="lazy"><img class="dark" src="img/dark-profile.webp" alt="Dashboard: Profile (dark)" loading="lazy"></div>
-  <figcaption><strong>Profile</strong><span class="muted">Opened from the picture on the Dashboard (or Your activity): name and body numbers, then Activity or Goals. Activity: the last 30 days against the 30 before, your sports, and the workouts from the Garmin sync or export: a sport filter, training time per week for 12 weeks (tap a week for its sessions), totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-profile-goals.webp" alt="Dashboard: Profile: Goals (light)" loading="lazy"><img class="dark" src="img/dark-profile-goals.webp" alt="Dashboard: Profile: Goals (dark)" loading="lazy"></div>
-  <figcaption><strong>Profile: Goals</strong><span class="muted">How many goals are met of those with data today; the daily nutrition targets (set in the food log) together in one card, each with today against its limit and the last days met; every other goal with its progress, last 7 days and streak, delete behind an icon; Add a goal folded away.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-journal-checkin.webp" alt="Dashboard: Journal: Check-in (light)" loading="lazy"><img class="dark" src="img/dark-journal-checkin.webp" alt="Dashboard: Journal: Check-in (dark)" loading="lazy"></div>
-  <figcaption><strong>Journal: Check-in</strong><span class="muted">Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-journal-measurements.webp" alt="Dashboard: Journal: Measurements (light)" loading="lazy"><img class="dark" src="img/dark-journal-measurements.webp" alt="Dashboard: Journal: Measurements (dark)" loading="lazy"></div>
-  <figcaption><strong>Journal: Measurements</strong><span class="muted">Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-add.webp" alt="Today: Add (light)" loading="lazy"><img class="dark" src="img/dark-add.webp" alt="Today: Add (dark)" loading="lazy"></div>
+  <figcaption><strong>Add</strong><span class="muted">The ink green button in the middle of the tab bar: a sheet with the places to log food, a drink, a check-in or a weight, and Tell Coach while Coach is on. Escape, the scrim or a choice closes it.</span></figcaption>
 </figure>
 </div>
-<h2 id="chat">Chat</h2>
+<h2 id="activity">Activity</h2>
 <div class="grid">
 <figure>
-  <div class="shot"><img class="light" src="img/light-chat.webp" alt="Chat: Conversation (light)" loading="lazy"><img class="dark" src="img/dark-chat.webp" alt="Chat: Conversation (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-profile.webp" alt="Activity: Activity (light)" loading="lazy"><img class="dark" src="img/dark-profile.webp" alt="Activity: Activity (dark)" loading="lazy"></div>
+  <figcaption><strong>Activity</strong><span class="muted">Opened from the picture on the Dashboard (or Your activity): name and body numbers, then Activity or Goals. Activity: the last 30 days against the 30 before, your sports, and the workouts from the Garmin sync or export: a sport filter, training time per week for 12 weeks (tap a week for its sessions), totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).</span></figcaption>
+</figure>
+</div>
+<h2 id="you">You</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-profile-goals.webp" alt="You: Targets (light)" loading="lazy"><img class="dark" src="img/dark-profile-goals.webp" alt="You: Targets (dark)" loading="lazy"></div>
+  <figcaption><strong>Targets</strong><span class="muted">How many goals are met of those with data today; the daily nutrition targets (set in the food log) together in one card, each with today against its limit and the last days met; every other goal with its progress, last 7 days and streak, delete behind an icon; Add a goal folded away.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-menu.webp" alt="You: You: Menu (light)" loading="lazy"><img class="dark" src="img/dark-settings-menu.webp" alt="You: You: Menu (dark)" loading="lazy"></div>
+  <figcaption><strong>You: Menu</strong><span class="muted">Every page in three groups, each row saying what is inside; the Profile row shows the profile picture. Tapping Settings again comes back here.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-profile.webp" alt="You: Profile (light)" loading="lazy"><img class="dark" src="img/dark-settings-profile.webp" alt="You: Profile (dark)" loading="lazy"></div>
+  <figcaption><strong>Profile</strong><span class="muted">Google account, the profile picture (chosen from the phone), the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-connections.webp" alt="You: Connections (light)" loading="lazy"><img class="dark" src="img/dark-settings-connections.webp" alt="You: Connections (dark)" loading="lazy"></div>
+  <figcaption><strong>Connections</strong><span class="muted">One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude: API key (the Chat tab) or Claude connector (Claude's own apps on the Claude plan; the Chat tab is hidden), here on the API key. How-tos fold away.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="You: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="You: Privacy &amp; data (dark)" loading="lazy"></div>
+  <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-settings-about.webp" alt="You: About (light)" loading="lazy"><img class="dark" src="img/dark-settings-about.webp" alt="You: About (dark)" loading="lazy"></div>
+  <figcaption><strong>About</strong><span class="muted">The Even logo and name, app version, build, platform, database schema and chat model.</span></figcaption>
+</figure>
+</div>
+<h2 id="journal">Journal</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-journal-checkin.webp" alt="Journal: Check-in (light)" loading="lazy"><img class="dark" src="img/dark-journal-checkin.webp" alt="Journal: Check-in (dark)" loading="lazy"></div>
+  <figcaption><strong>Check-in</strong><span class="muted">How is today: mood and energy as word chips (Very low to Very good) beside a note for the day, saved with its button; mood and energy over 30 days; the last 30 days of notes, tap one to open it.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-journal-measurements.webp" alt="Journal: Measurements (light)" loading="lazy"><img class="dark" src="img/dark-journal-measurements.webp" alt="Journal: Measurements (dark)" loading="lazy"></div>
+  <figcaption><strong>Measurements</strong><span class="muted">Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.</span></figcaption>
+</figure>
+</div>
+<h2 id="coach">Coach</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-chat.webp" alt="Coach: Conversation (light)" loading="lazy"><img class="dark" src="img/dark-chat.webp" alt="Coach: Conversation (dark)" loading="lazy"></div>
   <figcaption><strong>Conversation</strong><span class="muted">A conversation with Claude. History lists past chats; New starts one. Permissions and changes Claude wants to save are asked in line, with undo afterwards.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-chat-billing-error.webp" alt="Chat: Error: out of API credits (light)" loading="lazy"><img class="dark" src="img/dark-chat-billing-error.webp" alt="Chat: Error: out of API credits (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-chat-billing-error.webp" alt="Coach: Error: out of API credits (light)" loading="lazy"><img class="dark" src="img/dark-chat-billing-error.webp" alt="Coach: Error: out of API credits (dark)" loading="lazy"></div>
   <figcaption><strong>Error: out of API credits</strong><span class="muted">When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-chat-photo.webp" alt="Chat: New chat, adding a photo or a file (light)" loading="lazy"><img class="dark" src="img/dark-chat-photo.webp" alt="Chat: New chat, adding a photo or a file (dark)" loading="lazy"></div>
+  <div class="shot"><img class="light" src="img/light-chat-photo.webp" alt="Coach: New chat, adding a photo or a file (light)" loading="lazy"><img class="dark" src="img/dark-chat-photo.webp" alt="Coach: New chat, adding a photo or a file (dark)" loading="lazy"></div>
   <figcaption><strong>New chat, adding a photo or a file</strong><span class="muted">Quick prompts to start from. The paperclip offers Take a photo (the camera), Attach an image (the gallery, several at once) or Attach a file (a PDF or a CSV, TXT or JSON file). The microphone dictates into the message box where the phone has a speech recognizer.</span></figcaption>
+</figure>
+</div>
+<h2 id="food-and-drinks">Food and drinks</h2>
+<div class="grid">
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-log.webp" alt="Food and drinks: Log (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-log.webp" alt="Food and drinks: Log (dark)" loading="lazy"></div>
+  <figcaption><strong>Log</strong><span class="muted">One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-history.webp" alt="Food and drinks: History (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-history.webp" alt="Food and drinks: History (dark)" loading="lazy"></div>
+  <figcaption><strong>History</strong><span class="muted">Seven days at a time: calories per day against the target (tap a bar to open that day in the log), the daily averages against every target, then each day with its kcal and macros and what was left or over.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-mealprep-saved.webp" alt="Food and drinks: Saved meals (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-saved.webp" alt="Food and drinks: Saved meals (dark)" loading="lazy"></div>
+  <figcaption><strong>Saved meals</strong><span class="muted">Favourite meals to log again in one tap, with servings.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-alcohol.webp" alt="Food and drinks: Drinks (light)" loading="lazy"><img class="dark" src="img/dark-alcohol.webp" alt="Food and drinks: Drinks (dark)" loading="lazy"></div>
+  <figcaption><strong>Drinks</strong><span class="muted">Log a drink first: favourites with how often each was had in 7 days and a +1, and a one-off drink for anything else (a phone opens its form, a wide screen keeps it beside). Then the period's drinks, kcal, money and weight without alcohol, and the drinks logged, each with a pencil to change it and a bin. On a wide screen the favourites sit beside the list; on a phone Favourites › opens them.</span></figcaption>
+</figure>
+<figure>
+  <div class="shot"><img class="light" src="img/light-alcohol-favourites.webp" alt="Food and drinks: Drinks: Favourites (light)" loading="lazy"><img class="dark" src="img/dark-alcohol-favourites.webp" alt="Food and drinks: Drinks: Favourites (dark)" loading="lazy"></div>
+  <figcaption><strong>Drinks: Favourites</strong><span class="muted">The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.</span></figcaption>
 </figure>
 </div>
 <h2 id="meal-prep">Meal prep</h2>
 <div class="grid">
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-log.webp" alt="Meal prep: Food log: Log (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-log.webp" alt="Meal prep: Food log: Log (dark)" loading="lazy"></div>
-  <figcaption><strong>Food log: Log</strong><span class="muted">One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-plan.webp" alt="Meal prep: Plan (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-plan.webp" alt="Meal prep: Plan (dark)" loading="lazy"></div>
+  <figcaption><strong>Plan</strong><span class="muted">The second group opens on the tupper plan: days covered and tuppers in stock, tuppers a day (1 or 2), the next defrost, then the next 14 days with the tupper eaten each day (from the fridge or thawed) and the night to take each out of the freezer, the days with nothing folded into one row, and what to cook next with a button that puts it on the shopping list. On a wide screen the days are a two-week calendar beside the shopping list.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-history.webp" alt="Meal prep: Food log: History (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-history.webp" alt="Meal prep: Food log: History (dark)" loading="lazy"></div>
-  <figcaption><strong>Food log: History</strong><span class="muted">Seven days at a time: calories per day against the target (tap a bar to open that day in the log), the daily averages against every target, then each day with its kcal and macros and what was left or over.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-stock.webp" alt="Meal prep: Stock (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-stock.webp" alt="Meal prep: Stock (dark)" loading="lazy"></div>
+  <figcaption><strong>Stock</strong><span class="muted">Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the next 14 days as a strip colored by batch (Plan › opens them day by day), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-saved.webp" alt="Meal prep: Food log: Saved meals (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-saved.webp" alt="Meal prep: Food log: Saved meals (dark)" loading="lazy"></div>
-  <figcaption><strong>Food log: Saved meals</strong><span class="muted">Favourite meals to log again in one tap, with servings.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Recipes (dark)" loading="lazy"></div>
+  <figcaption><strong>Recipes</strong><span class="muted">Recipes with what a portion holds, shelf life, tags and ingredients, and Edit, Cook (records a batch into Stock) and Duplicate. Set batches with the steppers and add every ingredient to the shopping list in one go; the result links on to the list or to Stock.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-plan.webp" alt="Meal prep: Meal prep: Plan (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-plan.webp" alt="Meal prep: Meal prep: Plan (dark)" loading="lazy"></div>
-  <figcaption><strong>Meal prep: Plan</strong><span class="muted">The second group opens on the tupper plan: days covered and tuppers in stock, tuppers a day (1 or 2), the next defrost, then the next 14 days with the tupper eaten each day (from the fridge or thawed) and the night to take each out of the freezer, the days with nothing folded into one row, and what to cook next with a button that puts it on the shopping list. On a wide screen the days are a two-week calendar beside the shopping list.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-stock.webp" alt="Meal prep: Meal prep: Stock (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-stock.webp" alt="Meal prep: Meal prep: Stock (dark)" loading="lazy"></div>
-  <figcaption><strong>Meal prep: Stock</strong><span class="muted">Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the next 14 days as a strip colored by batch (Plan › opens them day by day), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-recipes.webp" alt="Meal prep: Meal prep: Recipes (dark)" loading="lazy"></div>
-  <figcaption><strong>Meal prep: Recipes</strong><span class="muted">Recipes with what a portion holds, shelf life, tags and ingredients, and Edit, Cook (records a batch into Stock) and Duplicate. Set batches with the steppers and add every ingredient to the shopping list in one go; the result links on to the list or to Stock.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-mealprep-shopping.webp" alt="Meal prep: Meal prep: Shopping (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-shopping.webp" alt="Meal prep: Meal prep: Shopping (dark)" loading="lazy"></div>
-  <figcaption><strong>Meal prep: Shopping</strong><span class="muted">The supermarket in the order it happens: the shopping list (add, tick off, share, Add from recipes), what was paid (supermarket, amount, day; saving clears the ticked items), then the month's spending against the month before, per supermarket, the last six months, and each shop with delete and undo.</span></figcaption>
-</figure>
-</div>
-<h2 id="alcohol">Alcohol</h2>
-<div class="grid">
-<figure>
-  <div class="shot"><img class="light" src="img/light-alcohol.webp" alt="Alcohol: Alcohol (light)" loading="lazy"><img class="dark" src="img/dark-alcohol.webp" alt="Alcohol: Alcohol (dark)" loading="lazy"></div>
-  <figcaption><strong>Alcohol</strong><span class="muted">Log a drink first: favourites with how often each was had in 7 days and a +1, and a one-off drink for anything else (a phone opens its form, a wide screen keeps it beside). Then the period's drinks, kcal, money and weight without alcohol, and the drinks logged, each with a pencil to change it and a bin. On a wide screen the favourites sit beside the list; on a phone Favourites › opens them.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-alcohol-favourites.webp" alt="Alcohol: Alcohol: Favourites (light)" loading="lazy"><img class="dark" src="img/dark-alcohol-favourites.webp" alt="Alcohol: Alcohol: Favourites (dark)" loading="lazy"></div>
-  <figcaption><strong>Alcohol: Favourites</strong><span class="muted">The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.</span></figcaption>
-</figure>
-</div>
-<h2 id="settings">Settings</h2>
-<div class="grid">
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-menu.webp" alt="Settings: Menu (light)" loading="lazy"><img class="dark" src="img/dark-settings-menu.webp" alt="Settings: Menu (dark)" loading="lazy"></div>
-  <figcaption><strong>Menu</strong><span class="muted">Every page in three groups, each row saying what is inside; the Profile row shows the profile picture. Tapping Settings again comes back here.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-profile.webp" alt="Settings: Profile (light)" loading="lazy"><img class="dark" src="img/dark-settings-profile.webp" alt="Settings: Profile (dark)" loading="lazy"></div>
-  <figcaption><strong>Profile</strong><span class="muted">Google account, the profile picture (chosen from the phone), the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-connections.webp" alt="Settings: Connections (light)" loading="lazy"><img class="dark" src="img/dark-settings-connections.webp" alt="Settings: Connections (dark)" loading="lazy"></div>
-  <figcaption><strong>Connections</strong><span class="muted">One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude: API key (the Chat tab) or Claude connector (Claude's own apps on the Claude plan; the Chat tab is hidden), here on the API key. How-tos fold away.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-privacy.webp" alt="Settings: Privacy &amp; data (light)" loading="lazy"><img class="dark" src="img/dark-settings-privacy.webp" alt="Settings: Privacy &amp; data (dark)" loading="lazy"></div>
-  <figcaption><strong>Privacy &amp; data</strong><span class="muted">What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.</span></figcaption>
-</figure>
-<figure>
-  <div class="shot"><img class="light" src="img/light-settings-about.webp" alt="Settings: About (light)" loading="lazy"><img class="dark" src="img/dark-settings-about.webp" alt="Settings: About (dark)" loading="lazy"></div>
-  <figcaption><strong>About</strong><span class="muted">The Even logo and name, app version, build, platform, database schema and chat model.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-mealprep-shopping.webp" alt="Meal prep: Shopping (light)" loading="lazy"><img class="dark" src="img/dark-mealprep-shopping.webp" alt="Meal prep: Shopping (dark)" loading="lazy"></div>
+  <figcaption><strong>Shopping</strong><span class="muted">The supermarket in the order it happens: the shopping list (add, tick off, share, Add from recipes), what was paid (supermarket, amount, day; saving clears the ticked items), then the month's spending against the month before, per supermarket, the last six months, and each shop with delete and undo.</span></figcaption>
 </figure>
 </div>
 <h2 id="web-app">Web app</h2>
@@ -273,16 +438,16 @@ code { font-size: 0.9em; }
   <figcaption><strong>Side menu (phone)</strong><span class="muted">The five sections in a side menu. On a phone held upright it is out of sight: the menu button at the top of each tab slides it in over the page, and a choice, a tap outside or Escape closes it.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-dashboard-day.webp" alt="Web app: Dashboard on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-day.webp" alt="Web app: Dashboard on a computer (dark)" loading="lazy"></div>
-  <figcaption><strong>Dashboard on a computer</strong><span class="muted">From 48rem wide the menu stays docked on the left, with its labels from 75rem; the button at its top narrows it to icons and back, and the choice is kept. The Dashboard sets the period controls in one row and its sections in two columns.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-wide-dashboard-day.webp" alt="Web app: Today on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-day.webp" alt="Web app: Today on a computer (dark)" loading="lazy"></div>
+  <figcaption><strong>Today on a computer</strong><span class="muted">From 48rem wide the menu stays docked on the left, with its labels from 75rem; the button at its top narrows it to icons and back, and the choice is kept. The Dashboard sets the period controls in one row and its sections in two columns.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-wide-dashboard-week.webp" alt="Web app: Week on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-dashboard-week.webp" alt="Web app: Week on a computer (dark)" loading="lazy"></div>
   <figcaption><strong>Week on a computer</strong><span class="muted">The week's charts sit in the first column under the rings, recovery and the rest beside them.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-chat.webp" alt="Web app: Chat on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-chat.webp" alt="Web app: Chat on a computer (dark)" loading="lazy"></div>
-  <figcaption><strong>Chat on a computer</strong><span class="muted">The conversations on the left, the chat in the middle, and on the right today's numbers, what Claude may see and the last send.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-wide-chat.webp" alt="Web app: Coach on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-chat.webp" alt="Web app: Coach on a computer (dark)" loading="lazy"></div>
+  <figcaption><strong>Coach on a computer</strong><span class="muted">The conversations on the left, the chat in the middle, and on the right today's numbers, what Claude may see and the last send.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-wide-mealprep-plan.webp" alt="Web app: Tupper plan on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-mealprep-plan.webp" alt="Web app: Tupper plan on a computer (dark)" loading="lazy"></div>
@@ -297,20 +462,20 @@ code { font-size: 0.9em; }
   <figcaption><strong>Saved meals on a computer</strong><span class="muted">Saved meals two to a row and the meals eaten most this month, with the form for a new saved meal beside them.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-alcohol.webp" alt="Web app: Alcohol on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-alcohol.webp" alt="Web app: Alcohol on a computer (dark)" loading="lazy"></div>
-  <figcaption><strong>Alcohol on a computer</strong><span class="muted">Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-wide-alcohol.webp" alt="Web app: Drinks on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-alcohol.webp" alt="Web app: Drinks on a computer (dark)" loading="lazy"></div>
+  <figcaption><strong>Drinks on a computer</strong><span class="muted">Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-wide-settings.webp" alt="Web app: Settings on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-settings.webp" alt="Web app: Settings on a computer (dark)" loading="lazy"></div>
-  <figcaption><strong>Settings on a computer</strong><span class="muted">The menu stays on the left with where each page stands; beside it every page at a glance until one is picked.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-wide-settings.webp" alt="Web app: You on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-settings.webp" alt="Web app: You on a computer (dark)" loading="lazy"></div>
+  <figcaption><strong>You on a computer</strong><span class="muted">The menu stays on the left with where each page stands; beside it every page at a glance until one is picked.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-wide-settings-about.webp" alt="Web app: About on a computer (light)" loading="lazy"><img class="dark" src="img/dark-wide-settings-about.webp" alt="Web app: About on a computer (dark)" loading="lazy"></div>
   <figcaption><strong>About on a computer</strong><span class="muted">A page opens beside the menu, which marks it.</span></figcaption>
 </figure>
 <figure>
-  <div class="shot"><img class="light" src="img/light-tablet-dashboard.webp" alt="Web app: Dashboard on a tablet (light)" loading="lazy"><img class="dark" src="img/dark-tablet-dashboard.webp" alt="Web app: Dashboard on a tablet (dark)" loading="lazy"></div>
-  <figcaption><strong>Dashboard on a tablet</strong><span class="muted">Between 48rem and 75rem the docked menu shows icons only (the labels stay for screen readers and show on hover); from 60rem the Dashboard has two columns.</span></figcaption>
+  <div class="shot"><img class="light" src="img/light-tablet-dashboard.webp" alt="Web app: Today on a tablet (light)" loading="lazy"><img class="dark" src="img/dark-tablet-dashboard.webp" alt="Web app: Today on a tablet (dark)" loading="lazy"></div>
+  <figcaption><strong>Today on a tablet</strong><span class="muted">Between 48rem and 75rem the docked menu shows icons only (the labels stay for screen readers and show on hover); from 60rem the Dashboard has two columns.</span></figcaption>
 </figure>
 <figure>
   <div class="shot"><img class="light" src="img/light-landscape-dashboard.webp" alt="Web app: Phone on its side (light)" loading="lazy"><img class="dark" src="img/dark-landscape-dashboard.webp" alt="Web app: Phone on its side (dark)" loading="lazy"></div>

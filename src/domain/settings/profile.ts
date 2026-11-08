@@ -53,6 +53,12 @@ export const profileSchema = z.object({
   kgPerWeek: z._default(z.number().check(z.minimum(-1, "At most 1 kg a week"), z.maximum(1, "At most 1 kg a week")), 0),
   /** Sports the owner calls theirs, in their order; shown first on the Me tab. */
   sports: z._default(z.array(z.enum(SPORT_IDS)).check(z.maxLength(SPORT_IDS.length)), []),
+  /**
+   * The units the owner reads heights and weights in, everywhere (first-run Setup, You > Profile).
+   * Data stays in cm and kg; only what is shown changes. Older profiles get the metric defaults.
+   */
+  heightUnit: z._default(z.enum(["cm", "ftin"]), "cm"),
+  weightUnit: z._default(z.enum(["kg", "lb"]), "kg"),
 });
 
 export type Profile = z.infer<typeof profileSchema>;

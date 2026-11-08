@@ -102,8 +102,8 @@ export interface Dashboard {
   stock: { portions: number; batches: number };
   /** What the supermarket cost in the span (logged shops), in the app currency. */
   groceries: { total: number; trips: number; currency: string };
-  /** The live daily targets: calories (at most), protein and steps (at least); null when none is set. */
-  targets: { kcal: number | null; protein: number | null; steps: number | null };
+  /** The live daily targets: calories (at most), protein, carbs, fat and steps; null when none is set. */
+  targets: { kcal: number | null; protein: number | null; carbs: number | null; fat: number | null; steps: number | null };
   /** The check-ins of the span: the notes (newest first), mood and energy (1-5) as figures, and the latest weight on or before its last day. */
   journal: { notes: DayNote[]; mood: Figure; energy: Figure; weight: Weight | null };
   /** Recovery and body numbers. Trends run over the span, or for a day over the 14 days up to it. */
@@ -244,7 +244,7 @@ export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, t
     alcohol,
     stock: { portions: stock.reduce((s, b) => s + b.left, 0), batches: stock.length },
     groceries: { total: groceries.total, trips: groceries.trips, currency },
-    targets: { kcal: nutrition.calories, protein: nutrition.proteinG, steps: stepGoal },
+    targets: { kcal: nutrition.calories, protein: nutrition.proteinG, carbs: nutrition.carbsG, fat: nutrition.fatG, steps: stepGoal },
     journal: { notes, mood: figure(notes.map((n) => n.mood)), energy: figure(notes.map((n) => n.energy)), weight },
     body,
     trendDays,
