@@ -204,37 +204,36 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     />
   );
 
+  // The day or period with ‹ ›: under the greeting on a wide screen, a row of its own on a phone,
+  // where beside the menu and sync it would be cut.
+  const dateNav = (
+    <span className="today-date">
+      <span className="date-nav">
+        {/* ‹ date › never split and the date never cut; the Today pill moves to its own line when the row is full. */}
+        <span className="date-steps">
+          <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
+            <Icon name="back" size={18} />
+          </button>
+          <span className="today-date-text muted">{dateText}</span>
+          <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
+            <Icon name="chevron" size={18} />
+          </button>
+        </span>
+        {!isCurrent && (
+          <button type="button" className="date-today" aria-label={`Back to ${span === "day" ? "today" : `this ${span}`}`} onClick={() => setAnchor(now)}>
+            {span === "day" ? "Today" : `This ${span}`}
+          </button>
+        )}
+      </span>
+    </span>
+  );
+
   return (
     <section className={rail ? "today with-rail" : "today"}>
       <div className="today-main">
         <PageHeader
           title={`Hi${first ? `, ${first}` : ""}`}
-          subtitle={
-            <span className="today-date">
-              <span className="date-nav">
-                {/* ‹ date › never split and the date never cut; the Today pill moves to its own line when the row is full. */}
-                <span className="date-steps">
-                  <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-                    <Icon name="back" size={18} />
-                  </button>
-                  <span className="today-date-text muted">{dateText}</span>
-                  <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-                    <Icon name="chevron" size={18} />
-                  </button>
-                </span>
-                {!isCurrent && (
-                  <button
-                    type="button"
-                    className="date-today"
-                    aria-label={`Back to ${span === "day" ? "today" : `this ${span}`}`}
-                    onClick={() => setAnchor(now)}
-                  >
-                    {span === "day" ? "Today" : `This ${span}`}
-                  </button>
-                )}
-              </span>
-            </span>
-          }
+          subtitle={<span className="wide-only">{dateNav}</span>}
           leading={<span className="narrow-only">{profile}</span>}
           actions={
             <div className="today-tools">
@@ -254,6 +253,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             </div>
           }
         />
+        <div className="narrow-only today-datebar">{dateNav}</div>
         <div className="narrow-only today-period">{period}</div>
 
         {syncWarnings.map((w) => (

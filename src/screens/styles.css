@@ -4479,3 +4479,15 @@ body {
     padding: 0 0.2rem;
   }
 }
+
+/* The date row of its own on a phone: the full width, so ‹ date › and the way back share one line. */
+.today-datebar {
+  margin: 0.25rem 0 0.5rem;
+}
+.today-datebar .date-nav {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+.today-datebar .date-today {
+  margin-left: auto;
+}
