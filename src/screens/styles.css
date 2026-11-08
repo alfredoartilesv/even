@@ -4257,3 +4257,29 @@ body:not(:has(.app-frame)) .today .date-step {
     font-size: 0.82rem;
   }
 }
+
+/* ‹ date › stay on one row however narrow the header gets: the date gives way, not the arrows. */
+.date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.date-nav .date-step {
+  flex: none;
+}
+.today-date-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.today .topbar-title {
+  min-width: 0;
+}
+@media (max-width: 30rem) {
+  .today .topbar h1 {
+    font-size: 1.15rem;
+  }
+}
