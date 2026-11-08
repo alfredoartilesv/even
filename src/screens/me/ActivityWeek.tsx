@@ -60,6 +60,21 @@ export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }
             {score && <span className="muted small">Score {int(score.value)}</span>}
           </div>
           <span className="sleep-big">{sleep ? fmtDuration(sleep.value) : "No sleep synced"}</span>
+          {/* The week beside last night, so the card says how the night compares instead of standing half empty. */}
+          <dl className="sleep-week">
+            <div>
+              <dt className="muted small">Average this week</dt>
+              <dd>{d.body.sleep.avg !== null ? fmtDuration(d.body.sleep.avg) : "–"}</dd>
+            </div>
+            <div>
+              <dt className="muted small">Average score</dt>
+              <dd>{d.body.sleepScore.avg !== null ? int(d.body.sleepScore.avg) : "–"}</dd>
+            </div>
+            <div>
+              <dt className="muted small">Nights synced</dt>
+              <dd>{d.body.sleep.daysWithData} of 7</dd>
+            </div>
+          </dl>
           {stages.length > 0 && (
             <StackedBar label="Sleep stages" parts={stages.map((s, i) => ({ label: s.label, value: s.v!, slot: i + 1 }))} format={fmtDuration} />
           )}
