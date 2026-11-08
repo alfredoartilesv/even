@@ -38,6 +38,7 @@ interface Shown {
   weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
+const shortDay = (day: string) => utc(day).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const DATE_LONG: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" };
 const CACHED_VIEWS = 12;
 const cacheKey = (span: Span, anchor: string) => `${span}|${anchor}`;
@@ -178,6 +179,15 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const hour = new Date().getHours();
   const first = shown?.name?.split(" ")[0];
   const dateLine = utc(now).toLocaleDateString(undefined, DATE_LONG);
+  const dateText = many
+    ? isCurrent
+      ? `${fmtDay(current.from)} to today`
+      : null
+    : isCurrent
+      ? dateLine
+      : shortDay(anchor) === fmtDay(anchor)
+        ? null
+        : shortDay(anchor);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -206,22 +216,22 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
                 <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
                   <Icon name="back" size={18} />
                 </button>
-                <span className="today-date-text muted">
-                  {many
-                    ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}`
-                    : isCurrent
-                      ? dateLine
-                      : utc(anchor).toLocaleDateString(undefined, DATE_LONG)}
-                </span>
+                {/* The title already names a past day or period, so the line only adds the short date, never the same words twice. */}
+                {dateText && <span className="today-date-text muted">{dateText}</span>}
                 <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
                   <Icon name="chevron" size={18} />
                 </button>
+                {!isCurrent && (
+                  <button
+                    type="button"
+                    className="date-today"
+                    aria-label={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+                    onClick={() => setAnchor(now)}
+                  >
+                    {span === "day" ? "Today" : `This ${span}`}
+                  </button>
+                )}
               </span>
-              {!isCurrent && (
-                <button type="button" className="link accent small" onClick={() => setAnchor(now)}>
-                  Back to {span === "day" ? "today" : `this ${span}`}
-                </button>
-              )}
             </span>
           }
           leading={<span className="narrow-only">{profile}</span>}
