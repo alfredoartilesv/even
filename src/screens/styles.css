@@ -4398,7 +4398,7 @@ body:not(:has(.app-frame)) .today .date-step {
 .note-chip {
   padding: 0.1rem 0.5rem;
   border-radius: var(--radius-pill);
-  background: var(--area-wash, var(--accent-soft));
+  background: var(--accent-soft);
   color: var(--area-deep, var(--fg));
   font-size: 0.75rem;
   font-weight: 600;

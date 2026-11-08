@@ -59,13 +59,13 @@ const nowTime = () => {
 /** Notes shown before Show all: two full rows of four on a wide screen, so no row ends half empty. */
 const FIRST_NOTES = 8;
 
-/** The average of the last three rated days at each rated day, so the line shows the drift and the dots the days. */
+/** The average of the last five rated days at each rated day, so the line shows the drift and the dots the days. */
 function runningAverage(values: (number | null)[]): (number | null)[] {
   const seen: number[] = [];
   return values.map((v) => {
     if (v === null) return null;
     seen.push(v);
-    const last = seen.slice(-3);
+    const last = seen.slice(-5);
     return Math.round((last.reduce((a, b) => a + b, 0) / last.length) * 10) / 10;
   });
 }
