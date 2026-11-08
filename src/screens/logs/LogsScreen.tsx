@@ -4,8 +4,11 @@ import type { SqlDriver } from "../../db/driver";
 import { isNative, platformName, shareText } from "../../platform/device";
 import { APP_VERSION } from "../../platform/buildInfo";
 import { saveTextFile } from "../../platform/files";
-import { failed, MsgLine, plural, timeZone, type Msg } from "../../ui/common";
-import { StatusBadge } from "../../ui/controls";
+import { failed, fmtDay, MsgLine, plural, timeZone, type Msg } from "../../ui/common";
+import { ChipGroup, StatusBadge } from "../../ui/controls";
+import { Icon } from "../../ui/icons";
+import { localDay } from "../../core/tz";
+import { LOG_KIND_LABEL, matches, needsAttention, type LogFilter } from "../../domain/logs/kinds";
 import { saveLogLevel } from "../../domain/settings/logLevel";
 import { logReport, reportFileName } from "../../domain/logs/report";
 import { clearLogs, KEEP_RECORDS, loadLogs } from "../../domain/logs/store";
@@ -14,7 +17,7 @@ const RANK: Record<Level, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 const log = createLogger("logs");
 
 /**
- * Settings > Admin > Debug logs: level, the stored records (this run and the ones before, as
+ * You > Admin > Debug logs: level, the stored records (this run and the ones before, as
  * each was written to log_records), and ways to hand them to Claude (a Markdown file through
  * the share sheet or a download, or the same text shared or copied). They leave the device only
  * through these buttons.
@@ -155,7 +158,111 @@ export function LogsScreen({ db }: { db: SqlDriver | null }) {
           </select>
         </label>
       </div>
-      <pre className="logs">{shown.length ? shown.map(format).join("\n") : "No log records at this level yet."}</pre>
+      <LogList records={shown} />
     </section>
+  );
+}
+
+const FILTERS: LogFilter[] = ["all", "sync", "coach", "data", "app", "problems"];
+const FILTER_LABEL: Record<LogFilter, string> = { all: "All", ...LOG_KIND_LABEL, problems: "Problems" };
+const clock = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+/**
+ * The records, newest first, by day (handoff 0.7, Logs): search, a chip per kind with its count,
+ * and each row (time, message, its scope, "Needs attention" for a warning or an error) opening to
+ * its fields and Copy details.
+ */
+function LogList({ records }: { records: LogRecord[] }) {
+  const [filter, setFilter] = useState<LogFilter>("all");
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const shown = records.filter((r) => matches(r, filter, search));
+  const tz = timeZone();
+  const days = new Map<string, LogRecord[]>();
+  for (const r of shown) {
+    const day = localDay(r.ts, tz);
+    days.set(day, [...(days.get(day) ?? []), r]);
+  }
+  return (
+    <div className="log-list">
+      <input
+        type="search"
+        className="log-search"
+        aria-label="Search logs"
+        placeholder="Search logs"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <ChipGroup
+        label="Filter"
+        value={filter}
+        onChange={(f) => {
+          setFilter(f);
+          setOpen(null);
+        }}
+        options={FILTERS.map((f) => ({ id: f, label: `${FILTER_LABEL[f]} ${records.filter((r) => matches(r, f, "")).length}` }))}
+      />
+      {shown.length === 0 && (
+        <div className="card stack tight">
+          <strong>No entries match</strong>
+          <span className="muted small">Try another filter or clear the search.</span>
+        </div>
+      )}
+      {[...days].map(([day, rows]) => (
+        <section key={day} aria-label={fmtDay(day)} className="log-day">
+          <h3 className="log-day-title">{fmtDay(day)}</h3>
+          <div className="card log-rows">
+            {rows.map((r, i) => {
+              const key = `${r.ts}-${i}`;
+              const isOpen = open === key;
+              return (
+                <div key={key} className="log-row">
+                  <button type="button" className="log-row-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}>
+                    <span className="log-time">{clock(r.ts)}</span>
+                    <span className="grow log-msg">
+                      <span>{r.msg}</span>
+                      <span className="log-tags">
+                        <span className="log-tag">{r.scope}</span>
+                        {needsAttention(r) && <span className={`log-tag ${r.level}`}>{r.level === "error" ? "Error" : "Needs attention"}</span>}
+                      </span>
+                    </span>
+                    <Icon name="chevron" size={18} />
+                  </button>
+                  {isOpen && (
+                    <div className="log-detail">
+                      <dl>
+                        <div>
+                          <dt>Level</dt>
+                          <dd>{r.level}</dd>
+                        </div>
+                        {Object.entries(r.fields ?? {}).map(([k, v]) => (
+                          <div key={k}>
+                            <dt>{k}</dt>
+                            <dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() =>
+                          void navigator.clipboard?.writeText(format(r)).then(
+                            () => setCopied(key),
+                            () => setCopied(null),
+                          )
+                        }
+                      >
+                        {copied === key ? "Copied" : "Copy details"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }

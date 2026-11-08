@@ -59,7 +59,8 @@ export function useSideNav(): SideNavState {
 }
 
 /**
- * The five sections in a side menu, and the account with Sign out at its foot. On a phone held
+ * The sections in a dark side menu, each with an icon tile in its area's colour, and You and the
+ * account with Sign out at its foot. On a phone held
  * upright it slides in over the page from the menu button and closes on a choice, a tap outside or
  * Escape; on a wider screen it stays docked on the left, with a button to narrow it to icons and back.
  */
@@ -115,24 +116,48 @@ export function SideNav({
           </button>
         </div>
         <ul>
-          {tabs.map((t) => (
-            <li key={t.id}>
-              <button
-                type="button"
-                className={`sidenav-item${tab === t.id ? " active" : ""}`}
-                aria-current={tab === t.id ? "page" : undefined}
-                title={rail ? t.label : undefined}
-                onClick={() => {
-                  setOpen(false);
-                  onTab(t.id);
-                }}
-              >
-                <Icon name={t.icon} />
-                <span className="sidenav-label">{t.label}</span>
-              </button>
-            </li>
-          ))}
+          {tabs
+            .filter((t) => t.id !== "you")
+            .map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  data-area={t.id}
+                  className={`sidenav-item${tab === t.id ? " active" : ""}`}
+                  aria-current={tab === t.id ? "page" : undefined}
+                  title={rail ? t.label : undefined}
+                  onClick={() => {
+                    setOpen(false);
+                    onTab(t.id);
+                  }}
+                >
+                  <span className="sidenav-tile" aria-hidden>
+                    <Icon name={t.icon} size={18} />
+                  </span>
+                  <span className="sidenav-label">{t.label}</span>
+                </button>
+              </li>
+            ))}
         </ul>
+        <button
+          type="button"
+          data-area="you"
+          className={`sidenav-item sidenav-you${tab === "you" ? " active" : ""}`}
+          aria-current={tab === "you" ? "page" : undefined}
+          title={rail ? "You" : undefined}
+          onClick={() => {
+            setOpen(false);
+            onTab("you");
+          }}
+        >
+          <span className="sidenav-tile" aria-hidden>
+            <Icon name="user" size={18} />
+          </span>
+          <span className="sidenav-label sidenav-you-text">
+            <span>You</span>
+            <span className="sidenav-sub">Targets, privacy, backup</span>
+          </span>
+        </button>
         {account && <AccountFoot account={account} rail={rail} />}
       </nav>
     </>

@@ -95,7 +95,7 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   assert.equal(Math.round(week.alcohol.alcoholG), 26);
   assert.equal(week.prep.total, null);
   assert.deepEqual(week.stock, { portions: 0, batches: 0 });
-  assert.deepEqual(week.targets, { kcal: null, protein: null, steps: null });
+  assert.deepEqual(week.targets, { kcal: null, protein: null, carbs: null, fat: null, steps: null });
 
   // The live calorie target and steps goal, for the rings.
   await setCalorieGoal(db, 2300, "2026-10-01", 1);
@@ -129,7 +129,7 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
     },
     stamp,
   );
-  assert.deepEqual((await loadDashboard(db, "week", "2026-10-22", TODAY)).targets, { kcal: 2300, protein: null, steps: 10000 });
+  assert.deepEqual((await loadDashboard(db, "week", "2026-10-22", TODAY)).targets, { kcal: 2300, protein: null, carbs: null, fat: null, steps: 10000 });
 
   // The current week stops at today.
   const now = await loadDashboard(db, "week", TODAY, TODAY);

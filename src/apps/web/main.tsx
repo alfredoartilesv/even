@@ -9,4 +9,4 @@ import "./web.css";
 // a side menu that docks on a wide screen (docs/phases.md, docs/users.md section 2.2).
 await expireIdleCopy();
 const notice = signedOutReason();
-startApp({ gate: (state) => connectGate(state, notice), Frame: SideNavFrame });
+startApp({ gate: (state) => connectGate(state, notice), Frame: SideNavFrame, navListsAll: true });

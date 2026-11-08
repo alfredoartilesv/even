@@ -1,3 +1,4 @@
+import { fmtHeight, fmtWeight } from "../../core/units";
 import { useCallback, useEffect, useState } from "react";
 import { ageOn } from "../../core/health";
 import { addDays } from "../../core/tz";
@@ -8,6 +9,7 @@ import { SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { latestWeight, type Weight } from "../../domain/alcohol/alcohol";
 import { loadProfile, loadProfilePhoto, saveProfile, saveProfilePhoto, EMPTY_PROFILE, type Profile } from "../../domain/settings/profile";
 import { ActivityHistory } from "./ActivityHistory";
+import { ActivityWeek } from "./ActivityWeek";
 import { goalProgress, listGoals } from "../../domain/me/goals";
 import { goalScore, GoalsView, type GoalRow } from "./GoalsView";
 import { SPORT_LABEL, SPORTS, type SportId } from "../../domain/me/sports";
@@ -40,6 +42,7 @@ export function MeScreen({
   onEditProfile,
   onChanged,
   view: initialView,
+  only,
 }: {
   db: SqlDriver;
   version: number;
@@ -47,8 +50,11 @@ export function MeScreen({
   onChanged: () => void;
   /** Open on this view (the Dashboard's "Your activity"); otherwise the one last open. */
   view?: MeView;
+  /** One view on its own, without the profile head: Activity is its own section, the goals are You > Targets. */
+  only?: MeView;
 }) {
-  const [view, setViewState] = useState<MeView>(initialView ?? lastView);
+  const [chosen, setViewState] = useState<MeView>(initialView ?? lastView);
+  const view = only ?? chosen;
   const setView = (v: MeView) => setViewState((lastView = v));
   const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -103,7 +109,11 @@ export function MeScreen({
 
   const day = today();
   const age = profile.birthDate ? ageOn(profile.birthDate, day) : null;
-  const facts = [age !== null && `${age} years`, profile.heightCm !== null && `${profile.heightCm} cm`, weight && `${weight.kg.toFixed(1)} kg`]
+  const facts = [
+    age !== null && `${age} years`,
+    profile.heightCm !== null && fmtHeight(profile.heightCm, profile.heightUnit),
+    weight && fmtWeight(weight.kg, profile.weightUnit),
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -119,41 +129,44 @@ export function MeScreen({
 
   return (
     <section className="wide-grid me-layout">
-      <div className="me-head">
-        <label className="avatar-pick" title="Change picture">
-          <Avatar photo={photo} name={profile.name} />
-          <input type="file" accept="image/*" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
-        </label>
-        <div className="grow">
-          <h2>{profile.name ?? "You"}</h2>
-          {facts && <div className="muted small">{facts}</div>}
-          <div className="actions compact">
-            <button className="secondary" onClick={onEditProfile}>
-              Edit profile
-            </button>
-            {photo && (
-              <button
-                className="secondary"
-                onClick={async () => {
-                  await saveProfilePhoto(db, null);
-                  setPhoto(null);
-                  onChanged();
-                }}
-              >
-                Remove picture
+      {!only && (
+        <div className="me-head">
+          <label className="avatar-pick" title="Change picture">
+            <Avatar photo={photo} name={profile.name} />
+            <input type="file" accept="image/*" onChange={(e) => void pickPhoto(e.target.files?.[0])} aria-label="Change profile picture" />
+          </label>
+          <div className="grow">
+            <h2>{profile.name ?? "You"}</h2>
+            {facts && <div className="muted small">{facts}</div>}
+            <div className="actions compact">
+              <button className="secondary" onClick={onEditProfile}>
+                Edit profile
               </button>
-            )}
+              {photo && (
+                <button
+                  className="secondary"
+                  onClick={async () => {
+                    await saveProfilePhoto(db, null);
+                    setPhoto(null);
+                    onChanged();
+                  }}
+                >
+                  Remove picture
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <MsgLine msg={msg} />
 
-      <Segmented items={views} value={view} onChange={setView} label="Activity or goals" />
+      {!only && <Segmented items={views} value={view} onChange={setView} label="Activity or goals" />}
 
       {view === "goals" ? (
         <GoalsView db={db} goals={goals} onChanged={load} />
       ) : (
         <>
+          {only === "activity" && <ActivityWeek db={db} version={version} />}
           <SectionHeader title="Last 30 days" />
           <div className="viz-tiles me-tiles">
             <StatTile

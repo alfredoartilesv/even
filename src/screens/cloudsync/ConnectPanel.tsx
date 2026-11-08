@@ -195,7 +195,7 @@ function SignIn({ server, secrets, device, fetchFn, before, onConnected, onMode 
       </button>
       <MsgLine msg={msg} />
       <p className="muted small">
-        Forgot it? Pair with a connected phone, then set a new one in Settings. No account yet?{" "}
+        Forgot it? Pair with a connected phone, then set a new one in You. No account yet?{" "}
         <ModeLink to="create" onMode={onMode}>
           Sign up with your invite
         </ModeLink>
@@ -333,7 +333,7 @@ function PairSteps() {
       <summary className="small accent">How to pair</summary>
       <ol className="steps small">
         <li>
-          On your phone or browser that is already connected, open Even, then Settings, <b>Sync &amp; devices</b>.
+          On your phone or browser that is already connected, open Even, then You, <b>Sync &amp; devices</b>.
         </li>
         <li>
           Under <b>Add a device</b>, tap <b>Scan the QR code</b> and point the camera at this screen (Even's scanner, not the camera app), or choose{" "}

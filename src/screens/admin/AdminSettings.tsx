@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { StatTile } from "../../ui/charts";
 import type { AdminAccount, AdminDevice, AdminInvite, AuditEntry, McpGrant, ServiceHealth } from "../../core/syncWire";
 import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch, shareText } from "../../platform/device";
@@ -7,7 +8,7 @@ import { StatusBadge, type Status } from "../../ui/controls";
 import { GrantList } from "../cloudsync/ConnectorSettings";
 
 /**
- * Settings > Admin (docs/users.md section 2.6), shown to admin accounts only. Invites, accounts,
+ * You > Admin (docs/users.md section 2.6), shown to admin accounts only. Invites, accounts,
  * quotas, devices and suspension; the same actions the MCP server offers Claude. An admin sees who
  * and when, never anyone's data: the server cannot read it either.
  */
@@ -63,12 +64,11 @@ export function AdminSettings({ session }: { session: SyncSession }) {
     <>
       <MsgLine msg={msg} />
       {health && (
-        <section className="card">
-          <h2>Service</h2>
-          <p className="muted small">
-            {plural(health.accounts, "account")}, {plural(health.devices, "device")}, {mb(health.bytes)} stored, {plural(health.openInvites, "open invite")}.
-            Build {health.build}.
-          </p>
+        <section className="admin-status" aria-label="Status">
+          <StatTile label="Accounts" value={String(health.accounts)} note={plural(health.devices, "device")} />
+          <StatTile label="Storage" value={mb(health.bytes)} note="sealed, on the server" />
+          <StatTile label="Open invites" value={String(health.openInvites)} note="not used yet" />
+          <StatTile label="Build" value={health.build} note="deployed now" />
         </section>
       )}
       <NewInvite api={api} serverUrl={session.serverUrl} onMade={load} />

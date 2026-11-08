@@ -29,6 +29,13 @@
  *   --qr-dark, --qr-light  a QR code's modules and plate: black on white in both themes, since
  *                 cameras read that contrast best (the pairing code, the scanner's aiming frame)
  *   --camera-bg   behind the camera view before the picture comes
+ *   --area-*      one accent per section (handoff 0.7, "colour carries meaning", areas.css): Today and
+ *                 the start-up teal, Food and drinks paprika, Meal prep herb green, Activity
+ *                 cobalt, Journal plum, Coach violet, You slate. The shell sets data-area on the
+ *                 page and areas.css points --accent at the area's own,
+ *                 so every button, chip, switch, link and title follows without a change.
+ *   --nav-ink     the one bold surface: the wide side menu, Loading, the phone's Add button
+ *   --on-nav, --on-nav-muted, --nav-active  text and the open row on it
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
  * validate_palette.js against these surfaces, 26 Oct 2026: light on #fafaf9 and dark on #14110f
@@ -42,16 +49,17 @@
  */
 :root {
   color-scheme: light dark;
-  --bg: #fafaf9;
+  --bg: #f4f6f3;
   --surface: #ffffff;
-  --fg: #1c1917;
-  --muted: #6b6460;
-  --line: #e7e5e4;
+  --fg: #1b1f1e;
+  --muted: #56625f;
+  --line: #e3e8e5;
   --accent: #0f766e;
   --on-accent: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
   --good: #006300;
-  --warning: #a16207;
+  /* Amber a shade under the board's #a16207, which fell just short of 4.5:1 on a tinted card. */
+  --warning: #96590a;
   --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
   --error: #b91c1c;
 
@@ -63,8 +71,8 @@
   --series-6: #008300;
   --series-7: #6250d6;
   --series-8: #e34948;
-  --viz-grid: #e7e5e4;
-  --viz-axis: #c3c2b7;
+  --viz-grid: #e9eeeb;
+  --viz-axis: #c3cbc7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
   --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
@@ -80,9 +88,49 @@
   --qr-light: #ffffff;
   --camera-bg: #000000;
 
+  --area-today: #0f766e;
+  --area-food: #c2501f;
+  --area-prep: #2e7d4f;
+  --area-activity: #1d5fb0;
+  --area-journal: #8a2f6a;
+  --area-coach: #3f31a3;
+  --area-you: #3d5a80;
+  --nav-ink: #0f2623;
+  --area-today-soft: #dcefeb;
+  --area-today-deep: #0b5a54;
+  --area-today-wash: #eef5f2;
+  --area-today-line: #cfe3de;
+  --area-food-soft: #fbe4d8;
+  --area-food-deep: #8a3512;
+  --area-food-wash: #fbf1ec;
+  --area-food-line: #f0cdbb;
+  --area-prep-soft: #dff0e5;
+  --area-prep-deep: #1d5233;
+  --area-prep-wash: #eff6f1;
+  --area-prep-line: #c8e2d1;
+  --area-activity-soft: #e0ebf9;
+  --area-activity-deep: #14477f;
+  --area-activity-wash: #eef3fa;
+  --area-activity-line: #c6d9f1;
+  --area-journal-soft: #f6e1ee;
+  --area-journal-deep: #5f1f47;
+  --area-journal-wash: #faf0f5;
+  --area-journal-line: #e8c7da;
+  --area-coach-soft: #ece8fa;
+  --area-coach-deep: #2f2480;
+  --area-coach-wash: #f3f0fb;
+  --area-coach-line: #d8d1f3;
+  --area-you-soft: #e4ebf3;
+  --area-you-deep: #27405f;
+  --area-you-wash: #eff2f7;
+  --area-you-line: #cdd8e5;
+  --on-nav: #ffffff;
+  --on-nav-muted: #b4c8c3;
+  --nav-active: rgb(255 255 255 / 0.13);
+
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
-  --radius-sm: 8px;
-  --radius: 12px;
+  --radius-sm: 14px;
+  --radius: 22px;
   --radius-pill: 999px;
 
   /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
@@ -91,7 +139,7 @@
   --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #14110f;
     --surface: #1e1a17;
     --fg: #f5f5f4;
@@ -118,5 +166,112 @@
     --series-8: #e66767;
     --viz-grid: #2c2a27;
     --viz-axis: #44403c;
+
+    --area-today: #2dd4bf;
+    --area-food: #f4925f;
+    --area-prep: #5fcf8c;
+    --area-activity: #74aaf2;
+    --area-journal: #e98ac6;
+    --area-coach: #ab9ff6;
+    --area-you: #9db8da;
+    --nav-ink: #0b1c1a;
+    --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+    --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+    --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+    --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+    --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+    --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+    --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+    --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+    --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+    --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+    --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+    --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+    --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+    --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+    --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+    --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+    --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+    --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+    --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+    --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+    --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+    --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+    --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+    --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+    --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+    --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+    --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+    --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
   }
+}
+/* Picked in You > About (ui/theme.ts): dark or light whatever the system says. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --fg: #f5f5f4;
+  --muted: #a8a29e;
+  --line: #292524;
+  --accent: #2dd4bf;
+  --on-accent: #14110f;
+  --good: #0ca30c;
+  --warning: #facc15;
+  --error: #f87171;
+  --shadow: none;
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+  --lift: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);
+  --lift-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --viz-grid: #2c2a27;
+  --viz-axis: #44403c;
+
+  --area-today: #2dd4bf;
+  --area-food: #f4925f;
+  --area-prep: #5fcf8c;
+  --area-activity: #74aaf2;
+  --area-journal: #e98ac6;
+  --area-coach: #ab9ff6;
+  --area-you: #9db8da;
+  --nav-ink: #0b1c1a;
+  --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+  --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+  --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+  --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+  --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+  --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+  --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+  --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+  --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+  --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+  --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+  --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+  --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+  --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+  --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+  --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+  --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+  --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+  --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+  --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+  --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+  --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+  --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+  --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+  --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+  --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+  --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+  --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }

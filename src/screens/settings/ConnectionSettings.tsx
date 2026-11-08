@@ -3,8 +3,9 @@ import type { SqlDriver } from "../../db/driver";
 import { deviceFetch, garminFetch } from "../../platform/device";
 import type { SyncSession } from "../../domain/cloudsync/session";
 import { failed, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
-import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
+import { ConnHead, SecretInput, type Status, Switch } from "../../ui/controls";
 import { claudeKeyVerifier } from "../../domain/chat/client";
+import { coachSwitchedOff, setCoachSwitchedOff } from "../../domain/chat/mode";
 import {
   CLAUDE_KEYS_URL,
   claudeConnection,
@@ -38,8 +39,10 @@ interface Props {
   onConnected: () => void;
   /** Sync and wait: the connector's consents count on the server once they are synced. */
   onSync: () => Promise<void>;
-  /** Settings > Sync & devices, for the connector, which needs an account. */
+  /** You > Sync & devices, for the connector, which needs an account. */
   onOpenSync: () => void;
+  /** The Coach switch changed, so the shell shows or hides Coach. */
+  onCoach: () => void;
   version: number;
 }
 
@@ -57,13 +60,35 @@ const KINDS: { kind: GarminKind; label: string; unit: string }[] = [
 const count = (n: number, unit: string) => `${n.toLocaleString()} ${n === 1 ? unit : unit === "activity" ? "activities" : `${unit}s`}`;
 
 /** Where the data comes from (Apple Health on the iPhone, the Garmin sync, the Garmin export) and where questions go (Claude: API key or connector). */
-export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, version }: Props) {
+export function ConnectionSettings({ db, secrets, isNative, session, onChanged, onConnected, onSync, onOpenSync, onCoach, version }: Props) {
   return (
     <div className="settings-cards">
       {appleHealthSupported && <AppleHealthCard db={db} onChanged={onChanged} />}
       <GarminSync db={db} secrets={secrets} isNative={isNative} session={session} onChanged={onChanged} onConnected={onConnected} />
       <GarminHistory db={db} onChanged={onChanged} />
-      <ClaudeCard db={db} secrets={secrets} session={session} onChanged={onChanged} onSync={onSync} onOpenSync={onOpenSync} version={version} />
+      <ClaudeCard
+        db={db}
+        secrets={secrets}
+        session={session}
+        onChanged={onChanged}
+        onSync={onSync}
+        onOpenSync={onOpenSync}
+        onCoach={onCoach}
+        version={version}
+      />
+      <section className="card">
+        <ConnHead
+          name={isNative ? "Even on your computer" : "Pair your phone"}
+          tone={session ? "good" : "info"}
+          status={session ? "This device syncs" : "Not paired yet"}
+          note={isNative ? "Show a QR code here and scan it from the web app" : "Scan a QR code with Even on your phone to use it here"}
+          action={
+            <button type="button" onClick={onOpenSync}>
+              {isNative ? "Pair a computer" : "Pair with QR"}
+            </button>
+          }
+        />
+      </section>
     </div>
   );
 }
@@ -93,7 +118,7 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
       }
       await setAppleHealthEnabled(db, true);
       setOn(true);
-      setMsg({ kind: "ok", text: "Connected. Use the sync button at the top of the Dashboard to bring in the last 30 days." });
+      setMsg({ kind: "ok", text: "Connected. Use the sync button at the top of Today to bring in the last 30 days." });
       onChanged();
     } catch (err) {
       setMsg(failed(err, "settings"));
@@ -109,22 +134,17 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
     onChanged();
   }
 
-  const state = !on ? (
-    <StatusBadge status="info">not connected</StatusBadge>
-  ) : sync?.status === "error" ? (
-    <StatusBadge status="warning">last sync failed</StatusBadge>
-  ) : sync?.lastOkMs ? (
-    <StatusBadge status="good">syncing</StatusBadge>
-  ) : (
-    <StatusBadge status="info">not synced yet</StatusBadge>
-  );
+  const [tone, status]: [Status, string] = !on
+    ? ["info", "Not connected"]
+    : sync?.status === "error"
+      ? ["warning", "Last sync failed"]
+      : sync?.lastOkMs
+        ? ["good", `Synced ${ago(sync.lastOkMs)}`]
+        : ["info", "Not synced yet"];
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Apple Health</h2>
-        {state}
-      </div>
+      <ConnHead name="Apple Health" tone={tone} status={status} note="Steps, sleep, heart rate, weight and workouts" />
       <p className="muted small">
         Steps, calories, heart rate, sleep, weight and workouts from the Health app, read-only. They are read on this iPhone and stay on it. Where Garmin has
         the same day, Garmin's numbers are used. Last sync: {when(sync?.lastOkMs ?? null)}.
@@ -156,10 +176,17 @@ function AppleHealthCard({ db, onChanged }: { db: SqlDriver; onChanged: () => vo
 }
 
 /** The two key-based connections (Garmin, Claude) share these: status, Disconnect, how to get a key. */
-function ConnectionBadge({ status }: { status: ConnectionStatus | undefined }) {
-  if (status === "connected") return <StatusBadge status="good">connected</StatusBadge>;
-  if (status === "needs_attention") return <StatusBadge status="warning">needs attention</StatusBadge>;
-  return <StatusBadge status="info">not connected</StatusBadge>;
+function connTone(status: ConnectionStatus | undefined): Status {
+  return status === "connected" ? "good" : status === "needs_attention" ? "warning" : "info";
+}
+
+/** "2 minutes ago", "3 hours ago", or the date: how the board says when a sync last worked. */
+function ago(ms: number): string {
+  const min = Math.round((Date.now() - ms) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
+  if (min < 24 * 60) return `${Math.round(min / 60)} hour${Math.round(min / 60) === 1 ? "" : "s"} ago`;
+  return `on ${when(ms)}`;
 }
 
 function DisconnectButton({ onClick }: { onClick: () => void }) {
@@ -196,7 +223,7 @@ const GARMIN_STEPS = [
   "Copy it and paste it here. The app checks it with Garmin before saving it in this device's secure storage.",
 ] as const;
 
-function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Omit<Props, "onSync" | "onOpenSync" | "version">) {
+export function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: Omit<Props, "onSync" | "onOpenSync" | "onCoach" | "version">) {
   const [conn, setConn] = useState<GarminConnection | null>(null);
   const [key, setKey] = useState("");
   const [remind, setRemind] = useState(true);
@@ -232,15 +259,31 @@ function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: 
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Garmin sync</h2>
-        <ConnectionBadge status={conn?.status} />
-      </div>
+      <ConnHead
+        name="Garmin"
+        tone={connTone(conn?.status)}
+        status={
+          conn?.status === "connected"
+            ? conn.lastOkMs
+              ? `Synced ${ago(conn.lastOkMs)}`
+              : "Connected, not synced yet"
+            : conn?.status === "needs_attention"
+              ? "Needs a new key"
+              : "Not connected"
+        }
+        note="Steps, sleep, heart rate and workouts"
+        action={
+          conn?.status === "connected" && (
+            <button type="button" className="secondary" onClick={onConnected}>
+              Sync now
+            </button>
+          )
+        }
+      />
       {conn && conn.status !== "not_connected" ? (
         <>
           <p className="muted small">
-            Key {conn.keyHint}, last sync {when(conn.lastOkMs)}. Steps, calories, sleep and workouts from Garmin Connect, read-only. The key is in{" "}
-            {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
+            Key {conn.keyHint}, read-only. The key is in {isNative ? "the phone's secure storage" : "this browser's sealed storage"}.
           </p>
           {conn.lastError && <p className="warning small">Last attempt: {conn.lastError}</p>}
           <DisconnectButton
@@ -254,7 +297,7 @@ function GarminSync({ db, secrets, isNative, session, onChanged, onConnected }: 
         </>
       ) : (
         <>
-          <p className="muted small">Steps, calories, sleep and workouts from Garmin Connect, read-only, with your personal API key.</p>
+          <p className="muted small">Read-only, from Garmin Connect with your personal API key.</p>
           <KeySteps steps={GARMIN_STEPS} href={GARMIN_KEY_PAGE} open="Open Garmin Connect">
             {!isNative && (
               <p className="muted small">
@@ -356,11 +399,13 @@ function GarminHistory({ db, onChanged }: { db: SqlDriver; onChanged: () => void
 
   return (
     <section className="card">
-      <div className="card-head">
-        <h2>Garmin history</h2>
-        {/* Nothing until the count is in: a "not imported" flash would be wrong. */}
-        {coverage && (coverage.readings > 0 ? <StatusBadge status="good">imported</StatusBadge> : <StatusBadge status="info">not imported</StatusBadge>)}
-      </div>
+      {/* No word until the count is in: a "not imported" flash would be wrong. */}
+      <ConnHead
+        name="Garmin history"
+        tone={coverage && coverage.readings > 0 ? "good" : "info"}
+        status={!coverage ? "" : coverage.readings > 0 ? "Imported" : "Not imported"}
+        note="Years before the sync's first 30 days, from Garmin's export"
+      />
       <p className="muted small">
         The sync starts with the last 30 days. For everything before, import the export Garmin emails you.{" "}
         {coverage && coverage.readings > 0 && coverage.from && coverage.to
@@ -428,6 +473,7 @@ function ClaudeCard({
   onChanged,
   onSync,
   onOpenSync,
+  onCoach,
   version,
 }: {
   db: SqlDriver;
@@ -436,9 +482,14 @@ function ClaudeCard({
   onChanged: () => void;
   onSync: () => Promise<void>;
   onOpenSync: () => void;
+  onCoach: () => void;
   version: number;
 }) {
   const [claude, setClaude] = useState<ClaudeConnection | null>(null);
+  const [coachOff, setCoachOff] = useState(false);
+  useEffect(() => {
+    void coachSwitchedOff(db).then(setCoachOff, () => {});
+  }, [db, version]);
   const [claudeKey, setClaudeKey] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [checking, setChecking] = useState(false);
@@ -459,7 +510,7 @@ function ClaudeCard({
       if (!res.ok) return setMsg({ kind: "error", text: res.message });
       setClaude(res.connection);
       setClaudeKey("");
-      setMsg({ kind: "ok", text: "Connected. Claude accepted the key: the Chat tab is ready." });
+      setMsg({ kind: "ok", text: "Connected. Claude accepted the key: Coach is ready." });
       onChanged();
     } catch (err) {
       setMsg(failed(err, "settings.claude"));
@@ -481,7 +532,7 @@ function ClaudeCard({
           <DisconnectButton
             onClick={async () => {
               await disconnectClaude(db, secrets);
-              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone and the Chat tab is hidden; your chats stay." });
+              setMsg({ kind: "ok", text: "Disconnected. The key was removed from this phone and Coach is hidden; your chats stay." });
               await load();
               onChanged();
             }}
@@ -489,7 +540,7 @@ function ClaudeCard({
         </>
       ) : (
         <>
-          <p className="muted small">Add a key to show the Chat tab. Billing is per use, on your Claude Console account.</p>
+          <p className="muted small">Add a key to turn Coach on. Billing is per use, on your Claude Console account.</p>
           <KeySteps steps={CONNECT_STEPS} href={CLAUDE_KEYS_URL} open="Open the Claude Console" />
         </>
       )}
@@ -510,14 +561,36 @@ function ClaudeCard({
   return (
     <>
       <section className="card">
-        <div className="card-head">
-          <h2>Chat in Even</h2>
-          <ConnectionBadge status={claude?.status} />
-        </div>
+        <ConnHead
+          name="Claude"
+          tone={connTone(claude?.status)}
+          status={
+            claude?.status === "connected"
+              ? coachOff
+                ? "Connected, Coach is off"
+                : "Connected"
+              : claude?.status === "needs_attention"
+                ? "Needs attention"
+                : "Not connected"
+          }
+          note="Coach uses your own API key"
+        />
         <p className="muted small">
-          Two ways to ask Claude about your data, and you can use both: the Chat tab here, on your own API key, and Claude's own apps through the connector
-          below, on your Claude plan.
+          Two ways to ask Claude about your data, and you can use both: Coach here, on your own API key, and Claude's own apps through the connector below, on
+          your Claude plan.
         </p>
+        {claude && claude.status !== "not_connected" && (
+          <Switch
+            label="Coach"
+            description="Turn it off and it disappears from the whole app. Nothing is sent to Claude from Coach while it is off; the key stays saved."
+            checked={!coachOff}
+            onChange={async (on) => {
+              await setCoachSwitchedOff(db, !on);
+              setCoachOff(!on);
+              onCoach();
+            }}
+          />
+        )}
         {apiKey}
         <MsgLine msg={msg} />
       </section>

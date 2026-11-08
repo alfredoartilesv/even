@@ -589,3 +589,82 @@ ol.plan-strip li.none .plan-strip-cell {
 ol.plan-strip li.eaten .plan-strip-cell {
   background: var(--line);
 }
+
+/* Connection card head (You > Connections): name, a status dot, a note, the action on the right. */
+.conn-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.conn-head .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.conn-head h2 {
+  margin: 0;
+  font-size: 1.06rem;
+}
+.conn-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--fg);
+}
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.conn-dot.good {
+  background: var(--good);
+}
+.conn-dot.warning {
+  background: var(--warning);
+}
+.conn-dot.critical {
+  background: var(--error);
+}
+
+/* A typed amount of money: the symbol inside the field's frame, the number after it. */
+.money-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 10rem;
+}
+.money-input:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.money-input input {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  box-shadow: none;
+}
+.money-symbol {
+  color: var(--muted);
+}
+
+/* A guide line (a running average) under the real values: wider, softer. */
+.viz-line.guide {
+  stroke-width: 3;
+  opacity: 0.45;
+}

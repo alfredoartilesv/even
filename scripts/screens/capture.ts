@@ -166,30 +166,37 @@ interface Screen {
   go: (p: Page) => Promise<void>;
 }
 
-/** A section, from Android's tab bar or the web app's side menu. */
-const tab = (p: Page, label: string) => p.click(".tabbar button, .sidenav-item", label);
+/**
+ * A section, from Android's tab bar or the web app's side menu (by its data-area). Activity,
+ * Journal and You are not in the phone's tab bar: You opens from the picture on Today, the other
+ * two from You's menu.
+ */
+const section = async (p: Page, id: string) => {
+  const direct = `.tabbar [data-area="${id}"], .sidenav [data-area="${id}"]`;
+  if (await p.evaluate<boolean>(`!!document.querySelector(${JSON.stringify(direct)})`)) return p.click(direct);
+  await p.click('.tabbar [data-area="today"]');
+  await p.click(".profile-button");
+  if (id !== "you") await p.click(".menu-row", id === "activity" ? "Activity and sleep" : "Journal");
+};
 const sub = (p: Page, label: string) => p.click(".tabs.sub button", label);
-/** A Settings page from the menu (back to the menu first when a page is open). */
+/** A page of You from its menu (back to the menu first when a page is open). */
 const settings = async (p: Page, label: string) => {
-  if (await p.evaluate<boolean>(`!!document.querySelector('[aria-label="Back to Settings"]')`)) await p.click('[aria-label="Back to Settings"]');
+  if (await p.evaluate<boolean>(`!!document.querySelector('[aria-label="Back to You"]')`)) await p.click('[aria-label="Back to You"]');
   await p.click(".menu-row", label);
 };
 
 const SCREENS: Screen[] = [
   {
     id: "dashboard-day",
-    tab: "Dashboard",
+    tab: "Today",
     title: "Day",
     about:
-      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every number the watch sent that day, one kind at a time (Sleep open here, with its stages as a bar).",
-    go: async (p) => {
-      await tab(p, "Dashboard");
-      await p.click('[aria-label="Kind of number"] button', "Sleep");
-    },
+      "A greeting with the date (‹ › to other days) and the period (Day, Week, Month). Quick add: type what you ate or drank and it is logged here, nothing leaves the device. The calorie balance ring with protein, carbs and fat left; what is next from the meal prep plan, eaten in one tap with undo; recovery from the watch (sleep, resting heart rate, Body Battery); so far today (meals, drinks, weight); steps for the week; what Coach noticed while Coach is on; the pinned charts.",
+    go: (p) => section(p, "today"),
   },
   {
     id: "dashboard-week",
-    tab: "Dashboard",
+    tab: "Today",
     title: "Week",
     about:
       "Last full week: the rings show daily averages; each tile is the daily average with the total and the days with data under it, intensity minutes against 150 a week, recovery as daily averages with a line per day. Steps per day (tap a day to open it) and calories in and out against the calorie target.",
@@ -200,46 +207,46 @@ const SCREENS: Screen[] = [
   },
   {
     id: "dashboard-month",
-    tab: "Dashboard",
+    tab: "Today",
     title: "Month",
     about: "The same figures for a calendar month: daily averages and totals, and the charts per day.",
     go: (p) => p.click(".segmented button", "Month"),
   },
   {
     id: "profile",
-    tab: "Dashboard",
-    title: "Profile",
+    tab: "Activity",
+    title: "Activity",
     about:
       "Opened from the picture on the Dashboard (or Your activity): name and body numbers, then Activity or Goals. Activity: the last 30 days against the 30 before, your sports, and the workouts from the Garmin sync or export: a sport filter, training time per week for 12 weeks (tap a week for its sessions), totals per sport (tap one to filter), longest sessions, and every session by month, ten at a time. A session opens to what the watch measured beyond the basics: max heart rate, climb, training effect, VO2 max (one opened here).",
     go: async (p) => {
       await p.click(".segmented button", "Day");
-      await p.click(".profile-button");
+      await section(p, "activity");
       await p.click("details.workout-more > summary");
     },
   },
   {
     id: "profile-goals",
-    tab: "Dashboard",
-    title: "Profile: Goals",
+    tab: "You",
+    title: "Targets",
     about:
       "How many goals are met of those with data today; the daily nutrition targets (set in the food log) together in one card, each with today against its limit and the last days met; every other goal with its progress, last 7 days and streak, delete behind an icon; Add a goal folded away.",
-    go: (p) => p.click(".segmented button", "Goals"),
-  },
-  {
-    id: "journal-checkin",
-    tab: "Dashboard",
-    title: "Journal: Check-in",
-    about:
-      "Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
     go: async (p) => {
-      await p.click('[aria-label="Back to Dashboard"]');
-      await p.click(".quick-action", "Check-in");
+      await section(p, "you");
+      await settings(p, "Targets");
     },
   },
   {
+    id: "journal-checkin",
+    tab: "Journal",
+    title: "Check-in",
+    about:
+      "How is today: mood and energy as word chips (Very low to Very good) beside a note for the day, saved with its button; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
+    go: (p) => section(p, "journal"),
+  },
+  {
     id: "journal-measurements",
-    tab: "Dashboard",
-    title: "Journal: Measurements",
+    tab: "Journal",
+    title: "Measurements",
     about:
       "Add weight, body fat, waist, blood pressure, resting heart rate, glucose, a supplement or a symptom, with the day and time. One card per kind with the latest value and a trend; open it for the 90-day chart and every entry, with delete and undo.",
     go: async (p) => {
@@ -249,13 +256,12 @@ const SCREENS: Screen[] = [
   },
   {
     id: "chat",
-    tab: "Chat",
+    tab: "Coach",
     title: "Conversation",
     about:
       "A conversation with Claude. History lists past chats; New starts one. Permissions and changes Claude wants to save are asked in line, with undo afterwards.",
     go: async (p) => {
-      await p.click('[aria-label="Back to Dashboard"]');
-      await tab(p, "Chat");
+      await section(p, "coach");
       await p.waitFor("!!document.querySelector('.composer')", "the chat");
       await p.click(".topbar button", "History");
       await p.click(".chat-list .link");
@@ -263,7 +269,7 @@ const SCREENS: Screen[] = [
   },
   {
     id: "chat-billing-error",
-    tab: "Chat",
+    tab: "Coach",
     title: "Error: out of API credits",
     about:
       "When the Anthropic account has no credit left, the chat shows a plain card instead of the API's JSON: Add credits (the Console billing page), Try again, Claude settings, Dismiss. The raw reply and request id stay under Technical details. Captured with a stubbed reply: no request leaves the PC.",
@@ -279,7 +285,7 @@ const SCREENS: Screen[] = [
   },
   {
     id: "chat-photo",
-    tab: "Chat",
+    tab: "Coach",
     title: "New chat, adding a photo or a file",
     about:
       "Quick prompts to start from. The paperclip offers Take a photo (the camera), Attach an image (the gallery, several at once) or Attach a file (a PDF or a CSV, TXT or JSON file). The microphone dictates into the message box where the phone has a speech recognizer.",
@@ -290,39 +296,39 @@ const SCREENS: Screen[] = [
   },
   {
     id: "mealprep-log",
-    tab: "Meal prep",
-    title: "Food log: Log",
+    tab: "Food and drinks",
+    title: "Log",
     about:
       "One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.",
-    go: (p) => tab(p, "Meal prep"),
+    go: (p) => section(p, "food"),
   },
   {
     id: "mealprep-history",
-    tab: "Meal prep",
-    title: "Food log: History",
+    tab: "Food and drinks",
+    title: "History",
     about:
       "Seven days at a time: calories per day against the target (tap a bar to open that day in the log), the daily averages against every target, then each day with its kcal and macros and what was left or over.",
     go: (p) => sub(p, "History"),
   },
   {
     id: "mealprep-saved",
-    tab: "Meal prep",
-    title: "Food log: Saved meals",
+    tab: "Food and drinks",
+    title: "Saved meals",
     about: "Favourite meals to log again in one tap, with servings.",
     go: (p) => sub(p, "Saved meals"),
   },
   {
     id: "mealprep-plan",
     tab: "Meal prep",
-    title: "Meal prep: Plan",
+    title: "Plan",
     about:
       "The second group opens on the tupper plan: days covered and tuppers in stock, tuppers a day (1 or 2), the next defrost, then the next 14 days with the tupper eaten each day (from the fridge or thawed) and the night to take each out of the freezer, the days with nothing folded into one row, and what to cook next with a button that puts it on the shopping list. On a wide screen the days are a two-week calendar beside the shopping list.",
-    go: (p) => p.click(".segmented button", "Meal prep"),
+    go: (p) => section(p, "prep"),
   },
   {
     id: "mealprep-stock",
     tab: "Meal prep",
-    title: "Meal prep: Stock",
+    title: "Stock",
     about:
       "Fridge, freezer and days covered as tiles, what needs doing (eat soon, defrosting), the next 14 days as a strip colored by batch (Plan › opens them day by day), then each batch with a bar of where its portions are and Eat / Freeze / Defrost for a chosen number. Eating writes the food log.",
     go: (p) => sub(p, "Stock"),
@@ -330,7 +336,7 @@ const SCREENS: Screen[] = [
   {
     id: "mealprep-recipes",
     tab: "Meal prep",
-    title: "Meal prep: Recipes",
+    title: "Recipes",
     about:
       "Recipes with what a portion holds, shelf life, tags and ingredients, and Edit, Cook (records a batch into Stock) and Duplicate. Set batches with the steppers and add every ingredient to the shopping list in one go; the result links on to the list or to Stock.",
     go: (p) => sub(p, "Recipes"),
@@ -338,36 +344,53 @@ const SCREENS: Screen[] = [
   {
     id: "mealprep-shopping",
     tab: "Meal prep",
-    title: "Meal prep: Shopping",
+    title: "Shopping",
     about:
       "The supermarket in the order it happens: the shopping list (add, tick off, share, Add from recipes), what was paid (supermarket, amount, day; saving clears the ticked items), then the month's spending against the month before, per supermarket, the last six months, and each shop with delete and undo.",
     go: (p) => sub(p, "Shopping"),
   },
   {
     id: "alcohol",
-    tab: "Alcohol",
-    title: "Alcohol",
+    tab: "Food and drinks",
+    title: "Drinks",
     about:
       "Log a drink first: favourites with how often each was had in 7 days and a +1, and a one-off drink for anything else (a phone opens its form, a wide screen keeps it beside). Then the period's drinks, kcal, money and weight without alcohol, and the drinks logged, each with a pencil to change it and a bin. On a wide screen the favourites sit beside the list; on a phone Favourites › opens them.",
-    go: (p) => tab(p, "Alcohol"),
+    go: async (p) => {
+      await section(p, "food");
+      await sub(p, "Drinks");
+    },
   },
   {
     id: "alcohol-favourites",
-    tab: "Alcohol",
-    title: "Alcohol: Favourites",
+    tab: "Food and drinks",
+    title: "Drinks: Favourites",
     about: "The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.",
-    go: (p) => p.click("button", "Favourites ›"),
+    go: (p) => p.click("button", "Manage ›"),
+  },
+  {
+    id: "add",
+    tab: "Today",
+    title: "Add",
+    about:
+      "The ink green button in the middle of the tab bar: a sheet with the places to log food, a drink, a check-in or a weight, and Tell Coach while Coach is on. Escape, the scrim or a choice closes it.",
+    go: async (p) => {
+      await section(p, "today");
+      await p.click(".tabbar-add");
+    },
   },
   {
     id: "settings-menu",
-    tab: "Settings",
-    title: "Menu",
+    tab: "You",
+    title: "You: Menu",
     about: "Every page in three groups, each row saying what is inside; the Profile row shows the profile picture. Tapping Settings again comes back here.",
-    go: (p) => tab(p, "Settings"),
+    go: async (p) => {
+      await p.click(".sheet-scrim");
+      await section(p, "you");
+    },
   },
   {
     id: "settings-profile",
-    tab: "Settings",
+    tab: "You",
     title: "Profile",
     about:
       "Google account, the profile picture (chosen from the phone), the owner's profile and the estimates it allows (BMI, BMR, daily energy, calorie and protein targets).",
@@ -375,7 +398,7 @@ const SCREENS: Screen[] = [
   },
   {
     id: "settings-connections",
-    tab: "Settings",
+    tab: "You",
     title: "Connections",
     about:
       "One card per connection, the Garmin sync built like the Claude one: how to get a key, then Connect (checked with Garmin before it is saved), or once connected the key, last sync and Disconnect; the 3-day reminder switch, Garmin history (import the export ZIP on the phone, what was imported per kind), and Claude: API key (the Chat tab) or Claude connector (Claude's own apps on the Claude plan; the Chat tab is hidden), here on the API key. How-tos fold away.",
@@ -383,15 +406,15 @@ const SCREENS: Screen[] = [
   },
   {
     id: "settings-privacy",
-    tab: "Settings",
+    tab: "You",
     title: "Privacy & data",
     about:
       "What Claude may see as four switches, what was sent (the last 5), what is stored on the phone (empty kinds in one line), and the encrypted backup with its age, then restore. Password fields have Show and Clear buttons.",
-    go: (p) => settings(p, "Privacy & data"),
+    go: (p) => settings(p, "Privacy and data"),
   },
   {
     id: "settings-about",
-    tab: "Settings",
+    tab: "You",
     title: "About",
     about: "The Even logo and name, app version, build, platform, database schema and chat model.",
     go: (p) => settings(p, "About"),
@@ -404,7 +427,7 @@ const SCREENS: Screen[] = [
     about:
       "The five sections in a side menu. On a phone held upright it is out of sight: the menu button at the top of each tab slides it in over the page, and a choice, a tap outside or Escape closes it.",
     go: async (p) => {
-      await tab(p, "Dashboard");
+      await section(p, "today");
       await p.click(".menu-button");
     },
   },
@@ -412,12 +435,12 @@ const SCREENS: Screen[] = [
     id: "wide-dashboard-day",
     tab: "Web app",
     web: true,
-    title: "Dashboard on a computer",
+    title: "Today on a computer",
     about:
       "From 48rem wide the menu stays docked on the left, with its labels from 75rem; the button at its top narrows it to icons and back, and the choice is kept. The Dashboard sets the period controls in one row and its sections in two columns.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await tab(p, "Dashboard");
+      await section(p, "today");
       await p.click(".segmented button", "Day");
     },
   },
@@ -436,11 +459,11 @@ const SCREENS: Screen[] = [
     id: "wide-chat",
     tab: "Web app",
     web: true,
-    title: "Chat on a computer",
+    title: "Coach on a computer",
     about: "The conversations on the left, the chat in the middle, and on the right today's numbers, what Claude may see and the last send.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await tab(p, "Chat");
+      await section(p, "coach");
     },
   },
   {
@@ -452,8 +475,7 @@ const SCREENS: Screen[] = [
       "The four tiles in a row, the next 14 days as a two-week calendar (the days with nothing spread over their columns), Cook next beside the shopping list.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await tab(p, "Meal prep");
-      await p.click(".segmented button", "Meal prep");
+      await section(p, "prep");
       await sub(p, "Plan");
     },
   },
@@ -476,7 +498,7 @@ const SCREENS: Screen[] = [
     about: "Saved meals two to a row and the meals eaten most this month, with the form for a new saved meal beside them.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await p.click(".segmented button", "Food log");
+      await section(p, "food");
       await sub(p, "Saved meals");
     },
   },
@@ -484,22 +506,23 @@ const SCREENS: Screen[] = [
     id: "wide-alcohol",
     tab: "Web app",
     web: true,
-    title: "Alcohol on a computer",
+    title: "Drinks on a computer",
     about: "Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await tab(p, "Alcohol");
+      await section(p, "food");
+      await sub(p, "Drinks");
     },
   },
   {
     id: "wide-settings",
     tab: "Web app",
     web: true,
-    title: "Settings on a computer",
+    title: "You on a computer",
     about: "The menu stays on the left with where each page stands; beside it every page at a glance until one is picked.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
-      await tab(p, "Settings");
+      await section(p, "you");
     },
   },
   {
@@ -517,12 +540,12 @@ const SCREENS: Screen[] = [
     id: "tablet-dashboard",
     tab: "Web app",
     web: true,
-    title: "Dashboard on a tablet",
+    title: "Today on a tablet",
     about:
       "Between 48rem and 75rem the docked menu shows icons only (the labels stay for screen readers and show on hover); from 60rem the Dashboard has two columns.",
     viewport: { width: 1024, height: 768, mobile: true },
     go: async (p) => {
-      await tab(p, "Dashboard");
+      await section(p, "today");
       await p.click(".segmented button", "Day");
     },
   },
@@ -534,7 +557,7 @@ const SCREENS: Screen[] = [
     about: "A phone turned on its side is wide enough for the docked menu as icons; the Dashboard stays in one column.",
     viewport: { width: 844, height: 390, mobile: true },
     go: async (p) => {
-      await tab(p, "Dashboard");
+      await section(p, "today");
     },
   },
 ];

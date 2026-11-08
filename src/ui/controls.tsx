@@ -63,27 +63,48 @@ export function RangePicker({
   return <ChipGroup options={options.map((o) => ({ id: o.days, label: o.label }))} value={value} onChange={onChange} label={label} />;
 }
 
-/** − n + for small counts (portions). Buttons are 44px targets; the number is announced on change. */
+/**
+ * − n + for counts (portions) and, with a step and a format, for amounts (height, weight, a
+ * daily target). Buttons are 44px targets; the value is announced on change.
+ */
 export function Stepper({
   value,
   onChange,
   min = 0,
   max = 99,
+  step = 1,
+  format = String,
   label,
 }: {
   value: number;
   onChange: (n: number) => void;
   min?: number;
   max?: number;
+  step?: number;
+  format?: (n: number) => string;
   label: string;
 }) {
+  // Rounded to the step's decimals, so 0.1 steps never show 82.30000000000001.
+  const round = (n: number) => Number(n.toFixed(6));
   return (
     <div className="stepper" role="group" aria-label={label}>
-      <button type="button" className="secondary" aria-label={`Fewer: ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>
+      <button
+        type="button"
+        className="secondary"
+        aria-label={`Fewer: ${label}`}
+        disabled={value <= min}
+        onClick={() => onChange(round(Math.max(min, value - step)))}
+      >
         −
       </button>
-      <output aria-live="polite">{value}</output>
-      <button type="button" className="secondary" aria-label={`More: ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
+      <output aria-live="polite">{format(value)}</output>
+      <button
+        type="button"
+        className="secondary"
+        aria-label={`More: ${label}`}
+        disabled={value >= max}
+        onClick={() => onChange(round(Math.min(max, value + step)))}
+      >
         +
       </button>
     </div>
@@ -227,6 +248,79 @@ export function SecretInput({
           <Icon name={shown ? "eyeOff" : "eye"} size={18} />
         </button>
       </span>
+    </span>
+  );
+}
+
+/**
+ * The head of a connection card (handoff 0.7, You > Connections): the name, a dot and a word for its
+ * state, one line on what it brings, and the one action that matters now on the right.
+ */
+export function ConnHead({ name, status, tone, note, action }: { name: string; status: string; tone: Status; note: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="conn-head">
+      <span className="grow">
+        <h2>{name}</h2>
+        <span className="conn-status">
+          <span className={`conn-dot ${tone}`} aria-hidden />
+          {status}
+        </span>
+        <span className="muted small">{note}</span>
+      </span>
+      {action}
+    </div>
+  );
+}
+
+/** The currency's symbol on its own ("€", "$"), from the same formatter the amounts use. */
+function currencySymbol(currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
+/**
+ * An amount of money typed as a number (the owner's choice over a stepper, 8 Nov 2026): the
+ * currency's symbol beside it, a comma or a point for decimals, the number keypad on a phone.
+ * What is typed stays as typed while the field has focus; an empty field is 0.
+ */
+export function MoneyInput({
+  value,
+  onChange,
+  currency,
+  label,
+  id,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  currency: string;
+  label: string;
+  id: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <span className="money-input">
+      <span className="money-symbol" aria-hidden>
+        {currencySymbol(currency)}
+      </span>
+      <input
+        id={id}
+        aria-label={label}
+        inputMode="decimal"
+        autoComplete="off"
+        value={text ?? (value ? String(Number(value.toFixed(2))) : "")}
+        placeholder="0"
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const t = e.target.value.replace(/[^\d.,]/g, "");
+          setText(t);
+          const n = Number(t.replace(",", "."));
+          if (Number.isFinite(n)) onChange(Math.min(100_000, Math.max(0, n)));
+        }}
+        onBlur={() => setText(null)}
+      />
     </span>
   );
 }

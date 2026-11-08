@@ -3,7 +3,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  /* Stated, not left to the browser: a page that hosts the app (the demo artifact) sets 14px on body. */
+  font-size: 1rem;
+  line-height: normal;
 }
 .shell {
   --gutter: 16px;
@@ -450,18 +453,6 @@ ul.saved-list {
   width: 3.25rem;
 }
 
-pre.logs {
-  font-size: 0.75rem;
-  line-height: 1.35;
-  max-height: 22rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem;
-  margin: 0;
-}
 .sync-button {
   display: inline-flex;
   align-items: center;
@@ -598,7 +589,7 @@ fieldset .chips {
   align-items: center;
   justify-content: center;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
+  color: var(--area-deep);
   font-weight: 600;
 }
 .avatar-pick {
@@ -712,11 +703,6 @@ button.link.accent {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
-}
-.period-nav > button {
-  width: 44px;
-  padding: 0;
-  font-size: 1.3rem;
 }
 details.card > summary {
   cursor: pointer;
@@ -1143,9 +1129,6 @@ button:active:not(:disabled) {
   margin: 0.6rem 0 0;
   text-align: center;
 }
-.period-nav .icon-button {
-  font-size: 1.3rem;
-}
 
 /* Settings menu: grouped rows that open a page */
 .menu-group {
@@ -1224,7 +1207,7 @@ button:active:not(:disabled) {
 .tabs.sub button.active {
   background: var(--accent-soft);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--area-deep);
   font-weight: 600;
 }
 
@@ -2239,4 +2222,2395 @@ dl.overview-lines dd {
 .chat-list .link.current {
   color: var(--accent);
   font-weight: 600;
+}
+
+/*
+ * Start-up (screens/start): Loading on the ink green of the menu, with a spinning ring, a counter
+ * and a bar that follow the real steps; first run (Connect, About you, Targets) on the page.
+ */
+@property --ev-n {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+.loading-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: calc(2rem + var(--safe-top)) 1rem calc(2rem + var(--safe-bottom));
+  background: var(--nav-ink);
+  color: var(--on-nav);
+  text-align: center;
+}
+.loading-page .topbar {
+  position: static;
+  background: none;
+  justify-content: center;
+}
+.loading-page .topbar h1 {
+  color: var(--on-nav);
+}
+.loading-page .topbar .muted {
+  color: var(--on-nav-muted);
+}
+.loading-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+}
+.loading-mark .logo {
+  position: absolute;
+}
+.loading-ring circle {
+  fill: none;
+  stroke: var(--nav-active);
+  stroke-width: 6;
+}
+.loading-ring .spin {
+  stroke: var(--on-nav);
+  stroke-linecap: round;
+  stroke-dasharray: 70 200;
+  transform-origin: 50% 50%;
+  animation: loading-spin 1.6s linear infinite;
+}
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.loading-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(20rem, 100%);
+  margin-top: 0.5rem;
+}
+.loading-count {
+  counter-reset: evn var(--ev-n);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.75rem;
+  font-weight: 700;
+  transition: --ev-n 0.6s var(--ease);
+}
+.loading-count::after {
+  content: counter(evn) "%";
+}
+.loading-bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--nav-active);
+  overflow: hidden;
+}
+.loading-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--area-today);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease);
+}
+.loading-steps {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+.loading-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--on-nav-muted);
+}
+.loading-steps li.done {
+  color: var(--on-nav);
+}
+.loading-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--nav-active);
+  box-sizing: border-box;
+}
+.loading-steps li.done .loading-check {
+  border-color: var(--area-today);
+  background: var(--area-today);
+}
+.loading-error {
+  max-width: 36rem;
+  text-align: left;
+  color: var(--fg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-ring .spin {
+    animation: none;
+  }
+  .loading-count,
+  .loading-bar > span {
+    transition: none;
+  }
+}
+
+.start-page {
+  max-width: 44rem;
+}
+.start-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 0.5rem 0 1rem;
+}
+.start-head .topbar {
+  flex: 1 1 18rem;
+  position: static;
+  background: none;
+}
+.start-steps {
+  list-style: none;
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.start-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.start-steps li span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.start-steps li.on {
+  color: var(--accent);
+  font-weight: 700;
+}
+.start-steps li.on span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.start-bars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.start-bars span {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+}
+.start-bars span.on {
+  background: var(--accent);
+}
+.start-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.start-row .segmented {
+  margin: 0;
+}
+.start-rules ul,
+.start-done ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0 2rem;
+}
+
+/* Today's pinned charts (dashboard/PinnedCharts.tsx): one column on a phone, two or three on a wide screen. */
+.pinned-charts {
+  margin-top: 1rem;
+}
+.pinned-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pinned-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+.pinned-empty {
+  padding: 1rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+}
+.pin-button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+}
+.pin-button.on {
+  background: var(--accent-soft);
+  border-color: var(--area-line, var(--line));
+  color: var(--accent);
+}
+.pin-button.on .icon {
+  fill: currentColor;
+}
+
+/* Debug logs (logs/LogsScreen.tsx): by day, one row per record that opens to its fields. */
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.log-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+.log-day-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.log-rows {
+  padding: 0 0.75rem;
+}
+.log-row + .log-row {
+  border-top: 1px solid var(--line);
+}
+.log-row-head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-height: 56px;
+  padding: 0.6rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.log-row-head[aria-expanded="true"] .icon {
+  transform: rotate(90deg);
+}
+.log-time {
+  flex: none;
+  width: 5.5rem;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.log-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.log-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.log-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.log-tag.warn {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.log-tag.error {
+  background: color-mix(in srgb, var(--error) 14%, var(--bg));
+  color: var(--error);
+}
+.log-detail {
+  margin: 0 0 0.75rem 6.25rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--area-wash, var(--bg));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.log-detail dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.log-detail dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.log-detail dt {
+  color: var(--muted);
+}
+.log-detail dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 30rem) {
+  .log-detail {
+    margin-left: 0;
+  }
+}
+/* Admin's status row (handoff 0.7, Admin): four tiles, two on a phone. */
+.admin-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 45%), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Handoff 0.7: cards with a hairline of the section's colour and a soft lift; Today's pieces. */
+:is(.card, .viz-tile, figure.viz) {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--area-line, var(--line)),
+    var(--lift);
+}
+.card,
+figure.viz {
+  padding: 1rem 1.1rem;
+}
+button {
+  min-height: 48px;
+}
+.chip.active {
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
+  color: var(--area-deep, var(--accent));
+}
+.segmented {
+  border-radius: var(--radius-pill);
+}
+.segmented button {
+  border-radius: var(--radius-pill);
+}
+.today-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.25rem 0 1rem;
+}
+.today-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.today-title h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--area-deep, var(--fg));
+}
+.today-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+.today-controls .segmented {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+  margin: 0;
+}
+.today-controls .period-nav {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+.sync-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: var(--shadow);
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+}
+.sync-pill.stale .sync-dot {
+  background: var(--warning);
+}
+.sync-pill.off .sync-dot {
+  background: var(--line);
+}
+.quick-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.quick-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem 0.35rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1.5px var(--area-line, var(--line)),
+    var(--lift);
+}
+.quick-add-bar input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--fg);
+}
+.quick-add-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.today-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.today-grid > * {
+  margin: 0;
+}
+.today-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.balance-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+.balance-side {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.balance-line {
+  margin: 0;
+  font-weight: 500;
+  text-align: center;
+}
+.balance-ring circle {
+  fill: none;
+  stroke-width: 14;
+}
+.balance-ring .track {
+  stroke: var(--accent-soft);
+}
+.balance-ring .fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.balance-ring.over .fill {
+  stroke: var(--warning);
+}
+.balance-ring .big {
+  font-size: 38px;
+  font-weight: 700;
+  fill: var(--fg);
+}
+.balance-ring .small {
+  font-size: 13px;
+  fill: var(--muted);
+}
+.macro-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.macro-bar {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr) 6rem;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+.macro-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--viz-grid);
+  overflow: hidden;
+}
+.macro-track > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+.macro-num {
+  text-align: right;
+  font-weight: 600;
+}
+.today-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.today-tiles.four {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 45%), 1fr));
+}
+.next-up {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.next-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.next-pill {
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep, var(--accent));
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.next-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.next-name {
+  font-size: 1.25rem;
+}
+.next-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.next-done {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.next-check {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.so-far-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.35rem;
+}
+.so-far-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.so-far-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 56px;
+  padding: 0.35rem 0;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.so-far-row .accent {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.so-far-num {
+  font-weight: 600;
+}
+.noticed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.noticed h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.noticed p {
+  margin: 0;
+}
+.period-pick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.period-pick strong {
+  grid-column: 1 / -1;
+  color: var(--fg);
+}
+.period-pick b {
+  display: block;
+  color: var(--fg);
+  font-size: 1rem;
+}
+@media (min-width: 60rem) {
+  .today-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .balance-card {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+  .balance-line {
+    text-align: left;
+  }
+}
+
+/* Food and drinks, the log (food/DayView.tsx): what is left, the meals, and beside them meal prep and Eat again. */
+.left-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.left-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.left-big {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.left-big .muted {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.day-meals .group-head {
+  margin-top: 0;
+}
+.day-meals h2 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.suggest.column {
+  flex-direction: column;
+  align-items: stretch;
+}
+.suggest.column .suggestion {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.eat-again h3 {
+  margin: 1rem 0 0.5rem;
+}
+
+/* Activity's week (me/ActivityWeek.tsx): tiles, then steps and last night's sleep side by side on a wide screen. */
+.activity-week {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.activity-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+/* Tiles share the row, however many there are. */
+.me-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 45%), 1fr));
+  gap: 0.75rem;
+}
+.activity-pair > * {
+  margin: 0;
+}
+.sleep-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+.sleep-big {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+/* Today's header on a phone: the greeting wraps rather than being cut, and the sync pill stays compact. */
+.today .topbar h1 {
+  white-space: normal;
+  overflow: visible;
+  font-size: 1.3rem;
+  color: var(--area-deep, var(--fg));
+}
+.today .topbar .sync-pill {
+  max-width: 9.5rem;
+  text-align: left;
+  line-height: 1.2;
+}
+
+/*
+ * Motion from the handoff boards (ev-motion): a section's cards rise in one after another, bars
+ * grow from the baseline, lines draw, a status pops, buttons give under the finger, switches
+ * slide with a little overshoot, and the quick add's box gets a turning ring of the app's
+ * colours while it has focus. All of it off under prefers-reduced-motion.
+ */
+@property --ev-a {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes ev-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes ev-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+@keyframes ev-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes ev-draw {
+  from {
+    stroke-dashoffset: 1400;
+  }
+}
+@keyframes ev-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ev-ride {
+  to {
+    --ev-a: 360deg;
+  }
+}
+button,
+.chip,
+input[type="checkbox"].switch {
+  transition:
+    transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1),
+    background-color 0.22s,
+    box-shadow 0.25s,
+    filter 0.2s,
+    border-color 0.2s;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .screen > section > *,
+  .today-grid > *,
+  .today-stack > *,
+  .pinned-grid > * {
+    animation: ev-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .screen > section > *:nth-child(2),
+  .today-grid > *:nth-child(2),
+  .pinned-grid > *:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+  .screen > section > *:nth-child(3),
+  .today-grid > *:nth-child(3),
+  .pinned-grid > *:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  .screen > section > *:nth-child(4),
+  .today-grid > *:nth-child(4),
+  .pinned-grid > *:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+  .screen > section > *:nth-child(5),
+  .today-grid > *:nth-child(5) {
+    animation-delay: 0.26s;
+  }
+  .screen > section > *:nth-child(n + 6),
+  .today-grid > *:nth-child(n + 6) {
+    animation-delay: 0.32s;
+  }
+  [role="status"] {
+    animation: ev-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .viz-plot path.viz-bar,
+  .viz-plot path[class^="viz-bar"] {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: ev-grow 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .viz-plot .viz-line {
+    stroke-dasharray: 1400;
+    animation: ev-draw 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.15s backwards;
+  }
+  .viz-plot .viz-area {
+    animation: ev-fade 0.9s ease-out 0.4s backwards;
+  }
+  .balance-ring .fill {
+    animation: ev-fade 0.6s ease-out backwards;
+  }
+  .macro-track > span {
+    transform-origin: left;
+    animation: ev-grow-x 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s backwards;
+  }
+  .add-ask:focus-within {
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      conic-gradient(from var(--ev-a), var(--area-today), var(--area-activity), var(--area-coach), var(--area-today)) border-box;
+    border: 1.5px solid transparent;
+    animation: ev-ride 3s linear infinite;
+  }
+}
+@keyframes ev-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Drinks (alcohol/AlcoholView.tsx, AddDrink.tsx): the week, then favourites as full rows and the add panel. */
+.drinks-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.drinks-top > * {
+  margin: 0;
+}
+.drinks-week {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.drinks-week-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.drinks-week-big {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.drinks-week-big .muted {
+  font-size: 1rem;
+  font-weight: 500;
+}
+.drinks-week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  text-align: center;
+}
+.drinks-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.drinks-week-day .dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--area-line, var(--line));
+  box-sizing: border-box;
+}
+.drinks-week-day .dot.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.drinks-week-day .dot.many {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+.drink-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+.drink-favs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.drink-favs .section-head {
+  margin: 0;
+}
+.drink-favs h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.drink-fav-list {
+  display: flex;
+  flex-direction: column;
+}
+.drink-fav {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 60px;
+  padding: 0.5rem 0;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-weight: 400;
+}
+.drink-fav:first-child {
+  border-top: none;
+}
+.drink-fav .drink-plus {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.drink-another {
+  align-self: flex-start;
+}
+.drink-added {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.add-drink {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow:
+    0 0 0 1.5px var(--accent),
+    var(--lift);
+}
+.add-drink-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.add-drink-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.add-drink-steppers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.75rem;
+}
+.stepper-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.add-drink-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+.drinks-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.drinks-col > * {
+  margin: 0;
+}
+@media (min-width: 60rem) {
+  .drinks-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+}
+
+/* Quick add (add/QuickAdd.tsx): the box, examples from your data, what it understood, and done with Undo. */
+.quick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.add-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem 0.35rem 1rem;
+  border: 1.5px solid var(--area-line, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--lift);
+  color: var(--muted);
+}
+.add-ask input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+  color: var(--fg);
+  min-height: 44px;
+}
+.add-ask button {
+  min-height: 40px;
+}
+.quick-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.quick-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+}
+.quick-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.quick-preview-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.quick-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 52px;
+  border-top: 1px solid var(--line);
+}
+.quick-num {
+  font-weight: 600;
+}
+.quick-unknown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--area-wash, var(--bg));
+}
+.quick-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+.quick-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.add-more {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1rem;
+}
+.quick.compact .quick-preview {
+  max-width: 44rem;
+}
+.theme-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.theme-pick .segmented {
+  margin: 0;
+  min-width: 16rem;
+}
+
+/* Meal prep, Plan (mealprep/PlanView.tsx): Tonight, the day strip, the chosen day and Cook next. */
+.plan-status {
+  margin: 0 0 0.75rem;
+}
+.plan-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+.plan-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.plan-col > * {
+  margin: 0;
+}
+.plan-tonight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1.5px var(--area-line, var(--line));
+}
+.plan-tonight.done {
+  background: color-mix(in srgb, var(--good) 10%, var(--surface));
+}
+.plan-tonight-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.plan-days-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.plan-days-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.plan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.plan-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.day-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 72px;
+  padding: 0.4rem 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-weight: 500;
+}
+.day-pick strong {
+  font-size: 1.05rem;
+}
+.day-pick.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+.day-dots {
+  display: flex;
+  gap: 3px;
+  min-height: 8px;
+}
+.day-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.day-dot.none {
+  border: 1.5px solid var(--line);
+  box-sizing: border-box;
+}
+.plan-days-card .plan-per-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.plan-days-card .plan-per-day .chips {
+  margin: 0;
+}
+.plan-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow:
+    0 0 0 1.5px var(--area-line, var(--line)),
+    var(--lift);
+}
+.plan-selected-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.plan-selected-meal {
+  display: flex;
+  flex-direction: column;
+}
+.plan-cook-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.plan-cook-card p {
+  margin: 0 0 0.75rem;
+}
+@media (min-width: 60rem) {
+  .plan-board {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* Meal prep, Stock and Shopping: a batch card with a dot per portion; the basket's progress. */
+.batch-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.batch-name {
+  font-size: 1.1rem;
+}
+.batch-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.portion-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0.6rem 0;
+}
+.portion-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.portion-dot.fridge {
+  background: var(--accent);
+}
+.portion-dot.freezer {
+  border: 2.5px solid var(--area-activity);
+}
+.portion-dot.gone {
+  background: var(--viz-grid);
+}
+.portion-legend {
+  margin-left: 0.4rem;
+}
+.basket {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.basket-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--viz-grid);
+  overflow: hidden;
+}
+.basket-track > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 0.4s var(--ease);
+}
+/* In a column (Food's log beside the meals), each suggestion is a full-width row, no empty space beside it. */
+.suggest.column .suggestion {
+  max-width: none;
+  min-height: 56px;
+}
+
+/* Today, as the board (V2Today, V2MobToday): header, the Period pill, two columns of cards, Coach noticed, and Coach beside it. */
+.today.with-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+.today-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.today-main > * {
+  margin: 0;
+}
+.today-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+}
+.today-head > .narrow-only {
+  flex: none;
+}
+.today-title {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.today-title h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--area-deep, var(--fg));
+}
+.today-date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+.date-step {
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.date-step:disabled {
+  opacity: 0.3;
+}
+.today-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.today .segmented {
+  display: inline-grid;
+  margin: 0;
+  background: var(--surface);
+  box-shadow: var(--lift);
+}
+.today .segmented button {
+  min-width: 84px;
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+.today-period .segmented {
+  display: grid;
+  width: 100%;
+}
+.rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--area-coach-line);
+  background: var(--surface);
+  color: var(--area-coach);
+  font-size: 0.9rem;
+}
+.rail-toggle.on {
+  background: var(--area-coach-soft);
+}
+/* One column on a phone, two from a wide screen: the board's pairs (balance with Next up, the day so far with steps) stay side by side, never three across with one left alone below. */
+.today-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 60rem) {
+  .today-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.today-grid .card,
+.today-grid figure.viz {
+  border-radius: 24px;
+  padding: 1.25rem 1.4rem;
+}
+.balance-card {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.balance-side {
+  flex: 1 1 200px;
+}
+.today-stack .next-up {
+  flex: 1;
+  justify-content: space-between;
+}
+.today-tiles .viz-tile {
+  border-radius: 18px;
+}
+.noticed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 1.1rem 1.4rem;
+  border-radius: 24px;
+  background: var(--area-coach-soft);
+  color: var(--area-coach-deep);
+}
+.noticed .grow {
+  flex: 1 1 22rem;
+}
+.noticed h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: var(--area-coach-deep);
+}
+.noticed p {
+  margin: 0;
+  font-weight: 500;
+}
+.noticed-go {
+  min-height: 46px;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--area-coach);
+}
+.coach-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.5rem 1.25rem;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--area-coach-line),
+    var(--lift);
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  box-sizing: border-box;
+}
+.coach-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.coach-rail-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.coach-bubble {
+  padding: 0.75rem 0.9rem;
+  border-radius: 18px 18px 18px 6px;
+  background: var(--bg);
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
+.coach-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.coach-question {
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 0 1rem;
+  border: 1px solid var(--area-coach-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--area-coach);
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.coach-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.coach-ask input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 1rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.coach-ask button {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--area-today);
+  border-color: var(--area-today);
+}
+@media (min-width: 75rem) {
+  .today.with-rail {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+  .app-frame .shell.wide:has(.today.with-rail) {
+    max-width: 92rem;
+  }
+}
+@media (min-width: 64rem) {
+  .today-head {
+    flex-wrap: nowrap;
+  }
+  .today-title {
+    flex: 1 1 auto;
+  }
+  .coach-rail {
+    min-height: calc(100vh - 3rem);
+  }
+}
+.balance-card .balance-ring {
+  width: 168px;
+  height: 168px;
+}
+.balance-side {
+  flex: 1 1 180px;
+}
+.today-tiles .viz-tile-value strong {
+  font-size: 1.35rem;
+  white-space: nowrap;
+}
+.today-title h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-sync {
+  margin-left: 0.5rem;
+}
+.today-sync .sync-pill {
+  min-height: 28px;
+  padding: 0.15rem 0.6rem;
+  box-shadow: none;
+  background: transparent;
+}
+.today-tools {
+  flex-wrap: nowrap;
+}
+@media (min-width: 64rem) {
+  .balance-card .balance-ring {
+    width: 150px;
+    height: 150px;
+  }
+  .balance-side {
+    flex-basis: 160px;
+  }
+}
+.rail-toggle {
+  white-space: nowrap;
+}
+/* Today's header is the shared PageHeader, laid out as the board's: title and date left, the period and Coach right. */
+.today .topbar {
+  position: static;
+  background: none;
+  backdrop-filter: none;
+  margin: 0;
+  padding: 0;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.today .topbar h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--area-deep, var(--fg));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today .topbar-title > .muted.small {
+  font-size: 0.9rem;
+}
+@media (min-width: 64rem) {
+  .today .topbar {
+    flex-wrap: nowrap;
+  }
+}
+/* Today's header on a phone (V2MobToday): picture, greeting and date, the sync pill on the right; the day arrows stay for a wide screen. */
+@media (max-width: 63.99rem) {
+  .today .topbar {
+    flex-wrap: nowrap;
+  }
+  .today .topbar h1 {
+    font-size: 1.3rem;
+    white-space: normal;
+  }
+  .today .date-step {
+    display: none;
+  }
+  .today .today-date {
+    font-size: 0.8rem;
+  }
+}
+body:not(:has(.app-frame)) .today .topbar {
+  flex-wrap: nowrap;
+}
+body:not(:has(.app-frame)) .today .topbar h1 {
+  font-size: 1.3rem;
+  white-space: normal;
+}
+body:not(:has(.app-frame)) .today .date-step {
+  display: none;
+}
+
+/* Coach (chat/ChatScreen.tsx), as the board: New chat over Recent, the open chat's title, a start card, and what Claude can see. */
+.chat-new {
+  width: 100%;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+.chat-list li {
+  align-items: center;
+}
+.chat-list .link.current {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+}
+.chat-delete {
+  opacity: 0.55;
+}
+.chat-delete:hover {
+  opacity: 1;
+  color: var(--error);
+}
+h2.chat-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  color: var(--area-deep, var(--fg));
+}
+.coach-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 34rem;
+  margin: 2rem auto;
+  padding: 2rem 1.5rem;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--area-line, var(--line)),
+    var(--lift);
+  text-align: center;
+}
+.coach-start-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.coach-start h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--area-deep, var(--fg));
+}
+.coach-start p {
+  margin: 0;
+}
+.coach-start .chat-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.coach-start .chat-prompts button {
+  min-height: 44px;
+  border-radius: var(--radius-pill);
+  border-color: var(--area-line, var(--line));
+  color: var(--accent);
+}
+.share-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.share-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--accent);
+}
+.share-head h3 {
+  margin: 0;
+  color: var(--fg);
+}
+.chat-new {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Journal's check-in (journal/JournalScreen.tsx), as the board: how the day is, and the note, side by side on a wide screen. */
+.checkin-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.checkin-board > .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.checkin-board h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.checkin-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.checkin-scale .chips {
+  margin: 0;
+}
+.checkin-note textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+body[data-area="journal"] .screen > section > .segmented {
+  max-width: 24rem;
+}
+
+/* You > Targets (me/TargetsPage.tsx): a row per target with − and +. */
+.targets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.targets-page > * {
+  margin: 0;
+}
+.targets-card {
+  display: flex;
+  flex-direction: column;
+}
+.target-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 64px;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--line);
+}
+.target-row:first-child {
+  border-top: none;
+}
+.target-row .stepper output {
+  min-width: 6.5rem;
+  text-align: center;
+  font-weight: 700;
+}
+.targets-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--area-coach-soft);
+}
+.targets-more {
+  margin-top: 0.75rem;
+}
+
+/* You > Profile, Height and weight (settings/BodyUnits.tsx). */
+.body-units {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.body-units h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.body-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.body-row .segmented {
+  margin: 0;
+  min-width: 10rem;
+}
+
+/* Privacy and data: what was sent, in the board's tinted box. */
+.sent-box {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  background: var(--area-wash);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+}
+.sent-box li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.15rem 0.75rem;
+}
+
+/* On the page's tinted wash the area colour itself falls under 4.5:1 for small text (paprika is
+   4.2), so links there take the area's deep shade; on a white card the area colour stays. */
+button.link.accent {
+  color: var(--area-deep);
+}
+.card button.link.accent,
+.sidenav button.link.accent {
+  color: var(--accent);
+}
+
+/*
+ * Today's header, after the owner's review (8 Nov 2026): the greeting in the text colour at a
+ * calmer size, never clipped; ‹ date › as real buttons on every screen, so days, weeks and months
+ * can be stepped on a phone too; the sync symbol beside the period.
+ */
+.today .topbar h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  white-space: normal;
+  overflow: visible;
+  text-wrap: balance;
+}
+.today .today-date {
+  gap: 0.15rem;
+  margin-top: 0.15rem;
+}
+.today .date-step,
+body:not(:has(.app-frame)) .today .date-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+}
+.today .date-step:disabled {
+  opacity: 0.35;
+}
+.today-date-text {
+  padding: 0 0.35rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 63.99rem) {
+  .today .topbar h1 {
+    font-size: 1.25rem;
+  }
+  .today .date-step {
+    display: inline-flex;
+  }
+  .today-date-text {
+    font-size: 0.82rem;
+  }
+}
+
+/* ‹ date › stay on one row however narrow the header gets: the date gives way, not the arrows. */
+.date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.date-nav .date-step {
+  flex: none;
+}
+.today-date-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.today .topbar-title {
+  min-width: 0;
+}
+@media (max-width: 30rem) {
+  .today .topbar h1 {
+    font-size: 1.15rem;
+  }
+}
+
+/* Back to the current day or period: a small pill at the end of the date row, not a line of its own. */
+.date-today {
+  flex: none;
+  min-height: 32px;
+  margin-left: 0.35rem;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Today's two columns: on a phone the wrappers vanish and the cards keep the board's order. */
+.today-col {
+  display: contents;
+}
+.today-col > * {
+  margin: 0;
+}
+@media (max-width: 59.99rem) {
+  .today-col.left > .so-far {
+    order: 3;
+  }
+  .today-col.right > .today-stack {
+    order: 2;
+  }
+  .today-col.left > .balance-card {
+    order: 1;
+  }
+  .today-col.right > :not(.today-stack) {
+    order: 4;
+  }
+}
+@media (min-width: 60rem) {
+  .today-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+}
+
+/* Wide Today with the Coach panel open: the greeting keeps its line and the tools move under it, rather than squeezing it. */
+@media (min-width: 60rem) {
+  .today .topbar,
+  body:not(:has(.app-frame)) .today .topbar {
+    flex-wrap: wrap;
+  }
+  .today .topbar-title {
+    flex: 1 1 18rem;
+  }
+}
+
+/* Drinks on a phone: one column in the board's order, the week, adding, then the period and figures. */
+@media (max-width: 59.99rem) {
+  .drinks-col {
+    display: contents;
+  }
+  .drinks-col.main > .drinks-week,
+  .drinks-col.main > :first-child {
+    order: 1;
+  }
+  .drinks-col.main > .drink-when {
+    order: 2;
+  }
+  .drinks-col.side > * {
+    order: 3;
+  }
+  .drinks-col.main > .drinks-period {
+    order: 4;
+  }
+}
+/* On a wide screen both columns end together: the week card takes what is left beside the favourites. */
+@media (min-width: 60rem) {
+  .drinks-top {
+    align-items: stretch;
+  }
+  .drinks-col.main > :first-child {
+    flex: 1;
+  }
+  .drinks-col.main > .drinks-week {
+    justify-content: space-between;
+  }
+}
+.drinks-period > * {
+  margin: 0;
+}
+.drinks-list {
+  margin-top: 0.5rem;
+}
+
+/* Journal's last 30 days: every card the same shape, rows as tall as their tallest card. */
+.note-row {
+  gap: 0.4rem;
+  height: 100%;
+  text-align: left;
+}
+.note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.note-chip {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep, var(--fg));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* The section's wash reaches the bottom of the window on a short page, not just the end of the content. */
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+/* Goal ideas fill their row, however many there are. */
+.goal-ideas {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+/* Week and month: the chart and the chosen day on the left; the averages two by two and the
+   check-ins on the right, ending with the left column. */
+.period-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.period-side > * {
+  margin: 0;
+}
+.period-days {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.period-days > * {
+  margin: 0;
+}
+.period-days .period-pick {
+  margin-top: 0;
+}
+@media (min-width: 60rem) {
+  .today-grid.period {
+    align-items: stretch;
+  }
+  .period-side .today-tiles.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .period-side .period-journal {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+}
+
+/* The date row on a narrow header: the full date between its arrows, the Today pill below if need be. */
+.date-nav {
+  flex-wrap: wrap;
+  row-gap: 0.35rem;
+}
+.date-steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: none;
+}
+.date-steps .today-date-text {
+  overflow: visible;
+  text-overflow: clip;
+}
+.date-nav .date-today {
+  margin-left: 0.25rem;
+}
+@media (max-width: 30rem) {
+  .today .date-step {
+    width: 32px;
+    min-height: 32px;
+  }
+  .today-date-text {
+    padding: 0 0.2rem;
+  }
+}
+
+/* The date row of its own on a phone: the full width, so ‹ date › and the way back share one line. */
+.today-datebar {
+  margin: 0.25rem 0 0.5rem;
+}
+.today-datebar .date-nav {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+.today-datebar .date-today {
+  margin-left: auto;
+}
+
+/* Drinks list rows as History's: the menu card's rows, the edit panel opening under its row. */
+.drink-row {
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  width: auto;
+  min-height: 0;
+  gap: 0.25rem;
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
+}
+.drink-row .grow {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+.drink-row .edit-panel {
+  flex-basis: 100%;
+}
+/* Today's date row on a phone sits close under the greeting and the period close under it. */
+.today-datebar {
+  margin: -0.75rem 0 -0.5rem;
+}
+
+/* The shared date row (ui/layout PeriodNav) looks the same on every page as on Today. */
+.period-nav.date-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.period-nav .date-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 1rem;
+}
+.period-nav .date-step:disabled {
+  opacity: 0.35;
+}
+.period-nav .today-date-text {
+  color: var(--fg);
+  font-weight: 600;
+}
+.today .period-nav,
+.today-datebar .period-nav {
+  margin: 0;
+}
+.today-datebar .period-nav {
+  flex-wrap: nowrap;
+}
+.today-datebar .period-nav .date-today {
+  margin-left: auto;
+}
+/* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
+.empty-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* The pill keeps its fill and size inside any card or frame (generic button rules are more specific). */
+.period-nav .date-today,
+.app-frame .period-nav .date-today {
+  min-height: 32px;
+  width: auto;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* The day's meals in the Food log: the day's title, then each meal's name close over its entries, an even rhythm down the card. */
+.day-meals > .group-head {
+  margin: 0 0 0.25rem;
+}
+.day-meals > .group-head h2 {
+  margin: 0;
+}
+.day-meals .group-head {
+  margin-top: 0.75rem;
+  align-items: baseline;
+}
+.day-meals .group-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.day-meals ul.entries li {
+  padding: 0.3rem 0 0.4rem;
+}
+.day-meals ul.entries li:last-child {
+  border-bottom: none;
+}
+.day-meals .entry-actions {
+  margin-top: 0;
+}
+.day-meals .entry-actions button.secondary,
+.day-meals .entry-actions .icon-button {
+  min-height: 32px;
+  height: 32px;
+}
+
+/* Activity's numbers from the watch: the title and its count on one line, the kinds and the card close under it. */
+.synced-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.synced-block > * {
+  margin: 0;
+}
+.synced-block .section-head {
+  align-items: baseline;
+}
+.synced-block .chip-group,
+.synced-block [role="radiogroup"],
+.synced-block [role="group"] {
+  margin: 0;
 }

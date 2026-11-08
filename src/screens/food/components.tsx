@@ -29,6 +29,8 @@ export function PhotoThumb({ db, id, size = 48 }: { db: SqlDriver; id: string | 
       live = false;
     };
   }, [db, id]);
+  // No photo: nothing, so a list without pictures has no empty boxes; one still loading keeps its place.
+  if (!id) return null;
   if (!url) return <div className="thumb empty" style={{ width: size, height: size }} aria-hidden />;
   return <img className="thumb" src={url} width={size} height={size} alt="" />;
 }

@@ -6,7 +6,7 @@ import { failed, MsgLine, plural, type Msg } from "../../ui/common";
 import { StatusBadge } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { PageHeader } from "../../ui/layout";
-import { ConsentLine, LastSent, TodayInEven } from "./ChatSide";
+import { ConsentLine, LastSent, ShareSwitches, TodayInEven } from "./ChatSide";
 import { downscalePhoto, photoInputUrl } from "../food/photo";
 import type { PhotoInput } from "../../domain/food/food";
 import type { SecretStore } from "../../domain/settings/secrets";
@@ -27,10 +27,12 @@ interface Props {
   version: number;
   /** After the assistant saved or undid something, so other tabs reload. */
   onChanged: () => void;
-  /** Settings > Connections, to connect Claude. */
+  /** You > Connections, to connect Claude. */
   onConnect: () => void;
-  /** Settings > Privacy & data: what Claude may see, and what was sent. */
+  /** You > Privacy and data: what Claude may see, and what was sent. */
   onPrivacy: () => void;
+  /** Text to start a new chat with (Today's quick add), put in the composer for the owner to send. */
+  draft?: string;
 }
 
 type Pending =
@@ -40,7 +42,7 @@ type Pending =
 const fetchImpl = deviceFetch({ connectTimeoutMs: 30_000, readTimeoutMs: 5 * 60_000 });
 
 const ERROR_TITLE: Record<string, string> = {
-  billing: "Out of API credits",
+  billing: "Coach is paused: no API credits left",
   auth: "API key not accepted",
   rate_limit: "Too many requests",
   overloaded: "Claude is busy",
@@ -52,21 +54,21 @@ const ERROR_TITLE: Record<string, string> = {
 const ACTION_BADGE = { applied: "good", declined: "info", failed: "critical", undone: "info" } as const;
 
 /**
- * The second tab: talk with Claude about your data. Text (typed or dictated), photos taken with
+ * Coach: talk with Claude about your data. Text (typed or dictated), photos taken with
  * the camera or picked from the gallery (meals to log, labels, recipes), and files (a lab report
  * PDF, a CSV export). Every kind of data needs the owner's
  * permission once, and every change the assistant wants to save is shown for confirmation, with
  * an undo afterwards. A wide screen keeps the history on the left and, on the right, today's
  * numbers, what Claude may see and what was sent last.
  */
-export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPrivacy }: Props) {
+export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPrivacy, draft }: Props) {
   const [deps, setDeps] = useState<ChatDeps | null | undefined>(undefined);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [showList, setShowList] = useState(false);
   const [current, setCurrent] = useState<string | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [actions, setActions] = useState<AgentAction[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft ?? "");
   const [photos, setPhotos] = useState<PhotoInput[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [canDictate, setCanDictate] = useState(false);
@@ -246,7 +248,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
   if (deps === null) {
     return (
       <section>
-        <PageHeader title="Chat" />
+        <PageHeader title="Coach" />
         <div className="card">
           <p>Connect Claude to ask about your data, log meals from a photo and plan your meal prep.</p>
           <p className="muted small">The chat uses your own Claude API key, kept in the phone's secure storage.</p>
@@ -267,13 +269,13 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
   return (
     <section className="chat-layout">
       <PageHeader
-        title="Chat"
+        title="Coach"
         actions={
           <>
             <button type="button" className="secondary small-button narrow-only" aria-expanded={showList} onClick={() => setShowList((s) => !s)}>
               History
             </button>
-            <button type="button" className="secondary small-button" disabled={busy} onClick={newChat}>
+            <button type="button" className="secondary small-button narrow-only" disabled={busy} onClick={newChat}>
               New
             </button>
           </>
@@ -281,7 +283,11 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       />
 
       <aside className={showList ? "chat-history" : "chat-history wide-only"} aria-label="Conversations">
-        <h2 className="eyebrow wide-only">History</h2>
+        <button type="button" className="chat-new wide-only" disabled={busy} onClick={newChat}>
+          <Icon name="plus" size={18} />
+          New chat
+        </button>
+        <h2 className="eyebrow">Recent</h2>
         <ul className="entries chat-list">
           {conversations.length === 0 && <li className="muted small">No conversations yet.</li>}
           {conversations.map((c) => (
@@ -301,7 +307,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
               </button>
               <button
                 type="button"
-                className="secondary danger small-button"
+                className="icon-button ghost chat-delete"
                 aria-label={`Delete ${c.title ?? "conversation"}`}
                 onClick={async () => {
                   await deleteConversation(db, c.id);
@@ -309,7 +315,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
                   await loadList();
                 }}
               >
-                Delete
+                <Icon name="trash" size={16} />
               </button>
             </li>
           ))}
@@ -317,19 +323,16 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       </aside>
 
       <div className="chat">
-        {current && <div className="muted small chat-title">{title}</div>}
+        {current && <h2 className="chat-title">{title}</h2>}
 
         <div className="chat-log" aria-live="polite">
           {bubbles.length === 0 && !busy && (
-            <div className="stack tight">
-              <div className="narrow-only">
-                <TodayInEven db={db} version={version} />
-              </div>
-              <h2 className="wide-only">New chat</h2>
-              <p className="muted small">
-                Ask about your sleep, training or meals (type or dictate), send a photo of a meal to log it, attach a lab report or an export, or start from one
-                of these:
-              </p>
+            <div className="coach-start">
+              <span className="coach-start-icon" aria-hidden>
+                <Icon name="sparkle" size={26} />
+              </span>
+              <h2>What do you want to know?</h2>
+              <p className="muted">Ask about food, sleep, training or your plan. Coach can also log things for you, once you confirm.</p>
               <div className="chat-prompts">
                 {QUICK_PROMPTS.map((q) => (
                   <button
@@ -345,9 +348,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
                   </button>
                 ))}
               </div>
-              <div className="narrow-only">
-                <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
-              </div>
+              <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
             </div>
           )}
           {bubbles.map((b) => (
@@ -387,7 +388,7 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
             <div className="card prompt-card" role="alertdialog" aria-label="Permission">
               <strong>Allow this?</strong>
               <p className="small">{pending.text}</p>
-              <p className="muted small">You can change this later in Settings, Privacy & data.</p>
+              <p className="muted small">You can change this later in You, Privacy and data.</p>
               <div className="actions">
                 <button onClick={() => answer(true)}>Allow</button>
                 <button className="secondary" onClick={() => answer(false)}>
@@ -604,12 +605,9 @@ export function ChatScreen({ db, secrets, version, onChanged, onConnect, onPriva
       </div>
 
       <aside className="chat-side wide-only" aria-label="Context">
-        <TodayInEven db={db} version={version} />
-        <section className="card">
-          <h3>What Claude can see</h3>
-          <ConsentLine db={db} version={version} onPrivacy={onPrivacy} />
-        </section>
+        <ShareSwitches db={db} version={version} onChanged={onChanged} />
         <LastSent db={db} version={version} />
+        <TodayInEven db={db} version={version} />
       </aside>
     </section>
   );
