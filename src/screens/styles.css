@@ -4283,3 +4283,18 @@ body:not(:has(.app-frame)) .today .date-step {
     font-size: 1.15rem;
   }
 }
+
+/* Back to the current day or period: a small pill at the end of the date row, not a line of its own. */
+.date-today {
+  flex: none;
+  min-height: 32px;
+  margin-left: 0.35rem;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
