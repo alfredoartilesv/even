@@ -106,7 +106,7 @@ export function BodyUnits({ db, saved, weight, onSaved }: { db: SqlDriver; saved
           Save weigh-in
         </button>
       </div>
-      <p className="muted small">The units you pick here show on Today, your profile and in what Coach tells you. Data is stored in cm and kg.</p>
+      <p className="muted small">The units you pick here show on Today and your profile, and in what Claude reports. Data is stored in cm and kg.</p>
       <MsgLine msg={msg} />
     </section>
   );

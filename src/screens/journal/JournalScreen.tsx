@@ -189,7 +189,6 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
             )}
           </div>
           <MsgLine msg={msg} />
-          <span className="muted small">Coach can use your check-ins when you allow it.</span>
         </section>
       </form>
 

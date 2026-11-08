@@ -4205,3 +4205,52 @@ button.link.accent {
 .sidenav button.link.accent {
   color: var(--accent);
 }
+
+/*
+ * Today's header, after the owner's review (8 Nov 2026): the greeting in the text colour at a
+ * calmer size, never clipped; ‹ date › as real buttons on every screen, so days, weeks and months
+ * can be stepped on a phone too; the sync symbol beside the period.
+ */
+.today .topbar h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--fg);
+  white-space: normal;
+  overflow: visible;
+  text-wrap: balance;
+}
+.today .today-date {
+  gap: 0.15rem;
+  margin-top: 0.15rem;
+}
+.today .date-step,
+body:not(:has(.app-frame)) .today .date-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+}
+.today .date-step:disabled {
+  opacity: 0.35;
+}
+.today-date-text {
+  padding: 0 0.35rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 63.99rem) {
+  .today .topbar h1 {
+    font-size: 1.25rem;
+  }
+  .today .date-step {
+    display: inline-flex;
+  }
+  .today-date-text {
+    font-size: 0.82rem;
+  }
+}

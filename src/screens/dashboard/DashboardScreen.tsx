@@ -38,6 +38,7 @@ interface Shown {
   weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
+const DATE_LONG: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" };
 const CACHED_VIEWS = 12;
 const cacheKey = (span: Span, anchor: string) => `${span}|${anchor}`;
 function remember(key: string, s: Shown) {
@@ -176,7 +177,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   };
   const hour = new Date().getHours();
   const first = shown?.name?.split(" ")[0];
-  const dateLine = utc(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  const dateLine = utc(now).toLocaleDateString(undefined, DATE_LONG);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -195,17 +196,25 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     <section className={rail ? "today with-rail" : "today"}>
       <div className="today-main">
         <PageHeader
-          title={many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : `${partOfDay(hour)}${first ? `, ${first}` : ""}`}
+          // The greeting only for today; another day, week or month is named instead.
+          title={
+            many ? (isCurrent ? `This ${span}` : spanTitle(span, anchor)) : isCurrent ? `${partOfDay(hour)}${first ? `, ${first}` : ""}` : cap(fmtDay(anchor))
+          }
           subtitle={
-            <span className="today-date muted">
+            <span className="today-date">
               <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-                ‹
+                <Icon name="back" size={18} />
               </button>
-              {many ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}` : isCurrent ? dateLine : cap(fmtDay(anchor))}
+              <span className="today-date-text muted">
+                {many
+                  ? `${fmtDay(current.from)} to ${fmtDay(d?.to ?? current.to)}`
+                  : isCurrent
+                    ? dateLine
+                    : utc(anchor).toLocaleDateString(undefined, DATE_LONG)}
+              </span>
               <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-                ›
+                <Icon name="chevron" size={18} />
               </button>
-              <span className="wide-only today-sync">{sync}</span>
               {!isCurrent && (
                 <button type="button" className="link accent small" onClick={() => setAnchor(now)}>
                   Back to {span === "day" ? "today" : `this ${span}`}
@@ -228,7 +237,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
                   {rail ? "Hide Coach" : "Ask Coach"}
                 </button>
               )}
-              <span className="narrow-only">{sync}</span>
+              {sync}
             </div>
           }
         />

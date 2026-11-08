@@ -1,13 +1,11 @@
 import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { getCurrency, latestWeight, listDrinkTypes, servingKcal, type DrinkType } from "../../domain/alcohol/alcohol";
+import { getCurrency, listDrinkTypes, servingKcal, type DrinkType } from "../../domain/alcohol/alcohol";
 import { suggestions } from "../../domain/food/food";
 import { applyQuickAdd, parseQuickAdd, undoQuickAdd, type QuickLine, type QuickUndo } from "../../domain/food/quickAdd";
 import { mealForHour, type Meal } from "../../domain/food/suggest";
 import type { Candidate } from "../../domain/food/suggest";
-import { loadProfile } from "../../domain/settings/profile";
-import { fmtWeight } from "../../core/units";
-import { failed, fmtMoney, MsgLine, timeZone, today, type Msg } from "../../ui/common";
+import { failed, fmtMoney, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { ChipGroup, Stepper } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SheetClose } from "../../ui/layout";
@@ -33,7 +31,7 @@ interface Props {
 }
 
 /**
- * Quick add (handoff 0.7): type what you ate, drank or weighed, or pick an example from your own
+ * Quick add (handoff 0.7): type what you ate or drank, or pick an example from your own
  * data; "Here is what I understood" lists each part with its numbers (a drink's price can change,
  * food gets a meal), then Log it, with Undo. Parts it does not know go to Coach, or are added by
  * hand. Nothing leaves the device (domain/food/quickAdd.ts).
@@ -45,8 +43,6 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
   const [lines, setLines] = useState<QuickLine[] | null>(null);
   const [foods, setFoods] = useState<Candidate[]>([]);
   const [drinks, setDrinks] = useState<DrinkType[]>([]);
-  const [unit, setUnit] = useState<"kg" | "lb">("kg");
-  const [weight, setWeight] = useState<number | null>(null);
   const [currency, setCurrency] = useState("EUR");
   const [meal, setMeal] = useState<Meal>(() => mealForHour(new Date().getHours()));
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -56,33 +52,28 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
 
   useEffect(() => {
     const tz = timeZone();
-    void Promise.all([suggestions(db, { timeZone: tz, limit: 40 }), listDrinkTypes(db), loadProfile(db), latestWeight(db, today()), getCurrency(db)]).then(
-      ([f, d, p, w, c]) => {
-        setFoods(f);
-        setDrinks(d);
-        setUnit(p.weightUnit);
-        setWeight(w?.kg ?? null);
-        setCurrency(c);
-      },
-    );
+    void Promise.all([suggestions(db, { timeZone: tz, limit: 40 }), listDrinkTypes(db), getCurrency(db)]).then(([f, d, c]) => {
+      setFoods(f);
+      setDrinks(d);
+      setCurrency(c);
+    });
   }, [db, version]);
 
-  // Examples from the owner's own data: what they eat most, their usual drink, their weight.
+  // Examples from the owner's own data: what they eat most and their usual drink.
   const examples = useMemo(() => {
     const out: string[] = [];
     const top = [...foods].sort((a, b) => b.uses - a.uses).slice(0, 2);
     for (const f of top) out.push(f.name);
     const d = [...drinks].sort((a, b) => b.uses - a.uses)[0];
     if (d) out.push(d.name);
-    if (weight !== null) out.push(fmtWeight(weight, unit));
     return out;
-  }, [foods, drinks, weight, unit]);
+  }, [foods, drinks]);
 
   const understand = (t: string) => {
     setText(t);
     setDone(null);
     setMsg(null);
-    setLines(t.trim() ? parseQuickAdd(t, { foods, drinks, weightUnit: unit }) : null);
+    setLines(t.trim() ? parseQuickAdd(t, { foods, drinks }) : null);
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -106,7 +97,6 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
       const what = [
         hasFood && `${SLOTS.find((s) => s.id === meal)!.label} logged`,
         known.some((l) => l.kind === "drink") && `drink${known.filter((l) => l.kind === "drink").length > 1 ? "s" : ""} logged`,
-        known.some((l) => l.kind === "weight") && "weight saved",
       ]
         .filter(Boolean)
         .join(", ");
@@ -150,16 +140,6 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
           <span className="quick-num">{servingKcal(l.type) * l.count} kcal</span>
         </div>
       );
-    if (l.kind === "weight")
-      return (
-        <div key={i} className="quick-line">
-          <span className="grow">
-            <strong>Weight</strong>
-            <span className="muted small block">{weight !== null ? `${(l.kg - weight).toFixed(1)} kg from the last one` : "saved with today's check-in"}</span>
-          </span>
-          <span className="quick-num">{fmtWeight(l.kg, unit)}</span>
-        </div>
-      );
     return null;
   };
 
@@ -168,14 +148,14 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
       <form onSubmit={submit} className="add-ask">
         <Icon name={compact ? "plus" : "sparkle"} size={20} />
         <label className="sr-only" htmlFor={compact ? "quick-bar" : "quick-sheet"}>
-          Tell Even what you ate, drank or weighed
+          Tell Even what you ate or drank
         </label>
         <input
           id={compact ? "quick-bar" : "quick-sheet"}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={() => text.trim() && understand(text)}
-          placeholder={compact ? "Tell Even what you ate, drank or weighed" : "For example: 2 eggs, toast and a coffee"}
+          placeholder={compact ? "Tell Even what you ate or drank" : "For example: 2 eggs, toast and a coffee"}
           autoComplete="off"
         />
         <button type="submit" disabled={!text.trim()}>
