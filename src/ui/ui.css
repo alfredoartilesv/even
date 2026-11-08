@@ -630,3 +630,35 @@ ol.plan-strip li.eaten .plan-strip-cell {
 .conn-dot.critical {
   background: var(--error);
 }
+
+/* A typed amount of money: the symbol inside the field's frame, the number after it. */
+.money-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 10rem;
+}
+.money-input:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.money-input input {
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  box-shadow: none;
+}
+.money-symbol {
+  color: var(--muted);
+}

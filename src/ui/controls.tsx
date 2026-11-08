@@ -271,3 +271,56 @@ export function ConnHead({ name, status, tone, note, action }: { name: string; s
     </div>
   );
 }
+
+/** The currency's symbol on its own ("€", "$"), from the same formatter the amounts use. */
+function currencySymbol(currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
+/**
+ * An amount of money typed as a number (the owner's choice over a stepper, 8 Nov 2026): the
+ * currency's symbol beside it, a comma or a point for decimals, the number keypad on a phone.
+ * What is typed stays as typed while the field has focus; an empty field is 0.
+ */
+export function MoneyInput({
+  value,
+  onChange,
+  currency,
+  label,
+  id,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  currency: string;
+  label: string;
+  id: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <span className="money-input">
+      <span className="money-symbol" aria-hidden>
+        {currencySymbol(currency)}
+      </span>
+      <input
+        id={id}
+        aria-label={label}
+        inputMode="decimal"
+        autoComplete="off"
+        value={text ?? (value ? String(Number(value.toFixed(2))) : "")}
+        placeholder="0"
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const t = e.target.value.replace(/[^\d.,]/g, "");
+          setText(t);
+          const n = Number(t.replace(",", "."));
+          if (Number.isFinite(n)) onChange(Math.min(100_000, Math.max(0, n)));
+        }}
+        onBlur={() => setText(null)}
+      />
+    </span>
+  );
+}

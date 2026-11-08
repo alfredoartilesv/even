@@ -4,7 +4,7 @@ import type { SqlDriver } from "../../db/driver";
 import { logDrink, saveDrinkType, servingKcal, type DrinkEntry, type DrinkType } from "../../domain/alcohol/alcohol";
 import { alcoholGrams, standardDrinks } from "../../core/health";
 import { fmtDay, fmtMoney, plural, timeZone, today } from "../../ui/common";
-import { ChipGroup, Stepper, Switch } from "../../ui/controls";
+import { ChipGroup, MoneyInput, Stepper, Switch } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 
 /** The kinds of drink the add panel starts from (handoff 0.7, Drinks): a usual size and strength each. */
@@ -169,16 +169,10 @@ export function AddDrink({
       </span>
       <div className="add-drink-steppers">
         <div className="stepper-field">
-          <span className="muted small">Price, editable</span>
-          <Stepper
-            label="Price"
-            value={draft.price}
-            onChange={(price) => setDraft({ ...draft, price })}
-            min={0}
-            max={200}
-            step={0.5}
-            format={(n) => fmtMoney(n, currency)}
-          />
+          <label className="muted small" htmlFor="add-drink-price">
+            Price
+          </label>
+          <MoneyInput id="add-drink-price" label="Price" value={draft.price} onChange={(price) => setDraft({ ...draft, price })} currency={currency} />
         </div>
         <div className="stepper-field">
           <span className="muted small">How many</span>

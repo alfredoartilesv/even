@@ -6,7 +6,7 @@ import { applyQuickAdd, parseQuickAdd, undoQuickAdd, type QuickLine, type QuickU
 import { mealForHour, type Meal } from "../../domain/food/suggest";
 import type { Candidate } from "../../domain/food/suggest";
 import { failed, fmtMoney, MsgLine, timeZone, type Msg } from "../../ui/common";
-import { ChipGroup, Stepper } from "../../ui/controls";
+import { ChipGroup, MoneyInput } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SheetClose } from "../../ui/layout";
 
@@ -205,15 +205,15 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
                 .filter((l): l is Extract<QuickLine, { kind: "drink" }> => l.kind === "drink")
                 .map((l) => (
                   <div key={l.type.id} className="stepper-field">
-                    <span className="muted small">Price of {l.type.name}, editable</span>
-                    <Stepper
+                    <label className="muted small" htmlFor={`quick-price-${l.type.id}`}>
+                      Price of {l.type.name}
+                    </label>
+                    <MoneyInput
+                      id={`quick-price-${l.type.id}`}
                       label={`Price of ${l.type.name}`}
                       value={price(l.type)}
                       onChange={(v) => setPrices({ ...prices, [l.type.id]: v })}
-                      min={0}
-                      max={200}
-                      step={0.5}
-                      format={(n) => fmtMoney(n, currency)}
+                      currency={currency}
                     />
                   </div>
                 ))}
