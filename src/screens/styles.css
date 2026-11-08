@@ -4491,3 +4491,15 @@ body {
 .today-datebar .date-today {
   margin-left: auto;
 }
+
+/* Drinks list rows as History's: the menu card's rows, the edit panel opening under its row. */
+.drink-row {
+  flex-wrap: wrap;
+}
+.drink-row .edit-panel {
+  flex-basis: 100%;
+}
+/* Today's date row on a phone sits close under the greeting and the period close under it. */
+.today-datebar {
+  margin: -0.75rem 0 -0.5rem;
+}

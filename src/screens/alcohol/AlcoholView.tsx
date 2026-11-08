@@ -417,68 +417,71 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
       )}
 
       <div>
-        <section className="card drinks-list">
+        {/* Built like History's Days: the title and the line about it on the page, the rows in one card. */}
+        <section className="drinks-list">
           <SectionHeader title="Drinks" action={!showAll && drinks.length > FIRST ? `All ${drinks.length}` : undefined} onAction={() => setShowAll(true)} />
           <p className="muted small">
             {periodLabel === "Today" ? "Today" : `Last ${periodLabel}`} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change
             one
           </p>
           {drinks.length ? (
-            <ul className="entries drink-list">
-              {shown.map((d) => (
-                <li key={d.id} className={editingDrink?.entryId === d.id ? "editing" : undefined}>
-                  <div className="grow">
-                    <div>{d.name}</div>
-                    <div className="muted small">
-                      {fmtDay(d.localDay)} · {time(d.drunkAtMs)} · {d.volumeMl} ml · {d.abvPercent}% · {kcal(d.kcal)} kcal{d.kcalEstimated ? " (est.)" : ""}
-                      {d.price !== null && ` · ${money(d.price)}`}
-                    </div>
-                  </div>
-                  <button className="icon-button ghost" aria-label={`Change ${d.name}, ${fmtDay(d.localDay)}`} onClick={() => editDrink(d)}>
-                    <Icon name="pencil" size={18} />
-                  </button>
-                  <button
-                    className="icon-button ghost"
-                    aria-label={`Delete ${d.name}, ${fmtDay(d.localDay)}`}
-                    onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}
-                  >
-                    <Icon name="trash" size={18} />
-                  </button>
-                  {editingDrink?.entryId === d.id && (
-                    <form className="stack edit-panel" onSubmit={saveDrink}>
-                      <strong>
-                        Edit drink{" "}
-                        <span className="muted small">
-                          {fmtDay(d.localDay)}, {time(d.drunkAtMs)}
-                        </span>
-                      </strong>
-                      <TypeFields d={editingDrink} set={(x) => setEditingDrink({ ...editingDrink, ...x })} currency={currency} />
-                      <div className="drink-when-fields">
-                        <label>
-                          Day
-                          <input
-                            type="date"
-                            value={editingDrink.day}
-                            max={today()}
-                            onChange={(e) => setEditingDrink({ ...editingDrink, day: e.target.value || today() })}
-                          />
-                        </label>
-                        <label>
-                          Time
-                          <input type="time" value={editingDrink.at} onChange={(e) => setEditingDrink({ ...editingDrink, at: e.target.value || EVENING })} />
-                        </label>
+            <div className="menu-group">
+              <ul className="drink-list">
+                {shown.map((d) => (
+                  <li key={d.id} className={editingDrink?.entryId === d.id ? "menu-row drink-row editing" : "menu-row drink-row"}>
+                    <div className="grow">
+                      <span className="menu-label">{d.name}</span>
+                      <div className="menu-desc muted small">
+                        {fmtDay(d.localDay)} · {time(d.drunkAtMs)} · {d.volumeMl} ml · {d.abvPercent}% · {kcal(d.kcal)} kcal{d.kcalEstimated ? " (est.)" : ""}
+                        {d.price !== null && ` · ${money(d.price)}`}
                       </div>
-                      {favourite && <p className="muted small">Changes this drink only; the {favourite.name} favourite stays as it is.</p>}
-                      <EditActions
-                        onCancel={() => setEditingDrink(null)}
-                        onRemove={() => void run(() => deleteDrink(db, d.id), "Deleted.").then((ok) => ok && setEditingDrink(null))}
-                        confirmRemove={`Delete this ${d.name}?`}
-                      />
-                    </form>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    </div>
+                    <button className="icon-button ghost" aria-label={`Change ${d.name}, ${fmtDay(d.localDay)}`} onClick={() => editDrink(d)}>
+                      <Icon name="pencil" size={18} />
+                    </button>
+                    <button
+                      className="icon-button ghost"
+                      aria-label={`Delete ${d.name}, ${fmtDay(d.localDay)}`}
+                      onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}
+                    >
+                      <Icon name="trash" size={18} />
+                    </button>
+                    {editingDrink?.entryId === d.id && (
+                      <form className="stack edit-panel" onSubmit={saveDrink}>
+                        <strong>
+                          Edit drink{" "}
+                          <span className="muted small">
+                            {fmtDay(d.localDay)}, {time(d.drunkAtMs)}
+                          </span>
+                        </strong>
+                        <TypeFields d={editingDrink} set={(x) => setEditingDrink({ ...editingDrink, ...x })} currency={currency} />
+                        <div className="drink-when-fields">
+                          <label>
+                            Day
+                            <input
+                              type="date"
+                              value={editingDrink.day}
+                              max={today()}
+                              onChange={(e) => setEditingDrink({ ...editingDrink, day: e.target.value || today() })}
+                            />
+                          </label>
+                          <label>
+                            Time
+                            <input type="time" value={editingDrink.at} onChange={(e) => setEditingDrink({ ...editingDrink, at: e.target.value || EVENING })} />
+                          </label>
+                        </div>
+                        {favourite && <p className="muted small">Changes this drink only; the {favourite.name} favourite stays as it is.</p>}
+                        <EditActions
+                          onCancel={() => setEditingDrink(null)}
+                          onRemove={() => void run(() => deleteDrink(db, d.id), "Deleted.").then((ok) => ok && setEditingDrink(null))}
+                          confirmRemove={`Delete this ${d.name}?`}
+                        />
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <p className="muted">No drinks in this period.</p>
           )}
