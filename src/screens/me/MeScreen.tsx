@@ -1,3 +1,4 @@
+import { fmtHeight, fmtWeight } from "../../core/units";
 import { useCallback, useEffect, useState } from "react";
 import { ageOn } from "../../core/health";
 import { addDays } from "../../core/tz";
@@ -108,7 +109,11 @@ export function MeScreen({
 
   const day = today();
   const age = profile.birthDate ? ageOn(profile.birthDate, day) : null;
-  const facts = [age !== null && `${age} years`, profile.heightCm !== null && `${profile.heightCm} cm`, weight && `${weight.kg.toFixed(1)} kg`]
+  const facts = [
+    age !== null && `${age} years`,
+    profile.heightCm !== null && fmtHeight(profile.heightCm, profile.heightUnit),
+    weight && fmtWeight(weight.kg, profile.weightUnit),
+  ]
     .filter(Boolean)
     .join(" · ");
 

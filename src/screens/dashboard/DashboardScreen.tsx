@@ -11,6 +11,7 @@ import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
+import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
@@ -33,6 +34,8 @@ interface Shown {
   food: FoodEntry[];
   next: NextUp | null;
   name: string | null;
+  /** The owner's weight unit (You > Profile); weights are stored in kg. */
+  weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
 const CACHED_VIEWS = 12;
@@ -147,7 +150,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     ]);
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
-    const fresh = { data: d, week, metrics: m, food, next, name: p.name };
+    const fresh = { data: d, week, metrics: m, food, next, name: p.name, weightUnit: p.weightUnit };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
@@ -261,7 +264,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             }}
           />
         )}
-        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} />}
+        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} wu={shown?.weightUnit ?? "kg"} />}
 
         {chartsData && (
           <PinnedCharts
@@ -354,7 +357,7 @@ function DayView({
           </section>
         </div>
 
-        <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} />
+        <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} wu={shown.weightUnit} />
 
         {d.activityTrend.steps.some((v) => v !== null) && (
           <BarChart
@@ -469,7 +472,7 @@ function NextUpCard({
 }
 
 /** The day's food by meal, then drinks and weight, each with a way to add. */
-function SoFar({ d, food, day, isToday, go }: { d: Dashboard; food: FoodEntry[]; day: string; isToday: boolean; go: DashboardLinks }) {
+function SoFar({ d, food, day, isToday, go, wu }: { d: Dashboard; food: FoodEntry[]; day: string; isToday: boolean; go: DashboardLinks; wu: WeightUnit }) {
   const meals = new Map<string, FoodEntry[]>();
   for (const f of [...food].sort((a, b) => a.eatenAtMs - b.eatenAtMs)) {
     const k = f.meal ?? "snack";
@@ -521,7 +524,7 @@ function SoFar({ d, food, day, isToday, go }: { d: Dashboard; food: FoodEntry[];
         <span className="grow">
           <strong>Weight</strong>
           <span className="muted small block">
-            {d.journal.weight ? `${d.journal.weight.kg.toFixed(1)} kg · ${fmtDay(d.journal.weight.day, day)}` : "Not logged"}
+            {d.journal.weight ? `${fmtWeight(d.journal.weight.kg, wu)} · ${fmtDay(d.journal.weight.day, day)}` : "Not logged"}
           </span>
         </span>
         <span className="accent">{d.journal.weight?.day === day ? "" : "+ Add"}</span>
@@ -558,7 +561,7 @@ function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
 
 /** A week or a month: calories per day (a tap shows that day's numbers), the averages, and the check-ins. */
-function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks }) {
+function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks; wu: WeightUnit }) {
   const days = d.days;
   const [sel, setSel] = useState<string | null>(null);
   const pickDay = sel ?? [...days].reverse().find((r) => r.eatenKcal !== null)?.day ?? days[days.length - 1]?.day ?? null;
@@ -626,7 +629,7 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
           {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
         </p>
         <button type="button" className="link small" onClick={go.measurements}>
-          {j.weight ? `Weight ${j.weight.kg.toFixed(1)} kg · ${fmtDay(j.weight.day)}` : "Log your weight"}
+          {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
         </button>
       </section>
     </div>
