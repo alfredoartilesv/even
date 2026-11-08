@@ -374,7 +374,7 @@ function DayView({
               <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
             </div>
           </section>
-          <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} wu={shown.weightUnit} />
+          <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
         </div>
 
         <div className="today-col right" ref={rightRef}>
@@ -520,7 +520,7 @@ function NextUpCard({
 }
 
 /** The day's food by meal, then drinks and weight, each with a way to add. */
-function SoFar({ d, food, day, isToday, go, wu }: { d: Dashboard; food: FoodEntry[]; day: string; isToday: boolean; go: DashboardLinks; wu: WeightUnit }) {
+function SoFar({ d, food, isToday, go }: { d: Dashboard; food: FoodEntry[]; isToday: boolean; go: DashboardLinks }) {
   const meals = new Map<string, FoodEntry[]>();
   for (const f of [...food].sort((a, b) => a.eatenAtMs - b.eatenAtMs)) {
     const k = f.meal ?? "snack";
@@ -566,16 +566,6 @@ function SoFar({ d, food, day, isToday, go, wu }: { d: Dashboard; food: FoodEntr
           </span>
         </span>
         <span className="accent">+ Add</span>
-      </button>
-      <button type="button" className="so-far-row add" onClick={go.measurements}>
-        <span />
-        <span className="grow">
-          <strong>Weight</strong>
-          <span className="muted small block">
-            {d.journal.weight ? `${fmtWeight(d.journal.weight.kg, wu)} · ${fmtDay(d.journal.weight.day, day)}` : "Not logged"}
-          </span>
-        </span>
-        <span className="accent">{d.journal.weight?.day === day ? "" : "+ Add"}</span>
       </button>
     </section>
   );
