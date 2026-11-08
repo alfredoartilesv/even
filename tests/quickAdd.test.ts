@@ -31,7 +31,6 @@ const drink = (name: string, uses = 1): DrinkType => ({
 const known = {
   foods: [food("Scrambled eggs", 4), food("Toast"), food("Coffee with milk", 9)],
   drinks: [drink("Beer 33 cl", 5), drink("Red wine")],
-  weightUnit: "kg" as const,
 };
 
 test("quick add: each part of a meal finds the food logged before, with its count", () => {
@@ -46,11 +45,8 @@ test("quick add: each part of a meal finds the food logged before, with its coun
   );
 });
 
-test("quick add: a weight in kg or lb, a drink by name or by its kind, and what it does not know stays as text", () => {
-  const [w] = parseQuickAdd("82.1 kg", known);
-  assert.deepEqual(w, { kind: "weight", part: "82.1 kg", kg: 82.1 });
-  const [lb] = parseQuickAdd("181 lb", known);
-  assert.equal(lb.kind === "weight" && lb.kg, 82.1);
+test("quick add: a drink by name or by its kind, a weight is not taken for food or drink, and what it does not know stays as text", () => {
+  assert.deepEqual(parseQuickAdd("82.1 kg", known), [{ kind: "unknown", part: "82.1 kg" }]);
   const [beer] = parseQuickAdd("Beer 330 ml", known);
   assert.equal(beer.kind === "drink" && beer.type.name, "Beer 33 cl");
   const [two] = parseQuickAdd("two glasses of wine", known);

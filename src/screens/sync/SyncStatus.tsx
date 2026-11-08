@@ -12,9 +12,10 @@ interface Props {
 }
 
 /**
- * Header sync pill (handoff 0.7): a dot and where the sync stands ("Synced 5 min ago"); a tap syncs
- * now. The dot is green when fresh, amber when the last sync is old or failed, and pulses while it
- * runs. Without a Garmin key it opens You > Connections (onSetup) instead of sitting there disabled.
+ * Header sync button: the sync symbol alone, without a frame, so the header keeps room for the
+ * greeting (the owner preferred it to the board's pill). What it would say ("Synced 5 min ago") is
+ * its tooltip and screen-reader label; it spins while syncing and turns amber when the last sync is
+ * old or failed. Without a Garmin key it opens You > Connections (onSetup) instead of sitting there disabled.
  */
 export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup }: Props & { onSetup: () => void }) {
   const f = freshness(status?.lastOkMs ?? null, nowMs);
@@ -24,14 +25,15 @@ export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup
   return (
     <button
       type="button"
-      className={`sync-button sync-pill${stale ? " stale" : ""}${syncing ? " busy" : ""}${configured ? "" : " off"}`}
+      className={`sync-button icon-button${stale ? " stale" : ""}`}
       onClick={configured ? onSync : onSetup}
       disabled={syncing}
       title={`${label}. ${action}`}
       aria-label={`${label}. ${action}`}
     >
-      <span className="sync-dot" aria-hidden />
-      <span>{label}</span>
+      <span className={syncing ? "spin" : ""}>
+        <Icon name="sync" size={28} />
+      </span>
     </button>
   );
 }

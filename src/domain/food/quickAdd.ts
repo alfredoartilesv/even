@@ -1,23 +1,21 @@
 import type { SqlDriver } from "../../db/driver.js";
 import { deleteDrink, logDrink, type DrinkType } from "../alcohol/alcohol.js";
-import { addMeasurement, deleteMeasurement } from "../journal/entries.js";
 import { deleteFood, logSavedMeal, relogFood } from "./food.js";
 import type { Candidate, Meal } from "./suggest.js";
 
 /**
- * Quick add (handoff 0.7, the Add button and Today's bar): "Tell Even what you ate, drank or
- * weighed". Worked out on this device from the owner's own data, nothing is sent anywhere: a
- * weight ("82.1 kg"), a favourite drink by name or kind ("beer"), and foods logged before or
- * saved ("2 eggs, toast and a coffee" finds each part it knows). A part it does not know stays
- * as text, for the owner to add by hand or ask Coach about.
+ * Quick add (handoff 0.7, the Add button and Today's bar): "Tell Even what you ate or drank".
+ * Worked out on this device from the owner's own data, nothing is sent anywhere: a favourite
+ * drink by name or kind ("beer"), and foods logged before or saved ("2 eggs, toast and a coffee"
+ * finds each part it knows). A part it does not know stays as text, for the owner to add by hand
+ * or ask Coach about. Weight is not here: the owner wants food and a weigh-in kept apart (8 Nov
+ * 2026), so a weigh-in has its own row on Today and its own form in Journal.
  */
 export type QuickLine =
   | { kind: "food"; part: string; count: number; candidate: Candidate }
   | { kind: "drink"; part: string; count: number; type: DrinkType }
-  | { kind: "weight"; part: string; kg: number }
   | { kind: "unknown"; part: string };
 
-const LB_PER_KG = 2.20462;
 const DRINK_WORDS = [
   "beer",
   "lager",
@@ -79,19 +77,12 @@ function best<T>(typed: string, items: T[], name: (t: T) => string, score: (t: T
   return topFit > 0 ? top : null;
 }
 
-export function parseQuickAdd(text: string, known: { foods: Candidate[]; drinks: DrinkType[]; weightUnit: "kg" | "lb" }): QuickLine[] {
+export function parseQuickAdd(text: string, known: { foods: Candidate[]; drinks: DrinkType[] }): QuickLine[] {
   const parts = text
     .split(/,|;|\+|\band\b|\bwith\b|\by\b/i)
     .map((p) => p.trim())
     .filter(Boolean);
   return parts.map((part): QuickLine => {
-    const w = /^(?:weight\s*)?(\d{2,3}(?:[.,]\d{1,2})?)\s*(kg|kgs|kilos?|lb|lbs|pounds?)?$/i.exec(part);
-    if (w && (w[2] || /weight/i.test(part) || part === w[1])) {
-      const n = Number(w[1].replace(",", "."));
-      const lb = w[2] ? /^(lb|lbs|pound)/i.test(w[2]) : known.weightUnit === "lb";
-      const kg = lb ? n / LB_PER_KG : n;
-      if (kg >= 20 && kg <= 400) return { kind: "weight", part, kg: Math.round(kg * 10) / 10 };
-    }
     const { count, rest } = quantity(part);
     const drink = best(
       rest,
@@ -120,7 +111,6 @@ export function parseQuickAdd(text: string, known: { foods: Candidate[]; drinks:
 export interface QuickUndo {
   foods: string[];
   drinks: string[];
-  measurements: string[];
 }
 
 export async function applyQuickAdd(
@@ -128,7 +118,7 @@ export async function applyQuickAdd(
   lines: QuickLine[],
   opts: { meal: Meal; timeZone: string; drinkPrice?: (type: DrinkType) => number | null },
 ): Promise<QuickUndo> {
-  const undo: QuickUndo = { foods: [], drinks: [], measurements: [] };
+  const undo: QuickUndo = { foods: [], drinks: [] };
   for (const l of lines) {
     if (l.kind === "food") {
       const c = l.candidate;
@@ -138,8 +128,6 @@ export async function applyQuickAdd(
     } else if (l.kind === "drink") {
       const price = opts.drinkPrice?.(l.type);
       undo.drinks.push(...(await logDrink(db, { typeId: l.type.id, count: l.count, ...(price !== undefined ? { price } : {}), timeZone: opts.timeZone })));
-    } else if (l.kind === "weight") {
-      undo.measurements.push(await addMeasurement(db, { kind: "weight", value: l.kg, unit: "kg", timeZone: opts.timeZone }));
     }
   }
   return undo;
@@ -148,5 +136,4 @@ export async function applyQuickAdd(
 export async function undoQuickAdd(db: SqlDriver, u: QuickUndo): Promise<void> {
   for (const id of u.foods) await deleteFood(db, id);
   for (const id of u.drinks) await deleteDrink(db, id);
-  for (const id of u.measurements) await deleteMeasurement(db, id);
 }
