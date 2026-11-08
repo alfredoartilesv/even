@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { StackedBar } from "../../ui/charts";
 import { ChipGroup } from "../../ui/controls";
-import { SectionHeader } from "../../ui/layout";
 import type { MetricCategory } from "../../domain/metrics/catalog";
 import { CATEGORY_LABEL, CATEGORY_ORDER, displayCategory, metricLabel, metricValue } from "../../domain/metrics/display";
 import type { DayValue } from "../../domain/metrics/queries";
@@ -57,11 +56,14 @@ export function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
   const stages = open.category === "sleep" ? STAGES.map((s) => ({ ...s, row: open.rows.find((r) => s.match.test(r.metric)) })).filter((s) => s.row) : [];
 
   return (
-    <>
-      <SectionHeader title="From your watch" />
-      <p className="muted small">
-        {metrics.length} numbers{devices.length === 1 ? ` from ${devices[0]}` : devices.length > 1 ? ` from ${devices.length} devices` : ""}
-      </p>
+    // One block with its own tight spacing: the title with its count, the kinds, the numbers.
+    <section className="synced-block" aria-labelledby="synced-title">
+      <div className="section-head">
+        <h2 id="synced-title">From your watch</h2>
+        <span className="muted small">
+          {metrics.length} numbers{devices.length === 1 ? ` from ${devices[0]}` : devices.length > 1 ? ` from ${devices.length} devices` : ""}
+        </span>
+      </div>
       <ChipGroup
         label="Kind of number"
         options={groups.map((g) => ({ id: g.category, label: `${CATEGORY_LABEL[g.category]} ${g.rows.length}` }))}
@@ -85,6 +87,6 @@ export function SyncedNumbers({ metrics }: { metrics: DayValue[] }) {
           ))}
         </dl>
       </div>
-    </>
+    </section>
   );
 }

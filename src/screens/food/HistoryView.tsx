@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { drinkKcalByDay } from "../../domain/alcohol/alcohol";
 import { getNutritionTargets, nutritionRange, type DayTotals, type NutritionTargets } from "../../domain/food/food";
-import { mean } from "../../core/health";
 import { addDays } from "../../core/tz";
 import { fmtDay, today } from "../../ui/common";
 import { BarChart } from "../../ui/charts";
 import { PeriodNav, SectionHeader } from "../../ui/layout";
-import { budgetText, MacroBudget } from "../../ui/nutrition";
+import { budgetText } from "../../ui/nutrition";
 import { Icon } from "../../ui/icons";
 import { kcal, weekEnding } from "./components";
 
@@ -47,7 +46,6 @@ export function HistoryView({ db, version, onOpenDay }: Props) {
 
   const now = today();
   const logged = week.filter((d) => d.calories !== null);
-  const avg = (k: "calories" | "proteinG" | "carbsG" | "fatG") => mean(logged.map((d) => d[k]).filter((v): v is number => v !== null));
   const overDays = targets.calories === null ? 0 : logged.filter((d) => (d.calories ?? 0) > targets.calories!).length;
 
   return (
@@ -61,34 +59,32 @@ export function HistoryView({ db, version, onOpenDay }: Props) {
         onCurrent={weekEnd === now ? null : () => setWeekEnd(now)}
         currentLabel="Back to this week"
       />
-      <div className="wide-grid">
-        <div className="span-8">
-          <BarChart
-            title="Calories"
-            subtitle="Food and drinks, tap a day to open it"
-            x={week.map((d) => d.day)}
-            values={week.map((d) => d.calories)}
-            formatX={weekdayLetter}
-            formatXLong={(d) => fmtDay(d)}
-            formatValue={kcal}
-            unit="kcal"
-            target={targets.calories}
-            onSelect={onOpenDay}
-          />
-          <p className="muted small">
-            {logged.length === 0
-              ? "Nothing logged these 7 days."
-              : `${logged.length} of 7 days logged${targets.calories !== null ? `, ${overDays} over the calorie target` : ""}.`}
-          </p>
-        </div>
-
-        {logged.length > 0 && (
-          <div className="span-4">
-            <SectionHeader title="Daily average" />
-            <MacroBudget eaten={{ calories: avg("calories"), proteinG: avg("proteinG"), carbsG: avg("carbsG"), fatG: avg("fatG") }} targets={targets} />
+      {logged.length === 0 ? (
+        <section className="card empty-week">
+          <span className="muted">Nothing logged these 7 days.</span>
+          <button type="button" className="secondary" onClick={() => onOpenDay(weekEnd)}>
+            Log a day in this week
+          </button>
+        </section>
+      ) : (
+        <div>
+          <div>
+            <BarChart
+              title="Calories"
+              subtitle="Food and drinks, tap a day to open it"
+              x={week.map((d) => d.day)}
+              values={week.map((d) => d.calories)}
+              formatX={weekdayLetter}
+              formatXLong={(d) => fmtDay(d)}
+              formatValue={kcal}
+              unit="kcal"
+              target={targets.calories}
+              onSelect={onOpenDay}
+            />
+            <p className="muted small">{`${logged.length} of 7 days logged${targets.calories !== null ? `, ${overDays} over the calorie target` : ""}.`}</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <SectionHeader title="Days" />
       <div className="menu-group">

@@ -704,11 +704,6 @@ button.link.accent {
   gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
-.period-nav > button {
-  width: 44px;
-  padding: 0;
-  font-size: 1.3rem;
-}
 details.card > summary {
   cursor: pointer;
   min-height: 32px;
@@ -1133,9 +1128,6 @@ button:active:not(:disabled) {
 .hero-note {
   margin: 0.6rem 0 0;
   text-align: center;
-}
-.period-nav .icon-button {
-  font-size: 1.3rem;
 }
 
 /* Settings menu: grouped rows that open a page */
@@ -4495,6 +4487,15 @@ body {
 /* Drinks list rows as History's: the menu card's rows, the edit panel opening under its row. */
 .drink-row {
   flex-wrap: wrap;
+  box-sizing: border-box;
+  width: auto;
+  min-height: 0;
+  gap: 0.25rem;
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
+}
+.drink-row .grow {
+  min-width: 0;
+  flex: 1 1 12rem;
 }
 .drink-row .edit-panel {
   flex-basis: 100%;
@@ -4502,4 +4503,114 @@ body {
 /* Today's date row on a phone sits close under the greeting and the period close under it. */
 .today-datebar {
   margin: -0.75rem 0 -0.5rem;
+}
+
+/* The shared date row (ui/layout PeriodNav) looks the same on every page as on Today. */
+.period-nav.date-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.period-nav .date-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 1rem;
+}
+.period-nav .date-step:disabled {
+  opacity: 0.35;
+}
+.period-nav .today-date-text {
+  color: var(--fg);
+  font-weight: 600;
+}
+.today .period-nav,
+.today-datebar .period-nav {
+  margin: 0;
+}
+.today-datebar .period-nav {
+  flex-wrap: nowrap;
+}
+.today-datebar .period-nav .date-today {
+  margin-left: auto;
+}
+/* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
+.empty-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* The pill keeps its fill and size inside any card or frame (generic button rules are more specific). */
+.period-nav .date-today,
+.app-frame .period-nav .date-today {
+  min-height: 32px;
+  width: auto;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* The day's meals in the Food log: the day's title, then each meal's name close over its entries, an even rhythm down the card. */
+.day-meals > .group-head {
+  margin: 0 0 0.25rem;
+}
+.day-meals > .group-head h2 {
+  margin: 0;
+}
+.day-meals .group-head {
+  margin-top: 0.75rem;
+  align-items: baseline;
+}
+.day-meals .group-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.day-meals ul.entries li {
+  padding: 0.3rem 0 0.4rem;
+}
+.day-meals ul.entries li:last-child {
+  border-bottom: none;
+}
+.day-meals .entry-actions {
+  margin-top: 0;
+}
+.day-meals .entry-actions button.secondary,
+.day-meals .entry-actions .icon-button {
+  min-height: 32px;
+  height: 32px;
+}
+
+/* Activity's numbers from the watch: the title and its count on one line, the kinds and the card close under it. */
+.synced-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.synced-block > * {
+  margin: 0;
+}
+.synced-block .section-head {
+  align-items: baseline;
+}
+.synced-block .chip-group,
+.synced-block [role="radiogroup"],
+.synced-block [role="group"] {
+  margin: 0;
 }

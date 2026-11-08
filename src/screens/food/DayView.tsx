@@ -24,7 +24,7 @@ import { drinkKcalByDay } from "../../domain/alcohol/alcohol";
 import { eatPortions, loadStock, type StockEntry } from "../../domain/mealprep/mealPrep";
 import { mealForHour, usualMeal, type Candidate } from "../../domain/food/suggest";
 import { addDays, localDateTimeToMs } from "../../core/tz";
-import { failed, fmtDay, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
+import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { PeriodNav, SectionHeader } from "../../ui/layout";
 import { MacroBars } from "../../ui/nutrition";
 import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
@@ -227,7 +227,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   return (
     <div>
       <PeriodNav
-        title={cap(fmtDay(day))}
+        title={fmtDayLong(day)}
         unit="day"
         onPrev={() => onDay(addDays(day, -1))}
         onNext={() => onDay(addDays(day, 1))}

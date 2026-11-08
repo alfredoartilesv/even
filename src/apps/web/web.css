@@ -844,3 +844,12 @@ body:has(.app-frame) {
   background: var(--accent);
   vertical-align: middle;
 }
+
+/* Shopping on a wide screen: a long list scrolls in its own box, so the checkout and spending beside it never sit over a gap. */
+@media (min-width: 64rem) {
+  .app-frame ul.checklist {
+    max-height: 30rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}

@@ -3,10 +3,10 @@ import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
 import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
-import { fmtDay, plural, timeZone, today } from "../../ui/common";
+import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroBars } from "../../ui/nutrition";
-import { PageHeader, Segmented, type Choice } from "../../ui/layout";
+import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
@@ -38,8 +38,6 @@ interface Shown {
   weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
-const shortDay = (day: string) => utc(day).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
-const DATE_LONG: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" };
 const CACHED_VIEWS = 12;
 const cacheKey = (span: Span, anchor: string) => `${span}|${anchor}`;
 function remember(key: string, s: Shown) {
@@ -178,18 +176,13 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   };
   const hour = new Date().getHours();
   const first = shown?.name?.split(" ")[0];
-  const dateLine = utc(now).toLocaleDateString(undefined, DATE_LONG);
   // The title is always the greeting (the owner's choice, 8 Nov 2026), so this line names the day
   // or the period being looked at.
   const dateText = many
-    ? isCurrent
-      ? `This ${span} · ${fmtDay(current.from)} to today`
-      : spanTitle(span, anchor)
-    : isCurrent
-      ? dateLine
-      : shortDay(anchor) === fmtDay(anchor)
-        ? shortDay(anchor)
-        : `${cap(fmtDay(anchor))} · ${shortDay(anchor)}`;
+    ? span === "month"
+      ? short(current.from, { month: "long", year: "numeric" })
+      : `${cap(fmtDay(current.from))} – ${isCurrent ? "today" : fmtDay(current.to)}`
+    : fmtDayLong(anchor);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -207,25 +200,15 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   // The day or period with ‹ ›: under the greeting on a wide screen, a row of its own on a phone,
   // where beside the menu and sync it would be cut.
   const dateNav = (
-    <span className="today-date">
-      <span className="date-nav">
-        {/* ‹ date › never split and the date never cut; the Today pill moves to its own line when the row is full. */}
-        <span className="date-steps">
-          <button type="button" className="date-step" aria-label={`Previous ${span}`} onClick={() => setAnchor(shiftSpan(span, anchor, -1))}>
-            <Icon name="back" size={18} />
-          </button>
-          <span className="today-date-text muted">{dateText}</span>
-          <button type="button" className="date-step" aria-label={`Next ${span}`} disabled={next > now} onClick={() => setAnchor(next)}>
-            <Icon name="chevron" size={18} />
-          </button>
-        </span>
-        {!isCurrent && (
-          <button type="button" className="date-today" aria-label={`Back to ${span === "day" ? "today" : `this ${span}`}`} onClick={() => setAnchor(now)}>
-            {span === "day" ? "Today" : `This ${span}`}
-          </button>
-        )}
-      </span>
-    </span>
+    <PeriodNav
+      title={dateText}
+      unit={span}
+      onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
+      onNext={() => setAnchor(next)}
+      nextDisabled={next > now}
+      onCurrent={isCurrent ? null : () => setAnchor(now)}
+      currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+    />
   );
 
   return (
