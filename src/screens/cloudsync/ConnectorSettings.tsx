@@ -7,7 +7,7 @@ import { CONNECTOR_TEXT, consentStatus, hasConsent, recordConsent, type Connecto
 import { sessionApi, type SyncSession } from "../../domain/cloudsync/session";
 import { deviceFetch, shareText } from "../../platform/device";
 import { failed, MsgLine, type Msg } from "../../ui/common";
-import { StatusBadge, Switch } from "../../ui/controls";
+import { ConnHead, StatusBadge, Switch } from "../../ui/controls";
 
 /**
  * Settings > Connections > Claude, beside the Chat tab's API key (docs/users.md section 10): Claude's own apps, on the owner's Claude
@@ -56,10 +56,7 @@ export function ConnectorSettings({ db, session, onConnect, onSync, version }: P
   if (!session) {
     return (
       <section className="card">
-        <div className="card-head">
-          <h2>Claude connector</h2>
-          <StatusBadge status="info">off</StatusBadge>
-        </div>
+        <ConnHead name="Even on your computer" tone="info" status="Off" note="Lets Claude read and log through Even, on your Claude plan" />
         <p className="muted small">The connector reaches your data through your Even account: connect this device first.</p>
         <div className="actions">
           <button type="button" onClick={onConnect}>
@@ -133,10 +130,12 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
   return (
     <>
       <section className="card">
-        <div className="card-head">
-          <h2>Claude connector</h2>
-          {on && (on["claude.connector"] ? <StatusBadge status="good">on</StatusBadge> : <StatusBadge status="info">off</StatusBadge>)}
-        </div>
+        <ConnHead
+          name="Even on your computer"
+          tone={on?.["claude.connector"] ? "good" : "info"}
+          status={on?.["claude.connector"] ? "Connected" : "Off"}
+          note="Lets Claude read and log through Even, on your Claude plan"
+        />
         <p className="muted small">
           Ask about your data in Claude itself (claude.ai, the Claude app), on your Claude plan, with or without Coach. In Claude: Settings &gt; Connectors &gt;
           Add custom connector, with this address, then sign in with your Even email and passphrase.

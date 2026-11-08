@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { deviceId } from "../../db/settings";
 import { backupFileName, saveBackupFile } from "../../platform/files";
-import { failed, fmtDay, MsgLine, plural, today, timeZone, type Msg } from "../../ui/common";
+import { failed, fmtDay, MsgLine, today, timeZone, type Msg } from "../../ui/common";
 import { SecretInput, StatusBadge, Switch } from "../../ui/controls";
 import { localDay } from "../../core/tz";
 import { exportBackup, lastBackupSaved, markBackupSaved, restoreBackup } from "../../domain/backup/backup";
@@ -49,6 +49,14 @@ function describe(summary: string): { via: string; what: string } {
       : what,
   };
 }
+/** "Today, 15:12", "Yesterday, 09:40" or the date: the board's way of saying when something left. */
+function sentWhen(ms: number): string {
+  const days = daysAgo(ms);
+  const time = new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  return new Date(ms).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 const kb = (bytes: number) => `${(bytes / 1024).toFixed(1)} KB`;
 const daysAgo = (ms: number) => Math.round((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${localDay(ms, timeZone())}T00:00:00Z`)) / 86_400_000);
 
@@ -90,9 +98,7 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
   return (
     <div className="settings-cards">
       <section className="card">
-        <div className="card-head">
-          <h2>What Claude may see</h2>
-        </div>
+        <h2>What Claude can see</h2>
         <p className="muted small">
           Claude reads nothing on its own: the app answers its questions with what you allow here and records everything it sends. Change your mind any time.
         </p>
@@ -112,29 +118,25 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
 
       <section className="card">
         <div className="card-head">
-          <h2>Sent to Claude</h2>
+          <h2>Sent to Claude recently</h2>
           {sent.length > 0 && <span className="muted small">{kb(sent.reduce((n, d) => n + d.bytes, 0))} in all</span>}
         </div>
+        <p className="muted small">Every message shows exactly what left this device.</p>
         {sent.length === 0 ? (
-          <p className="muted small">Nothing yet.</p>
+          <p className="sent-box muted small">Nothing yet.</p>
         ) : (
           <>
-            <p className="muted small">{plural(sent.length, "piece")} of data, newest first.</p>
-            <ul className="entries">
+            <ul className="sent-box">
               {(showAll ? sent : sent.slice(0, SHOWN)).map((d) => {
                 const { via, what } = describe(d.summary);
                 return (
                   <li key={d.id}>
-                    <div className="grow">
-                      <div className="entry-head">
-                        <strong className="small">{via}</strong>
-                        <StatusBadge status={d.dataClass === "aggregate" ? "info" : "warning"}>{CLASS_WORD[d.dataClass]}</StatusBadge>
-                      </div>
-                      <div className="small">{what}</div>
-                      <div className="muted small">
-                        {new Date(d.sentAtMs).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · {kb(d.bytes)}
-                      </div>
-                    </div>
+                    <span className="grow">
+                      {sentWhen(d.sentAtMs)} · {what}
+                    </span>
+                    <span className="muted small">
+                      {via}, {CLASS_WORD[d.dataClass]}, {kb(d.bytes)}
+                    </span>
                   </li>
                 );
               })}
@@ -147,6 +149,8 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
           </>
         )}
       </section>
+
+      <Backup db={db} syncAccountId={syncAccountId} lastBackup={lastBackup} onSaved={load} onRestored={onChanged} />
 
       <section className="card">
         <div className="card-head">
@@ -177,8 +181,6 @@ export function PrivacySettings({ db, onChanged, syncAccountId }: { db: SqlDrive
         )}
         {empty.length > 0 && <p className="muted small">Nothing stored yet: {empty.map((r) => lowerFirst(r.label.replace(/ \(.*\)$/, ""))).join(", ")}.</p>}
       </section>
-
-      <Backup db={db} syncAccountId={syncAccountId} lastBackup={lastBackup} onSaved={load} onRestored={onChanged} />
     </div>
   );
 }
@@ -203,6 +205,7 @@ function Backup({
   const [backupMsg, setBackupMsg] = useState<Msg>(null);
   const [restoreMsg, setRestoreMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<"backup" | "restore" | null>(null);
 
   async function doExport(e: FormEvent) {
     e.preventDefault();
@@ -216,6 +219,7 @@ function Backup({
       setBackupMsg({ kind: "ok", text: `Backup created (${total.toLocaleString()} rows). Keep the password: without it the file cannot be opened.` });
       setExportPw("");
       setExportPw2("");
+      setOpen(null);
       await onSaved();
     } catch (err) {
       setBackupMsg(failed(err, "settings"));
@@ -237,6 +241,7 @@ function Backup({
       });
       setRestorePw("");
       setRestoreFile(null);
+      setOpen(null);
       onRestored();
       await onSaved();
     } catch (err) {
@@ -249,23 +254,41 @@ function Backup({
   const age = lastBackup === null ? null : daysAgo(lastBackup);
 
   return (
-    <>
-      <section className="card">
-        <div className="card-head">
-          <h2>Backup</h2>
-          {age === null ? (
-            <StatusBadge status="warning">no backup yet</StatusBadge>
-          ) : age > STALE_DAYS ? (
-            <StatusBadge status="warning">{age} days old</StatusBadge>
-          ) : (
-            <StatusBadge status="good">{age === 0 ? "today" : age === 1 ? "yesterday" : `${age} days ago`}</StatusBadge>
-          )}
-        </div>
-        <p className="muted small">
-          An encrypted copy of everything in the database: synced data, logs, notes, chats, your profile. Notes, logs and chats exist only on this phone, so
-          keep a copy somewhere else. Keys are not included.
-        </p>
-        <form onSubmit={doExport} className="stack">
+    <section className="card backup-card">
+      <div className="card-head">
+        <h2>Backup</h2>
+        {age === null ? (
+          <StatusBadge status="warning">no backup yet</StatusBadge>
+        ) : age > STALE_DAYS ? (
+          <StatusBadge status="warning">{age} days old</StatusBadge>
+        ) : (
+          <StatusBadge status="good">{age === 0 ? "today" : age === 1 ? "yesterday" : `${age} days ago`}</StatusBadge>
+        )}
+      </div>
+      <p className="muted small">
+        An encrypted copy of everything in the database: synced data, logs, notes, chats, your profile. Notes, logs and chats exist only on this device, so keep
+        a copy somewhere else. Keys are not included.
+      </p>
+      <div className="actions">
+        <button
+          type="button"
+          className={open === "backup" ? undefined : "secondary"}
+          aria-expanded={open === "backup"}
+          onClick={() => setOpen(open === "backup" ? null : "backup")}
+        >
+          Back up now
+        </button>
+        <button
+          type="button"
+          className={open === "restore" ? undefined : "secondary"}
+          aria-expanded={open === "restore"}
+          onClick={() => setOpen(open === "restore" ? null : "restore")}
+        >
+          Restore a backup
+        </button>
+      </div>
+      {open === "backup" && (
+        <form onSubmit={doExport} className="stack fade-in">
           <label>
             Backup password
             <SecretInput value={exportPw} onChange={setExportPw} minLength={8} required autoComplete="new-password" />
@@ -277,16 +300,12 @@ function Backup({
           <button type="submit" disabled={busy}>
             Create backup
           </button>
-          <MsgLine msg={backupMsg} />
         </form>
-      </section>
-
-      <section className="card">
-        <div className="card-head">
-          <h2>Restore</h2>
-        </div>
-        <p className="muted small">Merges a backup into this phone: data already here stays, nothing is duplicated, and the newer copy of a row wins.</p>
-        <form onSubmit={doRestore} className="stack">
+      )}
+      <MsgLine msg={backupMsg} />
+      {open === "restore" && (
+        <form onSubmit={doRestore} className="stack fade-in">
+          <p className="muted small">Merges a backup into this device: data already here stays, nothing is duplicated, and the newer copy of a row wins.</p>
           <label className="file-button">
             <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)} disabled={busy} />
             {restoreFile ? restoreFile.name : "Choose a backup file (.json)"}
@@ -298,9 +317,9 @@ function Backup({
           <button type="submit" className="secondary" disabled={busy || !restoreFile}>
             Restore
           </button>
-          <MsgLine msg={restoreMsg} />
         </form>
-      </section>
-    </>
+      )}
+      <MsgLine msg={restoreMsg} />
+    </section>
   );
 }

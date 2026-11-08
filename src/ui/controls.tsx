@@ -251,3 +251,23 @@ export function SecretInput({
     </span>
   );
 }
+
+/**
+ * The head of a connection card (handoff 0.7, You > Connections): the name, a dot and a word for its
+ * state, one line on what it brings, and the one action that matters now on the right.
+ */
+export function ConnHead({ name, status, tone, note, action }: { name: string; status: string; tone: Status; note: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="conn-head">
+      <span className="grow">
+        <h2>{name}</h2>
+        <span className="conn-status">
+          <span className={`conn-dot ${tone}`} aria-hidden />
+          {status}
+        </span>
+        <span className="muted small">{note}</span>
+      </span>
+      {action}
+    </div>
+  );
+}
