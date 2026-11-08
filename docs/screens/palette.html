@@ -56,16 +56,17 @@
  */
 :root {
   color-scheme: light dark;
-  --bg: #fafaf9;
+  --bg: #f4f6f3;
   --surface: #ffffff;
-  --fg: #1c1917;
-  --muted: #6b6460;
-  --line: #e7e5e4;
+  --fg: #1b1f1e;
+  --muted: #56625f;
+  --line: #e3e8e5;
   --accent: #0f766e;
   --on-accent: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
   --good: #006300;
-  --warning: #a16207;
+  /* Amber a shade under the board's #a16207, which fell just short of 4.5:1 on a tinted card. */
+  --warning: #96590a;
   --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
   --error: #b91c1c;
 
@@ -77,8 +78,8 @@
   --series-6: #008300;
   --series-7: #6250d6;
   --series-8: #e34948;
-  --viz-grid: #e7e5e4;
-  --viz-axis: #c3c2b7;
+  --viz-grid: #e9eeeb;
+  --viz-axis: #c3cbc7;
 
   --shadow: 0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);
   --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.12);
@@ -95,20 +96,48 @@
   --camera-bg: #000000;
 
   --area-today: #0f766e;
-  --area-food: #b5481a;
+  --area-food: #c2501f;
   --area-prep: #2e7d4f;
   --area-activity: #1d5fb0;
   --area-journal: #8a2f6a;
   --area-coach: #3f31a3;
   --area-you: #3d5a80;
   --nav-ink: #0f2623;
+  --area-today-soft: #dcefeb;
+  --area-today-deep: #0b5a54;
+  --area-today-wash: #eef5f2;
+  --area-today-line: #cfe3de;
+  --area-food-soft: #fbe4d8;
+  --area-food-deep: #8a3512;
+  --area-food-wash: #fbf1ec;
+  --area-food-line: #f0cdbb;
+  --area-prep-soft: #dff0e5;
+  --area-prep-deep: #1d5233;
+  --area-prep-wash: #eff6f1;
+  --area-prep-line: #c8e2d1;
+  --area-activity-soft: #e0ebf9;
+  --area-activity-deep: #14477f;
+  --area-activity-wash: #eef3fa;
+  --area-activity-line: #c6d9f1;
+  --area-journal-soft: #f6e1ee;
+  --area-journal-deep: #5f1f47;
+  --area-journal-wash: #faf0f5;
+  --area-journal-line: #e8c7da;
+  --area-coach-soft: #ece8fa;
+  --area-coach-deep: #2f2480;
+  --area-coach-wash: #f3f0fb;
+  --area-coach-line: #d8d1f3;
+  --area-you-soft: #e4ebf3;
+  --area-you-deep: #27405f;
+  --area-you-wash: #eff2f7;
+  --area-you-line: #cdd8e5;
   --on-nav: #ffffff;
   --on-nav-muted: #b4c8c3;
   --nav-active: rgb(255 255 255 / 0.13);
 
   /* Shape: one radius scale, so cards, tiles, inputs and chips match. */
-  --radius-sm: 8px;
-  --radius: 12px;
+  --radius-sm: 14px;
+  --radius: 22px;
   --radius-pill: 999px;
 
   /* Motion: short and calm; turned off for prefers-reduced-motion in styles.css. */
@@ -117,7 +146,7 @@
   --normal: 220ms;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #14110f;
     --surface: #1e1a17;
     --fg: #f5f5f4;
@@ -153,7 +182,105 @@
     --area-coach: #ab9ff6;
     --area-you: #9db8da;
     --nav-ink: #0b1c1a;
+    --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+    --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+    --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+    --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+    --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+    --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+    --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+    --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+    --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+    --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+    --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+    --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+    --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+    --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+    --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+    --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+    --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+    --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+    --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+    --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+    --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+    --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+    --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+    --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+    --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+    --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+    --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+    --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
   }
+}
+/* Picked in You > About (ui/theme.ts): dark or light whatever the system says. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --fg: #f5f5f4;
+  --muted: #a8a29e;
+  --line: #292524;
+  --accent: #2dd4bf;
+  --on-accent: #14110f;
+  --good: #0ca30c;
+  --warning: #facc15;
+  --error: #f87171;
+  --shadow: none;
+  --shadow-pop: 0 2px 8px rgb(0 0 0 / 0.5);
+  --lift: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);
+  --lift-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --viz-grid: #2c2a27;
+  --viz-axis: #44403c;
+
+  --area-today: #2dd4bf;
+  --area-food: #f4925f;
+  --area-prep: #5fcf8c;
+  --area-activity: #74aaf2;
+  --area-journal: #e98ac6;
+  --area-coach: #ab9ff6;
+  --area-you: #9db8da;
+  --nav-ink: #0b1c1a;
+  --area-today-soft: color-mix(in srgb, var(--area-today) 18%, var(--bg));
+  --area-today-deep: color-mix(in srgb, var(--area-today) 80%, var(--fg));
+  --area-today-wash: color-mix(in srgb, var(--area-today) 5%, var(--bg));
+  --area-today-line: color-mix(in srgb, var(--area-today) 24%, var(--surface));
+  --area-food-soft: color-mix(in srgb, var(--area-food) 18%, var(--bg));
+  --area-food-deep: color-mix(in srgb, var(--area-food) 80%, var(--fg));
+  --area-food-wash: color-mix(in srgb, var(--area-food) 5%, var(--bg));
+  --area-food-line: color-mix(in srgb, var(--area-food) 24%, var(--surface));
+  --area-prep-soft: color-mix(in srgb, var(--area-prep) 18%, var(--bg));
+  --area-prep-deep: color-mix(in srgb, var(--area-prep) 80%, var(--fg));
+  --area-prep-wash: color-mix(in srgb, var(--area-prep) 5%, var(--bg));
+  --area-prep-line: color-mix(in srgb, var(--area-prep) 24%, var(--surface));
+  --area-activity-soft: color-mix(in srgb, var(--area-activity) 18%, var(--bg));
+  --area-activity-deep: color-mix(in srgb, var(--area-activity) 80%, var(--fg));
+  --area-activity-wash: color-mix(in srgb, var(--area-activity) 5%, var(--bg));
+  --area-activity-line: color-mix(in srgb, var(--area-activity) 24%, var(--surface));
+  --area-journal-soft: color-mix(in srgb, var(--area-journal) 18%, var(--bg));
+  --area-journal-deep: color-mix(in srgb, var(--area-journal) 80%, var(--fg));
+  --area-journal-wash: color-mix(in srgb, var(--area-journal) 5%, var(--bg));
+  --area-journal-line: color-mix(in srgb, var(--area-journal) 24%, var(--surface));
+  --area-coach-soft: color-mix(in srgb, var(--area-coach) 18%, var(--bg));
+  --area-coach-deep: color-mix(in srgb, var(--area-coach) 80%, var(--fg));
+  --area-coach-wash: color-mix(in srgb, var(--area-coach) 5%, var(--bg));
+  --area-coach-line: color-mix(in srgb, var(--area-coach) 24%, var(--surface));
+  --area-you-soft: color-mix(in srgb, var(--area-you) 18%, var(--bg));
+  --area-you-deep: color-mix(in srgb, var(--area-you) 80%, var(--fg));
+  --area-you-wash: color-mix(in srgb, var(--area-you) 5%, var(--bg));
+  --area-you-line: color-mix(in srgb, var(--area-you) 24%, var(--surface));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
@@ -178,44 +305,44 @@ code { font-size: 0.9em; }
 <p class="muted">Every color the app uses, by role, from <code>src/ui/palette.css</code>. Screens and the UI kit use these tokens only; <code>tests/palette.test.ts</code> fails the build on a literal color elsewhere and checks that every text role reaches 4.5:1 (WCAG AA) on both surfaces in both themes. <a href="index.html">Screens</a>.</p>
 <h2>Roles</h2>
 <table><thead><tr><th>Token</th><th>Used for</th><th>Light</th><th>Dark</th></tr></thead><tbody>
-<tr><td><code>--bg</code></td><td>page background</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#fafaf9;vertical-align:middle"></span> <code>#fafaf9</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code></td></tr>
-<tr><td><code>--surface</code></td><td>raised things on it: cards, tiles, charts, the tab bar, the side menu</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#1e1a17;vertical-align:middle"></span> <code>#1e1a17</code></td></tr>
-<tr><td><code>--fg</code></td><td>main text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#1c1917;vertical-align:middle"></span> <code>#1c1917</code><div class="muted" style="font-size:0.8rem">16.7:1 on bg · 17.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f5f5f4;vertical-align:middle"></span> <code>#f5f5f4</code><div class="muted" style="font-size:0.8rem">17.2:1 on bg · 15.8:1 on surface</div></td></tr>
-<tr><td><code>--muted</code></td><td>secondary text, icons at rest</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#6b6460;vertical-align:middle"></span> <code>#6b6460</code><div class="muted" style="font-size:0.8rem">5.6:1 on bg · 5.8:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#a8a29e;vertical-align:middle"></span> <code>#a8a29e</code><div class="muted" style="font-size:0.8rem">7.5:1 on bg · 6.9:1 on surface</div></td></tr>
-<tr><td><code>--line</code></td><td>borders and dividers</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e7e5e4;vertical-align:middle"></span> <code>#e7e5e4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#292524;vertical-align:middle"></span> <code>#292524</code></td></tr>
-<tr><td><code>--accent</code></td><td>primary actions, the selected tab, links</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code><div class="muted" style="font-size:0.8rem">5.2:1 on bg · 5.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#2dd4bf;vertical-align:middle"></span> <code>#2dd4bf</code><div class="muted" style="font-size:0.8rem">10.1:1 on bg · 9.3:1 on surface</div></td></tr>
-<tr><td><code>--on-accent</code></td><td>text and icons on an accent fill</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code><div class="muted" style="font-size:0.8rem">5.5:1 on accent</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code><div class="muted" style="font-size:0.8rem">10.1:1 on accent</div></td></tr>
-<tr><td><code>--accent-soft</code></td><td>tinted fill: the owner's chat bubbles, meter tracks, the avatar</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:color-mix(in srgb, #0f766e 14%, #fafaf9);vertical-align:middle"></span> <code>mix</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:color-mix(in srgb, #2dd4bf 14%, #14110f);vertical-align:middle"></span> <code>mix</code></td></tr>
-<tr><td><code>--good</code></td><td>good news (met, within target), as text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#006300;vertical-align:middle"></span> <code>#006300</code><div class="muted" style="font-size:0.8rem">7.2:1 on bg · 7.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0ca30c;vertical-align:middle"></span> <code>#0ca30c</code><div class="muted" style="font-size:0.8rem">5.6:1 on bg · 5.2:1 on surface</div></td></tr>
-<tr><td><code>--warning</code></td><td>needs attention (stale sync, over target)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#a16207;vertical-align:middle"></span> <code>#a16207</code><div class="muted" style="font-size:0.8rem">4.7:1 on bg · 4.9:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#facc15;vertical-align:middle"></span> <code>#facc15</code><div class="muted" style="font-size:0.8rem">12.3:1 on bg · 11.3:1 on surface</div></td></tr>
-<tr><td><code>--error</code></td><td>failures and destructive actions</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#b91c1c;vertical-align:middle"></span> <code>#b91c1c</code><div class="muted" style="font-size:0.8rem">6.2:1 on bg · 6.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f87171;vertical-align:middle"></span> <code>#f87171</code><div class="muted" style="font-size:0.8rem">6.8:1 on bg · 6.2:1 on surface</div></td></tr>
-<tr><td><code>--shadow</code></td><td>the lift under cards and the tab bar (none in dark: surfaces are lighter there)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:none;vertical-align:middle"></span> <code>none</code></td></tr>
-<tr><td><code>--shadow-pop</code></td><td>the lift under things that float over the page: chart tooltips, the open side menu</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 2px 8px rgb(0 0 0 / 0.12);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.12)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:0 2px 8px rgb(0 0 0 / 0.5);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.5)</code></td></tr>
-<tr><td><code>--lift</code></td><td>the web app's softer, deeper lift under cards and tiles (apps/web/web.css)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 1px 2px rgb(28 25 23 / 0.06), 0 10px 28px -14px rgb(28 25 23 / 0.28);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 10px 28px -14px rgb(28 25 23 / 0.28)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);vertical-align:middle"></span> <code>inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7)</code></td></tr>
-<tr><td><code>--lift-hover</code></td><td>the same under the mouse</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:0 2px 4px rgb(28 25 23 / 0.08), 0 18px 36px -16px rgb(28 25 23 / 0.38);vertical-align:middle"></span> <code>0 2px 4px rgb(28 25 23 / 0.08), 0 18px 36px -16px rgb(28 25 23 / 0.38)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);vertical-align:middle"></span> <code>inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85)</code></td></tr>
-<tr><td><code>--scrim</code></td><td>dims the page under the side menu's drawer</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:rgb(28 25 23 / 0.4);vertical-align:middle"></span> <code>rgb(28 25 23 / 0.4)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:rgb(0 0 0 / 0.6);vertical-align:middle"></span> <code>rgb(0 0 0 / 0.6)</code></td></tr>
-<tr><td><code>--brand</code></td><td>the Even logo tile: launcher icon, splash icon, favicon (same in both themes)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td></tr>
-<tr><td><code>--brand-ring</code></td><td>the logo's ring track</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td></tr>
-<tr><td><code>--on-brand</code></td><td>the logo's mark (the filled half of the ring, the equals sign)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td></tr>
-<tr><td><code>--camera-bg</code></td><td>behind the camera view before the picture comes</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#000000;vertical-align:middle"></span> <code>#000000</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#000000;vertical-align:middle"></span> <code>#000000</code></td></tr>
-<tr><td><code>--nav-ink</code></td><td>the one bold surface: the wide side menu, Loading, the phone's Add button</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#0f2623;vertical-align:middle"></span> <code>#0f2623</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0b1c1a;vertical-align:middle"></span> <code>#0b1c1a</code></td></tr>
+<tr><td><code>--bg</code></td><td>page background</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#f4f6f3;vertical-align:middle"></span> <code>#f4f6f3</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code></td></tr>
+<tr><td><code>--surface</code></td><td>raised things on it: cards, tiles, charts, the tab bar, the side menu</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#1e1a17;vertical-align:middle"></span> <code>#1e1a17</code></td></tr>
+<tr><td><code>--fg</code></td><td>main text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#1b1f1e;vertical-align:middle"></span> <code>#1b1f1e</code><div class="muted" style="font-size:0.8rem">15.3:1 on bg · 16.6:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f5f5f4;vertical-align:middle"></span> <code>#f5f5f4</code><div class="muted" style="font-size:0.8rem">17.2:1 on bg · 15.8:1 on surface</div></td></tr>
+<tr><td><code>--muted</code></td><td>secondary text, icons at rest</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#56625f;vertical-align:middle"></span> <code>#56625f</code><div class="muted" style="font-size:0.8rem">5.8:1 on bg · 6.3:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#a8a29e;vertical-align:middle"></span> <code>#a8a29e</code><div class="muted" style="font-size:0.8rem">7.5:1 on bg · 6.9:1 on surface</div></td></tr>
+<tr><td><code>--line</code></td><td>borders and dividers</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#e3e8e5;vertical-align:middle"></span> <code>#e3e8e5</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#292524;vertical-align:middle"></span> <code>#292524</code></td></tr>
+<tr><td><code>--accent</code></td><td>primary actions, the selected tab, links</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code><div class="muted" style="font-size:0.8rem">5.0:1 on bg · 5.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#2dd4bf;vertical-align:middle"></span> <code>#2dd4bf</code><div class="muted" style="font-size:0.8rem">10.1:1 on bg · 9.3:1 on surface</div></td></tr>
+<tr><td><code>--on-accent</code></td><td>text and icons on an accent fill</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code><div class="muted" style="font-size:0.8rem">5.5:1 on accent</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#14110f;vertical-align:middle"></span> <code>#14110f</code><div class="muted" style="font-size:0.8rem">10.1:1 on accent</div></td></tr>
+<tr><td><code>--accent-soft</code></td><td>tinted fill: the owner's chat bubbles, meter tracks, the avatar</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:color-mix(in srgb, #0f766e 14%, #f4f6f3);vertical-align:middle"></span> <code>mix</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:color-mix(in srgb, #2dd4bf 14%, #14110f);vertical-align:middle"></span> <code>mix</code></td></tr>
+<tr><td><code>--good</code></td><td>good news (met, within target), as text</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#006300;vertical-align:middle"></span> <code>#006300</code><div class="muted" style="font-size:0.8rem">6.9:1 on bg · 7.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0ca30c;vertical-align:middle"></span> <code>#0ca30c</code><div class="muted" style="font-size:0.8rem">5.6:1 on bg · 5.2:1 on surface</div></td></tr>
+<tr><td><code>--warning</code></td><td>needs attention (stale sync, over target)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#96590a;vertical-align:middle"></span> <code>#96590a</code><div class="muted" style="font-size:0.8rem">5.2:1 on bg · 5.6:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#facc15;vertical-align:middle"></span> <code>#facc15</code><div class="muted" style="font-size:0.8rem">12.3:1 on bg · 11.3:1 on surface</div></td></tr>
+<tr><td><code>--error</code></td><td>failures and destructive actions</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#b91c1c;vertical-align:middle"></span> <code>#b91c1c</code><div class="muted" style="font-size:0.8rem">6.0:1 on bg · 6.5:1 on surface</div></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#f87171;vertical-align:middle"></span> <code>#f87171</code><div class="muted" style="font-size:0.8rem">6.8:1 on bg · 6.2:1 on surface</div></td></tr>
+<tr><td><code>--shadow</code></td><td>the lift under cards and the tab bar (none in dark: surfaces are lighter there)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 2px 8px rgb(28 25 23 / 0.04)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:none;vertical-align:middle"></span> <code>none</code></td></tr>
+<tr><td><code>--shadow-pop</code></td><td>the lift under things that float over the page: chart tooltips, the open side menu</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:0 2px 8px rgb(0 0 0 / 0.12);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.12)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:0 2px 8px rgb(0 0 0 / 0.5);vertical-align:middle"></span> <code>0 2px 8px rgb(0 0 0 / 0.5)</code></td></tr>
+<tr><td><code>--lift</code></td><td>the web app's softer, deeper lift under cards and tiles (apps/web/web.css)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:0 1px 2px rgb(28 25 23 / 0.06), 0 10px 28px -14px rgb(28 25 23 / 0.28);vertical-align:middle"></span> <code>0 1px 2px rgb(28 25 23 / 0.06), 0 10px 28px -14px rgb(28 25 23 / 0.28)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7);vertical-align:middle"></span> <code>inset 0 1px 0 rgb(255 255 255 / 0.04), 0 12px 28px -16px rgb(0 0 0 / 0.7)</code></td></tr>
+<tr><td><code>--lift-hover</code></td><td>the same under the mouse</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:0 2px 4px rgb(28 25 23 / 0.08), 0 18px 36px -16px rgb(28 25 23 / 0.38);vertical-align:middle"></span> <code>0 2px 4px rgb(28 25 23 / 0.08), 0 18px 36px -16px rgb(28 25 23 / 0.38)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85);vertical-align:middle"></span> <code>inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 40px -18px rgb(0 0 0 / 0.85)</code></td></tr>
+<tr><td><code>--scrim</code></td><td>dims the page under the side menu's drawer</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:rgb(28 25 23 / 0.4);vertical-align:middle"></span> <code>rgb(28 25 23 / 0.4)</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:rgb(0 0 0 / 0.6);vertical-align:middle"></span> <code>rgb(0 0 0 / 0.6)</code></td></tr>
+<tr><td><code>--brand</code></td><td>the Even logo tile: launcher icon, splash icon, favicon (same in both themes)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0f766e;vertical-align:middle"></span> <code>#0f766e</code></td></tr>
+<tr><td><code>--brand-ring</code></td><td>the logo's ring track</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#7fd1c6;vertical-align:middle"></span> <code>#7fd1c6</code></td></tr>
+<tr><td><code>--on-brand</code></td><td>the logo's mark (the filled half of the ring, the equals sign)</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#ffffff;vertical-align:middle"></span> <code>#ffffff</code></td></tr>
+<tr><td><code>--camera-bg</code></td><td>behind the camera view before the picture comes</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#000000;vertical-align:middle"></span> <code>#000000</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#000000;vertical-align:middle"></span> <code>#000000</code></td></tr>
+<tr><td><code>--nav-ink</code></td><td>the one bold surface: the wide side menu, Loading, the phone's Add button</td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#0f2623;vertical-align:middle"></span> <code>#0f2623</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#0b1c1a;vertical-align:middle"></span> <code>#0b1c1a</code></td></tr>
 </tbody></table>
 <h2>Chart series</h2>
 <p class="muted">The validated categorical palette for charts with several series, in this order. One-series charts use the accent.</p>
 <table><thead><tr><th>Token</th><th>Light</th><th>Dark</th></tr></thead><tbody>
-<tr><td><code>--series-1</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#2a78d6;vertical-align:middle"></span> <code>#2a78d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#3987e5;vertical-align:middle"></span> <code>#3987e5</code></td></tr>
-<tr><td><code>--series-2</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#eb6834;vertical-align:middle"></span> <code>#eb6834</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d95926;vertical-align:middle"></span> <code>#d95926</code></td></tr>
-<tr><td><code>--series-3</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#1baf7a;vertical-align:middle"></span> <code>#1baf7a</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#199e70;vertical-align:middle"></span> <code>#199e70</code></td></tr>
-<tr><td><code>--series-4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#eda100;vertical-align:middle"></span> <code>#eda100</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#c98500;vertical-align:middle"></span> <code>#c98500</code></td></tr>
-<tr><td><code>--series-5</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e87ba4;vertical-align:middle"></span> <code>#e87ba4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d55181;vertical-align:middle"></span> <code>#d55181</code></td></tr>
-<tr><td><code>--series-6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#008300;vertical-align:middle"></span> <code>#008300</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#008300;vertical-align:middle"></span> <code>#008300</code></td></tr>
-<tr><td><code>--series-7</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#6250d6;vertical-align:middle"></span> <code>#6250d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#9085e9;vertical-align:middle"></span> <code>#9085e9</code></td></tr>
-<tr><td><code>--series-8</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e7e5e4;background:#e34948;vertical-align:middle"></span> <code>#e34948</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#e66767;vertical-align:middle"></span> <code>#e66767</code></td></tr>
+<tr><td><code>--series-1</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#2a78d6;vertical-align:middle"></span> <code>#2a78d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#3987e5;vertical-align:middle"></span> <code>#3987e5</code></td></tr>
+<tr><td><code>--series-2</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#eb6834;vertical-align:middle"></span> <code>#eb6834</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d95926;vertical-align:middle"></span> <code>#d95926</code></td></tr>
+<tr><td><code>--series-3</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#1baf7a;vertical-align:middle"></span> <code>#1baf7a</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#199e70;vertical-align:middle"></span> <code>#199e70</code></td></tr>
+<tr><td><code>--series-4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#eda100;vertical-align:middle"></span> <code>#eda100</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#c98500;vertical-align:middle"></span> <code>#c98500</code></td></tr>
+<tr><td><code>--series-5</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#e87ba4;vertical-align:middle"></span> <code>#e87ba4</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#d55181;vertical-align:middle"></span> <code>#d55181</code></td></tr>
+<tr><td><code>--series-6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#008300;vertical-align:middle"></span> <code>#008300</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#008300;vertical-align:middle"></span> <code>#008300</code></td></tr>
+<tr><td><code>--series-7</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#6250d6;vertical-align:middle"></span> <code>#6250d6</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#9085e9;vertical-align:middle"></span> <code>#9085e9</code></td></tr>
+<tr><td><code>--series-8</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #e3e8e5;background:#e34948;vertical-align:middle"></span> <code>#e34948</code></td><td><span style="display:inline-block;width:2.5rem;height:1.6rem;border-radius:6px;border:1px solid #292524;background:#e66767;vertical-align:middle"></span> <code>#e66767</code></td></tr>
 </tbody></table>
 <h2>Shape</h2>
 <table><tbody>
-<tr><td><code>--radius-sm</code></td><td><code>8px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-sm)"></span></td></tr>
-<tr><td><code>--radius</code></td><td><code>12px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius)"></span></td></tr>
+<tr><td><code>--radius-sm</code></td><td><code>14px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-sm)"></span></td></tr>
+<tr><td><code>--radius</code></td><td><code>22px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius)"></span></td></tr>
 <tr><td><code>--radius-pill</code></td><td><code>999px</code></td><td><span style="display:inline-block;width:4rem;height:2rem;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-pill)"></span></td></tr>
 </tbody></table>
 </main>

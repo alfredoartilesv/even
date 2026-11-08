@@ -191,11 +191,8 @@ const SCREENS: Screen[] = [
     tab: "Today",
     title: "Day",
     about:
-      "A greeting with the profile picture (opens the profile) and sync. Quick actions: log food or a drink, ask Claude, the check-in. Rings for calories eaten against the target and steps against the goal, with burned, balance and protein against its target; the day's check-in and latest weight; then activity (burned, active, distance, intensity minutes), recovery from the watch (sleep and its score, resting heart rate, overnight HRV, Body Battery, stress, each with the two weeks before as a trend), workouts and meal prep (with what the supermarket cost), and every number the watch sent that day, one kind at a time (Sleep open here, with its stages as a bar).",
-    go: async (p) => {
-      await section(p, "today");
-      await p.click('[aria-label="Kind of number"] button', "Sleep");
-    },
+      "A greeting with the date (‹ › to other days) and the period (Day, Week, Month). Quick add: type what you ate or drank and it is logged here, nothing leaves the device. The calorie balance ring with protein, carbs and fat left; what is next from the meal prep plan, eaten in one tap with undo; recovery from the watch (sleep, resting heart rate, Body Battery); so far today (meals, drinks, weight); steps for the week; what Coach noticed while Coach is on; the pinned charts.",
+    go: (p) => section(p, "today"),
   },
   {
     id: "dashboard-week",
@@ -243,11 +240,8 @@ const SCREENS: Screen[] = [
     tab: "Journal",
     title: "Check-in",
     about:
-      "Opened from Check-in on the Dashboard: the day's mood and energy (1 to 5, in words) and a note, saved in place; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
-    go: async (p) => {
-      await section(p, "today");
-      await p.click(".quick-action", "Check-in");
-    },
+      "How is today: mood and energy as word chips (Very low to Very good) beside a note for the day, saved with its button; mood and energy over 30 days; the last 30 days of notes, tap one to open it.",
+    go: (p) => section(p, "journal"),
   },
   {
     id: "journal-measurements",
@@ -371,7 +365,7 @@ const SCREENS: Screen[] = [
     tab: "Food and drinks",
     title: "Drinks: Favourites",
     about: "The favourites on a phone: each with Edit, New favourite and the currency. Drinks already logged keep their own values.",
-    go: (p) => p.click("button", "Favourites ›"),
+    go: (p) => p.click("button", "Manage ›"),
   },
   {
     id: "add",
