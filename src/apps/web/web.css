@@ -454,6 +454,10 @@ body:has(.app-frame) {
     mask-composite: intersect;
   }
 }
+/* Today's header has no band of its own (the board's title sits on the page), so a fade would only dim the greeting's first letters. */
+.app-frame .today .topbar {
+  mask-image: none;
+}
 .app-frame .drink-pick:not(.other) {
   border-color: transparent;
   background-color: var(--glass);
