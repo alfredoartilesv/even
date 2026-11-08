@@ -296,8 +296,11 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 
   return (
     <div>
+      {/* A wide screen: the week and the period on the left, as tall as adding on the right, then
+          the figures and the list across. On a phone the columns step aside (display: contents) and
+          the order is the week, adding, then the period. */}
       <div className="drinks-top">
-        <div className="drinks-col">
+        <div className="drinks-col main">
           <DrinksWeek week={week} limit={limit} currency={currency} />
           <div className="drink-when">
             {isToday ? (
@@ -320,8 +323,11 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               </>
             )}
           </div>
+          <div className="drinks-period">
+            <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
+          </div>
         </div>
-        <div className="drinks-col">
+        <div className="drinks-col side">
           {draft && (
             <AddDrink
               db={db}
@@ -390,8 +396,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
         </div>
       </div>
 
-      <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
-
       {t && (
         <div className="viz-tiles alcohol-tiles">
           <StatTile label="Drinks" value={String(t.drinks)} note={`${t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`} />
@@ -412,8 +416,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
         </div>
       )}
 
-      <div className="wide-grid">
-        <section className="span-8">
+      <div>
+        <section className="drinks-list">
           <SectionHeader title="Drinks" action={!showAll && drinks.length > FIRST ? `All ${drinks.length}` : undefined} onAction={() => setShowAll(true)} />
           <p className="muted small">
             {periodLabel === "Today" ? "Today" : `Last ${periodLabel}`} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change

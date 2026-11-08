@@ -498,6 +498,7 @@ export function App({ target }: { target: Target }) {
                 db={ready}
                 secrets={secretStore}
                 isNative={isNative}
+                navListsAll={target.navListsAll}
                 version={version}
                 page={settingsPage}
                 onPage={setSettingsPage}

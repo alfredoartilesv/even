@@ -3752,8 +3752,14 @@ button:active:not(:disabled) {
 .rail-toggle.on {
   background: var(--area-coach-soft);
 }
+/* One column on a phone, two from a wide screen: the board's pairs (balance with Next up, the day so far with steps) stay side by side, never three across with one left alone below. */
 .today-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 60rem) {
+  .today-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .today-grid .card,
 .today-grid figure.viz {
@@ -4297,4 +4303,113 @@ body:not(:has(.app-frame)) .today .date-step {
   font-size: 0.82rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* Today's two columns: on a phone the wrappers vanish and the cards keep the board's order. */
+.today-col {
+  display: contents;
+}
+.today-col > * {
+  margin: 0;
+}
+@media (max-width: 59.99rem) {
+  .today-col.left > .so-far {
+    order: 3;
+  }
+  .today-col.right > .today-stack {
+    order: 2;
+  }
+  .today-col.left > .balance-card {
+    order: 1;
+  }
+  .today-col.right > :not(.today-stack) {
+    order: 4;
+  }
+}
+@media (min-width: 60rem) {
+  .today-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+}
+
+/* Wide Today with the Coach panel open: the greeting keeps its line and the tools move under it, rather than squeezing it. */
+@media (min-width: 60rem) {
+  .today .topbar,
+  body:not(:has(.app-frame)) .today .topbar {
+    flex-wrap: wrap;
+  }
+  .today .topbar-title {
+    flex: 1 1 18rem;
+  }
+}
+
+/* Drinks on a phone: one column in the board's order, the week, adding, then the period and figures. */
+@media (max-width: 59.99rem) {
+  .drinks-col {
+    display: contents;
+  }
+  .drinks-col.main > .drinks-week,
+  .drinks-col.main > :first-child {
+    order: 1;
+  }
+  .drinks-col.main > .drink-when {
+    order: 2;
+  }
+  .drinks-col.side > * {
+    order: 3;
+  }
+  .drinks-col.main > .drinks-period {
+    order: 4;
+  }
+}
+/* On a wide screen both columns end together: the week card takes what is left beside the favourites. */
+@media (min-width: 60rem) {
+  .drinks-top {
+    align-items: stretch;
+  }
+  .drinks-col.main > :first-child {
+    flex: 1;
+  }
+  .drinks-col.main > .drinks-week {
+    justify-content: space-between;
+  }
+}
+.drinks-period > * {
+  margin: 0;
+}
+.drinks-list {
+  margin-top: 0.5rem;
+}
+
+/* Journal's last 30 days: every card the same shape, rows as tall as their tallest card. */
+.note-row {
+  gap: 0.4rem;
+  height: 100%;
+  text-align: left;
+}
+.note-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.note-chip {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--area-wash, var(--accent-soft));
+  color: var(--area-deep, var(--fg));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* The section's wash reaches the bottom of the window on a short page, not just the end of the content. */
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+/* Goal ideas fill their row, however many there are. */
+.goal-ideas {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }

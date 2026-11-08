@@ -58,4 +58,9 @@ export interface Target {
    * (thumb reach on the phone) with an Add button, the web app a dark side menu that docks on a wide screen.
    */
   Frame: ComponentType<FrameProps>;
+  /**
+   * The navigation lists every section, Activity and Journal included (the web's side menu), so
+   * You does not repeat them. Android's tab bar has no room for them and You keeps them.
+   */
+  navListsAll?: boolean;
 }
