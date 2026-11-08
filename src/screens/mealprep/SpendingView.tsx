@@ -130,7 +130,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
   return (
     <div className="wide-contents">
       <section className="span-4">
-        <SectionHeader title="Paid at the shop" />
+        <SectionHeader title="Checkout" />
         <form className="card stack" onSubmit={add}>
           <label>
             Supermarket
@@ -170,7 +170,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
               Clear the {plural(ticked, "ticked item")} from the shopping list
             </label>
           )}
-          <button type="submit">{ticked > 0 && clear ? `Save and clear ${plural(ticked, "ticked item")}` : "Save what I paid"}</button>
+          <button type="submit">{ticked > 0 && clear ? `Save purchase · clear ${plural(ticked, "item")}` : "Save purchase"}</button>
           <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
         </form>
       </section>

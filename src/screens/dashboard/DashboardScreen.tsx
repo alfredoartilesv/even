@@ -1,29 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BarChart, LineChart, Ring, StatTile } from "../../ui/charts";
-import { fmtDay, fmtMoney, plural, today } from "../../ui/common";
+import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
+import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
-import { MacroSplit } from "../../ui/nutrition";
-import { PageHeader, PeriodNav, QuickActions, SectionHeader, Segmented, type Choice } from "../../ui/layout";
-import { fmtDistance, fmtDuration } from "../../domain/me/workouts";
+import { MacroBars } from "../../ui/nutrition";
+import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
+import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
-import {
-  loadDashboard,
-  pinnedAnchor,
-  shiftSpan,
-  spanRange,
-  type BodyFigure,
-  type BodyKey,
-  type Dashboard,
-  type Figure,
-  type Span,
-} from "../../domain/dashboard/dashboard";
-import { greeting } from "../../domain/dashboard/greeting";
-import { SyncedNumbers } from "./SyncedNumbers";
+import { fmtWeight, type WeightUnit } from "../../core/units";
+import { dayFood, type FoodEntry } from "../../domain/food/food";
+import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
+import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
+import { nextUp, slotAt, type NextUp } from "../../domain/dashboard/today";
+import { PinnedCharts } from "./PinnedCharts";
 import { appleHealthSupported } from "../../platform/health";
 
 const log = createLogger("dashboard");
@@ -35,8 +28,14 @@ const log = createLogger("dashboard");
  */
 interface Shown {
   data: Dashboard;
+  /** The week around the day, for a day's pinned charts. */
+  week: Dashboard | null;
   metrics: DayValue[];
+  food: FoodEntry[];
+  next: NextUp | null;
   name: string | null;
+  /** The owner's weight unit (You > Profile); weights are stored in kg. */
+  weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
 const CACHED_VIEWS = 12;
@@ -46,15 +45,17 @@ function remember(key: string, s: Shown) {
   shownCache.set(key, s);
   if (shownCache.size > CACHED_VIEWS) shownCache.delete(shownCache.keys().next().value!);
 }
-/** Day, week or month: the one last looked at, so coming back to the tab shows the same view. */
+/** Day, week or month: the one last looked at, so coming back to Today shows the same view. */
 let lastSpan: Span = "day";
+/** The Coach panel open or closed, kept for the app's run. */
+let railOpen = true;
 
-/** Where the Dashboard's buttons go; the app shell switches tab. */
+/** Where Today's buttons go; the app shell switches section. */
 export interface DashboardLinks {
   logFood: () => void;
   logDrink: () => void;
-  /** Left out when there is no Chat tab (no API key on this device). */
-  askClaude?: () => void;
+  /** Coach, with text to start from (the quick add); left out while Coach is off. */
+  askClaude?: (draft?: string) => void;
   mealPrep: () => void;
   profile: () => void;
   /** The journal on the check-in of a day (today by default), or on the measurements. */
@@ -69,10 +70,14 @@ interface Props {
   configured: boolean;
   /** What the last sync could not bring in, from sync_runs. */
   syncWarnings: string[];
-  /** The top bar's left (profile) and right (sync) pieces, owned by the app shell. */
+  /** The header's picture (opens You) and sync state, owned by the app shell. */
   profile: ReactNode;
   sync: ReactNode;
   go: DashboardLinks;
+  /** After Eat 1 portion or its Undo, so the other sections reload. */
+  onChanged?: () => void;
+  /** The quick add bar on a wide screen (screens/add, loaded after the first numbers); the phone has its Add button. */
+  quickAdd?: ReactNode;
 }
 
 const SPANS: Choice<Span>[] = [
@@ -82,10 +87,13 @@ const SPANS: Choice<Span>[] = [
 ];
 
 const int = (n: number) => Math.round(n).toLocaleString();
-const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${int(Math.abs(n))}`;
+/** "6 h 23", as the board writes a night's sleep. */
+const hm = (seconds: number) => `${Math.floor(seconds / 3600)} h ${String(Math.round((seconds % 3600) / 60)).padStart(2, "0")}`;
 const utc = (day: string) => new Date(`${day}T12:00:00Z`);
 const short = (day: string, opts: Intl.DateTimeFormatOptions) => utc(day).toLocaleDateString(undefined, { ...opts, timeZone: "UTC" });
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" } as const;
+const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack", "prep"];
 
 /** "Today", "Mon 20 – Sun 26 Oct", "October 2026". */
 function spanTitle(span: Span, anchor: string): string {
@@ -96,14 +104,12 @@ function spanTitle(span: Span, anchor: string): string {
 }
 
 /**
- * The first tab: how the day, week or month went. A greeting and the date; the things done most
- * (log food or a drink, ask Claude, the daily check-in); rings for calories eaten against the
- * target and steps against the goal, with the calories split by macro; the check-in (mood, energy,
- * note, latest weight); then energy, recovery, workouts, alcohol and meal prep, each as the
- * period's daily average and total, with charts per day. A day shows the two weeks before it as
- * trends and a steps chart, and lists every synced number.
+ * Today (handoff 0.7): for a day, the balance (calories left in a ring, the macros against their
+ * targets), what to eat next from the meal prep, recovery from the watch, the day so far and the
+ * steps of the last two weeks; for a week or a month, calories per day with a day's numbers on a
+ * tap, the averages and the check-ins. Both end with the charts the owner pinned.
  */
-export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go }: Props) {
+export function DashboardScreen({ db, version, configured, syncWarnings, profile, sync, go, onChanged, quickAdd }: Props) {
   const [span, setSpanState] = useState<Span>(lastSpan);
   const setSpan = (s: Span) => setSpanState((lastSpan = s));
   // null = the current period, which moves on by itself when the day changes (the app can stay
@@ -113,9 +119,10 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const anchor = picked ?? now;
   const setAnchor = (day: string, sp: Span = span) => setPicked(pinnedAnchor(sp, day, now));
   const [shown, setShown] = useState<Shown | null>(() => shownCache.get(cacheKey(span, anchor)) ?? null);
-  const data = shown?.data ?? null;
-  const metrics = shown?.metrics ?? [];
-  const name = shown?.name ?? null;
+  const [local, setLocal] = useState(0);
+  // The Coach panel beside Today on a wide screen (the board opens with it), while Coach is on.
+  const [rail, setRailState] = useState(railOpen);
+  const setRail = (on: boolean) => setRailState((railOpen = on));
 
   // Loads overlap (a sync finishing, quick taps on ‹ ›, Day / Week / Month): only the newest may
   // show, or an older, slower answer would put another period's numbers under this title.
@@ -125,370 +132,613 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     const key = cacheKey(span, anchor);
     const cached = shownCache.get(key);
     if (cached) setShown(cached);
-    // Debug logs at Info: how long the figures and the day's metric list each take on this phone.
+    // Debug logs at Info: how long the figures and the day's lists each take on this phone.
     const timed = <T,>(what: string, p: Promise<T>) => {
       const done = log.time(`${what} loaded`, "info");
       return p.then((v) => (done({ span }), v));
     };
     const all = log.time("dashboard loaded", "info");
     performance.mark("even:dashboard-query");
-    const [d, p, m] = await Promise.all([
+    const day = span === "day";
+    const [d, p, m, food, next, week] = await Promise.all([
       timed("figures", loadDashboard(db, span, anchor, today())),
       loadProfile(db),
-      span === "day" ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
+      day ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
+      day ? dayFood(db, anchor) : Promise.resolve([]),
+      day && anchor === today() ? nextUp(db) : Promise.resolve(null),
+      day ? loadDashboard(db, "week", anchor, today()) : Promise.resolve(null),
     ]);
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
-    const fresh = { data: d, metrics: m, name: p.name };
+    const fresh = { data: d, week, metrics: m, food, next, name: p.name, weightUnit: p.weightUnit };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
 
   useEffect(() => {
     void load();
-  }, [load, version]);
+  }, [load, version, local]);
 
   // Once per app run: when the first numbers are on screen (read by scripts/perf-device.mjs).
   useEffect(() => {
-    if (data && performance.getEntriesByName("even:dashboard-ready").length === 0) performance.mark("even:dashboard-ready");
-  }, [data]);
+    if (shown && performance.getEntriesByName("even:dashboard-ready").length === 0) performance.mark("even:dashboard-ready");
+  }, [shown]);
 
   const current = spanRange(span, anchor);
   const isCurrent = current.from <= now && now <= current.to;
   const next = shiftSpan(span, anchor, 1);
   const many = span !== "day";
-
-  /** A tile's value: the day's number, or the daily average with the total underneath. */
-  const tile = (f: Figure | undefined, fmt: (n: number) => string = int) => {
-    if (!f || f.total === null) return { value: null, note: many ? "no data" : undefined };
-    if (!many) return { value: fmt(f.total) };
-    return {
-      value: fmt(f.avg!),
-      note: `a day · ${fmt(f.total)} total${f.daysWithData < (data?.days.length ?? 0) ? ` · ${plural(f.daysWithData, "day")}` : ""}`,
-    };
-  };
-  /** For the rings and the hero line: the day's number, or the daily average. */
-  const headline = (f: Figure | undefined) => (f && f.total !== null ? (many ? f.avg : f.total) : null);
-
-  const d = data;
-  const x = d?.days.map((r) => r.day) ?? [];
+  const d = shown?.data ?? null;
   const axis = span === "week" ? (day: string) => short(day, { weekday: "narrow" }) : (day: string) => String(Number(day.slice(8)));
   const openDay = (day: string) => {
     setSpan("day");
     setAnchor(day, "day");
   };
-  const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0 || d.prep.total !== null);
-  const dateLine = utc(now).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-  const balance = headline(d?.balance);
+  const hour = new Date().getHours();
+  const first = shown?.name?.split(" ")[0];
+  // The title is always the greeting (the owner's choice, 8 Nov 2026), so this line names the day
+  // or the period being looked at.
+  const dateText = many
+    ? span === "month"
+      ? short(current.from, { month: "long", year: "numeric" })
+      : `${cap(fmtDay(current.from))} – ${isCurrent ? "today" : fmtDay(current.to)}`
+    : fmtDayLong(anchor);
+  const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
+  const chartsData = many ? d : (shown?.week ?? null);
+  const period = (
+    <Segmented
+      items={SPANS}
+      value={span}
+      label="Period"
+      onChange={(id) => {
+        setSpan(id);
+        setAnchor(isCurrent ? now : current.from, id);
+      }}
+    />
+  );
+
+  // The day or period with ‹ ›: under the greeting on a wide screen, a row of its own on a phone,
+  // where beside the menu and sync it would be cut.
+  const dateNav = (
+    <PeriodNav
+      title={dateText}
+      unit={span}
+      onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
+      onNext={() => setAnchor(next)}
+      nextDisabled={next > now}
+      onCurrent={isCurrent ? null : () => setAnchor(now)}
+      currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+    />
+  );
 
   return (
-    <section>
-      <PageHeader title={greeting(name)} subtitle={dateLine} leading={profile} actions={sync} />
-
-      {syncWarnings.map((w) => (
-        <p key={w} className="warning small">
-          {w}
-        </p>
-      ))}
-      {!configured && !hasAny && (
-        <p className="muted small">
-          {appleHealthSupported ? "Connect Apple Health or add your Garmin key in Settings" : "Add your Garmin key in Settings"} to bring in steps and calories
-          burned, or import your Garmin export.
-        </p>
-      )}
-
-      <QuickActions
-        actions={[
-          { id: "food", label: "Log food", icon: "food", onClick: go.logFood },
-          { id: "drink", label: "Log a drink", icon: "alcohol", onClick: go.logDrink },
-          ...(go.askClaude ? [{ id: "chat", label: "Ask Claude", icon: "sparkle" as const, onClick: go.askClaude }] : []),
-          { id: "checkin", label: "Check-in", icon: "note", onClick: () => go.checkIn() },
-        ]}
-      />
-
-      <div className="dash-controls">
-        <Segmented
-          items={SPANS}
-          value={span}
-          label="Period"
-          onChange={(id) => {
-            setSpan(id);
-            setAnchor(isCurrent ? now : current.from, id);
-          }}
-        />
-
-        <PeriodNav
-          title={spanTitle(span, anchor)}
-          unit={span}
-          onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-          onNext={() => setAnchor(next)}
-          nextDisabled={next > now}
-          onCurrent={isCurrent ? null : () => setAnchor(now)}
-          currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
-        />
-      </div>
-
-      {/* Blocks a wide screen sets in two columns (styles.css); a phone reads them in one. */}
-      <div className="dash-columns">
-        <div className="dash-block">
-          {/* Keyed by period so the card animates in when the period changes. */}
-          <div key={`${span}|${anchor}`} className="card hero-card fade-in">
-            <div className="rings">
-              <Ring label={many ? "Eaten, a day" : "Eaten"} value={headline(d?.eaten)} target={d?.targets.kcal ?? null} kind="limit" unit="kcal" format={int} />
-              <Ring label={many ? "Steps, a day" : "Steps"} value={headline(d?.steps)} target={d?.targets.steps ?? null} kind="goal" format={int} />
+    <section className={rail ? "today with-rail" : "today"}>
+      <div className="today-main">
+        <PageHeader
+          title={`Hi${first ? `, ${first}` : ""}`}
+          subtitle={<span className="wide-only">{dateNav}</span>}
+          leading={<span className="narrow-only">{profile}</span>}
+          actions={
+            <div className="today-tools">
+              <span className="wide-only">{period}</span>
+              {go.askClaude && (
+                <button
+                  type="button"
+                  className={rail ? "rail-toggle on wide-only" : "rail-toggle wide-only"}
+                  aria-pressed={rail}
+                  onClick={() => setRail(!rail)}
+                >
+                  <Icon name="sparkle" size={18} />
+                  {rail ? "Hide Coach" : "Ask Coach"}
+                </button>
+              )}
+              {sync}
             </div>
-            <dl className="hero-stats">
-              <div>
-                <dt className="muted small">Burned</dt>
-                <dd>{headline(d?.burned) !== null ? `${int(headline(d?.burned)!)} kcal` : "–"}</dd>
-              </div>
-              <div>
-                <dt className="muted small">Balance</dt>
-                <dd>{balance !== null ? `${signed(balance)} kcal` : "–"}</dd>
-              </div>
-              <div>
-                <dt className="muted small">Protein</dt>
-                <dd>
-                  {headline(d?.protein) !== null ? `${int(headline(d?.protein)!)} g` : "–"}
-                  {d?.targets.protein != null && <span className="muted small"> / {int(d.targets.protein)}</span>}
-                </dd>
-              </div>
-            </dl>
-            <MacroSplit proteinG={headline(d?.protein)} carbsG={headline(d?.carbs)} fatG={headline(d?.fat)} />
-            {d && d.balance.total !== null && (
-              <p className="muted small hero-note">
-                Balance is eaten minus burned{many ? `, a day, on the ${plural(d.balance.daysWithData, "day")} with both` : ""}: below zero is a deficit.
-                {d.drinks.total ? ` Eaten includes ${int(d.drinks.total)} kcal from drinks.` : ""}
-              </p>
-            )}
-          </div>
+          }
+        />
+        <div className="narrow-only today-datebar">{dateNav}</div>
+        <div className="narrow-only today-period">{period}</div>
 
-          <SectionHeader title="Check-in" action="Journal" onAction={() => go.checkIn(many ? undefined : anchor)} />
-          <CheckInCard data={d} many={many} day={anchor} onOpen={() => go.checkIn(many ? undefined : anchor)} onWeight={go.measurements} />
-        </div>
+        {syncWarnings.map((w) => (
+          <p key={w} className="warning small">
+            {w}
+          </p>
+        ))}
+        {!configured && !hasAny && (
+          <p className="muted small">
+            {appleHealthSupported ? "Connect Apple Health or add your Garmin key in You, Connections" : "Add your Garmin key in You, Connections"} to bring in
+            steps and calories burned, or import your Garmin export.
+          </p>
+        )}
 
-        <div className="dash-block">
-          <SectionHeader title="Activity" />
-          <div className="viz-tiles pairs">
-            {/* A day's tiles carry the two weeks before it; a week or month has its own charts below. */}
-            <StatTile label="Calories burned" unit="kcal" {...tile(d?.burned)} trend={many ? undefined : d?.activityTrend.burned} />
-            <StatTile label="Active calories" unit="kcal" {...tile(d?.active)} trend={many ? undefined : d?.activityTrend.active} />
-            {d && d.body.distance.total !== null && (
-              <StatTile label="Distance" {...tile(d.body.distance, fmtDistance)} trend={many ? undefined : d.body.distance.trend} />
-            )}
-            {d && d.body.intensityMin.total !== null && <IntensityTile f={d.body.intensityMin} span={span} />}
-            {/* A day's eaten and steps are in the rings; a week or month adds their totals here. */}
-            {many && <StatTile label="Calories eaten" unit="kcal" {...tile(d?.eaten)} />}
-            {many && <StatTile label="Steps" {...tile(d?.steps)} />}
-          </div>
+        {quickAdd && <div className="quick-add wide-only">{quickAdd}</div>}
 
-          {!many && d && d.activityTrend.steps.some((v) => v !== null) && (
-            <BarChart
-              title="Steps, last two weeks"
-              subtitle="Tap a day to open it"
-              x={d.trendDays}
-              values={d.activityTrend.steps}
-              formatX={(day) => String(Number(day.slice(8)))}
-              formatXLong={(day) => fmtDay(day)}
-              formatValue={int}
-              onSelect={openDay}
-            />
-          )}
+        {d && !many && shown && (
+          <DayView
+            db={db}
+            d={d}
+            shown={shown}
+            day={anchor}
+            isToday={anchor === now}
+            hour={hour}
+            go={go}
+            onOpenDay={openDay}
+            onChanged={() => {
+              setLocal((v) => v + 1);
+              onChanged?.();
+            }}
+          />
+        )}
+        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} wu={shown?.weightUnit ?? "kg"} />}
 
-          {many && d && (
-            <>
-              <BarChart
-                title="Steps"
-                subtitle="Tap a day to open it"
-                x={x}
-                values={d.days.map((r) => r.steps)}
-                formatX={axis}
-                formatXLong={(day) => fmtDay(day)}
-                formatValue={int}
-                onSelect={openDay}
-              />
-              <LineChart
-                title="Calories in and out"
-                x={x}
-                series={[
-                  { id: "eaten", label: "Eaten", values: d.days.map((r) => r.eatenKcal) },
-                  { id: "burned", label: "Burned", values: d.days.map((r) => r.burnedKcal) },
-                ]}
-                formatX={axis}
-                formatXLong={(day) => fmtDay(day)}
-                formatValue={int}
-                unit="kcal"
-                target={d.targets.kcal}
-                zero
-              />
-            </>
-          )}
-        </div>
-
-        {d && <Recovery d={d} many={many} />}
-
-        <div className="dash-block">
-          <SectionHeader title="Workouts" action="Your activity" onAction={go.profile} />
-          {d && d.workouts.count > 0 ? (
-            <div className="viz-tiles pairs">
-              <StatTile label="Sessions" value={String(d.workouts.count)} note={many ? `${(d.workouts.count / d.days.length).toFixed(1)} a day` : undefined} />
-              <StatTile
-                label="Time"
-                value={fmtDuration(d.workouts.durationS)}
-                note={many ? `${fmtDuration(d.workouts.durationS / d.days.length)} a day` : undefined}
-              />
-            </div>
-          ) : (
-            <p className="muted small">No workouts {span === "day" ? "this day" : `this ${span}`}.</p>
-          )}
-        </div>
-
-        {d && <AlcoholBlock d={d} span={span} onOpen={go.logDrink} />}
-
-        <div className="dash-block">
-          <SectionHeader title="Meal prep" action="Open" onAction={go.mealPrep} />
-          <div className="viz-tiles pairs">
-            <StatTile label="Portions eaten" {...tile(d?.prep, (n) => n.toLocaleString(undefined, { maximumFractionDigits: 1 }))} />
-            <StatTile
-              label="In stock now"
-              value={d ? String(d.stock.portions) : null}
-              note={d ? `portions, ${d.stock.batches} ${d.stock.batches === 1 ? "batch" : "batches"}` : undefined}
-            />
-            <StatTile
-              label="Groceries"
-              value={d && d.groceries.trips ? fmtMoney(d.groceries.total, d.groceries.currency) : null}
-              note={d ? (d.groceries.trips ? plural(d.groceries.trips, "shop") : "nothing logged") : undefined}
-            />
-          </div>
-        </div>
+        {chartsData && (
+          <PinnedCharts
+            db={db}
+            d={chartsData}
+            period={many ? (isCurrent ? `this ${span}` : spanTitle(span, anchor)) : "last 7 days"}
+            formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
+            onDay={openDay}
+          />
+        )}
       </div>
-
-      {span === "day" && metrics.length > 0 && <SyncedNumbers metrics={metrics} />}
+      {rail && go.askClaude && d && <CoachRail d={d} name={first ?? null} ask={go.askClaude} onClose={() => setRail(false)} />}
     </section>
   );
 }
 
-const bpm = (n: number) => `${Math.round(n)} bpm`;
-const whole = (n: number) => String(Math.round(n));
-
-/** Each recovery number: label, format, and which way is good (for the words under it). */
-const RECOVERY: { key: BodyKey; label: string; fmt: (n: number) => string; note?: string }[] = [
-  { key: "sleep", label: "Sleep", fmt: fmtDuration },
-  { key: "restingHr", label: "Resting heart rate", fmt: bpm, note: "lower is fitter" },
-  { key: "hrv", label: "HRV overnight", fmt: (n) => `${Math.round(n)} ms`, note: "higher is better rested" },
-  { key: "bodyBatteryHigh", label: "Body Battery", fmt: whole },
-  { key: "stress", label: "Stress", fmt: whole, note: "0-100, under 25 is rest" },
-];
+const STEPS_HEIGHT = 170;
+const WIDE = "(min-width: 60rem)";
 
 /**
- * How rested the body is, from the watch: sleep (with its score), resting heart rate, overnight
- * HRV, Body Battery (high and low) and stress. A day shows its numbers with the two weeks before as
- * a trend; a week or month its daily averages, trend per day. Only numbers the watch sends appear.
+ * On a wide screen the two columns of a day should end together: the steps chart, last on the
+ * right, grows by what the right column is short of the left (a past day has no Next up, so the
+ * right side is shorter), up to a limit. On a phone it keeps its height.
  */
-function Recovery({ d, many }: { d: Dashboard; many: boolean }) {
-  // A tile shows while its trend has data, so a day the watch missed reads as a dash, not a gap in the grid.
-  const shown = RECOVERY.filter((r) => d.body[r.key].trend.some((v) => v !== null));
-  if (!shown.length) return null;
-  const value = (f: BodyFigure) => (many ? f.avg : f.total);
-  const extra = (k: BodyKey): string | undefined => {
-    const score = value(d.body.sleepScore);
-    const low = value(d.body.bodyBatteryLow);
-    if (k === "sleep" && score !== null) return `score ${whole(score)}${many ? " on average" : ""}`;
-    if (k === "bodyBatteryHigh" && low !== null) return `high · low ${whole(low)}`;
-    return undefined;
-  };
-  return (
-    <div className="dash-block">
-      <SectionHeader title="Recovery" />
-      <div className="viz-tiles pairs">
-        {shown.map((r) => {
-          const f = d.body[r.key];
-          const notes = [many ? "a day on average" : null, extra(r.key) ?? (many ? null : r.note)].filter(Boolean);
-          const v = value(f);
-          return <StatTile key={r.key} label={r.label} value={v === null ? null : r.fmt(v)} note={notes.join(" · ") || undefined} trend={f.trend} />;
-        })}
-      </div>
-    </div>
-  );
+function useEvenColumns(key: string) {
+  const [left, leftRef] = useState<HTMLDivElement | null>(null);
+  const [right, rightRef] = useState<HTMLDivElement | null>(null);
+  const [extra, setExtra] = useState(0);
+  const current = useRef(0);
+  const measure = useCallback(() => {
+    if (!left || !right) return;
+    const wide = window.matchMedia(WIDE).matches;
+    const gap = left.offsetHeight - (right.offsetHeight - current.current);
+    const next = wide ? Math.max(0, Math.min(320, Math.round(gap))) : 0;
+    if (Math.abs(next - current.current) > 2) {
+      current.current = next;
+      setExtra(next);
+    }
+  }, [left, right]);
+  // After every render of another day (its cards differ), and whenever a column changes size.
+  useLayoutEffect(measure, [measure, key]);
+  useEffect(() => {
+    if (!left || !right || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(left);
+    ro.observe(right);
+    return () => ro.disconnect();
+  }, [left, right, measure]);
+  return { leftRef, rightRef, extra };
 }
 
-/** Garmin's intensity minutes (vigorous count double) against the WHO's 150 a week: the day's, or the period's total. */
-function IntensityTile({ f, span }: { f: BodyFigure; span: Span }) {
-  const total = Math.round(f.total!);
-  const note =
-    span === "day"
-      ? "minutes today"
-      : span === "week"
-        ? `of 150 a week${total >= 150 ? " · met" : ` · ${150 - total} to go`}`
-        : `${Math.round(f.avg! * 7)} a week on average`;
-  return <StatTile label="Intensity minutes" value={String(total)} note={note} trend={span === "day" ? f.trend : undefined} />;
-}
-
-/** Drinks in the period, as standard drinks (10 g of alcohol), the days without any, and what they cost. */
-function AlcoholBlock({ d, span, onOpen }: { d: Dashboard; span: Span; onOpen: () => void }) {
-  const a = d.alcohol;
-  const one = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  const free = a.days - a.drinkingDays;
+function DayView({
+  db,
+  d,
+  shown,
+  day,
+  isToday,
+  hour,
+  go,
+  onOpenDay,
+  onChanged,
+}: {
+  db: SqlDriver;
+  d: Dashboard;
+  shown: Shown;
+  day: string;
+  isToday: boolean;
+  hour: number;
+  go: DashboardLinks;
+  onOpenDay: (day: string) => void;
+  onChanged: () => void;
+}) {
+  const { leftRef, rightRef, extra } = useEvenColumns(`${day}|${isToday}|${shown.food.length}|${shown.next ? 1 : 0}`);
+  const eaten = d.eaten.total;
+  const target = d.targets.kcal;
+  const left = target !== null ? target - (eaten ?? 0) : null;
+  const heroLine =
+    eaten === null
+      ? isToday
+        ? "Nothing logged yet today. Add your first meal when you are ready."
+        : "Nothing was logged this day."
+      : left === null
+        ? `${int(eaten)} kcal eaten${isToday ? " so far" : ""}. Set a calorie target in Food and drinks to see what is left.`
+        : left < 0
+          ? `${int(-left)} kcal over the target${isToday ? " today" : ""}.`
+          : isToday
+            ? left > 600
+              ? "You are on pace, with plenty of room left."
+              : "Nicely balanced, with a little room left."
+            : "Within the target this day.";
   return (
-    <div className="dash-block">
-      <SectionHeader title="Alcohol" action="Open" onAction={onOpen} />
-      {a.drinks === 0 ? (
-        <p className="muted small">{span === "day" ? "No drinks this day." : `No drinks this ${span}: ${plural(a.days, "day")} without.`}</p>
-      ) : (
-        <div className="viz-tiles pairs">
-          <StatTile label="Drinks" value={String(a.drinks)} note={`${one(a.standardDrinks)} standard · ${int(a.kcal)} kcal`} />
-          {span !== "day" && <StatTile label="Days without" value={String(free)} note={`of ${a.days}`} />}
-          {a.priced > 0 && (
-            <StatTile
-              label="Spent"
-              value={fmtMoney(a.money, d.groceries.currency)}
-              note={a.priced < a.drinks ? `${a.drinks - a.priced} without price` : undefined}
+    <>
+      {/* Two columns that stack on their own on a wide screen (no row is as tall as its taller card);
+          on a phone the wrappers step aside (display: contents) and the order is balance, Next up,
+          the day so far, steps. */}
+      <div className="today-grid">
+        <div className="today-col left" ref={leftRef}>
+          <section className="card balance-card" aria-label="Balance">
+            <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
+            <div className="balance-side">
+              <p className="balance-line">{heroLine}</p>
+              <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+            </div>
+          </section>
+          <SoFar d={d} food={shown.food} day={day} isToday={isToday} go={go} wu={shown.weightUnit} />
+        </div>
+
+        <div className="today-col right" ref={rightRef}>
+          <div className="today-stack">
+            {isToday && (
+              <NextUpCard
+                db={db}
+                next={shown.next}
+                left={left}
+                protein={{ eaten: d.protein.total, target: d.targets.protein }}
+                hour={hour}
+                go={go}
+                onChanged={onChanged}
+              />
+            )}
+            <section className="today-tiles" aria-label="Recovery">
+              <StatTile
+                label="Sleep"
+                value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
+                note={d.body.sleepScore.total !== null ? `score ${int(d.body.sleepScore.total)}` : undefined}
+              />
+              <StatTile
+                label="Body Battery"
+                value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
+                note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
+              />
+              <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
+            </section>
+          </div>
+
+          {d.activityTrend.steps.some((v) => v !== null) && (
+            <BarChart
+              height={STEPS_HEIGHT + extra}
+              title="Steps, last two weeks"
+              subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
+              x={d.trendDays}
+              values={d.activityTrend.steps}
+              formatX={(x) => String(Number(x.slice(8)))}
+              formatXLong={(x) => fmtDay(x)}
+              formatValue={int}
+              selected={day}
+              onSelect={onOpenDay}
             />
           )}
         </div>
-      )}
-    </div>
+      </div>
+      <Noticed d={d} next={shown.next} go={go} isToday={isToday} />
+    </>
+  );
+}
+
+/** The meal prep portion to eat next, one tap to eat it (logged as food), with Undo. */
+function NextUpCard({
+  db,
+  next,
+  left,
+  protein,
+  hour,
+  go,
+  onChanged,
+}: {
+  db: SqlDriver;
+  next: NextUp | null;
+  left: number | null;
+  protein: { eaten: number | null; target: number | null };
+  hour: number;
+  go: DashboardLinks;
+  onChanged: () => void;
+}) {
+  const [eaten, setEaten] = useState<{ moveId: string; name: string; leftAfter: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const slot = SLOT_LABEL[slotAt(hour)];
+  if (eaten) {
+    return (
+      <section className="card next-done" role="status">
+        <span className="next-check" aria-hidden>
+          <Icon name="food" size={18} />
+        </span>
+        <div className="grow">
+          <strong>{slot} logged</strong>
+          <span className="muted small block">
+            {eaten.name} · {eaten.leftAfter ? `${plural(eaten.leftAfter, "portion")} left in the fridge` : "none left in the fridge"}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="link"
+          onClick={async () => {
+            await undoMove(db, eaten.moveId);
+            setEaten(null);
+            onChanged();
+          }}
+        >
+          Undo
+        </button>
+      </section>
+    );
+  }
+  if (!next) return null;
+  const proteinLeft = protein.target !== null ? protein.target - (protein.eaten ?? 0) : null;
+  const share = next.proteinG && proteinLeft && proteinLeft > 0 ? Math.round((next.proteinG / proteinLeft) * 100) : null;
+  return (
+    <section className="card next-up" aria-labelledby="next-up">
+      <div className="next-head">
+        <span id="next-up" className="next-pill">
+          Next up · {slot}
+        </span>
+        <span className="muted small">eat by {fmtDay(next.eatBy)}</span>
+      </div>
+      <div className="next-body">
+        <strong className="next-name">{next.name}</strong>
+        <span className="muted small">From your meal prep · {plural(next.fridge, "portion")} in the fridge</span>
+        {next.kcal !== null && (
+          <span className="muted small">
+            {int(next.kcal)} kcal{next.proteinG !== null ? ` · ${int(next.proteinG)} g protein` : ""}
+            {share !== null ? `, about ${Math.min(100, share)}% of the protein still to go` : left !== null && left > 0 ? `, ${int(left)} kcal left today` : ""}
+          </span>
+        )}
+      </div>
+      {error && <p className="error small">{error}</p>}
+      <div className="next-actions">
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const moveId = await addMove(db, { batchId: next.batchId, kind: "eat", portions: 1, timeZone: timeZone() });
+              setEaten({ moveId, name: next.name, leftAfter: next.fridge - 1 });
+              setError(null);
+              onChanged();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not log it");
+            }
+          }}
+        >
+          Eat 1 portion
+        </button>
+        <button type="button" className="secondary" onClick={go.logFood}>
+          Something else
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** The day's food by meal, then drinks and weight, each with a way to add. */
+function SoFar({ d, food, day, isToday, go, wu }: { d: Dashboard; food: FoodEntry[]; day: string; isToday: boolean; go: DashboardLinks; wu: WeightUnit }) {
+  const meals = new Map<string, FoodEntry[]>();
+  for (const f of [...food].sort((a, b) => a.eatenAtMs - b.eatenAtMs)) {
+    const k = f.meal ?? "snack";
+    meals.set(k, [...(meals.get(k) ?? []), f]);
+  }
+  const rows = [...meals].sort((a, b) => MEAL_ORDER.indexOf(a[0]) - MEAL_ORDER.indexOf(b[0]));
+  const kcal = food.reduce((n, f) => n + (f.calories ?? 0), 0);
+  const time = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const label = (k: string) => (k === "prep" ? "Meal prep" : cap(k));
+  const a = d.alcohol;
+  return (
+    <section className="card so-far" aria-labelledby="so-far">
+      <div className="so-far-head">
+        <h2 id="so-far">{isToday ? "Today so far" : "That day"}</h2>
+        <span className="muted small">
+          {plural(rows.length, "meal")} · {int(kcal)} kcal
+        </span>
+      </div>
+      {rows.map(([k, items]) => (
+        <div key={k} className="so-far-row">
+          <span className="muted small">{time(items[0].eatenAtMs)}</span>
+          <span className="grow">
+            <strong>{label(k)}</strong>
+            <span className="muted small block clamp">{items.map((i) => i.name).join(", ")}</span>
+          </span>
+          <span className="so-far-num">{int(items.reduce((n, i) => n + (i.calories ?? 0), 0))}</span>
+        </div>
+      ))}
+      <button type="button" className="so-far-row add" onClick={go.logFood}>
+        <span />
+        <span className="grow">
+          <strong>{rows.length ? "Something else" : "Food"}</strong>
+          <span className="muted small block">{rows.length ? "Add a meal or a snack" : "Nothing yet"}</span>
+        </span>
+        <span className="accent">+ Add</span>
+      </button>
+      <button type="button" className="so-far-row add" onClick={go.logDrink}>
+        <span />
+        <span className="grow">
+          <strong>Drinks</strong>
+          <span className="muted small block">
+            {a.drinks ? `${plural(a.drinks, "drink")} · ${int(a.kcal)} kcal` : `None ${isToday ? "today" : "that day"}`}
+          </span>
+        </span>
+        <span className="accent">+ Add</span>
+      </button>
+      <button type="button" className="so-far-row add" onClick={go.measurements}>
+        <span />
+        <span className="grow">
+          <strong>Weight</strong>
+          <span className="muted small block">
+            {d.journal.weight ? `${fmtWeight(d.journal.weight.kg, wu)} · ${fmtDay(d.journal.weight.day, day)}` : "Not logged"}
+          </span>
+        </span>
+        <span className="accent">{d.journal.weight?.day === day ? "" : "+ Add"}</span>
+      </button>
+    </section>
+  );
+}
+
+/** One thing worth a look, worked out on this device from the day's numbers (nothing is sent anywhere). */
+function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; go: DashboardLinks; isToday: boolean }) {
+  const p = d.protein.total ?? 0;
+  const pt = d.targets.protein;
+  let text: string | null = null;
+  if (pt && p < pt) {
+    text = `Protein is the gap ${isToday ? "today" : "that day"}, with ${int(pt - p)} g to go.`;
+    if (isToday && next?.proteinG) text += ` ${next.name} covers ${int(next.proteinG)} g of it.`;
+  } else if (d.targets.steps && d.steps.total !== null && d.steps.total < d.targets.steps) {
+    text = `${int(d.targets.steps - d.steps.total)} steps to your goal ${isToday ? "today" : "that day"}.`;
+  }
+  if (!text || !go.askClaude) return null;
+  return (
+    <section className="noticed" aria-labelledby="noticed">
+      <div className="grow">
+        <h2 id="noticed">Coach noticed</h2>
+        <p>{text}</p>
+      </div>
+      <button type="button" className="noticed-go" onClick={() => go.askClaude!(text)}>
+        Show me ideas
+      </button>
+    </section>
   );
 }
 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
 
-/** The day's note (or a prompt to write one), or for a week or month how many days have one and the average mood and energy; the latest weight. */
-function CheckInCard({ data, many, day, onOpen, onWeight }: { data: Dashboard | null; many: boolean; day: string; onOpen: () => void; onWeight: () => void }) {
-  if (!data) return null;
-  const j = data.journal;
-  const note = many ? null : (j.notes.find((n) => n.day === day) ?? null);
-  const ratings = (mood: number | null, energy: number | null, avg: boolean) =>
-    [mood !== null && `Mood ${avg ? "about " : ""}${word(mood)}`, energy !== null && `energy ${avg ? "about " : ""}${word(energy)}`].filter(Boolean).join(", ");
+/** A week or a month: calories per day (a tap shows that day's numbers), the averages, and the check-ins. */
+function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks; wu: WeightUnit }) {
+  const days = d.days;
+  const [sel, setSel] = useState<string | null>(null);
+  const pickDay = sel ?? [...days].reverse().find((r) => r.eatenKcal !== null)?.day ?? days[days.length - 1]?.day ?? null;
+  const r = days.find((x) => x.day === pickDay);
+  const j = d.journal;
+  const avg = (f: { avg: number | null }, fmt: (n: number) => string = int) => (f.avg !== null ? fmt(f.avg) : null);
   return (
-    <div className="card checkin-card">
-      {many ? (
-        <button type="button" className="link checkin-main" onClick={onOpen}>
-          <strong>{j.notes.length ? `${plural(j.notes.length, "day")} with a note` : "No notes this period"}</strong>
-          {j.notes.length > 0 && <span className="muted small block">{ratings(j.mood.avg, j.energy.avg, true) || "No ratings"}</span>}
-        </button>
-      ) : note ? (
-        <button type="button" className="link checkin-main" onClick={onOpen}>
-          <strong>{ratings(note.mood, note.energy, false) || "Note"}</strong>
-          {note.body && <span className="muted small block clamp">{note.body}</span>}
-        </button>
-      ) : (
-        <button type="button" className="secondary checkin-prompt" onClick={onOpen}>
-          <Icon name="note" size={20} />
-          {day === today() ? "How is the day going? Add a note" : "Add a note for this day"}
-        </button>
-      )}
-      <button type="button" className="link checkin-weight small" onClick={onWeight}>
-        <Icon name="scale" size={18} />
-        {j.weight ? (
-          <span>
-            Weight <strong>{j.weight.kg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg</strong>{" "}
-            <span className="muted">· {fmtDay(j.weight.day)}</span>
-          </span>
-        ) : (
-          <span className="muted">Log your weight</span>
+    <div className="today-grid period">
+      <section className="period-days" aria-label="Calories each day">
+        <BarChart
+          title="Calories each day"
+          subtitle={d.targets.kcal ? `target ${int(d.targets.kcal)}` : undefined}
+          x={days.map((x) => x.day)}
+          values={days.map((x) => x.eatenKcal)}
+          formatX={axis}
+          formatXLong={(x) => fmtDay(x)}
+          formatValue={int}
+          unit="kcal"
+          target={d.targets.kcal}
+          selected={pickDay}
+          onSelect={setSel}
+        />
+        {r && (
+          <div className="card period-pick">
+            <strong>{cap(fmtDay(r.day))}</strong>
+            <span>
+              Calories<b>{r.eatenKcal !== null ? int(r.eatenKcal) : "–"}</b>
+            </span>
+            <span>
+              Protein<b>{r.proteinG !== null ? `${int(r.proteinG)} g` : "–"}</b>
+            </span>
+            <span>
+              Steps<b>{r.steps !== null ? int(r.steps) : "–"}</b>
+            </span>
+            <span>
+              Workouts<b>{r.workouts}</b>
+            </span>
+          </div>
         )}
-      </button>
+      </section>
+      {/* The averages two by two with the check-ins under them, as tall as the chart beside them. */}
+      <div className="period-side">
+        <section className="today-tiles four" aria-label="Averages">
+          <StatTile label="Average calories" value={avg(d.eaten)} note={d.targets.kcal ? `target ${int(d.targets.kcal)}` : undefined} />
+          <StatTile
+            label="Average protein"
+            value={avg(d.protein, (n) => `${int(n)} g`)}
+            note={d.targets.protein ? `goal ${int(d.targets.protein)} g` : undefined}
+          />
+          <StatTile label="Average steps" value={avg(d.steps)} note={d.targets.steps ? `goal ${int(d.targets.steps)}` : undefined} />
+          <StatTile
+            label="Average sleep"
+            value={avg(d.body.sleep, fmtDuration)}
+            note={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : undefined}
+          />
+        </section>
+        <section className="card period-journal" aria-labelledby="period-journal">
+          <div className="so-far-head">
+            <h2 id="period-journal">Check-ins</h2>
+            <button type="button" className="link accent small" onClick={() => go.checkIn()}>
+              Journal ›
+            </button>
+          </div>
+          <p className="muted small">
+            {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
+            {j.mood.avg !== null ? ` · mood about ${word(j.mood.avg)}` : ""}
+            {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
+          </p>
+          <button type="button" className="link small" onClick={go.measurements}>
+            {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
+          </button>
+        </section>
+      </div>
     </div>
+  );
+}
+
+/**
+ * Coach beside Today on a wide screen (handoff 0.7): what it can see of the day, three questions
+ * to start from, and a box to ask anything. Each opens Coach with the question ready to send; the
+ * summary here is worked out on this device, nothing is sent until the owner sends it.
+ */
+function CoachRail({ d, name, ask, onClose }: { d: Dashboard; name: string | null; ask: (draft?: string) => void; onClose: () => void }) {
+  const [text, setText] = useState("");
+  const eaten = d.eaten.total;
+  const proteinLeft = d.targets.protein !== null ? Math.max(0, d.targets.protein - (d.protein.total ?? 0)) : null;
+  const questions = ["What should dinner be?", "How did I sleep this week?", "Plan next week's tuppers"];
+  return (
+    <aside className="coach-rail wide-only" aria-label="Coach" data-area="coach">
+      <div className="coach-rail-head">
+        <h2>Coach</h2>
+        <button type="button" className="icon-button ghost" aria-label="Close Coach" onClick={onClose}>
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+      <div className="coach-bubble">
+        Hi{name ? ` ${name}` : ""}. I can see today so far: {eaten !== null ? <strong>{int(eaten).toString()} kcal</strong> : "nothing logged yet"}
+        {eaten !== null ? " eaten" : ""}
+        {proteinLeft ? (
+          <>
+            {" "}
+            and <strong>{int(proteinLeft)} g</strong> of protein still to go
+          </>
+        ) : null}
+        . What would you like help with?
+      </div>
+      <div className="grow" />
+      <div className="coach-questions" role="group" aria-label="Suggested questions">
+        {questions.map((q) => (
+          <button key={q} type="button" className="coach-question" onClick={() => ask(q)}>
+            {q}
+          </button>
+        ))}
+      </div>
+      <form
+        className="coach-ask"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim()) ask(text.trim());
+        }}
+      >
+        <label className="sr-only" htmlFor="rail-ask">
+          Ask Coach
+        </label>
+        <input id="rail-ask" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask anything" />
+        <button type="submit" aria-label="Send" disabled={!text.trim()}>
+          <Icon name="send" size={18} />
+        </button>
+      </form>
+    </aside>
   );
 }

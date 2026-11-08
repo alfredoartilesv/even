@@ -59,7 +59,7 @@ const GARMIN_WORD = { connected: "Garmin connected", not_connected: "Garmin not 
 
 export const hints = (s: SettingsSummary) => ({
   profile: [s.name, s.calorieTarget !== null && `${Math.round(s.calorieTarget).toLocaleString()} kcal target`].filter(Boolean).join(" · ") || undefined,
-  connections: `${GARMIN_WORD[s.garmin]} · Chat ${s.chatOn ? "on" : "off"}`,
+  connections: `${GARMIN_WORD[s.garmin]} · Coach ${s.chatOn ? "on" : "off"}`,
   privacy: s.lastBackupMs ? `Backed up ${fmtDay(new Date(s.lastBackupMs).toLocaleDateString("en-CA"))}` : "No backup yet",
   about: `${APP_VERSION} · ${PLATFORM[platformName] ?? platformName}${s.schema ? ` · schema v${s.schema}` : ""}`,
 });

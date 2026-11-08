@@ -501,7 +501,7 @@ const getProfile: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
     "get_profile",
-    "The owner's profile from Settings: age (not the birth date), sex, height, activity level, weekly weight goal, the sports they call theirs, the latest weight with its day and source, and the estimates they allow (BMI and class, healthy weight range, BMR, daily energy, calorie target for the goal, protein target). Fields the owner has not filled in are null and listed in missing; their name is not sent.",
+    "The owner's profile from You, Profile: age (not the birth date), sex, height, the units they read heights and weights in, activity level, weekly weight goal, the sports they call theirs, the latest weight with its day and source, and the estimates they allow (BMI and class, healthy weight range, BMR, daily energy, calorie target for the goal, protein target). Fields the owner has not filled in are null and listed in missing; their name is not sent.",
     {},
   ),
   async run(db) {
@@ -513,6 +513,8 @@ const getProfile: ChatTool = {
         age_years: e.ageYears,
         sex: p.sex,
         height_cm: p.heightCm,
+        height_unit: p.heightUnit,
+        weight_unit: p.weightUnit,
         activity: p.activity,
         kg_per_week_goal: p.kgPerWeek,
         sports: p.sports,

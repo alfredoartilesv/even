@@ -16,9 +16,7 @@ import { planDefrost, stockAlerts, type Alert, type Location, type MoveKind, typ
 import { failed, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup, Stepper } from "../../ui/controls";
 import { addDays, localDateTimeToMs } from "../../core/tz";
-import { BatchBar, batchColors, PlanStrip, StockAlerts, StockSummary } from "../../ui/mealprep/components";
-import { Legend } from "../../ui/charts";
-import { SectionHeader } from "../../ui/layout";
+import { PortionDots, StockAlerts, StockSummary } from "../../ui/mealprep/components";
 
 interface Props {
   db: SqlDriver;
@@ -29,8 +27,6 @@ interface Props {
   onChanged: () => void;
   /** Open Recipes (to cook when stock runs short). */
   onRecipes: () => void;
-  /** Open the tupper plan, day by day. */
-  onPlan: () => void;
 }
 
 const MOVE_LABEL: Record<MoveKind, string> = { freeze: "froze", thaw: "started defrosting", eat: "ate", discard: "threw out" };
@@ -65,7 +61,7 @@ function alertText(a: Alert): string {
  * defrost), the next two weeks at a glance (the Plan view has them day by day), then each batch with where its portions are and Eat, Freeze,
  * Defrost. Eating writes the food log. Cooking is logged here or from a recipe.
  */
-export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Props) {
+export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const [stock, setStock] = useState<StockEntry[]>([]);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [perDay, setPerDay] = useState(1);
@@ -187,7 +183,6 @@ export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Pr
   const fridge = stock.reduce((n, s) => n + s.fridgeCount, 0);
   const frozen = stock.reduce((n, s) => n + s.freezerCount, 0);
   const todayStr = today();
-  const colors = batchColors(stock.map((st) => st.batch.id));
 
   return (
     <div>
@@ -195,17 +190,10 @@ export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Pr
 
       <StockAlerts alerts={alerts.map((a, i) => ({ id: `${a.kind}|${a.batchId}|${i}`, kind: a.kind, text: alertText(a) }))} />
 
-      {plan && perDay > 0 && (
-        <section className="card">
-          <SectionHeader title="Next 14 days" action="Plan" onAction={onPlan} />
-          <PlanStrip plan={plan} today={todayStr} colors={colors} />
-          <Legend items={stock.map((st) => ({ label: st.batch.name, slot: colors.get(st.batch.id) ?? 1, mark: "rect" as const }))} />
-          {plan.short.length > 0 && (
-            <button type="button" className="link small accent" onClick={onRecipes}>
-              Not enough for {fmtDay(plan.short[0].day)}: time to cook ›
-            </button>
-          )}
-        </section>
+      {plan && perDay > 0 && plan.short.length > 0 && (
+        <button type="button" className="link small accent" onClick={onRecipes}>
+          Not enough for {fmtDay(plan.short[0].day)}: time to cook ›
+        </button>
       )}
 
       <MsgLine msg={msg} />
@@ -216,15 +204,17 @@ export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Pr
           const max = Math.max(1, s.fridgeCount, s.freezerCount);
           return (
             <section key={s.batch.id} className="card">
-              <div className="row">
+              <div className="batch-head">
                 <div className="grow">
-                  <strong>{s.batch.name}</strong>
-                  <div className="muted small">
-                    Cooked {fmtDay(s.batch.localDay)} · {s.left} of {s.batch.portions} left
-                  </div>
+                  <strong className="batch-name">{s.batch.name}</strong>
+                  <div className="muted small">Cooked {fmtDay(s.batch.localDay)}</div>
                 </div>
+                <span className="batch-total">
+                  {s.left}
+                  <span className="muted small"> of {s.batch.portions} left</span>
+                </span>
               </div>
-              <BatchBar cooked={s.batch.portions} eaten={s.eaten} fridge={s.fridgeCount} freezer={s.freezerCount} discarded={s.discarded} />
+              <PortionDots fridge={s.fridgeCount} freezer={s.freezerCount} gone={s.eaten + s.discarded} />
               <ul className="plain small">
                 {s.fridge.map((l, i) => (
                   <li key={`f${i}`}>
@@ -332,7 +322,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes, onPlan }: Pr
                     onChange={setCookDay}
                   />
                 </div>
-                <BatchBar cooked={cookPortions} eaten={0} fridge={cookPortions - cookFrozen} freezer={cookFrozen} discarded={0} />
+                <PortionDots fridge={cookPortions - cookFrozen} freezer={cookFrozen} gone={0} />
                 <p className="muted small">
                   Keeps {cooked.fridgeDays} days in the fridge, {cooked.freezerDays} in the freezer.
                 </p>

@@ -1,0 +1,67 @@
+/*
+ * Each section's own accent (palette.css, --area-*). The shell sets data-area on the page and
+ * the side menu and tab bar on each of their items; here --accent points at the area's colour,
+ * so every button, chip, switch, link and title follows. Kept out of palette.css, whose two
+ * blocks scripts/palette.mjs reads as the light and dark themes. Only tokens here, no colours.
+ */
+[data-area="today"] {
+  --accent: var(--area-today);
+  --accent-soft: var(--area-today-soft);
+  --area-deep: var(--area-today-deep);
+  --area-wash: var(--area-today-wash);
+  --area-line: var(--area-today-line);
+}
+[data-area="food"] {
+  --accent: var(--area-food);
+  --accent-soft: var(--area-food-soft);
+  --area-deep: var(--area-food-deep);
+  --area-wash: var(--area-food-wash);
+  --area-line: var(--area-food-line);
+}
+[data-area="prep"] {
+  --accent: var(--area-prep);
+  --accent-soft: var(--area-prep-soft);
+  --area-deep: var(--area-prep-deep);
+  --area-wash: var(--area-prep-wash);
+  --area-line: var(--area-prep-line);
+}
+[data-area="activity"] {
+  --accent: var(--area-activity);
+  --accent-soft: var(--area-activity-soft);
+  --area-deep: var(--area-activity-deep);
+  --area-wash: var(--area-activity-wash);
+  --area-line: var(--area-activity-line);
+}
+[data-area="journal"] {
+  --accent: var(--area-journal);
+  --accent-soft: var(--area-journal-soft);
+  --area-deep: var(--area-journal-deep);
+  --area-wash: var(--area-journal-wash);
+  --area-line: var(--area-journal-line);
+}
+[data-area="coach"] {
+  --accent: var(--area-coach);
+  --accent-soft: var(--area-coach-soft);
+  --area-deep: var(--area-coach-deep);
+  --area-wash: var(--area-coach-wash);
+  --area-line: var(--area-coach-line);
+}
+[data-area="you"] {
+  --accent: var(--area-you);
+  --accent-soft: var(--area-you-soft);
+  --area-deep: var(--area-you-deep);
+  --area-wash: var(--area-you-wash);
+  --area-line: var(--area-you-line);
+}
+
+/* The page: a flat wash of the area, titles in its deep shade, cards on the surface with a hairline of it. */
+body[data-area] {
+  background: var(--area-wash);
+}
+[data-area] .topbar h1,
+.start-page h1 {
+  color: var(--area-deep);
+}
+[data-area] .card {
+  border-color: var(--area-line);
+}

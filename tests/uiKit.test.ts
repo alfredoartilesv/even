@@ -155,5 +155,5 @@ test("logo: named Even, or hidden next to the name; colors from the palette only
   assert.match(named, /^<svg class="logo" width="32" height="32" viewBox="0 0 64 64" role="img" aria-label="Even"/);
   assert.match(renderToStaticMarkup(h(Logo, { decorative: true })), /aria-hidden="true"/);
   assert.doesNotMatch(renderToStaticMarkup(h(Logo, { decorative: true })), /role="img"/);
-  for (const c of named.match(/(?:fill|stroke)="[^"]*"/g) ?? []) assert.match(c, /="(none|var\(--(accent|on-accent)\))"/, c);
+  for (const c of named.match(/(?:fill|stroke)="[^"]*"/g) ?? []) assert.match(c, /="(none|var\(--(brand|brand-ring|on-brand)\))"/, c);
 });

@@ -206,15 +206,15 @@ export async function deleteFood(db: SqlDriver, id: string, nowMs: number = Date
   log.info("food deleted", { id });
 }
 
-/** Log the same thing again, now. */
-export async function relogFood(db: SqlDriver, entryId: string, opts: { atMs?: number; timeZone: string }): Promise<string> {
+/** Log the same thing again, now (in another meal slot when given, as quick add does). */
+export async function relogFood(db: SqlDriver, entryId: string, opts: { atMs?: number; timeZone: string; meal?: Meal | null }): Promise<string> {
   const [e] = await db.all<EntryRow>(`SELECT ${ENTRY_COLS} FROM ${ENTRY_FROM} WHERE e.id = ?`, [entryId]);
   if (!e) throw new Error("That entry no longer exists");
   const at = opts.atMs ?? Date.now();
   return logFood(db, {
     name: e.name,
     // A meal prep portion logged again is a normal meal: the stock is not touched.
-    meal: e.meal === "prep" ? mealForHour(localHour(at, opts.timeZone)) : e.meal,
+    meal: opts.meal !== undefined ? opts.meal : e.meal === "prep" ? mealForHour(localHour(at, opts.timeZone)) : e.meal,
     calories: e.calories,
     proteinG: e.protein_g,
     carbsG: e.carbs_g,

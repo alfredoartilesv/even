@@ -82,10 +82,17 @@ export function ShoppingView({ db, version, onChanged, onRecipes }: Props) {
       <section className="span-4">
         <SectionHeader title="Shopping list" action="Add from recipes" onAction={onRecipes} />
         {items.length > 0 && (
-          <p className="muted small">
-            {open.length ? `${open.length} to buy` : "Everything is in the basket"}
-            {ticked > 0 && ` · ${ticked} ticked`}
-          </p>
+          <div className="basket">
+            <span className="small">
+              <strong>
+                {ticked} of {items.length}
+              </strong>{" "}
+              in the basket{open.length === 0 ? ", everything is in" : ""}
+            </span>
+            <span className="basket-track" aria-hidden>
+              <span style={{ width: `${(ticked / items.length) * 100}%` }} />
+            </span>
+          </div>
         )}
         <form className="ingredient" onSubmit={add}>
           <input aria-label="Item" placeholder="Add an item" value={name} onChange={(e) => setName(e.target.value)} />

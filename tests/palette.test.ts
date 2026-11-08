@@ -78,6 +78,29 @@ for (const [name, t] of [
   });
 }
 
+const AREAS = ["today", "food", "prep", "activity", "journal", "coach", "you"];
+
+for (const [name, t] of [
+  ["light", light],
+  ["dark", dark],
+] as const) {
+  test(`palette (${name}): each section's accent reads on cards and carries its button label; its deep shade and muted text read on its wash`, () => {
+    for (const a of AREAS) {
+      const c = t[`area-${a}`];
+      assert.match(c, /^#[0-9a-f]{6}$/, `--area-${a}`);
+      // The accent is text on cards (links, chips) and a fill under white; titles on the page use its deep shade.
+      assert.ok(contrast(c, t.surface) >= 4.5, `--area-${a} on --surface: ${contrast(c, t.surface).toFixed(2)}:1`);
+      if (name === "light") {
+        assert.ok(contrast(t[`area-${a}-deep`], t[`area-${a}-wash`]) >= 4.5, `--area-${a}-deep on its wash`);
+        assert.ok(contrast(t.muted, t[`area-${a}-wash`]) >= 4.5, `--muted on --area-${a}-wash`);
+      }
+      assert.ok(contrast(t["on-accent"], c) >= 4.5, `--on-accent on --area-${a}`);
+    }
+    assert.ok(contrast(t["on-nav"], t["nav-ink"]) >= 7, "menu text on --nav-ink");
+    assert.ok(contrast(t["on-nav-muted"], t["nav-ink"]) >= 4.5, "muted menu text on --nav-ink");
+  });
+}
+
 test("contrast maths matches the WCAG reference values", () => {
   assert.equal(contrast("#000000", "#ffffff").toFixed(0), "21");
   assert.equal(contrast("#777777", "#ffffff").toFixed(2), "4.48");

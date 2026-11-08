@@ -154,3 +154,50 @@ export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft
     </div>
   );
 }
+
+/**
+ * Protein, carbs and fat against their daily targets as three bars (handoff 0.7, Today's balance
+ * card), in the macro colours every screen shares. A bar without a target shows the grams only.
+ */
+export function MacroBars({
+  grams,
+  targets,
+  mode = "of",
+}: {
+  /** "of": 80 / 150 g (Today). "left": 70 g left (Food's log). */
+  mode?: "of" | "left";
+  grams: { protein: number | null; carbs: number | null; fat: number | null };
+  targets: { protein: number | null; carbs: number | null; fat: number | null };
+}) {
+  const rows = [
+    { key: "protein", label: "Protein", slot: 1 },
+    { key: "carbs", label: "Carbs", slot: 2 },
+    { key: "fat", label: "Fat", slot: 3 },
+  ] as const;
+  return (
+    <div className="macro-bars">
+      {rows.map((m) => {
+        const g = grams[m.key] ?? 0;
+        const t = targets[m.key];
+        const pct = t ? Math.min(100, (g / t) * 100) : 0;
+        return (
+          <div key={m.key} className="macro-bar">
+            <span className="muted">{m.label}</span>
+            <span className="macro-track" aria-hidden>
+              <span style={{ width: `${pct}%`, background: `var(--series-${m.slot})` }} />
+            </span>
+            <span className="macro-num">
+              {!t
+                ? `${Math.round(g)} g`
+                : mode === "of"
+                  ? `${Math.round(g)} / ${Math.round(t)} g`
+                  : g > t
+                    ? `${Math.round(g - t)} g over`
+                    : `${Math.round(t - g)} g left`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
