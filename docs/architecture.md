@@ -208,7 +208,7 @@ The owner handed over a new design (the Even boards and an addendum: start-up sc
 - First run on the phone asks for the Garmin key and the account (freddy is no longer offered there); Unlock is deferred.
 - Light matches the boards; dark is derived from the same tokens. The owner can force either in You > About.
 - The login and pairing behaviour of the web gate stays as built; the boards' QR screens were a reference for its look only.
-- Quick add parses on the device: nothing in it leaves the device, so it needs no consent or disclosure row. Sending what it could not read to Coach is the owner's tap, and goes through the chat's consent like any message.
+- Quick add takes food and drinks only, never a weight (the owner, 8 Nov 2026). It parses on the device: nothing in it leaves the device, so it needs no consent or disclosure row. Sending what it could not read to Coach is the owner's tap, and goes through the chat's consent like any message.
 - Height and weight units are a profile setting (synced with the profile); data stays in cm and kg.
 - The health connector's instructions and the chat prompt name the new places (You > Connections, You > Privacy and data) and report the owner's units.
 
