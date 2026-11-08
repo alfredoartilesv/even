@@ -58,7 +58,8 @@
   --on-accent: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--bg));
   --good: #006300;
-  --warning: #a16207;
+  /* Amber a shade under the board's #a16207, which fell just short of 4.5:1 on a tinted card. */
+  --warning: #96590a;
   --warning-soft: color-mix(in srgb, var(--warning) 18%, var(--bg));
   --error: #b91c1c;
 

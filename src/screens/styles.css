@@ -586,7 +586,7 @@ fieldset .chips {
   align-items: center;
   justify-content: center;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
+  color: var(--area-deep);
   font-weight: 600;
 }
 .avatar-pick {
@@ -1212,7 +1212,7 @@ button:active:not(:disabled) {
 .tabs.sub button.active {
   background: var(--accent-soft);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--area-deep);
   font-weight: 600;
 }
 
@@ -4194,4 +4194,14 @@ body[data-area="journal"] .screen > section > .segmented {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.15rem 0.75rem;
+}
+
+/* On the page's tinted wash the area colour itself falls under 4.5:1 for small text (paprika is
+   4.2), so links there take the area's deep shade; on a white card the area colour stays. */
+button.link.accent {
+  color: var(--area-deep);
+}
+.card button.link.accent,
+.sidenav button.link.accent {
+  color: var(--accent);
 }
