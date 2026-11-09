@@ -236,7 +236,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
         currentLabel="Back to today"
       />
 
-      <div className="wide-grid">
+      <div className="wide-grid stretch">
         <div className="span-8 wide-col">
           <section className="card left-card" aria-label="What is left">
             <div className="left-head">

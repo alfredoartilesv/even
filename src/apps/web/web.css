@@ -754,9 +754,17 @@ body:has(.app-frame) {
     position: sticky;
     top: 1rem;
     max-height: calc(100dvh - 2rem);
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-width: thin;
+    /* No scroll bar beside the menu (the wheel and touch still scroll it); a little room so the
+       cards' shadows are not cut at the sides. */
+    scrollbar-width: none;
+    padding: 0 0.4rem 0.5rem;
+    margin: 0 -0.4rem;
+  }
+  .app-frame .settings-menu::-webkit-scrollbar {
+    display: none;
   }
   .app-frame dl.facts {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -971,4 +979,47 @@ body:has(.app-frame) {
 .sidenav-avatar:has(img) {
   overflow: hidden;
   padding: 0;
+}
+
+/* Journal › Measurements, wide: the kinds share the form's height, so a short list leaves no hole beside it. */
+@media (min-width: 64rem) {
+  .app-frame .kind-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .app-frame .kind-list > .kind-card {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .app-frame .kind-list > .kind-card:has(.kind-head[aria-expanded="true"]) {
+    justify-content: flex-start;
+  }
+}
+
+/* Food › Log, wide: the day's meals grow to meet the column beside them, no hole under a short day. */
+@media (min-width: 64rem) {
+  .app-frame .wide-col > .day-meals {
+    flex: 1 1 auto;
+  }
+}
+@media (min-width: 64rem) {
+  /* Room between the batches and Log a cook under them. */
+  .app-frame .batch-grid {
+    margin-bottom: 1rem;
+  }
+}
+/* You's title inside its menu column: no header band behind it (it read as a dark box over the column). */
+@media (min-width: 64rem) {
+  .app-frame .settings-menu .topbar {
+    position: static;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    mask-image: none;
+    margin: 0 0 0.5rem;
+    padding: 0;
+  }
 }
