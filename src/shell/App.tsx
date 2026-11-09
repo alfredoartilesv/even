@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { deviceFetch, garminFetch, isNative } from "../platform/device";
 import type { SqlDriver } from "../db/driver";
 import { openDatabase } from "../platform/openDatabase";
+import { takeOverOnReload } from "../platform/tabLock";
 import { DashboardScreen } from "../screens/dashboard/DashboardScreen";
 import type { MealPrepView } from "../screens/mealprep/MealPrepScreen";
 import type { FoodView } from "../screens/food/FoodScreen";
@@ -50,7 +51,7 @@ import { PageHeader } from "../ui/layout";
 import { PullToRefresh } from "../ui/PullToRefresh";
 import "../ui/ui.css";
 
-type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string };
+type DbStatus = { state: "opening" } | { state: "ready"; db: SqlDriver } | { state: "error"; message: string; otherTab: boolean };
 
 const log = createLogger("app");
 /** How soon a change made here is pushed, at most. */
@@ -111,7 +112,7 @@ export function App({ target }: { target: Target }) {
       },
       (err: Error) => {
         log.error("database unavailable", { err });
-        setDbStatus({ state: "error", message: err.message });
+        setDbStatus({ state: "error", message: err.message, otherTab: err.name === "OtherTabError" });
       },
     );
   }, []);
@@ -319,6 +320,13 @@ export function App({ target }: { target: Target }) {
         <section className="card loading-error" role="alert">
           <h2>Your data could not be opened</h2>
           <p className="muted">Nothing was changed or deleted. {dbStatus.message}</p>
+          {dbStatus.otherTab && (
+            <div className="actions">
+              <button type="button" onClick={() => takeOverOnReload()}>
+                Use Even here
+              </button>
+            </div>
+          )}
           <Suspense>
             <h3>Logs</h3>
             <LogsScreen db={null} />
