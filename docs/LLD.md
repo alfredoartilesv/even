@@ -43,6 +43,7 @@ src/
     notifications.ts               Notifier on @capacitor/local-notifications (no-op in the browser)
     files.ts                       backup file to the share sheet / download
     webDatabase.ts, idb.ts         the web app's database: sql.js in memory, sealed in IndexedDB with this browser's key (or kept in the tab only, keepNothing)
+    tabLock.ts                     one tab owns the web database (Web Locks); "Use Even here" takes it over from a frozen background tab
     googleSignIn.ts                Google sign-in on the phone (the owner, and linking Google to the sync account)
     buildInfo.ts                   APP_VERSION and BUILD_TIME (defined by vite.config.ts from package.json)
   ui/                              the UI kit: presentational components, plain props in, callbacks out (section 8b)
@@ -893,6 +894,7 @@ Run with `npm test` (`tsx --import ./tests/setup.ts --test tests/*.test.ts`), 47
 | `health.test.ts` | age, BMI and range, BMR/TDEE/target with the floor, macro kcal and split, protein, alcohol and standard drinks, max HR and both zone methods, mean, slope across DST, rolling average with gaps, smoothing |
 | `palette.test.ts` | every palette role defined in both themes; text roles at WCAG AA on `--bg` and `--surface` (and `--on-accent` on the accent); the contrast maths against reference values; no literal color (hex, `rgb()`/`hsl()`, color names) anywhere in `src/` outside the palette, comments aside; the logo, favicon and Android icon use only brand colors; `index.html` theme-color is `--bg`; the Android colors and splash theme come from the palette; no undefined tokens |
 | `publicRepo.test.ts` | the licence (AGPL-3.0-or-later in LICENSE, package.json, README); no private file tracked (env, keys, databases, data exports, built apps); only GitHub noreply commit emails pass |
+| `tabLock.test.ts` | one tab owns the web database; a second is refused without disturbing it; *Use Even here* steals the lock and the old owner is told to stop; no Web Locks still opens; the take-over flag lasts one reload, blocked storage included |
 | `uiLayout.test.ts` | `PageHeader`, `SubTabs`, `Segmented`, `ChipGroup`/`RangePicker`, every `Icon`, the Android tab bar's five tabs and current one, the web side menu's drawer and docked states, the header's menu button, and each entry's navigation, the Meal prep views in order (Spending last); screens use the shared header, tab rows and icons |
 | `journal.test.ts` | measurement kinds refuse wrong shapes, ranges, kinds and future times with safe messages; saved in the owner's zone with the kind's unit; listed newest first, summarised per kind, one point per day; delete and restore; `latestWeight` follows; day notes created then edited in place, emptied ones deleted, future days refused, a chat-added note edited by the owner; the Dashboard's check-in figures and the weight within the span |
 | `dashboard.test.ts` | spans (Monday weeks, months incl. leap February, moving between them), totals and averages over days with data, a seeded week: steps, burned, eaten with drinks, balance, protein, the current week stopping at today, a single day |
