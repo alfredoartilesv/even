@@ -13,6 +13,7 @@ import {
 import { addRecipesToShopping, formatQuantity, normalizeUnit } from "../../domain/mealprep/shopping";
 import { kcalFromMacros } from "../../core/health";
 import { failed, MsgLine, numOrNull, plural, timeZone, type Msg } from "../../ui/common";
+import { Icon } from "../../ui/icons";
 import { Stepper } from "../../ui/controls";
 import { estimateKcal, MacroInputs } from "../../ui/nutrition";
 import { UnitSelect } from "./UnitSelect";
@@ -330,7 +331,9 @@ export function RecipesView({ db, tag, allTags, version, onChanged, onShopping, 
     <div>
       <div className="row">
         <p className="muted small grow">Pick how many batches you will cook, then put their ingredients on the shopping list.</p>
-        <button onClick={() => setDraft(toDraft())}>New recipe</button>
+        <button className="narrow-only" onClick={() => setDraft(toDraft())}>
+          New recipe
+        </button>
       </div>
       {preps.length > 5 && <input type="search" placeholder="Find a recipe or ingredient" value={search} onChange={(e) => setSearch(e.target.value)} />}
       <div className="row">
@@ -422,6 +425,11 @@ export function RecipesView({ db, tag, allTags, version, onChanged, onShopping, 
             )}
           </section>
         ))}
+        {/* On a wide screen New recipe is the grid's last tile, so a short list does not leave the row empty. */}
+        <button type="button" className="recipe-new wide-only" onClick={() => setDraft(toDraft())}>
+          <Icon name="plus" size={20} />
+          New recipe
+        </button>
       </div>
       {!shown.length && <p className="muted">{q ? "No recipe matches." : `No recipes${tag ? ` tagged ${tag}` : ""} yet. Add one with New recipe.`}</p>}
       {preps.length > 0 && (
