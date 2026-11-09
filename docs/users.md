@@ -1,6 +1,6 @@
 # Even: users, devices, friends (phase 2, 0.4)
 
-Status: built 28 Oct 2026 (PR #53), apart from the items in section 8. Decided with the owner: **built like a public product, run as a private one**: real accounts, isolation, sign-up, deletion and audit as if strangers used it, but sign-up is by invite, the app stays non-commercial (Vercel Hobby and Neon free), and there is no marketing, billing or support load. The web holds a **full end-to-end encrypted copy** (as a phone does). A new device gets the key **by a pairing code from a device that has it (typed now, a QR later), or by a recovery passphrase**. Others see data **only as friends, and only the kinds the owner chose**.
+Status: built 28 Oct 2026 (PR #53), apart from the items in section 8. Decided with the owner: **built like a public product, run as a private one**: real accounts, isolation, sign-up, deletion and audit as if strangers used it, but sign-up is by invite, the app stays non-commercial (Vercel Hobby and Neon free), and there is no marketing, billing or support load. The web holds a **full end-to-end encrypted copy** (as a phone does). A new device gets the key **by a pairing code from a device that has it (typed, or a QR since 0.5), or by a recovery passphrase**. Others see data **only as friends, and only the kinds the owner chose**.
 
 How it fits the rest: [architecture.md section 6](architecture.md#6-phase-2-server-sync-web) (server, sync protocol, encryption), [dev-setup.md section 4b](dev-setup.md#4b-sync-environment-postgres-the-sync-server-the-web-app) (environment).
 
@@ -18,7 +18,7 @@ How it fits the rest: [architecture.md section 6](architecture.md#6-phase-2-serv
 
 ### 2.1 First phone (new account)
 
-1. Owner opens Settings > Sync, signs in with Google. Server checks the Google ID token, and that the email has an invite; creates the account.
+1. Owner opens You > Sync, signs in with Google. Server checks the Google ID token, and that the email has an invite; creates the account.
 2. Phone makes the **account data key** (ADK, 32 random bytes: today's sync secret) and an **identity key pair** (ECDH P-256, WebCrypto on both phone and web).
 3. Owner sets a **recovery passphrase** (shown strength meter, at least 4 random words suggested). Phone derives a wrapping key (PBKDF2-SHA256, 600k iterations, as backups; Argon2id if a WASM build is acceptable) and uploads `wrap(ADK)` plus a **key check** (HMAC of a fixed string under ADK).
 4. Server stores: account, device (token hash), public identity key, wrapped ADK, key check. Phone stores in the Keystore: ADK, identity private key, device token.
@@ -31,7 +31,7 @@ Needs: Google sign-in on Android (built), Google ID token check on the server (n
 **By QR (normal path):**
 1. Sign in with Google in the browser. Server knows the account but the browser has no ADK.
 2. Browser makes an ephemeral key pair and shows a QR: pairing id + its public key + a 6-digit code.
-3. On the phone: Settings > Sync > Add a device, scan, check the code matches. Phone encrypts ADK and the identity private key to the browser's ephemeral key (ECDH + AES-GCM) and posts it to the pairing session.
+3. On the phone: You > Sync > Add a device, scan, check the code matches. Phone encrypts ADK and the identity private key to the browser's ephemeral key (ECDH + AES-GCM) and posts it to the pairing session.
 4. Browser opens it, checks the key check, registers as a device, pulls everything into SQLite WASM (OPFS), asks for persistent storage (`navigator.storage.persist()`).
 Pairing sessions live 5 minutes and are single use; the server only relays ciphertext.
 
@@ -63,7 +63,7 @@ Every grant and removal is a row in the owner's (synced) audit log, as `consents
 
 ### 2.5 Devices and safety
 
-- **Revoke a device** from any other device (Settings > Sync > Devices, with last seen). Its token stops at once. For a lost or stolen device, also **rotate the ADK** (re-seal everything, re-wrap for every device, new passphrase wrap): slow, offered, not automatic.
+- **Revoke a device** from any other device (You > Sync > Devices, with last seen). Its token stops at once. For a lost or stolen device, also **rotate the ADK** (re-seal everything, re-wrap for every device, new passphrase wrap): slow, offered, not automatic.
 - **Change passphrase:** re-wrap ADK only.
 - **Lost every device:** sign in + passphrase. Lost the passphrase too: the server copy is unreadable by design; a backup file is the only way back.
 - **Delete account:** from any device; server deletes every row of the account (rows, devices, shares to and from it, invites, wraps) in one transaction; local data stays on devices until the owner deletes it.
@@ -72,7 +72,7 @@ Every grant and removal is a row in the owner's (synced) audit log, as `consents
 
 Decided 28 Oct 2026: the operator works through an **admin account**, a role on an ordinary account granted only from the CLI (`npm run sync:admin -- --email ...`; no endpoint grants it).
 
-- **Settings > Admin** (phone and web, shown only to admins; the server checks the role on every `/v1/admin` request): make an invite for an email (3 to 30 days, the code shown once and sent through the share sheet), list and cancel invites, list accounts (devices, last seen, storage against the quota, friend count), change a quota (10 MB to 2 GB), see and revoke an account's devices, suspend or reactivate an account.
+- **You > Admin** (phone and web, shown only to admins; the server checks the role on every `/v1/admin` request): make an invite for an email (3 to 30 days, the code shown once and sent through the share sheet), list and cancel invites, list accounts (devices, last seen, storage against the quota, friend count), change a quota (10 MB to 2 GB), see and revoke an account's devices, suspend or reactivate an account.
 - **Suspended** means: its devices get 403 on every request, passphrase sign-in is refused (only after the passphrase matched, so a stranger learns nothing), nothing is deleted. An admin cannot suspend themselves. Deleting an account stays with its owner.
 - **Never:** an admin reads no row, key or share, and does not see who is friends with whom (a count only). The server could not read the data anyway.
 - **Audit log** (`admin_audit`): every admin action with who (account id, or `cli`), through what (`app`, `mcp`, `cli`), on which account or invite, when. Ids and numbers only, never an email or a code.
@@ -104,18 +104,18 @@ Auth changes: sessions from a Google ID token (`jose` against Google's keys) iss
 
 ## 5. Order of work for 0.4
 
-Shipped in 0.4.0 (28 Oct 2026), with fixes in 0.4.1 and 0.4.2 (the Vercel function, the phone's sync, the connect screens). Where it went another way than planned: the web database is sql.js sealed in IndexedDB (not OPFS), pairing codes are typed (QR later), and sign-up is invite plus passphrase before Google (section 6).
+Shipped in 0.4.0 (28 Oct 2026), with fixes in 0.4.1 and 0.4.2 (the Vercel function, the phone's sync, the connect screens); pairing by QR, the connect screen with log in and sign up, and the profile synced between devices in 0.5; changes go up within seconds in 0.6. Settings is called **You** since 0.7 (You > Sync & devices). Where it went another way than planned: the web database is sql.js sealed in IndexedDB (not OPFS), and sign-up is invite plus passphrase before Google (section 6).
 
 1. Fix the three sync findings from the review of PR #53 (photos over the row limit, push cursor and clock skew, one unreadable row stopping the pull).
 2. Accounts, invites and Google ID token sign-in on the server; device tokens from sign-in.
-3. ADK, key check and passphrase wrap; Settings > Sync on the phone; sync wired into the app.
+3. ADK, key check and passphrase wrap; You > Sync on the phone; sync wired into the app.
 4. Web data layer (SQLite WASM in OPFS) and QR pairing.
 5. Chat on the web with the owner's key.
 6. Friends and shares (daily summaries per kind).
 
 ## 6. Decided (28 Oct 2026)
 
-- **One identity: the sync account is the user.** Google is an optional way into it (Settings > Sync & devices > Google, `POST /v1/me/google`; the server's `GOOGLE_CLIENT_ID` must be the same Web client id as the app's `VITE_GOOGLE_WEB_CLIENT_ID`). A connected device's backups name its sync account, and a connected device restores only backups of the same account, whatever Google account owns the phone locally. The local Google owner (migration 0007, Settings > Profile) stays only for phones that never connect, and for backups made before connecting. Its row syncs like any other, so the devices of one account agree on it.
+- **One identity: the sync account is the user.** Google is an optional way into it (You > Sync & devices > Google, `POST /v1/me/google`; the server's `GOOGLE_CLIENT_ID` must be the same Web client id as the app's `VITE_GOOGLE_WEB_CLIENT_ID`). A connected device's backups name its sync account, and a connected device restores only backups of the same account, whatever Google account owns the phone locally. The local Google owner (migration 0007, You > Profile) stays only for phones that never connect, and for backups made before connecting. Its row syncs like any other, so the devices of one account agree on it.
 - Sign-in for 0.4 is invite + email + passphrase, with pairing for more devices; "Sign in with Google" comes after the deploy. Admins make invites (section 2.6), and Claude can too, through the admin MCP server (section 9).
 
 - Friends see 90 days back from the day a kind is shared.
@@ -126,7 +126,7 @@ Shipped in 0.4.0 (28 Oct 2026), with fixes in 0.4.1 and 0.4.2 (the Vercel functi
 
 The owner would rather use their Claude Pro subscription than a paid API key for the phone's chat. A Pro plan covers Anthropic's own apps (claude.ai, the Claude desktop and mobile apps, Claude Code). A third-party app like Even cannot sign in with it or send requests on it: there is no "Sign in with Claude" for apps (section 5 of architecture.md), and borrowing a subscription login token from another app is against Anthropic's terms and can get the account suspended. So the in-app chat keeps the API key (pay per use; Haiku keeps it to cents a day).
 
-The way to use the Pro plan is the other direction: **Claude's apps come to Even's data**, as a custom connector (a remote MCP server, which Pro can add in Settings > Connectors). The owner then asks Claude on claude.ai or the Claude phone app, on the Pro plan, and Claude calls Even's tools. The catch: the server only holds ciphertext, so the connector needs its own readable copy. Shape that keeps the rules: Claude is treated like a friend, with its own share key, held by the MCP server, receiving only the kinds the owner ticks, as daily summaries, every call in the disclosure log. Readable on the server, but only that stream. Not built; needs the owner's yes, as it is the first plaintext on the server (architecture.md section 3).
+The way to use the Pro plan is the other direction: **Claude's apps come to Even's data**, as a custom connector (a remote MCP server, which Pro can add in You > Connectors). The owner then asks Claude on claude.ai or the Claude phone app, on the Pro plan, and Claude calls Even's tools. The catch: the server only holds ciphertext, so the connector needs its own readable copy. Shape that keeps the rules: Claude is treated like a friend, with its own share key, held by the MCP server, receiving only the kinds the owner ticks, as daily summaries, every call in the disclosure log. Readable on the server, but only that stream. Not built; needs the owner's yes, as it is the first plaintext on the server (architecture.md section 3).
 
 **Decided 28 Oct 2026:** not the data connector. Claude on the Pro plan gets an **admin** connector instead (section 9): it manages the service with the admin tools and sees no health data. A data connector would still need its own decision.
 
@@ -140,19 +140,19 @@ The way to use the Pro plan is the other direction: **Claude's apps come to Even
 - **How long the web keeps it** (decided 28 Oct 2026, `src/apps/web/browserCopy.ts`): until Disconnect, or 30 days without being opened (then the copy and its sealing key are deleted, the device is removed, and the Connect screen says why), or, with **This is a shared computer** ticked when connecting, until the tab closes. In that mode nothing reaches IndexedDB: the data, the session and the key stay in the tab's memory (`keepNothing` in `platform/idb.ts`), a reload signs out, and closing the tab removes the device on the server. A browser connected by pairing never had a passphrase, so coming back after 30 days means connecting again, by passphrase or by pairing.
 - **Connecting, redesigned** (31 Oct 2026): *Log in* or *Sign up* on one side and the pairing QR with its code under it on the other (on a computer the QR is always shown; on a phone, one at a time: a *Pair with a QR code* button opens the QR, so each fits one screen), so a connected phone scans it, or another browser or phone types the code, without picking *Pair* first. The web gate is wider for the two columns.
 - **Connecting** (`screens/cloudsync/ConnectPanel.tsx`, 30 Oct 2026): three ways in, each with one line saying whose it is: *Sign in* (email and passphrase; after forgetting it, pair and set a new one), *Pair* (the code with a countdown, copy and cancel, and where to type it on the connected device) and *New account* (a live hint on what the passphrase still needs, and a switch confirming it is written down). The server address can be typed without `https://`.
-- **Signing out on the web:** the side menu shows the account's email and *Sign out*, which disconnects the browser and removes its copy, as Settings > Sync & devices does.
+- **Signing out on the web:** the side menu shows the account's email and *Sign out*, which disconnects the browser and removes its copy, as You > Sync & devices does.
 - **Not built yet:** QR scanning, Google on the web, rotating the account data key after a lost device, a per-account quota other than the default 200 MB, the audit log of share grants as rows in the owner's data (the server keeps the shares themselves).
 
 ## 9. The admin MCP server (decided 28 Oct 2026)
 
-Claude (on claude.ai or the Claude apps, on the owner's Pro plan) manages Even as a custom connector at `<server>/mcp`, with the same functions as Settings > Admin (`server/mcp.ts` over `server/admin.ts`). Tools: `service_health`, `list_invites`, `create_invite`, `cancel_invite`, `list_accounts`, `list_devices`, `revoke_device`, `set_quota`, `suspend_account`, `audit_log`. None reads a row, key or share, so **Claude never sees health data**. It does see what an admin sees: account names, emails, device names, dates and sizes. Every change is in the audit log with via `mcp`.
+Claude (on claude.ai or the Claude apps, on the owner's Pro plan) manages Even as a custom connector at `<server>/mcp`, with the same functions as You > Admin (`server/mcp.ts` over `server/admin.ts`). Tools: `service_health`, `list_invites`, `create_invite`, `cancel_invite`, `list_accounts`, `list_devices`, `revoke_device`, `set_quota`, `suspend_account`, `audit_log`. None reads a row, key or share, so **Claude never sees health data**. It does see what an admin sees: account names, emails, device names, dates and sizes. Every change is in the audit log with via `mcp`.
 
 **Sign-in** (`server/oauth.ts`, OAuth 2.1 as claude.ai expects):
 - Claude finds the metadata (`/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`) and registers itself (Dynamic Client Registration, public client).
 - Codes are only sent to Claude's callbacks (`claude.ai`, `claude.com`) or to `localhost`. Registration is open, so this stops a look-alike client from getting a code.
 - The login page asks for the admin's email and passphrase. Its script derives the same proof as passphrase sign-in and posts only that; the passphrase field has no name and is cleared. The same rate limits apply (5 an hour per email, 20 per address). Only an admin account that is not suspended gets a code. The page says where the browser goes next, and has a strict CSP with no framing.
 - PKCE (S256 only), codes single use for 2 minutes. Access tokens last an hour; refresh tokens last 30 days and are replaced on every use. All are stored as hashes.
-- Settings > Admin > Claude connector shows the address to add and every connection, with Disconnect. Losing the admin role or being suspended stops the tokens at once.
+- You > Admin > Claude connector shows the address to add and every connection, with Disconnect. Losing the admin role or being suspended stops the tokens at once.
 
 Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel function as the API. `PUBLIC_URL` (for example `https://even.vercel.app`) fixes the issuer and resource address; without it they come from the request.
 
@@ -161,9 +161,9 @@ Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel funct
 
 The owner asks about their own data in Claude itself (claude.ai, the Claude apps) on their **Claude plan**, instead of the Chat tab on an API key. Claude's apps cannot call into the phone, so the connector runs on the sync server at `<server>/mcp/health` (`server/healthMcp.ts`), for any account, its own data only. Using a subscription's OAuth token inside Even was rejected: Anthropic allows those tokens only in Claude's own apps and Claude Code.
 
-**Both ways at once (decided 31 Oct 2026, replacing "one way or the other" from the same day):** Settings > Connections > Claude shows the two side by side, each with its own status: **Chat in Even** (the API key, `src/domain/chat/mode.ts`) and **Claude connector**. The Chat tab shows whenever a key is saved on the device; the connector runs on its own consents (`claude.connector`, `claude.connector_changes`). Saving a key no longer turns the connector off, and the old per-device `claude.mode` setting is no longer read. Even's own chat cannot run on the Claude plan: only Claude's apps can.
+**Both ways at once (decided 31 Oct 2026, replacing "one way or the other" from the same day):** You > Connections > Claude shows the two side by side, each with its own status: **Chat in Even** (the API key, `src/domain/chat/mode.ts`) and **Claude connector**. The Chat tab shows whenever a key is saved on the device; the connector runs on its own consents (`claude.connector`, `claude.connector_changes`). Saving a key no longer turns the connector off, and the old per-device `claude.mode` setting is no longer read. Even's own chat cannot run on the Claude plan: only Claude's apps can.
 
-**What it can do:** the Chat tab's tools, with the same names, schemas and limits (`src/domain/chat/tools.ts`, `actions.ts`), plus `get_context` (today in the owner's time zone and the Chat tab's opening snapshot). Read tools are read-only; write tools only add, as in the Chat tab. Claude asks before each write tool call (they are marked not read-only), and the owner can undo each change in Settings > Connections > Claude (Claude connector).
+**What it can do:** the Chat tab's tools, with the same names, schemas and limits (`src/domain/chat/tools.ts`, `actions.ts`), plus `get_context` (today in the owner's time zone and the Chat tab's opening snapshot). Read tools are read-only; write tools only add, as in the Chat tab. Claude asks before each write tool call (they are marked not read-only), and the owner can undo each change in You > Connections > Claude (Claude connector).
 
 **Consent** (`src/domain/chat/consent.ts`), given on the phone and read by the server from the synced `consents` rows:
 - `claude.connector`: nothing is read without it.
@@ -181,9 +181,9 @@ Every result sent is logged in `ai_disclosures` (summary "Connector: ...", no co
 
 **Each request:** the token opens the keys; the server keeps an in-memory copy of the owner's database for the grant (node:sqlite with the app's migrations, at most 3 copies, dropped after 15 minutes idle), made on the first call by `server/ownerCopy.ts` (rows opened with node:crypto and merged in batches: about 10 s for 200,000 rows, where the phone's row-by-row pull takes minutes) and then kept up to date with the phone's own sync code (`cloudSync`, without photos, chats and the disclosure log). It runs the tool, then pushes what it wrote. Every tool, the write tools too, needs `claude.aggregates`: a write tool's checks and answers read existing data. Nothing readable is written to Postgres or the logs.
 
-**Stopping it:** Disconnect in Settings > Connections > Claude, under Claude connector (or in Claude), turning `claude.connector` off, removing the connector's device (which revokes its grant), suspending the account, or deleting it (which deletes its grants and codes). Disconnecting deletes the grant's sealed keys and removes its device. A code's sealed keys are cleared when it is exchanged, and a refresh token is spent atomically, so it works once.
+**Stopping it:** Disconnect in You > Connections > Claude, under Claude connector (or in Claude), turning `claude.connector` off, removing the connector's device (which revokes its grant), suspending the account, or deleting it (which deletes its grants and codes). Disconnecting deletes the grant's sealed keys and removes its device. A code's sealed keys are cleared when it is exchanged, and a refresh token is spent atomically, so it works once.
 
 **Known limits (31 Oct 2026):**
 - A consent change counts once the phone has synced (the page syncs right after the switch).
 - The first call after the function starts cold makes the copy: seconds, more with years of history.
-- The sign-in page is the only defence against someone sending the owner an authorize link from *their own* claude.ai connector; whether claude.ai ties the callback to the browser that started it cannot be checked from here. The page says to allow only a sign-in the owner started, and every connection is listed, with Disconnect, in Settings > Connections > Claude (Claude connector).
+- The sign-in page is the only defence against someone sending the owner an authorize link from *their own* claude.ai connector; whether claude.ai ties the callback to the browser that started it cannot be checked from here. The page says to allow only a sign-in the owner started, and every connection is listed, with Disconnect, in You > Connections > Claude (Claude connector).

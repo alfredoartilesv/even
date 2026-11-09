@@ -2,6 +2,7 @@
   "name": "even",
   "version": "0.7.6",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,6 +30,8 @@
     "test:phones": "node --import tsx scripts/sync-phones.ts",
     "vercel-build": "node --import tsx server/cli.ts migrate && npm run build:web",
     "release:check": "node scripts/release-check.mjs",
+    "public:check": "node scripts/public-check.mjs",
+    "hooks": "git config core.hooksPath .githooks",
     "preview": "vite preview",
     "android:sync": "npm run build && npx cap sync android && node scripts/android-harden.mjs",
     "ios:sync": "npm run build && npx cap sync ios && node scripts/ios-harden.mjs",

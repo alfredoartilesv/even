@@ -54,7 +54,7 @@ Tasks (Terminal > Run Task, `.vscode/tasks.json`):
 | Docker: test, Docker: build debug APK | `npm run docker:test`, `npm run docker:apk` (section 4); the release build is `npm run docker:release` (section 6) |
 | Android: device integration test | `npm run test:device` on the running emulator or phone (section 5) |
 
-Debugging the WebView: with the app running on the emulator or a USB phone, open `chrome://inspect` in Chrome or Edge and click *inspect* under `app.health.personal`. Settings > Debug logs in the app shows the app's own log records.
+Debugging the WebView: with the app running on the emulator or a USB phone, open `chrome://inspect` in Chrome or Edge and click *inspect* under `app.health.personal`. You > Debug logs in the app shows the app's own log records.
 
 A phone instead of the emulator: enable Developer options > USB debugging, plug it in, accept the prompt, and `adb devices` lists it. The run task then offers it.
 
@@ -80,7 +80,7 @@ A phone instead of the emulator: enable Developer options > USB debugging, plug 
 
 ## 4. Docker: the standard test and build
 
-Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI. CI runs only for releases: `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6). PRs run nothing in CI, so run `npm run docker:test` before merging.
+Since 27 Oct 2026 the **standard check before a PR and the standard APK build run in Docker** (`Dockerfile`), with one pinned toolchain: Node 24.19.0 (`.nvmrc`), Temurin JDK 21.0.12.1, Android command-line tools 19.0 (checksum-verified), platform 36 and build-tools 35 and 36. The base images are pinned by digest. The same build runs on this PC, another computer and in CI. CI runs only for releases: `release.yml` builds, checks and publishes the signed release when `develop` is merged into `master` (section 6). PRs run only the leak check (`secrets.yml`, section 6b), not the tests, so run `npm run docker:test` before merging.
 
 | Command (or VS Code task) | Does | Time |
 |---|---|---|
@@ -110,7 +110,7 @@ Since 28 Oct 2026 (phase 2, for 0.4; decisions in [architecture.md section 6](ar
 | `docker compose run --rm sync npm run test:sync` | the end-to-end check: two throwaway devices, two fresh phone databases, the scenarios of `scripts/lib/syncScenario.ts` (a round trip, last write wins, a delete, more rows than a page) through the real server on real Postgres, then cleanup (CI job *Sync environment* runs it on every PR). The unit tests run the same scenarios on PGlite |
 | `docker compose run --rm sync npm run sync:invite -- --email you@example.com` | an invite code for one account, printed once (14 days); the account is then made in the app or on the web ([users.md](users.md) section 2.1) |
 | `docker compose run --rm sync npm run sync:accounts` | accounts with device counts and storage; no data |
-| `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): Settings > Admin then appears on its devices. Only the CLI grants admin |
+| `docker compose run --rm sync npm run sync:admin -- --email you@example.com` | makes that account an admin (`--remove` takes it away): You > Admin then appears on its devices. Only the CLI grants admin |
 | `npm run sync:phone -- --db out/phone-a.sqlite` | a phone database on the PC (node:sqlite, the app's migrations and sync code) synced with the server, signed in with `SYNC_EMAIL` and `SYNC_PASSPHRASE` from `.env` |
 | `npm run docker:down` | stops everything, simulated phones included; the databases stay in their volumes (`docker compose --profile phones down -v` wipes them) |
 
@@ -138,11 +138,11 @@ The phones print and log counts and digests only. A simulated phone keeps its se
 
 **Without Docker** (Docker Desktop's engine would not start on this PC on 28 Oct 2026): `npm run dev:web` runs the sync server on :8787 and the web app on http://localhost:5173 (Vite sends `/v1` to the server, as Vercel does). With no `DATABASE_URL` the server uses PGlite, real Postgres in WebAssembly, saved in `.data/pglite` (git-ignored); `npm run sync:invite -- --email ...` works on it too, with the dev server stopped (one process at a time). With `DATABASE_URL` it uses that Postgres. `npm test` covers the server without Docker as well: `tests/users.test.ts` and `tests/cloudSync.test.ts` run the real Hono app on in-memory PGlite.
 
-**On the phone**, Settings > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address (typed with or without `https://`).
+**On the phone**, You > Sync & devices takes the server address (`VITE_SYNC_URL` at build time fills it in). The emulator reaches this PC at `http://10.0.2.2:8787`. Android blocks plain HTTP by default (targetSdk 28+, and the app does not turn cleartext on), so expect that address to be refused until a debug-only network security config allows it; a real phone uses the Vercel HTTPS address (typed with or without `https://`).
 
 **The admin MCP server** ([users.md section 9](users.md#9-the-admin-mcp-server-decided-28-oct-2026)) is at `/mcp` on the sync server. Locally, with `npm run dev:web` running: `claude mcp add --transport http even-admin http://localhost:8787/mcp` in Claude Code, then sign in with an admin account's email and passphrase (`npm run sync:admin` first). claude.ai needs the deployed, public address.
 
-**The health connector** ([users.md section 10](users.md#10-the-health-connector-decided-31-oct-2026)) is at `/mcp/health`. Locally, with `npm run dev:web` running: `claude mcp add --transport http even http://localhost:8787/mcp/health` in Claude Code and sign in with any account's email and passphrase; turn it on in the app first (Settings > Connections > Claude (Claude connector)) and sync. On Vercel it needs Node 22.5 or newer for `node:sqlite` (the project uses 24) and `src/db/migrations` in the function (`functions.includeFiles` in `vercel.json`). Changing `SERVER_SECRET` disconnects every health connector (their keys are sealed with it).
+**The health connector** ([users.md section 10](users.md#10-the-health-connector-decided-31-oct-2026)) is at `/mcp/health`. Locally, with `npm run dev:web` running: `claude mcp add --transport http even http://localhost:8787/mcp/health` in Claude Code and sign in with any account's email and passphrase; turn it on in the app first (You > Connections > Claude (Claude connector)) and sync. On Vercel it needs Node 22.5 or newer for `node:sqlite` (the project uses 24) and `src/db/migrations` in the function (`functions.includeFiles` in `vercel.json`). Changing `SERVER_SECRET` disconnects every health connector (their keys are sealed with it).
 
 **Deploying to Vercel** (done for 0.4; the steps, for a new project): import the repo in Vercel (Hobby plan), add the Neon integration (free plan) so `DATABASE_URL` is set, deploy. `npm run vercel-build` applies `server/migrations` and builds the web app; `vercel.json` rewrites `/v1/*`, `/health`, `/mcp`, `/mcp/health`, `/oauth/*` and the OAuth `/.well-known/*` paths to the one function `api/index.ts`, with the original path in `__path` (`server/vercelPath.ts` puts it back). Relative imports under `server/` and `api/` name `.js` files, or the function fails with `ERR_MODULE_NOT_FOUND` (`tests/vercelFunction.test.ts` catches it). Set `SERVER_SECRET` (a long random string) and, to link Google accounts, `GOOGLE_CLIENT_ID` (the Web OAuth client id) in Vercel's environment. Then make invites with `DATABASE_URL=<Neon URL> npm run sync:invite -- --email ...` and check with `SYNC_URL=https://<app>.vercel.app DATABASE_URL=<Neon URL> npm run test:sync`.
 
@@ -154,13 +154,13 @@ The phones print and log counts and digests only. A simulated phone keeps its se
 
 1. the app opens and the encrypted database is ready;
 1. the header clears a reported 48 px status bar (edge to edge, see below);
-1. with `--fresh` (no key yet): the sync button (the ⟳ symbol, labelled "Set up Garmin sync") opens Settings > Connections;
-2. the schema is the latest migration (Settings > About);
+1. with `--fresh` (no key yet): the sync button (the ⟳ symbol, labelled "Set up Garmin sync") opens You > Connections;
+2. the schema is the latest migration (You > About);
 3. the database file has no plain SQLite header (SQLCipher);
-4. the Garmin key from `GARMIN_API_KEY` in `.env` saves in Settings > Connections;
+4. the Garmin key from `GARMIN_API_KEY` in `.env` saves in You > Connections;
 5. a real Garmin sync succeeds;
 6. the app is still in front afterwards (no system screen opened, see below);
-7. readings are stored (Settings > Privacy & data);
+7. readings are stored (You > Privacy & data);
 8. the dashboard's steps ring has a value;
 9. the data is still there after the app is killed and reopened.
 
@@ -191,7 +191,7 @@ A release is a merge of `develop` into `master`. The push to `master` runs `.git
    - the web app inside.
 3. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
 
-PRs (to `develop` or `master`) run nothing in CI (removed 30 Oct 2026 to save Actions minutes, along with the release emulator check); test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
+PRs (to `develop` or `master`) run only the leak check (section 6b); the tests and the release emulator check were removed from CI on 30 Oct 2026 to save Actions minutes. Test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
 
 **Version code.** `versionCode` comes from the version: `MAJOR*10000 + MINOR*100 + PATCH`, so 0.1.0 is 100. Android only installs an update with a higher code, so versions only go up, and minor and patch stay below 100 (`scripts/android-gradle.mjs`, tested).
 
@@ -201,7 +201,7 @@ PRs (to `develop` or `master`) run nothing in CI (removed 30 Oct 2026 to save Ac
 
 **Back both files up somewhere safe**, such as a password manager. Every update to an installed app must be signed with the same key. If the key is lost, the phone can only get a new install, and a new install starts with empty data unless you restore a backup. `*.jks` and `*.keystore` are ignored by git and Docker.
 
-**GitHub secrets** (Settings > Secrets and variables > Actions), set once from the files above:
+**GitHub secrets** (You > Secrets and variables > Actions), set once from the files above:
 
 ```bash
 base64 -w0 ~/.android/health-release/health-release.jks | gh secret set HEALTH_KEYSTORE_BASE64
@@ -213,6 +213,28 @@ done
 **Local release** (the same build as CI): `npm run docker:release` writes `out/app-release.apk`. `npm run release:check -- --apk out/app-release.apk --device` checks it and installs it on the running emulator or phone. A release build has no WebView debugging, so the deeper checks (sync, database) are `npm run test:device` on a debug build of the same commit.
 
 First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.
+
+## 6b. Public repo: licence and leaks
+
+The repo is public under the **GNU AGPL-3.0-or-later** (`LICENSE`, `package.json`, README). Anyone may use, change and share the code, and whoever runs a changed version as a service (for example the sync server) must offer its source to its users under the same licence. Every dependency is MIT, Apache-2.0, MPL-2.0, Unlicense or OFL, all compatible with it; check a new dependency's licence before adding it (no GPL-2.0-only, no proprietary or "non-commercial" licences).
+
+What must never be committed: `.env` files, keys and keystores, databases, data exports (`imports/`), built apps, and real health data anywhere (tests and `docs/screens` use invented data). `npm run public:check` checks it (`scripts/public-check.mjs`):
+
+1. the licence is AGPL-3.0-or-later in `LICENSE` and `package.json`;
+2. no private file is tracked (`scripts/lib/publicRepo.mjs`, also a test in `npm test`);
+3. every commit's author and committer email is a GitHub noreply address, so no work or personal address is published with the history;
+4. gitleaks finds no secret in the history (`.gitleaks.toml`: the default rules, with an allowlist only for the invented keys in the tests).
+
+It runs on every PR and every push to `develop` and `master` (`.github/workflows/secrets.yml`, gitleaks pinned with its checksum) and before every push here once the hook is on:
+
+```bash
+npm run hooks                                    # once per clone: .githooks/pre-push
+git config user.email "78017015+alfredoartilesv@users.noreply.github.com"   # once per clone
+```
+
+gitleaks on Windows: the `gitleaks_<version>_windows_x64.zip` from its GitHub releases, checksum checked against the release's `checksums.txt`, unpacked in `%USERPROFILE%	oolsgitleaks` (the script finds it there, on the PATH, or in `$GITLEAKS`). On GitHub, also turn on You > Emails > "Block command line pushes that expose my email", and in the repo You > Code security: secret scanning and push protection (free on public repos).
+
+**If a secret is ever pushed**: revoke or rotate it first (removing it from the history does not un-publish it), then remove it from the history.
 
 ## 7. iOS
 
@@ -233,7 +255,7 @@ The run:
 
 On a Mac: `npm ci`, `npx cap add ios --packagemanager SPM`, `npm run ios:sync`, then `npx cap open ios` (Xcode) or `npx cap run ios`. To check a simulator build the way CI does: `node scripts/ios-sim.mjs --app <App.app>`.
 
-**Apple Health.** Settings > Connections > Apple Health asks iOS for read access; after that every sync also reads the recent days from HealthKit. `ios-harden.mjs` adds the HealthKit entitlement (`App/App.entitlements`) and the request text (`NSHealthShareUsageDescription`), and the simulator check fails if the built app lacks either. The simulator cannot press "Allow" on the permission sheet, so reading real Health data has to be checked on an iPhone. Installing on one with HealthKit needs signing: a paid Apple Developer account works; a free Apple ID personal team may not offer the HealthKit capability.
+**Apple Health.** You > Connections > Apple Health asks iOS for read access; after that every sync also reads the recent days from HealthKit. `ios-harden.mjs` adds the HealthKit entitlement (`App/App.entitlements`) and the request text (`NSHealthShareUsageDescription`), and the simulator check fails if the built app lacks either. The simulator cannot press "Allow" on the permission sheet, so reading real Health data has to be checked on an iPhone. Installing on one with HealthKit needs signing: a paid Apple Developer account works; a free Apple ID personal team may not offer the HealthKit capability.
 
 **Not yet on iOS:**
 - **Installing on an iPhone** needs signing with an Apple Developer account (99 USD a year), plus TestFlight or a registered device. The device build in CI is unsigned and proves only that it compiles.

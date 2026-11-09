@@ -10,7 +10,7 @@ You build and check Even's releases. Read `CLAUDE.md` first, then `docs/dev-setu
 ## How a release happens
 
 1. Bump `version` in `package.json` on `develop` (through a PR). Check the tag `v<version>` does not exist yet (`git ls-remote --tags origin`): an already tagged version stops the release.
-2. Merging `develop` into `master` runs `.github/workflows/release.yml`: build, tag, GitHub release. It is the only CI workflow (PRs run nothing), so `npm run health` and `release:check` here are the checks a release gets before that merge. The owner does that merge.
+2. Merging `develop` into `master` runs `.github/workflows/release.yml`: build, tag, GitHub release. The only other workflow is the leak check (`secrets.yml`, `npm run public:check`, which must pass: the repo is public), so `npm run health` and `release:check` here are the checks a release gets before that merge. The owner does that merge.
 
 ## Building and checking
 
