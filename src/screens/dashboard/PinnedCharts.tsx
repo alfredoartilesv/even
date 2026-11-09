@@ -143,7 +143,8 @@ export function PinnedCharts({ db, d, period, formatX, onDay }: Props) {
     ),
   };
 
-  const ordered = [...CHART_IDS.filter((id) => pins.includes(id)), ...CHART_IDS.filter((id) => !pins.includes(id))];
+  // Pinned first, in the order they were pinned; the rest after them in the usual order.
+  const ordered = [...pins, ...CHART_IDS.filter((id) => !pins.includes(id))];
   const shown = all ? ordered : ordered.filter((id) => pins.includes(id));
   return (
     <section className="pinned-charts" aria-labelledby="charts-title">
