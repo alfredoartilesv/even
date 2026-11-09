@@ -172,6 +172,13 @@ const clock = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour:
  * and each row (time, message, its scope, "Needs attention" for a warning or an error) opening to
  * its fields and Copy details.
  */
+/**
+ * A row's key from what it says, not where it is: new records arrive at the top every two seconds,
+ * and a key by position moved under an open row and closed it (the owner's note, 9 Nov 2026).
+ * Two identical records in the same millisecond are told apart by their count.
+ */
+const rowKey = (r: LogRecord) => `${r.ts}|${r.level}|${r.scope}|${r.msg}`;
+
 function LogList({ records }: { records: LogRecord[] }) {
   const [filter, setFilter] = useState<LogFilter>("all");
   const [search, setSearch] = useState("");
@@ -184,6 +191,7 @@ function LogList({ records }: { records: LogRecord[] }) {
     const day = localDay(r.ts, tz);
     days.set(day, [...(days.get(day) ?? []), r]);
   }
+  const seen = new Map<string, number>();
   return (
     <div className="log-list">
       <input
@@ -213,8 +221,11 @@ function LogList({ records }: { records: LogRecord[] }) {
         <section key={day} aria-label={fmtDay(day)} className="log-day">
           <h3 className="log-day-title">{fmtDay(day)}</h3>
           <div className="card log-rows">
-            {rows.map((r, i) => {
-              const key = `${r.ts}-${i}`;
+            {rows.map((r) => {
+              const base = rowKey(r);
+              const n = seen.get(base) ?? 0;
+              seen.set(base, n + 1);
+              const key = `${base}#${n}`;
               const isOpen = open === key;
               return (
                 <div key={key} className="log-row">
