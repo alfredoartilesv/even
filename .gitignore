@@ -35,3 +35,10 @@ imports/*
 
 # Local dev databases (npm run dev:web): health data, never committed
 /.data/
+
+# Local Claude settings (paths, permissions); the shared ones are .claude/agents/
+.claude/settings.local.json
+
+# gitleaks reports (scripts/public-check.mjs prints findings redacted; a report could hold the secret)
+gitleaks-report*.json
+.gitleaks-report*.json

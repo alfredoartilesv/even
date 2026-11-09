@@ -1,7 +1,7 @@
 # Release: when develop is merged into master (a push to master), build the signed release APK in
 # Docker, check it, then tag v<package.json version> and publish a GitHub release with the APK.
-# This is the only workflow: PRs and develop run nothing in CI (Actions minutes), so run
-# `npm run docker:test` locally before merging. develop is the default branch, so the merge never
+# PRs and develop only run the leak check (secrets.yml), so run `npm run docker:test` locally
+# before merging. develop is the default branch, so the merge never
 # deletes it. A version that is already tagged stops the release: bump package.json on develop first.
 #
 # Secrets (Settings > Secrets and variables > Actions): HEALTH_KEYSTORE_BASE64 (the .jks, base64),

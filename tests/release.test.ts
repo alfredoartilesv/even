@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { patchGradle, versionCode } from "../scripts/android-gradle.mjs";
 
 // Releases: version and signing in the generated Gradle file, the Docker release stage, and the
-// two workflows (PRs only test; a push to master builds, checks, tags and publishes).
+// workflows (a push to master builds, checks, tags and publishes; secrets.yml checks every PR for leaks).
 const root = join(import.meta.dirname, "..");
 const read = (f: string) => readFileSync(join(root, f), "utf8").replace(/\r\n/g, "\n");
 
@@ -81,8 +81,13 @@ test("the Docker release stage gets the keystore only as BuildKit secrets and ch
   assert.equal(JSON.parse(read("package.json")).scripts["docker:release"], "node scripts/docker-release.mjs");
 });
 
-test("release.yml is the only workflow: nothing runs on PRs or develop", () => {
-  assert.deepEqual(readdirSync(join(root, ".github/workflows")), ["release.yml"]);
+test("two workflows: releases, and the public-repo leak check, which reads only and uses no secret", () => {
+  assert.deepEqual(readdirSync(join(root, ".github/workflows")).sort(), ["release.yml", "secrets.yml"]);
+  const sec = read(".github/workflows/secrets.yml");
+  assert.match(sec, /permissions:\n\s+contents: read\n/);
+  assert.doesNotMatch(sec, /secrets\.|contents: write|pull_request_target/, "a fork's PR must not reach a secret or write");
+  assert.match(sec, /sha256sum -c -/, "gitleaks is pinned and its checksum checked");
+  assert.match(sec, /node scripts\/public-check\.mjs/);
 });
 
 test("a push to master builds, checks, then tags and publishes the release", () => {

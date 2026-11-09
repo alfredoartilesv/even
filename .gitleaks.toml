@@ -1,0 +1,19 @@
+# gitleaks: secrets that must never reach the repo (it is public). Run with `npm run public:check`
+# (all history) or the pre-push hook / CI (.github/workflows/secrets.yml). Default rules plus the
+# allowlist below, which only covers values invented for tests and folders that are never committed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Invented test values and untracked folders"
+# Fake keys used by the tests: they look like keys on purpose (format checks), none is real.
+regexes = [
+  '''secret-key-0123456789''',
+  '''sk-ant-(api03-)?(test-key|abcdefghi|ABCDEFGHIJKLMNO|demo-screens|secret)[A-Za-z0-9_-]*''',
+]
+paths = [
+  '''(^|/|\\)node_modules(/|\\)''',
+  '''(^|/|\\)\.worktrees(/|\\)''',
+  '''(^|/|\\)(dist|out|release/apk)(/|\\)''',
+  '''(^|/|\\)android(/|\\)''',
+]

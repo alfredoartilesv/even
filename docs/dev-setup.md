@@ -191,7 +191,7 @@ A release is a merge of `develop` into `master`. The push to `master` runs `.git
    - the web app inside.
 3. **Publish.** `gh release create v<version>` tags the merge commit and publishes a GitHub release. It attaches `even-v<version>.apk` and its `.sha256`, with notes generated from the merged PRs.
 
-PRs (to `develop` or `master`) run nothing in CI (removed 30 Oct 2026 to save Actions minutes, along with the release emulator check); test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
+PRs (to `develop` or `master`) run only the leak check (section 6b); the tests and the release emulator check were removed from CI on 30 Oct 2026 to save Actions minutes. Test locally with `npm run docker:test`. The emulator check can still be run locally with `node scripts/release-check.mjs --device`. `develop` is the repo's default branch, so GitHub never deletes it when it is merged into `master`, even with "delete head branches" on.
 
 **Version code.** `versionCode` comes from the version: `MAJOR*10000 + MINOR*100 + PATCH`, so 0.1.0 is 100. Android only installs an update with a higher code, so versions only go up, and minor and patch stay below 100 (`scripts/android-gradle.mjs`, tested).
 
@@ -213,6 +213,28 @@ done
 **Local release** (the same build as CI): `npm run docker:release` writes `out/app-release.apk`. `npm run release:check -- --apk out/app-release.apk --device` checks it and installs it on the running emulator or phone. A release build has no WebView debugging, so the deeper checks (sync, database) are `npm run test:device` on a debug build of the same commit.
 
 First release build (27 Oct 2026, 0.1.0): 81 s in Docker; release check 9/9 on the Galaxy S23 emulator; the image holds no secret files or variables, and the password is in neither the files nor the layer history.
+
+## 6b. Public repo: licence and leaks
+
+The repo is public under the **GNU AGPL-3.0-or-later** (`LICENSE`, `package.json`, README). Anyone may use, change and share the code, and whoever runs a changed version as a service (for example the sync server) must offer its source to its users under the same licence. Every dependency is MIT, Apache-2.0, MPL-2.0, Unlicense or OFL, all compatible with it; check a new dependency's licence before adding it (no GPL-2.0-only, no proprietary or "non-commercial" licences).
+
+What must never be committed: `.env` files, keys and keystores, databases, data exports (`imports/`), built apps, and real health data anywhere (tests and `docs/screens` use invented data). `npm run public:check` checks it (`scripts/public-check.mjs`):
+
+1. the licence is AGPL-3.0-or-later in `LICENSE` and `package.json`;
+2. no private file is tracked (`scripts/lib/publicRepo.mjs`, also a test in `npm test`);
+3. every commit's author and committer email is a GitHub noreply address, so no work or personal address is published with the history;
+4. gitleaks finds no secret in the history (`.gitleaks.toml`: the default rules, with an allowlist only for the invented keys in the tests).
+
+It runs on every PR and every push to `develop` and `master` (`.github/workflows/secrets.yml`, gitleaks pinned with its checksum) and before every push here once the hook is on:
+
+```bash
+npm run hooks                                    # once per clone: .githooks/pre-push
+git config user.email "78017015+alfredoartilesv@users.noreply.github.com"   # once per clone
+```
+
+gitleaks on Windows: the `gitleaks_<version>_windows_x64.zip` from its GitHub releases, checksum checked against the release's `checksums.txt`, unpacked in `%USERPROFILE%	oolsgitleaks` (the script finds it there, on the PATH, or in `$GITLEAKS`). On GitHub, also turn on Settings > Emails > "Block command line pushes that expose my email", and in the repo Settings > Code security: secret scanning and push protection (free on public repos).
+
+**If a secret is ever pushed**: revoke or rotate it first (removing it from the history does not un-publish it), then remove it from the history.
 
 ## 7. iOS
 

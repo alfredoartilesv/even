@@ -51,6 +51,14 @@ npm run test:device -- --install android/app/build/outputs/apk/debug/app-debug.a
 
 Emulator, VS Code tasks and Docker: [docs/dev-setup.md](docs/dev-setup.md).
 
+## Licence
+
+Copyright (C) 2026 Alfredo Artiles Vallecillos.
+
+Even is free software under the [GNU Affero General Public License v3.0 or later](LICENSE) (SPDX: `AGPL-3.0-or-later`): you may use, study, change and share it, and if you share a changed version, or run one as a network service for others (the sync server, the web app), you must offer its full source under the same licence. It comes with no warranty, and it is not a medical device. Garmin and Claude are trademarks of their owners; this project is not affiliated with them.
+
+Contributing or keeping a fork public: no secrets, no real health data. `npm run public:check` and [docs/dev-setup.md](docs/dev-setup.md) section 6b.
+
 ## Next steps
 
 1. Run it on the real S23 (`npm run test:device` with the phone plugged in), then check backup export/share/restore by hand (docs/architecture.md risk 7).
