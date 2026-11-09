@@ -9,7 +9,7 @@ import { listWorkouts } from "../me/workouts";
 import { metricsDays } from "../metrics/queries";
 
 /**
- * The Dashboard's numbers for a day, a week (Monday start) or a calendar month: one row per day,
+ * The Dashboard's numbers for a day, a week (the seven days up to the day picked) or a calendar month: one row per day,
  * then for each figure the total and the daily average. Averages divide by the days that have
  * data, so a week with two days synced is not pulled down by five empty ones. Days after today
  * are left out of the current week or month.
@@ -17,8 +17,9 @@ import { metricsDays } from "../metrics/queries";
 
 export type Span = "day" | "week" | "month";
 /**
- * What can be loaded: a span, or "last7", the seven days up to the anchor. Charts and tiles
- * labelled "last 7 days" use it, so a Monday shows a full week, not one day (9 Nov 2026).
+ * What can be loaded: a span, or "last7", the seven days up to the anchor. A week is those seven
+ * days too (the owner's choice, 9 Nov 2026): a Monday week held only Monday, so on a Monday every
+ * chart stood empty. "last7" stays as the name the day view's charts use.
  */
 export type LoadSpan = Span | "last7";
 
@@ -119,21 +120,18 @@ export interface Dashboard {
   activityTrend: { steps: (number | null)[]; burned: (number | null)[]; active: (number | null)[] };
 }
 
-/** Monday of the week, first of the month, or the day itself. */
+/** Six days before (a week), the first of the month, or the day itself. */
 function spanStart(span: LoadSpan, day: string): string {
   if (span === "day") return day;
-  if (span === "last7") return addDays(day, -6);
   if (span === "month") return `${day.slice(0, 8)}01`;
-  const dow = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
-  return addDays(day, -dow);
+  return addDays(day, -6);
 }
 
 /** First and last day of the span that holds anchor. */
 export function spanRange(span: LoadSpan, anchor: string): { from: string; to: string } {
   const from = spanStart(span, anchor);
   if (span === "day") return { from, to: from };
-  if (span === "last7") return { from, to: anchor };
-  if (span === "week") return { from, to: addDays(from, 6) };
+  if (span === "last7" || span === "week") return { from, to: anchor };
   const [y, m] = from.split("-").map(Number);
   return { from, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) };
 }
@@ -149,6 +147,7 @@ export function pinnedAnchor(span: Span, day: string, today: string): string | n
 
 /** The anchor of the previous (-1) or next (+1) span. */
 export function shiftSpan(span: Span, anchor: string, dir: 1 | -1): string {
+  if (span === "week") return addDays(anchor, 7 * dir);
   const { from, to } = spanRange(span, anchor);
   return dir === 1 ? addDays(to, 1) : spanStart(span, addDays(from, -1));
 }

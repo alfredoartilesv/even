@@ -13,7 +13,7 @@ import {
   type SavedMeal,
 } from "../../domain/food/food";
 import { mealForHour, type Candidate } from "../../domain/food/suggest";
-import { changeRunner, EditActions, fmtDay, MsgLine, timeZone, today, type Msg } from "../../ui/common";
+import { changeRunner, EditActions, fmtDay, MsgLine, timeZone, type Msg } from "../../ui/common";
 import { draftFrom, emptyDraft, kcal, MEAL_LABEL, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
 
 interface Props {
@@ -109,7 +109,7 @@ export function SavedView({ db, version, onChanged }: Props) {
                     <strong>{m.name}</strong>
                     <span className="muted small">
                       {kcal(m.calories)} kcal{m.meal && ` · ${MEAL_LABEL[m.meal]}`} ·{" "}
-                      {m.uses ? `eaten ${m.uses}×, last ${fmtDay(new Date(m.lastMs!).toLocaleDateString("en-CA"), today())}` : "not eaten yet"}
+                      {m.uses ? `eaten ${m.uses}×, last ${fmtDay(new Date(m.lastMs!).toLocaleDateString("en-CA"))}` : "not eaten yet"}
                     </span>
                   </span>
                 </button>

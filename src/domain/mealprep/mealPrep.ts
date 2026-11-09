@@ -5,6 +5,7 @@ import { available, foldBatch, type BatchInfo, type BatchStock, type Location, t
 import type { SqlDriver, SqlValue } from "../../db/driver.js";
 import { deviceId, getSetting, setSetting } from "../../db/settings.js";
 import { createLogger } from "../../core/log.js";
+import { getPrepMeals } from "./skips.js";
 
 const log = createLogger("mealprep");
 
@@ -508,10 +509,14 @@ export async function portionsEatenOn(db: SqlDriver, day: string, tag?: string |
   return r?.n ?? 0;
 }
 
-/** Planned prep portions per day, kept per tag filter ("all" when none). Default 1. */
+/**
+ * Planned prep portions per day: without a tag, one for each meal the tuppers are for
+ * (./skips.ts getPrepMeals); with a tag filter, the number kept for it. Default 1.
+ */
 const perDayKey = (tag?: string | null) => `meal_prep.portions_per_day.${tag ? normalizeTag(tag) : "all"}`;
 
 export async function getPortionsPerDay(db: SqlDriver, tag?: string | null): Promise<number> {
+  if (!tag) return (await getPrepMeals(db)).length;
   const raw = await getSetting(db, perDayKey(tag));
   const v = raw === null ? NaN : Number(raw);
   return Number.isInteger(v) && v >= 0 ? v : 1;

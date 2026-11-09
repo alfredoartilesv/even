@@ -20,9 +20,15 @@ export const PREP_MEALS: PrepMeal[] = ["breakfast", "lunch", "dinner"];
 const MEALS_KEY = "meal_prep.meals";
 const SKIPS_KEY = "meal_prep.skips";
 const KEEP_DAYS = 31;
+/** The tuppers a day as a number, before the meals took its place: read only for the default. */
+const LEGACY_PER_DAY_KEY = "meal_prep.portions_per_day.all";
 
-/** The meals the tuppers are for. Unset: lunch for one a day, lunch and dinner for two, all three beyond. */
-export async function getPrepMeals(db: SqlDriver, perDay: number): Promise<PrepMeal[]> {
+/**
+ * The meals the tuppers are for; how many there are is the tuppers a day (the owner's choice,
+ * 9 Nov 2026: one setting, not a count beside the meals). Unset, it comes from the count set
+ * before: lunch for one, lunch and dinner for two, all three beyond, none for 0.
+ */
+export async function getPrepMeals(db: SqlDriver): Promise<PrepMeal[]> {
   const raw = await getSetting(db, MEALS_KEY);
   try {
     const v: unknown = raw === null ? null : JSON.parse(raw);
@@ -30,7 +36,9 @@ export async function getPrepMeals(db: SqlDriver, perDay: number): Promise<PrepM
   } catch {
     log.warn("prep meals unreadable, using the default");
   }
-  return perDay <= 1 ? ["lunch"] : perDay === 2 ? ["lunch", "dinner"] : [...PREP_MEALS];
+  const old = Number(await getSetting(db, LEGACY_PER_DAY_KEY));
+  const perDay = Number.isInteger(old) && old >= 0 && (await getSetting(db, LEGACY_PER_DAY_KEY)) !== null ? old : 1;
+  return perDay === 0 ? [] : perDay === 1 ? ["lunch"] : perDay === 2 ? ["lunch", "dinner"] : [...PREP_MEALS];
 }
 
 export async function setPrepMeals(db: SqlDriver, meals: PrepMeal[], nowMs: number = Date.now()): Promise<void> {
@@ -100,7 +108,7 @@ export async function skipsBetween(db: SqlDriver, from: string, to: string, meal
 export const skipCounts = (s: Map<string, DaySkips>) => new Map([...s].map(([d, v]) => [d, v.manual + v.ateOut.length]));
 
 /** What a plan from `day` needs to know: the meals the tuppers are for and each day's skips. */
-export async function planSkips(db: SqlDriver, day: string, horizonDays: number, perDay: number): Promise<{ meals: PrepMeal[]; days: Map<string, DaySkips> }> {
-  const meals = await getPrepMeals(db, perDay);
+export async function planSkips(db: SqlDriver, day: string, horizonDays: number): Promise<{ meals: PrepMeal[]; days: Map<string, DaySkips> }> {
+  const meals = await getPrepMeals(db);
   return { meals, days: await skipsBetween(db, day, addDays(day, horizonDays - 1), meals) };
 }
