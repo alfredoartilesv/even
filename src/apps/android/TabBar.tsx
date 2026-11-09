@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { AddActions, FrameProps } from "../../shell/target";
-import { TABS, type Tab, type TabItem } from "../../shell/tabs";
+import { DISABLED_HINT, TABS, type Tab, type TabItem } from "../../shell/tabs";
 import { Icon, type IconName } from "../../ui/icons";
 import { SheetClose } from "../../ui/layout";
 
@@ -12,7 +12,17 @@ import { SheetClose } from "../../ui/layout";
 export function TabBar({ tab, onTab, tabs = TABS, onAdd }: { tab: Tab; onTab: (t: Tab) => void; tabs?: TabItem[]; onAdd?: () => void }) {
   const phone = tabs.filter((t) => t.phone);
   const button = (t: TabItem) => (
-    <button key={t.id} type="button" data-area={t.id} className={tab === t.id ? "active" : ""} aria-current={tab === t.id ? "page" : undefined} onClick={() => onTab(t.id)}>
+    <button
+      key={t.id}
+      type="button"
+      data-area={t.id}
+      className={tab === t.id ? "active" : ""}
+      aria-current={tab === t.id ? "page" : undefined}
+      disabled={t.disabled}
+      title={t.disabled ? DISABLED_HINT : undefined}
+      aria-description={t.disabled ? DISABLED_HINT : undefined}
+      onClick={() => onTab(t.id)}
+    >
       <Icon name={t.icon} />
       <span>{t.short}</span>
     </button>
@@ -30,7 +40,7 @@ export function TabBar({ tab, onTab, tabs = TABS, onAdd }: { tab: Tab; onTab: (t
   );
 }
 
-const ADD_TILES: { id: Exclude<keyof AddActions, "coach" | "quick">; label: string; sub: string; icon: IconName; area: Tab }[] = [
+const ADD_TILES: { id: keyof AddActions["here"]; label: string; sub: string; icon: IconName; area: Tab }[] = [
   { id: "food", label: "Food", sub: "A meal, a snack, a saved meal", icon: "food", area: "food" },
   { id: "drink", label: "Drink", sub: "A favourite or a one-off", icon: "alcohol", area: "food" },
   { id: "checkIn", label: "Check-in", sub: "Mood, energy and a note", icon: "note", area: "journal" },
@@ -38,8 +48,9 @@ const ADD_TILES: { id: Exclude<keyof AddActions, "coach" | "quick">; label: stri
 ];
 
 /**
- * What the Add button opens: a sheet over the page with the places to log something. Escape, the
- * scrim or a choice closes it, and focus goes back to the Add button.
+ * What the Add button opens: a sheet over the page, the quick add on top, then a tile per kind of
+ * entry that opens its form in the sheet (a tap logs a usual food or drink; 9 Nov 2026). Escape or
+ * the scrim closes it, and focus goes back to the Add button.
  */
 export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -53,10 +64,7 @@ export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => voi
       before?.focus();
     };
   }, [onClose]);
-  const pick = (fn: () => void) => () => {
-    onClose();
-    fn();
-  };
+  const [open, setOpen] = useState<keyof AddActions["here"] | null>(null);
   return (
     <>
       <div className="sheet-scrim" onClick={onClose} />
@@ -73,27 +81,47 @@ export function AddSheet({ add, onClose }: { add: AddActions; onClose: () => voi
         <h3 className="add-more">Or pick from</h3>
         <div className="add-tiles">
           {ADD_TILES.map((t) => (
-            <button key={t.id} type="button" className="add-tile" data-area={t.area} onClick={pick(add[t.id])}>
-              <span className="add-tile-icon" aria-hidden>
-                <Icon name={t.icon} />
-              </span>
-              <span className="add-tile-text">
-                <strong>{t.label}</strong>
-                <span className="muted small">{t.sub}</span>
-              </span>
-            </button>
+            <div key={t.id} className={open === t.id ? "add-tile-group open" : "add-tile-group"} data-area={t.area}>
+              <button type="button" className="add-tile" aria-expanded={open === t.id} onClick={() => setOpen(open === t.id ? null : t.id)}>
+                <span className="add-tile-icon" aria-hidden>
+                  <Icon name={t.icon} />
+                </span>
+                <span className="add-tile-text grow">
+                  <strong>{t.label}</strong>
+                  <span className="muted small">{t.sub}</span>
+                </span>
+                <span className="add-tile-chevron" aria-hidden>
+                  <Icon name="chevron" size={18} />
+                </span>
+              </button>
+              {open === t.id && (
+                <div className="add-tile-body">
+                  <SheetClose value={onClose}>
+                    <Suspense>{add.here[t.id]}</Suspense>
+                  </SheetClose>
+                </div>
+              )}
+            </div>
           ))}
-          {add.coach && (
-            <button type="button" className="add-tile" data-area="coach" onClick={pick(add.coach)}>
-              <span className="add-tile-icon" aria-hidden>
-                <Icon name="sparkle" />
-              </span>
-              <span className="add-tile-text">
-                <strong>Tell Coach</strong>
-                <span className="muted small">Describe it or send a photo, Coach logs it once you confirm</span>
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            className="add-tile"
+            data-area="coach"
+            disabled={!add.coach}
+            title={add.coach ? undefined : DISABLED_HINT}
+            onClick={() => {
+              onClose();
+              add.coach?.();
+            }}
+          >
+            <span className="add-tile-icon" aria-hidden>
+              <Icon name="sparkle" />
+            </span>
+            <span className="add-tile-text">
+              <strong>Tell Coach</strong>
+              <span className="muted small">{add.coach ? "Describe it or send a photo, Coach logs it once you confirm" : "Needs a Claude API key, in You > Connections"}</span>
+            </span>
+          </button>
         </div>
       </div>
     </>

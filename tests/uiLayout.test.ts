@@ -344,15 +344,19 @@ test("the Claude connector page gives the address to add in Claude, or asks to s
   assert.match(on, /Add custom connector/);
 });
 
-test("with Coach off the tab bar and the side menu leave it out everywhere", () => {
+test("with Coach off the tab bar and the side menu keep it, greyed out and not clickable", () => {
+  const off = visibleTabs(false);
   assert.deepEqual(
-    visibleTabs(false).map((t) => t.id),
-    ["today", "food", "prep", "activity", "journal", "you"],
+    off.map((t) => t.id),
+    TABS.map((t) => t.id),
+  );
+  assert.deepEqual(
+    off.filter((t) => t.disabled).map((t) => t.id),
+    ["coach"],
   );
   assert.deepEqual(visibleTabs(true), TABS);
-  const bar = renderToStaticMarkup(h(TabBar, { tab: "today", onTab: noop, tabs: visibleTabs(false), onAdd: noop }));
-  assert.equal((bar.match(/<button/g) ?? []).length, 4);
-  assert.doesNotMatch(bar, />Coach</);
-  const side = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account: null, tabs: visibleTabs(false) }));
-  assert.doesNotMatch(side, />Coach</);
+  const bar = renderToStaticMarkup(h(TabBar, { tab: "today", onTab: noop, tabs: off, onAdd: noop }));
+  assert.match(bar, /<button[^>]*disabled=""[^>]*>.*?Coach/);
+  const side = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account: null, tabs: off }));
+  assert.match(side, /<button[^>]*data-area="coach"[^>]*disabled=""/);
 });
