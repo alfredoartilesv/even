@@ -137,6 +137,7 @@
 }
 .add-tiles {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
 }
 .add-tile {
@@ -168,4 +169,47 @@
   background: transparent;
   border-color: transparent;
   color: var(--fg);
+}
+
+/* Coach while it is off: in its place, grey and not clickable (shell/tabs.ts visibleTabs). */
+.tabbar button:disabled,
+.tabbar button:disabled .icon,
+.add-tile:disabled,
+.add-tile:disabled .add-tile-icon {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.tabbar button:disabled,
+.add-tile:disabled {
+  opacity: 0.55;
+}
+.add-tile:disabled .add-tile-icon {
+  background: var(--line);
+}
+
+/* A tile and the form it opens in the sheet (screens/add/QuickLog.tsx). */
+.add-tile-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid var(--area-line, var(--line));
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.add-tile-group > .add-tile {
+  border: none;
+  border-radius: 0;
+  width: 100%;
+}
+.add-tile-chevron {
+  display: inline-flex;
+  color: var(--muted);
+  transform: rotate(90deg);
+  transition: transform var(--normal) var(--ease);
+}
+.add-tile-group.open .add-tile-chevron {
+  transform: rotate(-90deg);
+}
+.add-tile-body {
+  padding: 0 0.85rem 0.85rem;
 }

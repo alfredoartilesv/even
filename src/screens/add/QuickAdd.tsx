@@ -1,11 +1,11 @@
 import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { getCurrency, listDrinkTypes, servingKcal, type DrinkType } from "../../domain/alcohol/alcohol";
-import { suggestions } from "../../domain/food/food";
+import { logFood, suggestions } from "../../domain/food/food";
 import { applyQuickAdd, parseQuickAdd, undoQuickAdd, type QuickLine, type QuickUndo } from "../../domain/food/quickAdd";
 import { mealForHour, type Meal } from "../../domain/food/suggest";
 import type { Candidate } from "../../domain/food/suggest";
-import { failed, fmtMoney, MsgLine, timeZone, type Msg } from "../../ui/common";
+import { failed, fmtMoney, MsgLine, numOrNull, timeZone, type Msg } from "../../ui/common";
 import { ChipGroup, MoneyInput } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SheetClose } from "../../ui/layout";
@@ -46,6 +46,8 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
   const [currency, setCurrency] = useState("EUR");
   const [meal, setMeal] = useState<Meal>(() => mealForHour(new Date().getHours()));
   const [prices, setPrices] = useState<Record<string, number>>({});
+  // A part it does not know is logged by name too, with the kcal the owner types (or none).
+  const [newKcal, setNewKcal] = useState<Record<string, string>>({});
   const [done, setDone] = useState<{ undo: QuickUndo; text: string } | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
@@ -73,6 +75,7 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
     setText(t);
     setDone(null);
     setMsg(null);
+    setNewKcal({});
     setLines(t.trim() ? parseQuickAdd(t, { foods, drinks }) : null);
   };
   const submit = (e: FormEvent) => {
@@ -83,17 +86,20 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
   const price = (t: DrinkType) => prices[t.id] ?? t.price ?? 0;
   const known = (lines ?? []).filter((l) => l.kind !== "unknown");
   const unknown = (lines ?? []).filter((l) => l.kind === "unknown");
-  const kcal = known.reduce(
-    (n, l) => n + (l.kind === "food" ? (l.candidate.calories ?? 0) * l.count : l.kind === "drink" ? servingKcal(l.type) * l.count : 0),
-    0,
-  );
-  const hasFood = known.some((l) => l.kind === "food");
+  const kcal =
+    known.reduce((n, l) => n + (l.kind === "food" ? (l.candidate.calories ?? 0) * l.count : l.kind === "drink" ? servingKcal(l.type) * l.count : 0), 0) +
+    unknown.reduce((n, u) => n + (numOrNull(newKcal[u.part] ?? "") ?? 0), 0);
+  const hasFood = known.some((l) => l.kind === "food") || unknown.length > 0;
   const spend = known.reduce((n, l) => n + (l.kind === "drink" ? price(l.type) * l.count : 0), 0);
 
   async function log() {
     setBusy(true);
     try {
       const undo = await applyQuickAdd(db, known, { meal, timeZone: timeZone(), drinkPrice: (t) => price(t) || null });
+      for (const u of unknown)
+        undo.foods.push(
+          await logFood(db, { name: u.part, meal, calories: numOrNull(newKcal[u.part] ?? ""), proteinG: null, carbsG: null, fatG: null, timeZone: timeZone() }),
+        );
       const what = [
         hasFood && `${SLOTS.find((s) => s.id === meal)!.label} logged`,
         known.some((l) => l.kind === "drink") && `drink${known.filter((l) => l.kind === "drink").length > 1 ? "s" : ""} logged`,
@@ -181,17 +187,30 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
             </button>
           </div>
           {known.map(line)}
-          {unknown.length > 0 && (
+          {unknown.map((u) => (
+            <div key={u.part} className="quick-line">
+              <span className="grow">
+                <strong>{u.part}</strong>
+                <span className="muted small block">new: logged by name, add its kcal if you know them</span>
+              </span>
+              <input
+                className="quick-kcal"
+                aria-label={`Calories in ${u.part}`}
+                inputMode="numeric"
+                placeholder="kcal"
+                value={newKcal[u.part] ?? ""}
+                onChange={(e) => setNewKcal({ ...newKcal, [u.part]: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+          ))}
+          {unknown.length > 0 && onCoach && (
             <div className="quick-unknown">
-              <span className="muted small">Not known yet: {unknown.map((u) => `“${u.part}”`).join(", ")}.</span>
-              {onCoach && (
-                <button type="button" className="link accent small" onClick={() => onCoach(unknown.map((u) => u.part).join(", "))}>
-                  Ask Coach to estimate it ›
-                </button>
-              )}
+              <button type="button" className="link accent small" onClick={() => onCoach(unknown.map((u) => u.part).join(", "))}>
+                Or ask Coach to estimate it ›
+              </button>
             </div>
           )}
-          {known.length > 0 && (
+          {(known.length > 0 || unknown.length > 0) && (
             <>
               <div className="quick-total">
                 <span className="muted">Total</span>
