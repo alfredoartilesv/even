@@ -1,6 +1,6 @@
 # Even: context for Claude
 
-Even is a personal health app for one owner, Android first (Galaxy S23), plus a web app (phase 2, shipped in 0.4, now 0.7.6; UI v2 from the design handoff in 0.7.0, 8 Nov 2026, `docs/architecture.md` 6d); iPhone is a later phase (kept in the repo, out of CI). It reads the owner's Garmin data (Garmin Connect Personal API, plus the Garmin export ZIP), stores everything locally in an encrypted database on the phone, shows a Dashboard and logs (food, meal prep, alcohol, journal), and lets the owner ask Claude about their own data with recorded consent: in the Chat tab on an API key, or from Claude's own apps on their Claude plan through the health connector (0.5, `server/healthMcp.ts`).
+Even is a personal health app for one owner, Android first (Galaxy S23), plus a web app (phase 2, shipped in 0.4, now 0.7.7; UI v2 from the design handoff in 0.7.0, 8 Nov 2026, `docs/architecture.md` 6d); iPhone is a later phase (kept in the repo, out of CI). It reads the owner's Garmin data (Garmin Connect Personal API, plus the Garmin export ZIP), stores everything locally in an encrypted database on the phone, shows a Dashboard and logs (food, meal prep, alcohol, journal), and lets the owner ask Claude about their own data with recorded consent: in the Chat tab on an API key, or from Claude's own apps on their Claude plan through the health connector (0.5, `server/healthMcp.ts`).
 
 Stack: React 19, TypeScript 7, Vite 8, Capacitor 8 (Android, iOS), SQLite with SQLCipher through `@capacitor-community/sqlite`, zod, fflate. Sync server: Hono + Postgres in `server/`, deployed as the Vercel function `api/index.ts` on Neon; the web app's database is sql.js sealed in IndexedDB. Tests: `node:test` through tsx, with node:sqlite standing in for the plugin. Node 24 (`.nvmrc`). App id `app.health.personal` (kept from before the rename to Even, as are the DB name `health` and the `HEALTH_*` env names).
 
@@ -17,6 +17,7 @@ Read first when the task needs it: `docs/architecture.md` (decisions and **secti
 | `npm run android:sync` | web build, `cap sync`, hardening (`scripts/android-harden.mjs`) |
 | `npm run perf:device` | start-up timings on the emulator, two builds compared (dev-setup.md) |
 | `npm run release:check -- --apk <apk>` | the 5 checks a release APK must pass (9 with `--device`) |
+| `npm run public:check` | licence, no private files, noreply commit emails, gitleaks over all history (needs gitleaks) |
 
 ## Rules that are easy to break
 
@@ -25,6 +26,7 @@ Read first when the task needs it: `docs/architecture.md` (decisions and **secti
 - **Migrations**: new numbered file in `src/db/migrations/`, never edit one that shipped (phones already ran it). No semicolons in SQL comments. A new table goes in `BACKUP_TABLES` (`src/domain/backup/backup.ts`).
 - **Logging**: `createLogger(scope)`, never `console.*` in `src/`. Log ids, counts, kinds, durations; never health values, food names, notes, chat text, URLs or keys.
 - **Secrets** only in the Keystore/Keychain: never in SQLite, logs, error messages, the repo or a backup.
+- **The repo is public** (AGPL-3.0-or-later, `docs/dev-setup.md` 6b): no secret, real key, `.env`, database, data export or real health data in any commit, test or capture; commit emails are GitHub noreply only. `npm run public:check` (CI `secrets.yml`, pre-push hook) must pass; fake keys in tests go in the `.gitleaks.toml` allowlist.
 - **Health data leaves the phone only** to Claude (consent per kind, every send in the disclosure log) and in encrypted backup files the owner shares. Garmin is read only.
 - **Sources** (`garmin`, `freddy`, `apple_health`, `garmin_export`) are never added together; `daily_metric_values` picks one per metric and day.
 - **Server imports**: in everything the Vercel function loads (`api/index.ts` and what it reaches in `server/` and `src/core/`), relative imports name the `.js` file and there are no TypeScript parameter properties, or the Vercel function fails to load (`tests/vercelFunction.test.ts`).
@@ -34,7 +36,7 @@ Read first when the task needs it: `docs/architecture.md` (decisions and **secti
 
 ## Workflow
 
-- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, tag `v<version>`, GitHub release), the only CI workflow: PRs run nothing. Bump `package.json` on `develop` first: an already tagged version stops the release.
+- Branch from `develop` (`feat/…`, `fix/…`, `chore/…`, `perf/…`), PR into `develop`. `master` is for releases only: merging `develop` into `master` runs `.github/workflows/release.yml` (build, tag `v<version>`, GitHub release), and every PR runs only the leak check (`.github/workflows/secrets.yml`). Bump `package.json` on `develop` first: an already tagged version stops the release.
 - Commit messages end with the `Co-Authored-By` line from the session's instructions; PR bodies end with the Claude Code line.
 - Another Claude session may be working in this folder. Do work in a worktree under `.worktrees/` (git-ignored), run `npm ci` in it (real `node_modules`, **never** a junction into the main folder: removing the worktree would delete the real one), and never commit someone else's uncommitted changes.
 - Once a PR is merged (`gh pr view <n> --json state` says `MERGED`), clear its worktree: `git worktree remove .worktrees/<name>`, `git branch -D <branch>`, `git worktree prune`. Only a worktree you made, never one with uncommitted changes or one another session is still using.

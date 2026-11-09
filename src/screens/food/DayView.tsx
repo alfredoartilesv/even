@@ -275,7 +275,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
           ) : (
             <form className="card stack" onSubmit={saveTargets}>
               <strong>Daily targets</strong>
-              <div className="grid">
+              <div className="grid targets-grid">
                 {NUTRIENTS.map((n) => (
                   <label key={n}>
                     {TARGET_LABEL[n]}
