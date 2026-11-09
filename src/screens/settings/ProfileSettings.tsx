@@ -183,6 +183,18 @@ export function ProfileSettings({
         <MsgLine msg={msg} />
       </form>
 
+      <BodyUnits
+        db={db}
+        saved={saved}
+        weight={weight}
+        onSaved={(p) => {
+          setSaved(p);
+          setDraft((d) => ({ ...d, heightCm: p.heightCm === null ? "" : String(p.heightCm) }));
+          void latestWeight(db, today()).then(setWeight);
+          onChanged();
+        }}
+      />
+
       <h2>Account</h2>
       {connected ? (
         <div className="stack tight">
@@ -264,18 +276,6 @@ export function ProfileSettings({
         </div>
       )}
       <MsgLine msg={accountMsg} />
-
-      <BodyUnits
-        db={db}
-        saved={saved}
-        weight={weight}
-        onSaved={(p) => {
-          setSaved(p);
-          setDraft((d) => ({ ...d, heightCm: p.heightCm === null ? "" : String(p.heightCm) }));
-          void latestWeight(db, today()).then(setWeight);
-          onChanged();
-        }}
-      />
 
       <h2>Your estimates</h2>
       <p className="muted small">

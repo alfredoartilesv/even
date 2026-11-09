@@ -219,7 +219,6 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
                   {spend ? ` · ${fmtMoney(spend, currency)}` : ""}
                 </strong>
               </div>
-              {hasFood && <ChipGroup label="Meal" value={meal} onChange={setMeal} options={SLOTS} />}
               {known
                 .filter((l): l is Extract<QuickLine, { kind: "drink" }> => l.kind === "drink")
                 .map((l) => (
@@ -236,9 +235,13 @@ export function QuickAdd({ db, onCoach, version, onChanged, onDone: done_, compa
                     />
                   </div>
                 ))}
-              <button type="button" disabled={busy} onClick={() => void log()}>
-                {busy ? "Logging…" : spend ? `Log it · ${fmtMoney(spend, currency)}` : "Log it"}
-              </button>
+              {/* The meal and Log it on one line where there is room, the button at its end. */}
+              <div className="quick-foot">
+                {hasFood && <ChipGroup label="Meal" value={meal} onChange={setMeal} options={SLOTS} />}
+                <button type="button" disabled={busy} onClick={() => void log()}>
+                  {busy ? "Logging…" : spend ? `Log it · ${fmtMoney(spend, currency)}` : "Log it"}
+                </button>
+              </div>
               <span className="muted small">These come from what you logged before. Check anything that looks off.</span>
             </>
           )}

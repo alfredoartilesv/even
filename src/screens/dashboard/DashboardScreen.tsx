@@ -214,7 +214,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 
   return (
-    <section className={rail ? "today with-rail" : "today"}>
+    <section className={rail && go.askClaude ? "today with-rail" : "today"}>
       <div className="today-main">
         <PageHeader
           title={`Hi${first ? `, ${first}` : ""}`}
@@ -283,7 +283,15 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           />
         )}
       </div>
-      {rail && go.askClaude && d && <CoachRail d={d} name={first ?? null} ask={go.askClaude} onClose={() => setRail(false)} />}
+      {rail && go.askClaude && d && (
+        <CoachRail
+          d={d}
+          name={first ?? null}
+          ask={go.askClaude}
+          onClose={() => setRail(false)}
+          period={many ? { label: dateText, many: true } : { label: anchor === now ? "today so far" : fmtDay(anchor), many: false }}
+        />
+      )}
     </section>
   );
 }
@@ -296,6 +304,24 @@ const WIDE = "(min-width: 60rem)";
  * right, grows by what the right column is short of the left (a past day has no Next up, so the
  * right side is shorter), up to a limit. On a phone it keeps its height.
  */
+/**
+ * A column's height by its content: each card from its top to its last child's bottom (plus its own
+ * padding), and the gaps between cards. Not the column's own box: the columns stretch to one height
+ * and the day so far grows to fill (styles.css), so the boxes always match.
+ */
+function contentHeight(col: HTMLElement): number {
+  const kids = [...col.children] as HTMLElement[];
+  if (!kids.length) return 0;
+  const gap = parseFloat(getComputedStyle(col).rowGap) || 0;
+  const natural = (el: HTMLElement) => {
+    const last = el.lastElementChild as HTMLElement | null;
+    if (!last) return el.offsetHeight;
+    const cs = getComputedStyle(el);
+    return last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+  };
+  return kids.reduce((n, k) => n + natural(k), 0) + gap * (kids.length - 1);
+}
+
 function useEvenColumns(key: string) {
   const [left, leftRef] = useState<HTMLDivElement | null>(null);
   const [right, rightRef] = useState<HTMLDivElement | null>(null);
@@ -304,7 +330,7 @@ function useEvenColumns(key: string) {
   const measure = useCallback(() => {
     if (!left || !right) return;
     const wide = window.matchMedia(WIDE).matches;
-    const gap = left.offsetHeight - (right.offsetHeight - current.current);
+    const gap = contentHeight(left) - (contentHeight(right) - current.current);
     const next = wide ? Math.max(0, Math.min(320, Math.round(gap))) : 0;
     if (Math.abs(next - current.current) > 2) {
       current.current = next;
@@ -315,9 +341,9 @@ function useEvenColumns(key: string) {
   useLayoutEffect(measure, [measure, key]);
   useEffect(() => {
     if (!left || !right || typeof ResizeObserver === "undefined") return;
+    // The cards, not only the columns: stretched to one height, a column's box no longer changes.
     const ro = new ResizeObserver(measure);
-    ro.observe(left);
-    ro.observe(right);
+    for (const el of [left, right, ...left.children, ...right.children]) ro.observe(el);
     return () => ro.disconnect();
   }, [left, right, measure]);
   return { leftRef, rightRef, extra };
@@ -754,10 +780,24 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
  * to start from, and a box to ask anything. Each opens Coach with the question ready to send; the
  * summary here is worked out on this device, nothing is sent until the owner sends it.
  */
-function CoachRail({ d, name, ask, onClose }: { d: Dashboard; name: string | null; ask: (draft?: string) => void; onClose: () => void }) {
+function CoachRail({
+  d,
+  name,
+  ask,
+  onClose,
+  period,
+}: {
+  d: Dashboard;
+  name: string | null;
+  ask: (draft?: string) => void;
+  onClose: () => void;
+  /** What the figures cover: "today so far", a day, or a week or month (with its daily average). */
+  period: { label: string; many: boolean };
+}) {
   const [text, setText] = useState("");
   const eaten = d.eaten.total;
-  const proteinLeft = d.targets.protein !== null ? Math.max(0, d.targets.protein - (d.protein.total ?? 0)) : null;
+  // Protein still to go only means something for one day.
+  const proteinLeft = !period.many && d.targets.protein !== null ? Math.max(0, d.targets.protein - (d.protein.total ?? 0)) : null;
   const questions = ["What should dinner be?", "How did I sleep this week?", "Plan next week's tuppers"];
   return (
     <aside className="coach-rail wide-only" aria-label="Coach" data-area="coach">
@@ -768,8 +808,13 @@ function CoachRail({ d, name, ask, onClose }: { d: Dashboard; name: string | nul
         </button>
       </div>
       <div className="coach-bubble">
-        Hi{name ? ` ${name}` : ""}. I can see today so far: {eaten !== null ? <strong>{int(eaten).toString()} kcal</strong> : "nothing logged yet"}
+        Hi{name ? ` ${name}` : ""}. I can see {period.label}: {eaten !== null ? <strong>{int(eaten).toString()} kcal</strong> : "nothing logged yet"}
         {eaten !== null ? " eaten" : ""}
+        {period.many && d.eaten.avg !== null ? (
+          <>
+            , about <strong>{int(d.eaten.avg)} kcal</strong> a day
+          </>
+        ) : null}
         {proteinLeft ? (
           <>
             {" "}

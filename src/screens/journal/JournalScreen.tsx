@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { LineChart, Sparkline } from "../../ui/charts";
-import { failed, fmtDay, MsgLine, MsgWithUndo, NoteField, numOrNull, timeZone, today, type Msg } from "../../ui/common";
+import { failed, fmtDay, fmtDayLong, MsgLine, MsgWithUndo, NoteField, numOrNull, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
-import { SectionHeader, Segmented, type Choice } from "../../ui/layout";
+import { PeriodNav, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import {
   addMeasurement,
   deleteDayNote,
@@ -135,22 +135,16 @@ function CheckIn({ db, version, initialDay, onChanged }: { db: SqlDriver; versio
 
   return (
     <>
-      <div className="period-nav">
-        <button type="button" className="secondary icon-button" aria-label="Previous day" onClick={() => setDay(addDays(day, -1))}>
-          ‹
-        </button>
-        <div className="grow center">
-          <strong>{cap(fmtDay(day))}</strong>
-          {!isToday && (
-            <button type="button" className="link small accent" onClick={() => setDay(today())}>
-              Back to today
-            </button>
-          )}
-        </div>
-        <button type="button" className="secondary icon-button" aria-label="Next day" disabled={isToday} onClick={() => setDay(addDays(day, 1))}>
-          ›
-        </button>
-      </div>
+      {/* The same ‹ date › with a Today pill as Today and the food log (ui/layout PeriodNav). */}
+      <PeriodNav
+        title={fmtDayLong(day)}
+        unit="day"
+        onPrev={() => setDay(addDays(day, -1))}
+        onNext={() => setDay(addDays(day, 1))}
+        nextDisabled={isToday}
+        onCurrent={isToday ? null : () => setDay(today())}
+        currentLabel="Back to today"
+      />
 
       <form key={day} className="checkin-board fade-in" onSubmit={save}>
         <section className="card checkin-scales" aria-label={isToday ? "How is today?" : "How was the day?"}>
@@ -327,7 +321,7 @@ function Measurements({ db, version, onChanged }: { db: SqlDriver; version: numb
 
   return (
     <>
-      <div className="wide-grid">
+      <div className="wide-grid stretch">
         <form className="card stack span-4" onSubmit={add}>
           <strong>Add a measurement</strong>
           <ChipGroup options={options.map((k) => ({ id: k, label: kindLabel(k) }))} value={kind} onChange={setKind} label="What" />
@@ -370,7 +364,7 @@ function Measurements({ db, version, onChanged }: { db: SqlDriver; version: numb
           <MsgWithUndo msg={msg} onUndo={undo ? () => void undoLast() : null} />
         </form>
 
-        <div className="span-8">
+        <div className="span-8 kind-list">
           <SectionHeader title="Your measurements" />
           {kinds.length === 0 ? (
             <p className="muted small">Nothing logged yet. Weight logged here also feeds the estimates in your profile and the alcohol screen.</p>
