@@ -4832,3 +4832,38 @@ body {
   gap: 0.5rem;
   margin-left: auto;
 }
+
+/* Goals other than nutrition: an even grid of cards, one height a line. */
+.goal-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.goal-cards > .goal-card {
+  margin: 0;
+}
+.goal-card-head {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.goal-card-head > .grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.goal-card-head > :not(.grow) {
+  flex: none;
+}
+
+/*
+ * A select's options open in the browser's own list, which kept a white ground while taking the
+ * page's light text in dark mode (Log level, 9 Nov 2026). Give the list the page's colours.
+ */
+select {
+  background-color: var(--surface);
+}
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--fg);
+}
