@@ -16,6 +16,11 @@ import { metricsDays } from "../metrics/queries";
  */
 
 export type Span = "day" | "week" | "month";
+/**
+ * What can be loaded: a span, or "last7", the seven days up to the anchor. Charts and tiles
+ * labelled "last 7 days" use it, so a Monday shows a full week, not one day (9 Nov 2026).
+ */
+export type LoadSpan = Span | "last7";
 
 /** Synced daily metrics the dashboard reads (the Garmin sync and the Garmin export import use the same names). */
 export const DASH_METRICS = {
@@ -79,7 +84,7 @@ export interface Figure {
 }
 
 export interface Dashboard {
-  span: Span;
+  span: LoadSpan;
   from: string;
   /** Last day of the span, clipped to today. Before from when the span is in the future. */
   to: string;
@@ -115,17 +120,19 @@ export interface Dashboard {
 }
 
 /** Monday of the week, first of the month, or the day itself. */
-function spanStart(span: Span, day: string): string {
+function spanStart(span: LoadSpan, day: string): string {
   if (span === "day") return day;
+  if (span === "last7") return addDays(day, -6);
   if (span === "month") return `${day.slice(0, 8)}01`;
   const dow = (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7;
   return addDays(day, -dow);
 }
 
 /** First and last day of the span that holds anchor. */
-export function spanRange(span: Span, anchor: string): { from: string; to: string } {
+export function spanRange(span: LoadSpan, anchor: string): { from: string; to: string } {
   const from = spanStart(span, anchor);
   if (span === "day") return { from, to: from };
+  if (span === "last7") return { from, to: anchor };
   if (span === "week") return { from, to: addDays(from, 6) };
   const [y, m] = from.split("-").map(Number);
   return { from, to: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) };
@@ -153,7 +160,7 @@ export function figure(values: (number | null)[]): Figure {
   return { total, avg: total === null ? null : total / have.length, daysWithData: have.length };
 }
 
-export async function loadDashboard(db: SqlDriver, span: Span, anchor: string, today: string): Promise<Dashboard> {
+export async function loadDashboard(db: SqlDriver, span: LoadSpan, anchor: string, today: string): Promise<Dashboard> {
   const range = spanRange(span, anchor);
   const from = range.from;
   const to = range.to > today ? today : range.to;
