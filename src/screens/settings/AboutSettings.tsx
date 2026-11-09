@@ -59,7 +59,7 @@ export function AboutSettings({ db, onPrivacy }: { db: SqlDriver; onPrivacy: () 
         </span>
         <Segmented items={THEMES} value={theme} onChange={(t) => (saveTheme(t), setTheme(t))} label="Appearance" />
       </section>
-      <section className="card span-7">
+      <section className="card span-12">
         <div className="about-head">
           <Logo size={48} decorative />
           <div>
@@ -78,7 +78,7 @@ export function AboutSettings({ db, onPrivacy }: { db: SqlDriver; onPrivacy: () 
           ))}
         </dl>
       </section>
-      <section className="card span-5">
+      <section className="card span-12 about-flows">
         <h3>Where your data goes</h3>
         <ul className="plain flows">
           {FLOWS.map(([k, v]) => (
