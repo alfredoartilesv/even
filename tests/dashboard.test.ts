@@ -25,14 +25,14 @@ const daily = (metric: string, day: string, valueNum: number): SampleInput => ({
   offsetMin: 60,
 });
 
-test("dashboard spans: Monday weeks, calendar months, and moving between them", () => {
+test("dashboard spans: the seven days up to a day, calendar months, and moving between them", () => {
   assert.deepEqual(spanRange("day", "2026-10-22"), { from: "2026-10-22", to: "2026-10-22" });
-  assert.deepEqual(spanRange("week", "2026-10-22"), { from: "2026-10-19", to: "2026-10-25" });
+  assert.deepEqual(spanRange("week", "2026-10-22"), { from: "2026-10-16", to: "2026-10-22" });
   assert.deepEqual(spanRange("month", "2026-02-10"), { from: "2026-02-01", to: "2026-02-28" });
   assert.deepEqual(spanRange("month", "2028-02-10"), { from: "2028-02-01", to: "2028-02-29" });
   assert.equal(shiftSpan("day", "2026-10-01", -1), "2026-09-30");
-  assert.equal(shiftSpan("week", "2026-10-22", 1), "2026-10-26");
-  assert.equal(shiftSpan("week", "2026-10-22", -1), "2026-10-12");
+  assert.equal(shiftSpan("week", "2026-10-22", 1), "2026-10-29");
+  assert.equal(shiftSpan("week", "2026-10-22", -1), "2026-10-15");
   assert.equal(shiftSpan("month", "2026-03-31", -1), "2026-02-01");
   assert.equal(shiftSpan("month", "2026-12-15", 1), "2027-01-01");
 });
@@ -76,8 +76,8 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   await logDrink(db, { name: "Beer", volumeMl: 330, abvPercent: 5, calories: 150, count: 2, atMs: midnight("2026-10-21") + 21 * 3_600_000, timeZone: TZ });
 
   const week = await loadDashboard(db, "week", "2026-10-22", TODAY);
-  assert.equal(week.from, "2026-10-19");
-  assert.equal(week.to, "2026-10-25");
+  assert.equal(week.from, "2026-10-16");
+  assert.equal(week.to, "2026-10-22");
   assert.equal(week.days.length, 7);
   assert.deepEqual(week.steps, { total: 20000, avg: 10000, daysWithData: 2 });
   assert.deepEqual(week.burned, { total: 5200, avg: 2600, daysWithData: 2 });
@@ -131,10 +131,10 @@ test("dashboard: steps, burned, eaten with drinks, balance, per day and for the 
   );
   assert.deepEqual((await loadDashboard(db, "week", "2026-10-22", TODAY)).targets, { kcal: 2300, protein: null, carbs: null, fat: null, steps: 10000 });
 
-  // The current week stops at today.
+  // The current week is the seven days up to today: on a Monday, a full week, not Monday alone.
   const now = await loadDashboard(db, "week", TODAY, TODAY);
-  assert.deepEqual([now.from, now.to, now.days.length], [TODAY, TODAY, 1]);
-  assert.equal(now.steps.total, 3000);
+  assert.deepEqual([now.from, now.to, now.days.length], ["2026-10-20", TODAY, 7]);
+  assert.equal(now.steps.total, 23000);
 
   // A workout synced by both Garmin and (before the switch) freddy is one session.
   const run = (source: string, metric: string, v: { valueNum?: number; valueText?: string }): SampleInput => ({
@@ -166,8 +166,8 @@ test("the current period follows today (the app can stay open overnight); a past
   const today = "2026-10-27"; // a Tuesday
   assert.equal(pinnedAnchor("day", today, today), null);
   assert.equal(pinnedAnchor("day", "2026-10-26", today), "2026-10-26");
-  assert.equal(pinnedAnchor("week", "2026-10-26", today), null, "Monday of this week is this week");
-  assert.equal(pinnedAnchor("week", "2026-10-25", today), "2026-10-25", "Sunday is last week");
+  assert.equal(pinnedAnchor("week", today, today), null, "the seven days up to today follow today");
+  assert.equal(pinnedAnchor("week", "2026-10-26", today), "2026-10-26", "the seven days up to yesterday stay put");
   assert.equal(pinnedAnchor("month", "2026-10-01", today), null);
   assert.equal(pinnedAnchor("month", "2026-09-30", today), "2026-09-30");
 });
@@ -213,5 +213,5 @@ test("the Dashboard's three daily metrics come from one query, each as metricDay
 test("the last 7 days end on the anchor, so a Monday still shows a full week", () => {
   // 9 Nov 2026 is a Monday: its calendar week is that day alone so far.
   assert.deepEqual(spanRange("last7", "2026-11-09"), { from: "2026-11-03", to: "2026-11-09" });
-  assert.deepEqual(spanRange("week", "2026-11-09"), { from: "2026-11-09", to: "2026-11-15" });
+  assert.deepEqual(spanRange("week", "2026-11-09"), { from: "2026-11-03", to: "2026-11-09" });
 });

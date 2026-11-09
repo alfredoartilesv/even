@@ -4724,3 +4724,23 @@ body {
 .quick-log .chips {
   flex-wrap: wrap;
 }
+
+/*
+ * Sleep, Body Battery, resting HR (9 Nov 2026): three tiles of one height, the label on one line,
+ * the figures and the line under them on the same baselines.
+ */
+.today-tiles.recovery .viz-tile {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.today-tiles.recovery .viz-tile > .muted.small:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-tiles.recovery .viz-tile-value {
+  white-space: nowrap;
+}

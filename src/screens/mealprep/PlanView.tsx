@@ -8,7 +8,6 @@ import {
   listMealPreps,
   loadStock,
   portionsEatenOn,
-  setPortionsPerDay,
   type MealPrep,
   type StockEntry,
 } from "../../domain/mealprep/mealPrep";
@@ -17,7 +16,6 @@ import { planSkips, PREP_MEALS, setPrepMeals, skipCounts, skipTupper, type DaySk
 import { planDefrost, type Plan } from "../../domain/mealprep/stock";
 import { seriesColor } from "../../ui/charts";
 import { changeRunner, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
-import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { batchColors, DayStrip } from "../../ui/mealprep/components";
 import { daysCovered, timelineDays } from "../../ui/mealprep/timeline";
@@ -64,7 +62,7 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
   const load = useCallback(async () => {
     const day = today();
     const [s, ppd, p, list, eaten] = await Promise.all([loadStock(db), getPortionsPerDay(db), listMealPreps(db), listShopping(db), portionsEatenOn(db, day)]);
-    const { meals: m, days: sk } = await planSkips(db, day, HORIZON, ppd);
+    const { meals: m, days: sk } = await planSkips(db, day, HORIZON);
     setMeals(m);
     setSkips(sk);
     setStock(s);
@@ -102,8 +100,6 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
   const coversFrom = plan.coveredThrough ? addDays(plan.coveredThrough, 1) : day;
   const coversDays = recipe && perDay > 0 ? Math.max(1, Math.floor(recipe.portions / perDay)) : 0;
   const toBuy = shopping.filter((i) => !i.checked);
-  // 1 or 2 a day is the usual choice (lunch, dinner or both); a value set elsewhere stays pickable.
-  const choices = [...new Set([1, 2, perDay])].sort((a, b) => a - b).map((n) => ({ id: n, label: String(n) }));
 
   const nightOf = (d: string) =>
     d === day ? "Tonight" : `${new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })} night`;
@@ -175,51 +171,38 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
               </span>
             </div>
             {perDay > 0 ? (
-              <DayStrip days={days} value={sel.day} onChange={setPicked} colors={colors} today={day} />
+              <DayStrip days={days} value={sel.day} onChange={setPicked} colors={colors} />
             ) : (
-              <p className="muted small">Set how many tuppers you eat a day to get a plan.</p>
+              <p className="muted small">Pick the meals your tuppers are for to get a plan.</p>
             )}
-            <div className="plan-per-day">
-              <span className="grow">
-                <strong>Tuppers a day</strong>
-                <span className="muted small"> lunch, dinner or both</span>
-              </span>
-
-              <ChipGroup
-                options={choices}
-                value={perDay}
-                label="Tuppers a day"
-                onChange={(n) => void run(() => setPortionsPerDay(db, n), `${plural(n, "tupper")} a day.`)}
-              />
-            </div>
-            {perDay > 0 && (
-              <div className="plan-per-day stacked">
-                <span>
-                  <strong>Tuppers are for</strong>
-                  <span className="muted small block">Log one of these as something else (eating out) and its tupper moves on.</span>
+            <div className="plan-per-day stacked">
+              <span>
+                <strong>Tuppers are for</strong>
+                <span className="muted small block">
+                  One tupper for each meal picked. Log one of these as something else (eating out) and its tupper moves on.
                 </span>
-                <div className="chips" role="group" aria-label="Meals the tuppers are for">
-                  {PREP_MEALS.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={meals.includes(m) ? "chip active" : "chip"}
-                      aria-pressed={meals.includes(m)}
-                      onClick={() => void run(() => setPrepMeals(db, meals.includes(m) ? meals.filter((x) => x !== m) : [...meals, m]), "")}
-                    >
-                      {m.charAt(0).toUpperCase() + m.slice(1)}
-                    </button>
-                  ))}
-                </div>
+              </span>
+              <div className="chips" role="group" aria-label="Meals the tuppers are for">
+                {PREP_MEALS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={meals.includes(m) ? "chip active" : "chip"}
+                    aria-pressed={meals.includes(m)}
+                    onClick={() => void run(() => setPrepMeals(db, meals.includes(m) ? meals.filter((x) => x !== m) : [...meals, m]), "")}
+                  >
+                    {m.charAt(0).toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
           </section>
         </div>
 
         <div className="plan-col">
-          <section className="card plan-selected" aria-label={fmtDay(sel.day, day)}>
+          <section className="card plan-selected" aria-label={fmtDay(sel.day)}>
             <div className="plan-selected-head">
-              <span className="muted small">{sel.day === day ? "Today" : fmtDay(sel.day, day)}</span>
+              <span className="muted small">{fmtDay(sel.day)}</span>
               {sel.meals[0] && <span className="next-pill">{sel.meals[0].from === "thawed" ? "Thawed" : "Fridge"}</span>}
             </div>
             {sel.meals.length ? (
@@ -230,11 +213,7 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
                     {m.name}
                   </strong>
                   <span className="muted small">
-                    {m.from === "thawed" && m.thawDay
-                      ? `Out of the freezer ${nightOf(m.thawDay).toLowerCase()}`
-                      : m.eatBy
-                        ? `Eat by ${fmtDay(m.eatBy, day)}`
-                        : ""}
+                    {m.from === "thawed" && m.thawDay ? `Out of the freezer ${nightOf(m.thawDay).toLowerCase()}` : m.eatBy ? `Eat by ${fmtDay(m.eatBy)}` : ""}
                   </span>
                 </div>
               ))
@@ -251,7 +230,7 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
             )}
             {sel.takeOut.map((t, i) => (
               <span key={i} className="plan-thaw small">
-                {t.late ? "Defrost now: " : "Tonight: "}take {t.portions} {t.name.toLowerCase()} out of the freezer for {fmtDay(t.forDay, day)}.
+                {t.late ? "Defrost now: " : "Tonight: "}take {t.portions} {t.name.toLowerCase()} out of the freezer for {fmtDay(t.forDay)}.
               </span>
             ))}
             {selSkips.ateOut.length > 0 && (
@@ -271,7 +250,7 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
                 )}
                 {sel.meals.length > 0 && (
                   <button type="button" className="secondary" onClick={() => void run(() => skipTupper(db, sel.day, day, 1), "")}>
-                    Skip a tupper {sel.day === day ? "today" : "this day"}
+                    Skip this tupper
                   </button>
                 )}
               </div>
