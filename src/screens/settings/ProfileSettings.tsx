@@ -126,6 +126,63 @@ export function ProfileSettings({
 
   return (
     <div>
+      <h2>About you</h2>
+      <p className="muted small">
+        Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every field is optional.
+      </p>
+      <PhotoPicker db={db} name={saved.name} onChanged={onChanged} />
+      <form onSubmit={save} className="stack">
+        <label>
+          Name
+          <input value={draft.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={60} />
+        </label>
+        <div className="grid">
+          <label>
+            Birth date
+            <input type="date" value={draft.birthDate} max={today()} onChange={(e) => set({ birthDate: e.target.value })} />
+          </label>
+        </div>
+        <fieldset>
+          <legend className="small">Sex (for the energy formula)</legend>
+          <div className="chips">
+            {(["female", "male"] as const).map((s) => (
+              <button
+                type="button"
+                key={s}
+                className={draft.sex === s ? "chip active" : "chip"}
+                aria-pressed={draft.sex === s}
+                onClick={() => set({ sex: draft.sex === s ? "" : s })}
+              >
+                {s === "female" ? "Female" : "Male"}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <label>
+          Activity level
+          <select value={draft.activity} onChange={(e) => set({ activity: e.target.value })}>
+            <option value="">Not set</option>
+            {ACTIVITY_LEVELS.map((a) => (
+              <option key={a} value={a}>
+                {ACTIVITY_LABEL[a]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Weight goal, kg per week
+          <select value={draft.kgPerWeek} onChange={(e) => set({ kgPerWeek: e.target.value })}>
+            {["-1", "-0.75", "-0.5", "-0.25", "0", "0.25", "0.5"].map((v) => (
+              <option key={v} value={v}>
+                {v === "0" ? "Keep my weight" : Number(v) < 0 ? `Lose ${-Number(v)} kg a week` : `Gain ${v} kg a week`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit">Save profile</button>
+        <MsgLine msg={msg} />
+      </form>
+
       <h2>Account</h2>
       {connected ? (
         <div className="stack tight">
@@ -219,63 +276,6 @@ export function ProfileSettings({
           onChanged();
         }}
       />
-
-      <h2>About you</h2>
-      <p className="muted small">
-        Used for the calorie target, BMI and the energy figures, here and in the chat. Stays on this phone and in your backups. Every field is optional.
-      </p>
-      <PhotoPicker db={db} name={saved.name} onChanged={onChanged} />
-      <form onSubmit={save} className="stack">
-        <label>
-          Name
-          <input value={draft.name} onChange={(e) => set({ name: e.target.value })} autoComplete="given-name" maxLength={60} />
-        </label>
-        <div className="grid">
-          <label>
-            Birth date
-            <input type="date" value={draft.birthDate} max={today()} onChange={(e) => set({ birthDate: e.target.value })} />
-          </label>
-        </div>
-        <fieldset>
-          <legend className="small">Sex (for the energy formula)</legend>
-          <div className="chips">
-            {(["female", "male"] as const).map((s) => (
-              <button
-                type="button"
-                key={s}
-                className={draft.sex === s ? "chip active" : "chip"}
-                aria-pressed={draft.sex === s}
-                onClick={() => set({ sex: draft.sex === s ? "" : s })}
-              >
-                {s === "female" ? "Female" : "Male"}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <label>
-          Activity level
-          <select value={draft.activity} onChange={(e) => set({ activity: e.target.value })}>
-            <option value="">Not set</option>
-            {ACTIVITY_LEVELS.map((a) => (
-              <option key={a} value={a}>
-                {ACTIVITY_LABEL[a]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Weight goal, kg per week
-          <select value={draft.kgPerWeek} onChange={(e) => set({ kgPerWeek: e.target.value })}>
-            {["-1", "-0.75", "-0.5", "-0.25", "0", "0.25", "0.5"].map((v) => (
-              <option key={v} value={v}>
-                {v === "0" ? "Keep my weight" : Number(v) < 0 ? `Lose ${-Number(v)} kg a week` : `Gain ${v} kg a week`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit">Save profile</button>
-        <MsgLine msg={msg} />
-      </form>
 
       <h2>Your estimates</h2>
       <p className="muted small">

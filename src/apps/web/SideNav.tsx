@@ -146,18 +146,25 @@ export function SideNav({
           data-area="you"
           className={`sidenav-item sidenav-you${tab === "you" ? " active" : ""}`}
           aria-current={tab === "you" ? "page" : undefined}
-          title={rail ? "You" : undefined}
+          title={rail ? (account?.email ?? "You") : undefined}
           onClick={() => {
             setOpen(false);
             onTab("you");
           }}
         >
-          <span className="sidenav-tile" aria-hidden>
-            <Icon name="user" size={18} />
-          </span>
+          {/* Signed in, You is the account: its email stands for it (the owner's ask, 9 Nov 2026). */}
+          {account ? (
+            <span className="sidenav-tile sidenav-avatar" aria-hidden>
+              {account.email.charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <span className="sidenav-tile" aria-hidden>
+              <Icon name="user" size={18} />
+            </span>
+          )}
           <span className="sidenav-label sidenav-you-text">
-            <span>You</span>
-            <span className="sidenav-sub">Targets, privacy, backup</span>
+            {account ? <span className="sidenav-you-email">{account.email}</span> : <span>You</span>}
+            {!account && <span className="sidenav-sub">Targets, privacy, backup</span>}
           </span>
         </button>
         {account && <AccountFoot account={account} rail={rail} />}
@@ -166,7 +173,7 @@ export function SideNav({
   );
 }
 
-/** Who is signed in, and Sign out: this browser's copy of the data goes, the phone and the server keep theirs. */
+/** Sign out: this browser's copy of the data goes, the phone and the server keep theirs. Who is signed in shows on You above it. */
 function AccountFoot({ account, rail }: { account: FrameAccount; rail: boolean }) {
   const [busy, setBusy] = useState(false);
   const signOut = async () => {
@@ -181,12 +188,6 @@ function AccountFoot({ account, rail }: { account: FrameAccount; rail: boolean }
   };
   return (
     <div className="sidenav-foot">
-      <div className="sidenav-account" title={rail ? account.email : undefined}>
-        <span className="sidenav-avatar" aria-hidden>
-          {account.email.charAt(0).toUpperCase()}
-        </span>
-        <span className="sidenav-label sidenav-email">{account.email}</span>
-      </div>
       <button type="button" className="sidenav-item sidenav-signout" title={rail ? "Sign out" : undefined} disabled={busy} onClick={() => void signOut()}>
         <Icon name="signout" />
         <span className="sidenav-label">{busy ? "Signing out…" : "Sign out"}</span>

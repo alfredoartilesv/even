@@ -374,6 +374,7 @@ function DayView({
             <div className="balance-side">
               <p className="balance-line">{heroLine}</p>
               <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+              <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
           <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
@@ -430,6 +431,31 @@ function DayView({
       </div>
       <Noticed d={d} next={shown.next} go={go} isToday={isToday} />
     </>
+  );
+}
+
+/**
+ * What was eaten against what the watch says was burned (resting plus active), and the deficit or
+ * excess between them (the owner's ask, 9 Nov 2026). Today the watch has only counted so far, so the
+ * day reads "so far" until it is over.
+ */
+function EnergyRow({ eaten, burned, isToday }: { eaten: number | null; burned: number | null; isToday: boolean }) {
+  const diff = eaten !== null && burned !== null ? eaten - burned : null;
+  return (
+    <dl className="energy-row">
+      <div>
+        <dt className="muted small">Eaten</dt>
+        <dd>{eaten !== null ? `${int(eaten)} kcal` : "–"}</dd>
+      </div>
+      <div>
+        <dt className="muted small">Burned{isToday ? " so far" : ""}</dt>
+        <dd>{burned !== null ? `${int(burned)} kcal` : "–"}</dd>
+      </div>
+      <div>
+        <dt className="muted small">{diff === null ? "Balance" : diff > 0 ? "Excess" : "Deficit"}</dt>
+        <dd className={diff === null ? undefined : diff > 0 ? "energy-excess" : "energy-deficit"}>{diff !== null ? `${int(Math.abs(diff))} kcal` : "–"}</dd>
+      </div>
+    </dl>
   );
 }
 
