@@ -3464,9 +3464,26 @@ button:active:not(:disabled) {
 }
 /* Under Today's bar, the preview runs the bar's width (9 Nov 2026: at 44rem it left half the row
    empty); its button keeps a button's size at the right instead of a bar across the page. */
-.quick.compact .quick-preview > button {
-  align-self: flex-end;
-  min-width: 14rem;
+.quick-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.quick-foot > button {
+  flex: 1 1 14rem;
+}
+.quick-foot > .chips {
+  margin: 0;
+}
+/* Under Today's wide bar, Log it keeps a button's size at the end of the line. */
+@media (min-width: 64rem) {
+  .quick.compact .quick-foot > button {
+    flex: 0 0 auto;
+    min-width: 14rem;
+    margin-left: auto;
+  }
 }
 .theme-pick {
   display: flex;
@@ -4757,10 +4774,9 @@ body {
   gap: 0.15rem;
   min-width: 0;
 }
+/* The label may take two lines ("Body Battery" on a phone) rather than lose its end. */
 .today-tiles.recovery .viz-tile > .muted.small:first-child {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 .today-tiles.recovery .viz-tile-value {
   white-space: nowrap;
@@ -4879,4 +4895,67 @@ select optgroup {
 }
 .spending-chart {
   margin-top: 1rem;
+}
+
+/*
+ * Audit, 9 Nov 2026 (320px phone, large font): a row's label starts at 8rem, so a row that runs out
+ * of room wraps (the date under a workout's name, a unit toggle under its label) instead of
+ * squeezing the label to a word a line.
+ */
+:is(.row, .body-row) > .grow {
+  flex-basis: 8rem;
+}
+/* Three tiles two to a row leave one alone: on a phone it takes the whole row. */
+@media (max-width: 40rem) {
+  .me-tiles > :nth-child(3):last-child {
+    grid-column: 1 / -1;
+  }
+}
+/* Eaten, burned and the balance: three across while they fit, fewer with a large font. */
+.energy-row {
+  grid-template-columns: repeat(auto-fit, minmax(5.25rem, 1fr));
+}
+/* Eat 1 portion and Something else side by side while both fit, one under the other with a large font. */
+.next-actions {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+}
+/* A sport's four figures: as many across as fit. */
+.stat-row {
+  grid-template-columns: repeat(auto-fit, minmax(4.75rem, 1fr));
+}
+/* Two buttons side by side while each has room; one under the other on a narrow phone. */
+.actions.two {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+}
+/* What is on the phone: two columns while a label fits beside its count, one on a narrow phone. */
+dl.inventory {
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+}
+
+/* Wide Today: when the right column is the taller one, the day so far grows to meet it, so the two
+   columns end together either way (the steps chart already grows the other way). */
+@media (min-width: 60rem) {
+  .today-grid {
+    align-items: stretch;
+  }
+  .today-col.left > .so-far {
+    flex: 1 1 auto;
+  }
+}
+/* kcal, protein, carbs and fat: four across, or two by two, never three and one left alone. */
+.macro-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@container (min-width: 30rem) {
+  .macro-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+/* The watch's numbers: two across on a phone, as many as fit on a wide screen. */
+.synced-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(10rem, 45%), 1fr));
+}
+/* The unit picker keeps room for its word and its arrow: its column is sized for it, the name takes the rest. */
+.ingredient {
+  grid-template-columns: minmax(0, 1fr) minmax(3.5rem, 4.5rem) 5rem auto;
 }

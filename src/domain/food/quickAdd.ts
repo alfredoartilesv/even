@@ -78,6 +78,13 @@ function best<T>(typed: string, items: T[], name: (t: T) => string, score: (t: T
 }
 
 export function parseQuickAdd(text: string, known: { foods: Candidate[]; drinks: DrinkType[] }): QuickLine[] {
+  // A name that holds a comma or an "and" ("Greek yogurt, oats and berries", one of the examples) is
+  // one thing when it is exactly a known food or drink; split, it became three copies of itself.
+  const whole = quantity(text.trim());
+  const drinkWhole = known.drinks.find((d) => fit(whole.rest, d.name) === 3);
+  if (drinkWhole) return [{ kind: "drink", part: text.trim(), count: whole.count, type: drinkWhole }];
+  const foodWhole = known.foods.filter((c) => fit(whole.rest, c.name) === 3).sort((a, b) => b.uses - a.uses)[0];
+  if (foodWhole) return [{ kind: "food", part: text.trim(), count: whole.count, candidate: foodWhole }];
   const parts = text
     .split(/,|;|\+|\band\b|\bwith\b|\by\b/i)
     .map((p) => p.trim())

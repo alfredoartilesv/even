@@ -146,7 +146,7 @@ export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft
     </label>
   );
   return (
-    <div className="grid">
+    <div className="grid macro-grid">
       {field("kcal", "calories")}
       {field("Protein g", "proteinG")}
       {field("Carbs g", "carbsG")}
