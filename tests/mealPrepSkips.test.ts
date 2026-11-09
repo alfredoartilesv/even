@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { nextUp } from "../src/domain/dashboard/today";
 import { logFood } from "../src/domain/food/food";
-import { addMove, DEFAULT_MEAL_PREP, loadStock, logBatch, saveMealPrep, setPortionsPerDay } from "../src/domain/mealprep/mealPrep";
+import { addMove, DEFAULT_MEAL_PREP, getPortionsPerDay, loadStock, logBatch, saveMealPrep, setPortionsPerDay } from "../src/domain/mealprep/mealPrep";
 import { getPrepMeals, planSkips, setPrepMeals, skipCounts, skipsBetween, skipTupper } from "../src/domain/mealprep/skips";
 import { planDefrost } from "../src/domain/mealprep/stock";
 import { migratedDb } from "./helpers";
@@ -22,7 +22,7 @@ async function withTuppers() {
 test("skipping a tupper moves the rest of the plan on a day, and Undo takes it back", async () => {
   const db = await withTuppers();
   const plan = async () => {
-    const s = await planSkips(db, DAY, 4, 1);
+    const s = await planSkips(db, DAY, 4);
     return planDefrost(await loadStock(db), { today: DAY, nowMs: NOW, timeZone: TZ, portionsPerDay: 1, skips: skipCounts(s.days), horizonDays: 4 });
   };
   assert.deepEqual(
@@ -41,8 +41,7 @@ test("skipping a tupper moves the rest of the plan on a day, and Undo takes it b
 
 test("a meal the tuppers are for, logged as something else, skips that tupper; a portion eaten does not", async () => {
   const db = await withTuppers();
-  assert.deepEqual(await getPrepMeals(db, 1), ["lunch"]);
-  assert.deepEqual(await getPrepMeals(db, 2), ["lunch", "dinner"]);
+  assert.deepEqual(await getPrepMeals(db), ["lunch"]);
   // A tupper eaten is logged as meal prep, not as lunch: nothing skipped.
   const [stock] = await loadStock(db);
   await addMove(db, { batchId: stock.batch.id, kind: "eat", portions: 1, atMs: NOW, timeZone: TZ });
@@ -51,8 +50,8 @@ test("a meal the tuppers are for, logged as something else, skips that tupper; a
   await logFood(db, { name: "Pizza", meal: "dinner", calories: 900, proteinG: null, carbsG: null, fatG: null, atMs: NOW + 8 * H, timeZone: TZ });
   assert.equal((await skipsBetween(db, DAY, DAY, ["lunch"])).size, 0);
   await setPrepMeals(db, ["dinner", "lunch"]);
-  assert.deepEqual(await getPrepMeals(db, 1), ["lunch", "dinner"]);
-  assert.deepEqual(await skipsBetween(db, DAY, DAY, await getPrepMeals(db, 1)), new Map([[DAY, { manual: 0, ateOut: ["dinner"] }]]));
+  assert.deepEqual(await getPrepMeals(db), ["lunch", "dinner"]);
+  assert.deepEqual(await skipsBetween(db, DAY, DAY, await getPrepMeals(db)), new Map([[DAY, { manual: 0, ateOut: ["dinner"] }]]));
 });
 
 test("Next up has nothing to offer once today's tuppers are eaten out or skipped", async () => {
@@ -65,4 +64,15 @@ test("Next up has nothing to offer once today's tuppers are eaten out or skipped
   const other = await withTuppers();
   await skipTupper(other, DAY, DAY, 1, NOW);
   assert.equal(await nextUp(other, TZ, NOW), null);
+});
+
+test("the tuppers a day are the meals picked; before any are picked, the old count gives them", async () => {
+  const db = await withTuppers();
+  assert.equal(await getPortionsPerDay(db), 1);
+  await setPortionsPerDay(db, 2);
+  assert.deepEqual(await getPrepMeals(db), ["lunch", "dinner"]);
+  await setPrepMeals(db, ["breakfast", "lunch", "dinner"]);
+  assert.equal(await getPortionsPerDay(db), 3);
+  await setPrepMeals(db, []);
+  assert.equal(await getPortionsPerDay(db), 0);
 });

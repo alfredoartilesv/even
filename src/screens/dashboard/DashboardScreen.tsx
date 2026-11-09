@@ -96,7 +96,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" } as const;
 const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack", "prep"];
 
-/** "Today", "Mon 20 – Sun 26 Oct", "October 2026". */
+/** "Mon, Nov 9", "Oct 20 – Oct 26", "October 2026". */
 function spanTitle(span: Span, anchor: string): string {
   const { from, to } = spanRange(span, anchor);
   if (span === "day") return cap(fmtDay(from));
@@ -182,7 +182,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const dateText = many
     ? span === "month"
       ? short(current.from, { month: "long", year: "numeric" })
-      : `${cap(fmtDay(current.from))} – ${isCurrent ? "today" : fmtDay(current.to)}`
+      : `${fmtDay(current.from)} – ${fmtDay(current.to)}`
     : fmtDayLong(anchor);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
@@ -193,7 +193,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       label="Period"
       onChange={(id) => {
         setSpan(id);
-        setAnchor(isCurrent ? now : current.from, id);
+        // The day picked, or the last day of the week or month (never past today), stays in view.
+        setAnchor(isCurrent ? now : current.to > now ? now : current.to, id);
       }}
     />
   );
@@ -205,8 +206,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       title={dateText}
       unit={span}
       onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-      onNext={() => setAnchor(next)}
-      nextDisabled={next > now}
+      onNext={() => setAnchor(span === "week" && next > now ? now : next)}
+      nextDisabled={span === "week" ? current.to >= now : next > now}
       onCurrent={isCurrent ? null : () => setAnchor(now)}
       currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
     />
@@ -276,7 +277,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           <PinnedCharts
             db={db}
             d={chartsData}
-            period={many ? (isCurrent ? `this ${span}` : spanTitle(span, anchor)) : "last 7 days"}
+            period={span === "month" && isCurrent ? "this month" : many ? spanTitle(span, anchor) : "last 7 days"}
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
           />
@@ -355,7 +356,7 @@ function DayView({
       : left === null
         ? `${int(eaten)} kcal eaten${isToday ? " so far" : ""}. Set a calorie target in Food and drinks to see what is left.`
         : left < 0
-          ? `${int(-left)} kcal over the target${isToday ? " today" : ""}.`
+          ? `${int(-left)} kcal over the target.`
           : isToday
             ? left > 600
               ? "You are on pace, with plenty of room left."
@@ -369,7 +370,7 @@ function DayView({
       <div className="today-grid">
         <div className="today-col left" ref={leftRef}>
           <section className="card balance-card" aria-label="Balance">
-            <BalanceRing eaten={eaten} target={target} caption={isToday ? "kcal left today" : "kcal left"} />
+            <BalanceRing eaten={eaten} target={target} caption="kcal left" />
             <div className="balance-side">
               <p className="balance-line">{heroLine}</p>
               <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
@@ -391,7 +392,7 @@ function DayView({
                 onChanged={onChanged}
               />
             )}
-            <section className="today-tiles" aria-label="Recovery">
+            <section className="today-tiles recovery" aria-label="Recovery">
               <StatTile
                 label="Sleep"
                 value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
@@ -402,7 +403,12 @@ function DayView({
                 value={d.body.bodyBatteryHigh.total !== null ? int(d.body.bodyBatteryHigh.total) : null}
                 note={d.body.bodyBatteryLow.total !== null ? `low ${int(d.body.bodyBatteryLow.total)}` : undefined}
               />
-              <StatTile label="Resting heart rate" value={d.body.restingHr.total !== null ? `${int(d.body.restingHr.total)} bpm` : null} />
+              <StatTile
+                label="Resting HR"
+                value={d.body.restingHr.total !== null ? int(d.body.restingHr.total) : null}
+                unit="bpm"
+                note={shown.week && shown.week.body.restingHr.avg !== null ? `7-day avg ${int(shown.week.body.restingHr.avg)}` : undefined}
+              />
             </section>
           </div>
 
@@ -410,7 +416,7 @@ function DayView({
             <BarChart
               height={STEPS_HEIGHT + extra}
               title="Steps, last two weeks"
-              subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} ${isToday ? "today" : "this day"}. ` : ""}Tap a day to open it.`}
+              subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} on ${fmtDay(day)}. ` : ""}Tap a day to open it.`}
               x={d.trendDays}
               values={d.activityTrend.steps}
               formatX={(x) => String(Number(x.slice(8)))}
@@ -555,7 +561,7 @@ function NextUpCard({
           }
         }}
       >
-        Skip today's tupper
+        Skip this tupper
       </button>
     </section>
   );
@@ -576,7 +582,7 @@ function SoFar({ d, food, isToday, go }: { d: Dashboard; food: FoodEntry[]; isTo
   return (
     <section className="card so-far" aria-labelledby="so-far">
       <div className="so-far-head">
-        <h2 id="so-far">{isToday ? "Today so far" : "That day"}</h2>
+        <h2 id="so-far">{isToday ? "So far" : "That day"}</h2>
         <span className="muted small">
           {plural(rows.length, "meal")} · {int(kcal)} kcal
         </span>
@@ -603,9 +609,7 @@ function SoFar({ d, food, isToday, go }: { d: Dashboard; food: FoodEntry[]; isTo
         <span />
         <span className="grow">
           <strong>Drinks</strong>
-          <span className="muted small block">
-            {a.drinks ? `${plural(a.drinks, "drink")} · ${int(a.kcal)} kcal` : `None ${isToday ? "today" : "that day"}`}
-          </span>
+          <span className="muted small block">{a.drinks ? `${plural(a.drinks, "drink")} · ${int(a.kcal)} kcal` : "None"}</span>
         </span>
         <span className="accent">+ Add</span>
       </button>
@@ -619,10 +623,10 @@ function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; 
   const pt = d.targets.protein;
   let text: string | null = null;
   if (pt && p < pt) {
-    text = `Protein is the gap ${isToday ? "today" : "that day"}, with ${int(pt - p)} g to go.`;
+    text = `Protein is the gap, with ${int(pt - p)} g to go.`;
     if (isToday && next?.proteinG) text += ` ${next.name} covers ${int(next.proteinG)} g of it.`;
   } else if (d.targets.steps && d.steps.total !== null && d.steps.total < d.targets.steps) {
-    text = `${int(d.targets.steps - d.steps.total)} steps to your goal ${isToday ? "today" : "that day"}.`;
+    text = `${int(d.targets.steps - d.steps.total)} steps to your goal.`;
   }
   if (!text || !go.askClaude) return null;
   return (

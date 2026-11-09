@@ -162,7 +162,7 @@ test("dashboard recovery: resting HR, sleep, HRV (Apple's when Garmin has none),
   );
   assert.equal(week.body.sleep.total, 7 * 3600);
   assert.equal(week.body.sleepScore.avg, 81);
-  assert.deepEqual([week.body.hrv.trend[1], week.body.hrv.trend[2]], [40, 48]);
+  assert.deepEqual([week.body.hrv.trend[5], week.body.hrv.trend[6]], [40, 48]); // the 20th and 21st, the last of the seven days
   assert.equal(week.body.bodyBatteryLow.total, 15);
   assert.equal(week.body.stress.total, 28);
   // 20 moderate + 2 × 15 vigorous.

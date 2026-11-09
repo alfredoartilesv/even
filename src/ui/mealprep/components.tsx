@@ -94,11 +94,11 @@ export function batchColors(ids: string[]): BatchColors {
 }
 
 /** "Tonight: take 1 turkey chili out of the freezer for Wed", or "Defrost now" when it is late. */
-function takeOutLine(t: TimelineDay["takeOut"][number], today: string) {
+function takeOutLine(t: TimelineDay["takeOut"][number]) {
   return (
     <span className="plan-thaw small">
       {t.late ? <StatusBadge status="critical">Defrost now</StatusBadge> : "Tonight: "}take {t.portions} {t.name.toLowerCase()} out of the freezer for{" "}
-      {fmtDay(t.forDay, today)}
+      {fmtDay(t.forDay)}
     </span>
   );
 }
@@ -125,7 +125,7 @@ export function PlanDays({ plan, today, horizon = 14, colors }: { plan: PlanLike
               </span>
               <span className="plan-empty">
                 <span>No tupper{r.days > 1 ? ` for ${plural(r.days, "day")}` : ""}</span>
-                <span className="small">cook by {fmtDay(addDays(r.from, -1), today)}</span>
+                <span className="small">cook by {fmtDay(addDays(r.from, -1))}</span>
               </span>
             </li>
           );
@@ -153,7 +153,7 @@ export function PlanDays({ plan, today, horizon = 14, colors }: { plan: PlanLike
                         : m.from === "fridge"
                           ? m.eatBy === d.day
                             ? "its last good day"
-                            : `eat by ${fmtDay(m.eatBy ?? d.day, today)}`
+                            : `eat by ${fmtDay(m.eatBy ?? d.day)}`
                           : m.thawDay && m.thawDay < d.day
                             ? `taken out ${dayParts(m.thawDay).weekday}`
                             : "defrosted"}
@@ -162,10 +162,10 @@ export function PlanDays({ plan, today, horizon = 14, colors }: { plan: PlanLike
                   <span className={m.from === "fridge" ? "plan-where fridge" : "plan-where thawed"}>{m.from === "fridge" ? "Fridge" : "Thawed"}</span>
                 </span>
               ))}
-              {d.meals.length === 0 && d.state === "covered" && <span className="small muted">Already eaten today</span>}
+              {d.meals.length === 0 && d.state === "covered" && <span className="small muted">Already eaten</span>}
               {d.state === "short" && d.meals.length > 0 && <StatusBadge status="warning">{plural(d.missing, "tupper")} short</StatusBadge>}
               {d.takeOut.map((t) => (
-                <span key={`${t.name}-${t.forDay}`}>{takeOutLine(t, today)}</span>
+                <span key={`${t.name}-${t.forDay}`}>{takeOutLine(t)}</span>
               ))}
               {d.expiring.map((w) => (
                 <span key={w.name} className="small">
@@ -190,7 +190,7 @@ export function PlanStrip({ plan, today, horizon = 14, colors }: { plan: PlanLik
         const m = d.meals[0];
         const what = m ? m.name : d.state === "short" ? "no tupper" : "already eaten";
         return (
-          <li key={d.day} className={m ? "has" : d.state === "short" ? "none" : "eaten"} aria-label={`${fmtDay(d.day, today)}: ${what}`}>
+          <li key={d.day} className={m ? "has" : d.state === "short" ? "none" : "eaten"} aria-label={`${fmtDay(d.day)}: ${what}`}>
             <span aria-hidden className="small muted">
               {p.weekday.slice(0, 1)}
             </span>
@@ -209,24 +209,12 @@ export function PlanStrip({ plan, today, horizon = 14, colors }: { plan: PlanLik
  * The next days as a strip of small buttons (handoff 0.7, Plan): weekday, date and a dot per
  * tupper in its batch colour, an empty ring on a day with none. The chosen day is pressed.
  */
-export function DayStrip({
-  days,
-  value,
-  onChange,
-  colors,
-  today,
-}: {
-  days: TimelineDay[];
-  value: string;
-  onChange: (day: string) => void;
-  colors: BatchColors;
-  today: string;
-}) {
+export function DayStrip({ days, value, onChange, colors }: { days: TimelineDay[]; value: string; onChange: (day: string) => void; colors: BatchColors }) {
   return (
     <div className="day-strip" role="group" aria-label="Pick a day">
       {days.map((d) => {
         const p = dayParts(d.day);
-        const label = `${fmtDay(d.day, today)}: ${d.meals.length ? d.meals.map((m) => m.name).join(", ") : "no tupper"}`;
+        const label = `${fmtDay(d.day)}: ${d.meals.length ? d.meals.map((m) => m.name).join(", ") : "no tupper"}`;
         return (
           <button
             key={d.day}
@@ -236,7 +224,7 @@ export function DayStrip({
             aria-label={label}
             onClick={() => onChange(d.day)}
           >
-            <span className="small">{d.day === today ? "Today" : p.weekday}</span>
+            <span className="small">{p.weekday}</span>
             <strong>{p.date}</strong>
             <span className="day-dots" aria-hidden>
               {d.meals.length ? (
