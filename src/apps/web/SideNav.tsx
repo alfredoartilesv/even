@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createLogger } from "../../core/log";
 import type { FrameAccount, FrameProps } from "../../shell/target";
-import { TABS, type Tab, type TabItem } from "../../shell/tabs";
+import { DISABLED_HINT, TABS, type Tab, type TabItem } from "../../shell/tabs";
 import { Icon } from "../../ui/icons";
 import { NavMenu } from "../../ui/layout";
 import { Logo } from "../../ui/logo";
@@ -125,7 +125,9 @@ export function SideNav({
                   data-area={t.id}
                   className={`sidenav-item${tab === t.id ? " active" : ""}`}
                   aria-current={tab === t.id ? "page" : undefined}
-                  title={rail ? t.label : undefined}
+                  title={t.disabled ? DISABLED_HINT : rail ? t.label : undefined}
+                  disabled={t.disabled}
+                  aria-description={t.disabled ? DISABLED_HINT : undefined}
                   onClick={() => {
                     setOpen(false);
                     onTab(t.id);

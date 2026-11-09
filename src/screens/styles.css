@@ -3558,6 +3558,26 @@ button:active:not(:disabled) {
   border: 1.5px solid var(--line);
   box-sizing: border-box;
 }
+/* Skipping a tupper (domain/mealprep/skips.ts): on Today's Next up and the plan's day. */
+.next-skip {
+  justify-self: center;
+  margin-top: 0.25rem;
+}
+.plan-skip {
+  color: var(--muted);
+}
+.plan-skip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.plan-days-card .plan-per-day.stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
 .plan-days-card .plan-per-day {
   display: flex;
   flex-wrap: wrap;
@@ -4636,4 +4656,71 @@ body {
 .synced-block [role="radiogroup"],
 .synced-block [role="group"] {
   margin: 0;
+}
+
+/* The forms the Add sheet's tiles open (screens/add/QuickLog.tsx). */
+.quick-log {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+}
+.quick-log-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.quick-log-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.quick-log-row input {
+  flex: 1;
+  min-width: 0;
+}
+.quick-log-row input.quick-log-num {
+  flex: 0 0 5rem;
+}
+.quick-log-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.6rem;
+}
+.quick-log-done {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--accent-soft);
+}
+.quick-log-more {
+  justify-self: start;
+}
+.quick-line input.quick-kcal {
+  flex: 0 0 5rem;
+  width: 5rem;
+}
+
+/* Change targets: centred under the budget card, with room above and below (9 Nov 2026). */
+.targets-link {
+  display: block;
+  margin: 0.25rem auto 0.75rem;
+  padding: 0.5rem 1rem;
+  text-align: center;
+}
+/* The three drink figures share a phone's width: the money fits its tile instead of touching the edge. */
+.alcohol-tiles .viz-tile-value strong {
+  font-size: clamp(1.15rem, 5vw, 1.6rem);
+  white-space: nowrap;
+}
+.quick-log-row input,
+.quick-log-row input.quick-log-num {
+  width: auto;
+}
+.quick-log-row button {
+  flex: none;
+}
+.quick-log .chips {
+  flex-wrap: wrap;
 }

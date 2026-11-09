@@ -262,7 +262,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
 
           {editTargets === null ? (
             <button
-              className="link small accent"
+              className="link small accent targets-link"
               onClick={() => {
                 setEditTargets(Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as never);
                 const open = Object.fromEntries(NUTRIENTS.map((n) => [n, str(targets[n])])) as Record<Nutrient, string>;

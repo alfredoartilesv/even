@@ -14,6 +14,7 @@ import { loadProfile } from "../../domain/settings/profile";
 import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
+import { skipTupper } from "../../domain/mealprep/skips";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
 import { nextUp, slotAt, type NextUp } from "../../domain/dashboard/today";
 import { PinnedCharts } from "./PinnedCharts";
@@ -145,8 +146,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       loadProfile(db),
       day ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
       day ? dayFood(db, anchor) : Promise.resolve([]),
-      day && anchor === today() ? nextUp(db) : Promise.resolve(null),
-      day ? loadDashboard(db, "week", anchor, today()) : Promise.resolve(null),
+      day && anchor === today() ? nextUp(db, timeZone()) : Promise.resolve(null),
+      day ? loadDashboard(db, "last7", anchor, today()) : Promise.resolve(null),
     ]);
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
@@ -445,6 +446,7 @@ function NextUpCard({
   onChanged: () => void;
 }) {
   const [eaten, setEaten] = useState<{ moveId: string; name: string; leftAfter: number } | null>(null);
+  const [skipped, setSkipped] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const slot = SLOT_LABEL[slotAt(hour)];
   if (eaten) {
@@ -465,6 +467,30 @@ function NextUpCard({
           onClick={async () => {
             await undoMove(db, eaten.moveId);
             setEaten(null);
+            onChanged();
+          }}
+        >
+          Undo
+        </button>
+      </section>
+    );
+  }
+  if (skipped) {
+    return (
+      <section className="card next-done" role="status">
+        <span className="next-check" aria-hidden>
+          <Icon name="box" size={18} />
+        </span>
+        <div className="grow">
+          <strong>Tupper skipped today</strong>
+          <span className="muted small block">The plan moves the rest on a day.</span>
+        </div>
+        <button
+          type="button"
+          className="link"
+          onClick={async () => {
+            await skipTupper(db, today(), today(), -1);
+            setSkipped(false);
             onChanged();
           }}
         >
@@ -515,6 +541,22 @@ function NextUpCard({
           Something else
         </button>
       </div>
+      <button
+        type="button"
+        className="link small next-skip"
+        onClick={async () => {
+          try {
+            await skipTupper(db, today(), today(), 1);
+            setSkipped(true);
+            setError(null);
+            onChanged();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Could not skip it");
+          }
+        }}
+      >
+        Skip today's tupper
+      </button>
     </section>
   );
 }
