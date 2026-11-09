@@ -1,9 +1,12 @@
 import type { SqlDriver } from "../../db/driver";
-import { loadStock } from "../mealprep/mealPrep";
+import { localDay } from "../../core/tz";
+import { getPortionsPerDay, loadStock, portionsEatenOn } from "../mealprep/mealPrep";
+import { planSkips, skipCounts } from "../mealprep/skips";
 
 /**
  * What Today suggests eating next (handoff 0.7, "Next up"): the meal prep portion in the fridge
- * that is ready and has to go first, with its recipe's calories and protein per portion.
+ * that is ready and has to go first, with its recipe's calories and protein per portion. Nothing
+ * once today's tuppers are eaten, skipped or eaten out (mealprep/skips.ts).
  */
 export interface NextUp {
   batchId: string;
@@ -15,7 +18,11 @@ export interface NextUp {
   proteinG: number | null;
 }
 
-export async function nextUp(db: SqlDriver, nowMs: number = Date.now()): Promise<NextUp | null> {
+export async function nextUp(db: SqlDriver, timeZone: string, nowMs: number = Date.now()): Promise<NextUp | null> {
+  const day = localDay(nowMs, timeZone);
+  const perDay = await getPortionsPerDay(db);
+  const [eaten, skips] = await Promise.all([portionsEatenOn(db, day), planSkips(db, day, 1, perDay).then((s) => s.days)]);
+  if (perDay > 0 && eaten + (skipCounts(skips).get(day) ?? 0) >= perDay) return null;
   const ready = (await loadStock(db))
     .map((s) => ({ s, lots: s.fridge.filter((l) => l.readyAtMs <= nowMs && l.portions > 0) }))
     .filter((x) => x.lots.length > 0)

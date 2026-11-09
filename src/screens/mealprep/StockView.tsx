@@ -12,6 +12,7 @@ import {
   type MealPrep,
   type StockEntry,
 } from "../../domain/mealprep/mealPrep";
+import { planSkips, skipCounts } from "../../domain/mealprep/skips";
 import { planDefrost, stockAlerts, type Alert, type Location, type MoveKind, type Plan } from "../../domain/mealprep/stock";
 import { failed, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup, Stepper } from "../../ui/controls";
@@ -79,6 +80,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const load = useCallback(async () => {
     const [s, ppd, p] = await Promise.all([loadStock(db, { tag }), getPortionsPerDay(db, tag), listMealPreps(db, tag)]);
     const day = today();
+    const skips = await planSkips(db, day, 14, ppd);
     setStock(s);
     setPerDay(ppd);
     setPreps(p);
@@ -89,6 +91,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
         timeZone: timeZone(),
         portionsPerDay: ppd,
         eatenToday: await portionsEatenOn(db, day, tag),
+        skips: skipCounts(skips.days),
         horizonDays: 14,
       }),
     );

@@ -3558,6 +3558,26 @@ button:active:not(:disabled) {
   border: 1.5px solid var(--line);
   box-sizing: border-box;
 }
+/* Skipping a tupper (domain/mealprep/skips.ts): on Today's Next up and the plan's day. */
+.next-skip {
+  justify-self: center;
+  margin-top: 0.25rem;
+}
+.plan-skip {
+  color: var(--muted);
+}
+.plan-skip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.plan-days-card .plan-per-day.stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
 .plan-days-card .plan-per-day {
   display: flex;
   flex-wrap: wrap;
