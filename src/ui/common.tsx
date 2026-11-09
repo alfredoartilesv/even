@@ -1,5 +1,5 @@
 import { createLogger } from "../core/log";
-import { addDays, localDay } from "../core/tz";
+import { localDay } from "../core/tz";
 
 export const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const today = () => localDay(Date.now(), timeZone());
@@ -82,11 +82,11 @@ export function MsgLine({ msg }: { msg: Msg }) {
   return <p className={msg.kind === "error" ? "error small" : "muted small"}>{msg.text}</p>;
 }
 
-/** "today", "tomorrow", "yesterday", otherwise "Thu 23 Oct". */
-export function fmtDay(day: string, ref: string = today()): string {
-  if (day === ref) return "today";
-  if (day === addDays(ref, 1)) return "tomorrow";
-  if (day === addDays(ref, -1)) return "yesterday";
+/**
+ * A day as its date, "Thu, Oct 23", on every day: never "today", "tomorrow" or "yesterday" (the
+ * owner's choice, 9 Nov 2026), so a date reads the same wherever it is shown.
+ */
+export function fmtDay(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }

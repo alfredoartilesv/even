@@ -80,7 +80,7 @@ export function StockView({ db, tag, version, onChanged, onRecipes }: Props) {
   const load = useCallback(async () => {
     const [s, ppd, p] = await Promise.all([loadStock(db, { tag }), getPortionsPerDay(db, tag), listMealPreps(db, tag)]);
     const day = today();
-    const skips = await planSkips(db, day, 14, ppd);
+    const skips = await planSkips(db, day, 14);
     setStock(s);
     setPerDay(ppd);
     setPreps(p);

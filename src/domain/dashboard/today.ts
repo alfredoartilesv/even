@@ -21,7 +21,7 @@ export interface NextUp {
 export async function nextUp(db: SqlDriver, timeZone: string, nowMs: number = Date.now()): Promise<NextUp | null> {
   const day = localDay(nowMs, timeZone);
   const perDay = await getPortionsPerDay(db);
-  const [eaten, skips] = await Promise.all([portionsEatenOn(db, day), planSkips(db, day, 1, perDay).then((s) => s.days)]);
+  const [eaten, skips] = await Promise.all([portionsEatenOn(db, day), planSkips(db, day, 1).then((s) => s.days)]);
   if (perDay > 0 && eaten + (skipCounts(skips).get(day) ?? 0) >= perDay) return null;
   const ready = (await loadStock(db))
     .map((s) => ({ s, lots: s.fridge.filter((l) => l.readyAtMs <= nowMs && l.portions > 0) }))
