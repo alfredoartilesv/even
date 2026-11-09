@@ -4981,3 +4981,21 @@ dl.inventory {
 .saved-row > .saved-log {
   margin-left: auto;
 }
+
+/*
+ * Coach on a narrow phone (320px): beside attach, mic and send the message box was 137px and a
+ * starter question ran to six lines. Under 24rem it takes the whole width, the buttons under it:
+ * attach at the start, mic and send at the end.
+ */
+@media (max-width: 24rem) {
+  .composer-row {
+    flex-wrap: wrap;
+  }
+  .composer-row > textarea {
+    order: -1;
+    flex: 1 1 100%;
+  }
+  .composer-row > button:first-of-type {
+    margin-right: auto;
+  }
+}

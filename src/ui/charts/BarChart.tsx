@@ -66,7 +66,14 @@ export function BarChart({
         { label: "Over target", slot: null, mark: "rect", color: "var(--warning)" },
       ]
     : [];
-  const table = { columns: ["", title], rows: x.map((xi, i) => [long(xi), describe(i)]) };
+  // The table says the same in fewer words ("–", "2,767 kcal · over"), so with a large font each
+  // value keeps one line beside its label; aria labels and the tooltip keep the full sentence.
+  const cell = (i: number) => {
+    const v = values[i];
+    return v === null ? "–" : `${withUnit(v)}${over(v) ? " · over" : ""}`;
+  };
+  // The chart's title sits over the table already (and is its caption): the value column is "Value".
+  const table = { columns: ["", "Value"], rows: x.map((xi, i) => [long(xi), cell(i)]) };
 
   const max = Math.max(0, target ?? 0, ...values.map((v) => v ?? 0));
   if (!x.length || (max === 0 && values.every((v) => v === null))) {

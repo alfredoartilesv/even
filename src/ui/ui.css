@@ -668,3 +668,13 @@ ol.plan-strip li.eaten .plan-strip-cell {
   stroke-width: 3;
   opacity: 0.45;
 }
+/* A row's label ("Week of Mon, Aug 24") takes two lines at most with a large font, and the values
+   keep their column: neither squeezed to a word a line nor pushed off the card. */
+.viz-table tbody th {
+  min-width: 6.5rem;
+  padding-right: 0.75rem;
+}
+/* The value column's heading is the chart's title: it may wrap over its column. */
+.viz-table thead th.num {
+  white-space: normal;
+}
