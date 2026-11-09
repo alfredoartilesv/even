@@ -327,7 +327,10 @@ async function seed(db: SqlDriver) {
   for (const i of (await listShopping(db)).slice(0, 2)) await setShoppingChecked(db, i.id, true, now);
 
   // Claude: a dummy key (in the browser's memory store, never sent: the capture sends no message) and one conversation.
-  await secretStore.set("anthropic.api_key", "sk-ant-demo-screens-not-a-real-key");
+  // ?coach=off removes the key (the browser may keep one from an earlier load), to see the app with
+  // Coach off: greyed out in the menus.
+  if (new URLSearchParams(globalThis.location?.search ?? "").get("coach") === "off") await secretStore.remove("anthropic.api_key");
+  else await secretStore.set("anthropic.api_key", "sk-ant-demo-screens-not-a-real-key");
   await recordConsent(db, "claude.aggregates", true, dev, now);
   const conv = await createConversation(db, dev, { title: "How did I sleep this week?", now: now - H });
   await appendMessage(db, dev, {

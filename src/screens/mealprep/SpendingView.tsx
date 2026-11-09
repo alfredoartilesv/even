@@ -127,7 +127,7 @@ export function SpendingView({ db, version, onChanged }: Props) {
   const delta = sum && prev !== null ? sum.total - prev : null;
 
   // Its parts are cells of the shopping page's grid on a wide screen: Checkout beside the list, then
-  // the month (figures, shops by supermarket, the chart) beside its shops, two by two (9 Nov 2026).
+  // the month (figures, by supermarket) beside its shops and the six months' chart (9 Nov 2026).
   return (
     <div className="wide-contents">
       <section className="span-6">
@@ -220,22 +220,6 @@ export function SpendingView({ db, version, onChanged }: Props) {
             </div>
           </>
         )}
-        {months.some((m) => m.total > 0) && (
-          <div className="spending-chart">
-            <BarChart
-              title="Groceries per month"
-              subtitle="Last 6 months"
-              x={months.map((m) => m.month)}
-              values={months.map((m) => (m.total > 0 ? m.total : null))}
-              formatX={(m) => monthName(m, "short")}
-              formatXLong={(m) => cap(monthName(m))}
-              formatValue={money}
-              selected={month}
-              onSelect={setMonth}
-              height={150}
-            />
-          </div>
-        )}
       </section>
 
       <section className="span-6">
@@ -272,6 +256,22 @@ export function SpendingView({ db, version, onChanged }: Props) {
               </button>
             )}
           </>
+        )}
+        {months.some((m) => m.total > 0) && (
+          <div className="spending-chart">
+            <BarChart
+              title="Groceries per month"
+              subtitle="Last 6 months"
+              x={months.map((m) => m.month)}
+              values={months.map((m) => (m.total > 0 ? m.total : null))}
+              formatX={(m) => monthName(m, "short")}
+              formatXLong={(m) => cap(monthName(m))}
+              formatValue={money}
+              selected={month}
+              onSelect={setMonth}
+              height={150}
+            />
+          </div>
         )}
       </section>
     </div>

@@ -305,7 +305,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           <div className="drink-when">
             {isToday ? (
               <button type="button" className="link small" onClick={() => pickDay(addDays(today(), -1))}>
-                Forgot one yesterday?
+                Forgot one? Log it on an earlier day
               </button>
             ) : (
               <>
