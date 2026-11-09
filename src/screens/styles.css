@@ -4959,3 +4959,25 @@ dl.inventory {
 .ingredient {
   grid-template-columns: minmax(0, 1fr) minmax(3.5rem, 4.5rem) 5rem auto;
 }
+/* What quick add logged keeps a line of its own; Undo, Add another and Done wrap under it on a phone. */
+.quick-done > .grow {
+  flex: 1 1 10rem;
+}
+/* A saved or usual meal: its name keeps a line of its own on a narrow phone, the buttons wrap under it. */
+.saved-row {
+  flex-wrap: wrap;
+}
+.saved-row > .grow {
+  flex: 1 1 11rem;
+}
+/* Daily targets: labels like "Protein g (at least)" keep two lines at most, so one field a row on a narrow phone. */
+.targets-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+}
+.saved-row > .saved-open {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.saved-row > .saved-log {
+  margin-left: auto;
+}

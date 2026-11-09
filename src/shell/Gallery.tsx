@@ -8,6 +8,7 @@ import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs }
 import { BatchBar, batchColors, PlanDays, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
 import { SyncBanner } from "../screens/sync/SyncStatus";
+import { LogsScreen } from "../screens/logs/LogsScreen";
 import type { LastSync } from "../domain/sync/runSync";
 import "../ui/palette.css";
 import "../screens/styles.css";
@@ -225,6 +226,11 @@ export default function Gallery() {
         ]}
         onOpen={() => {}}
       />
+
+      {/* Debug logs is for an admin account only, so the demo app never shows it: here it runs on this
+          load's own records (no database), to see it at every size. */}
+      <h2>Debug logs</h2>
+      <LogsScreen db={null} />
 
       <h2>Icons</h2>
       <div className="row" style={{ justifyContent: "flex-start" }}>
