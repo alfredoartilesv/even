@@ -231,6 +231,11 @@ export interface PlanOptions {
   portionsPerDay: number;
   /** Portions already eaten today, subtracted from today's need. */
   eatenToday?: number;
+  /**
+   * Tuppers not eaten on a day (./skips.ts): skipped by hand, or a meal they are for logged as
+   * something else (eaten out). Subtracted from that day's need, so the rest move on a day.
+   */
+  skips?: Map<string, number>;
   horizonDays?: number;
 }
 
@@ -271,7 +276,7 @@ export function planDefrost(stocks: BatchStock[], opts: PlanOptions): Plan {
 
   for (let i = 0; i < horizon; i++) {
     const day = addDays(opts.today, i);
-    let need = i === 0 ? Math.max(0, perDay - (opts.eatenToday ?? 0)) : perDay;
+    let need = Math.max(0, perDay - (i === 0 ? (opts.eatenToday ?? 0) : 0) - (opts.skips?.get(day) ?? 0));
 
     for (const l of fridge) {
       if (need === 0) break;
