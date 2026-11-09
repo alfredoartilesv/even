@@ -4867,3 +4867,10 @@ select optgroup {
   background-color: var(--surface);
   color: var(--fg);
 }
+/* The title on its own line, its status under it, so a long title does not break beside the badge. */
+.goal-card-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}

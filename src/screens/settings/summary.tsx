@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { lastBackupSaved } from "../../domain/backup/backup";
 import { chatAvailable } from "../../domain/chat/mode";
-import { getCalorieGoal } from "../../domain/food/food";
+import { loadTargets, type DailyTargets } from "../../domain/me/targets";
 import { loadIdentity } from "../../domain/settings/profile";
 import { dataInventory, type InventoryRow } from "../../domain/settings/dataInventory";
 import type { SecretStore } from "../../domain/settings/secrets";
 import { garminConnection } from "../../domain/sync/garminConnect";
 import { APP_VERSION } from "../../platform/buildInfo";
 import { platformName } from "../../platform/device";
-import { fmtDay } from "../../ui/common";
+import { fmtDay, today } from "../../ui/common";
 
 export const PLATFORM: Record<string, string> = { android: "Android", ios: "iOS", web: "Browser" };
 
@@ -18,6 +18,8 @@ export interface SettingsSummary {
   name: string | null;
   photo: string | null;
   calorieTarget: number | null;
+  /** Every daily target (the overview's Profile card lists them). */
+  targets: DailyTargets;
   garmin: "connected" | "not_connected" | "needs_attention";
   chatOn: boolean;
   lastBackupMs: number | null;
@@ -31,18 +33,19 @@ export function useSettingsSummary(db: SqlDriver, secrets: SecretStore, version:
     let live = true;
     void Promise.all([
       loadIdentity(db),
-      getCalorieGoal(db),
+      loadTargets(db, today()),
       garminConnection(db, secrets).catch(() => null),
       chatAvailable(secrets).catch(() => false),
       lastBackupSaved(db),
       db.all<{ user_version: number }>("PRAGMA user_version"),
       dataInventory(db),
-    ]).then(([who, goal, garmin, chatOn, backup, v, inventory]) => {
+    ]).then(([who, targets, garmin, chatOn, backup, v, inventory]) => {
       if (!live) return;
       setS({
         name: who.name,
         photo: who.photo,
-        calorieTarget: goal?.target ?? null,
+        calorieTarget: targets.kcal,
+        targets,
         garmin: garmin?.status ?? "not_connected",
         chatOn,
         lastBackupMs: backup,

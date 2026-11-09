@@ -155,7 +155,7 @@ export function SideNav({
           {/* Signed in, You is the account: its email stands for it (the owner's ask, 9 Nov 2026). */}
           {account ? (
             <span className="sidenav-tile sidenav-avatar" aria-hidden>
-              {account.email.charAt(0).toUpperCase()}
+              {account.photo ? <img src={account.photo} alt="" /> : (account.name ?? account.email).charAt(0).toUpperCase()}
             </span>
           ) : (
             <span className="sidenav-tile" aria-hidden>
@@ -163,7 +163,14 @@ export function SideNav({
             </span>
           )}
           <span className="sidenav-label sidenav-you-text">
-            {account ? <span className="sidenav-you-email">{account.email}</span> : <span>You</span>}
+            {account ? (
+              <>
+                <span className="sidenav-you-name">{account.name ?? "You"}</span>
+                <span className="sidenav-sub sidenav-you-email">{account.email}</span>
+              </>
+            ) : (
+              <span>You</span>
+            )}
             {!account && <span className="sidenav-sub">Targets, privacy, backup</span>}
           </span>
         </button>
