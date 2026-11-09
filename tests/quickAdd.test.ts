@@ -53,3 +53,19 @@ test("quick add: a drink by name or by its kind, a weight is not taken for food 
   assert.ok(two.kind === "drink" && two.type.name === "Red wine" && two.count === 2);
   assert.deepEqual(parseQuickAdd("dragon fruit", known), [{ kind: "unknown", part: "dragon fruit" }]);
 });
+
+test("quick add: a known name with a comma or an 'and' in it is one thing, not split into copies of itself", () => {
+  const withMeal = { ...known, foods: [...known.foods, food("Greek yogurt, oats and berries", 3)] };
+  const lines = parseQuickAdd("Greek yogurt, oats and berries", withMeal);
+  assert.deepEqual(
+    lines.map((l) => (l.kind === "food" ? [l.candidate.name, l.count] : l.kind)),
+    [["Greek yogurt, oats and berries", 1]],
+  );
+  // Two of it is still one line, counted twice; a list that is not a known name is still split.
+  const two = parseQuickAdd("2 greek yogurt, oats and berries", withMeal);
+  assert.deepEqual(
+    two.map((l) => (l.kind === "food" ? l.count : 0)),
+    [2],
+  );
+  assert.equal(parseQuickAdd("toast and a coffee", withMeal).length, 2);
+});
