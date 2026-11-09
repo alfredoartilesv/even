@@ -146,7 +146,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       day ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
       day ? dayFood(db, anchor) : Promise.resolve([]),
       day && anchor === today() ? nextUp(db) : Promise.resolve(null),
-      day ? loadDashboard(db, "week", anchor, today()) : Promise.resolve(null),
+      day ? loadDashboard(db, "last7", anchor, today()) : Promise.resolve(null),
     ]);
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");

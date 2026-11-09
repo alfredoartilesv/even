@@ -17,13 +17,15 @@ export interface FrameAccount {
   signOut: () => Promise<void>;
 }
 
-/** What a quick Add offers (the phone's Add button): each opens the place to log it. */
+/** What a quick Add offers (the phone's Add button): each tile logs in place, with a link to its section. */
 export interface AddActions {
   food: () => void;
   drink: () => void;
   checkIn: () => void;
   weight: () => void;
-  /** Only while Coach is on. */
+  /** The form each tile opens inside the sheet (screens/add/QuickLog.tsx); its link to the section closes the sheet. */
+  here: Record<"food" | "drink" | "checkIn" | "weight", ReactNode>;
+  /** Only while Coach is on; off, its tile is greyed out. */
   coach?: () => void;
   /** The quick add (type what you ate, drank or weighed) at the top of the sheet; its Done closes it (ui/layout SheetClose). */
   quick: ReactNode;
