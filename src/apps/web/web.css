@@ -172,10 +172,14 @@ body.nav-open {
     max-width: 52rem;
     padding-top: calc(1.5rem + var(--safe-top));
   }
-  /* Pages that spread into columns use a large screen's width rather than stopping at 76rem with a
-     strip of empty space beside them (9 Nov 2026). */
+  /* Pages in columns stop at 76rem: wider, a form or a row of four figures spreads thin (Activity,
+     Profile). Today is the exception: a board of cards, it takes the whole width beside the menu,
+     with Coach beside it or not (9 Nov 2026). */
   .app-frame .shell.wide {
-    max-width: 100rem;
+    max-width: 76rem;
+  }
+  .app-frame .shell.wide:has(.today) {
+    max-width: none;
   }
   .app-frame .quick-action {
     flex-direction: row;
@@ -745,9 +749,14 @@ body:has(.app-frame) {
     gap: 1.5rem;
     align-items: start;
   }
+  /* The menu stays put and scrolls on its own when it is taller than the window (9 Nov 2026). */
   .app-frame .settings-menu {
     position: sticky;
     top: 1rem;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
   .app-frame dl.facts {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -794,6 +803,36 @@ body:has(.app-frame) {
     gap: 1rem;
     align-items: start;
   }
+  /* Recipes as many to a row as fit at a steady size, New recipe the last tile, all one height a row;
+     the shopping button a button's size at the right, not a bar across the page (9 Nov 2026). */
+  .app-frame .recipe-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr));
+    align-items: stretch;
+  }
+  .app-frame .recipe-new {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 10rem;
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .app-frame .recipe-new:hover {
+    background: var(--accent-soft);
+  }
+  .app-frame .sticky-action:has(.wide-button) {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .app-frame .sticky-action .wide-button {
+    width: auto;
+    min-width: 18rem;
+  }
   .app-frame .recipe-grid > .card {
     margin-bottom: 0;
   }
@@ -817,10 +856,12 @@ body:has(.app-frame) {
     columns: 2;
     column-gap: 1rem;
   }
+  /* No width of their own: a card's padding on top of width: 100% pushed it into the next column. */
   .app-frame .settings-cards > * {
     break-inside: avoid;
     display: flow-root;
-    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
     margin: 0 0 1rem;
   }
   /* Meal prep batches: cards side by side. */

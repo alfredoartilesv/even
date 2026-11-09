@@ -3462,8 +3462,11 @@ button:active:not(:disabled) {
   margin: 1.25rem 0 0.5rem;
   font-size: 1rem;
 }
-.quick.compact .quick-preview {
-  max-width: 44rem;
+/* Under Today's bar, the preview runs the bar's width (9 Nov 2026: at 44rem it left half the row
+   empty); its button keeps a button's size at the right instead of a bar across the page. */
+.quick.compact .quick-preview > button {
+  align-self: flex-end;
+  min-width: 14rem;
 }
 .theme-pick {
   display: flex;
@@ -3938,7 +3941,7 @@ button:active:not(:disabled) {
     align-items: start;
   }
   .app-frame .shell.wide:has(.today.with-rail) {
-    max-width: 92rem;
+    max-width: none;
   }
 }
 @media (min-width: 64rem) {
@@ -4873,4 +4876,7 @@ select optgroup {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.3rem;
+}
+.spending-chart {
+  margin-top: 1rem;
 }
