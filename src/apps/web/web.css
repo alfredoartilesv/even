@@ -172,8 +172,10 @@ body.nav-open {
     max-width: 52rem;
     padding-top: calc(1.5rem + var(--safe-top));
   }
+  /* Pages that spread into columns use a large screen's width rather than stopping at 76rem with a
+     strip of empty space beside them (9 Nov 2026). */
   .app-frame .shell.wide {
-    max-width: 76rem;
+    max-width: 100rem;
   }
   .app-frame .quick-action {
     flex-direction: row;
@@ -902,4 +904,30 @@ body:has(.app-frame) {
 }
 .sidenav-you .sidenav-you-text {
   min-width: 0;
+}
+
+/* Goals, wide: Add a goal and the New goal form side by side end together. */
+@media (min-width: 64rem) {
+  .app-frame .wide-grid > .goal-add {
+    align-self: stretch;
+  }
+}
+/* The name over the email; the picture fills the round tile. */
+.sidenav-you-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sidenav-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.sidenav-avatar:has(img) {
+  overflow: hidden;
+  padding: 0;
 }

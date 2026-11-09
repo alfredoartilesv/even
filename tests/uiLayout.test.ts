@@ -131,10 +131,13 @@ test("web side menu: every section but You in the list, each with a tile in its 
   assert.match(html, /class="nav-scrim"/);
 });
 
-test("web side menu signed in: You shows the account's email in its place, with Sign out under it and no second email row", () => {
-  const account = { email: "alex@example.com", signOut: async () => {} };
+test("web side menu signed in: You shows the name with the account's email under it, with Sign out under it and no second email row", () => {
+  const account = { email: "alex@example.com", name: "Alex Rivera", signOut: async () => {} };
   const html = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account }));
-  assert.match(html, /class="sidenav-item sidenav-you"[^]*?<span class="sidenav-you-email">alex@example.com<\/span>/);
+  assert.match(
+    html,
+    /class="sidenav-item sidenav-you"[^]*?<span class="sidenav-you-name">Alex Rivera<\/span><span class="sidenav-sub sidenav-you-email">alex@example.com<\/span>/,
+  );
   assert.doesNotMatch(html, /Targets, privacy, backup/);
   assert.equal((html.match(/alex@example.com/g) ?? []).length, 1);
   assert.match(html, /Sign out/);
