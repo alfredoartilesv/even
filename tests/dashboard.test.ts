@@ -209,3 +209,9 @@ test("the Dashboard's three daily metrics come from one query, each as metricDay
   );
   assert.equal(both.get("daily_activeKilocalories")!.values.size, 0);
 });
+
+test("the last 7 days end on the anchor, so a Monday still shows a full week", () => {
+  // 9 Nov 2026 is a Monday: its calendar week is that day alone so far.
+  assert.deepEqual(spanRange("last7", "2026-11-09"), { from: "2026-11-03", to: "2026-11-09" });
+  assert.deepEqual(spanRange("week", "2026-11-09"), { from: "2026-11-09", to: "2026-11-15" });
+});
