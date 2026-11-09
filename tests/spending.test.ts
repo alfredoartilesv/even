@@ -101,10 +101,10 @@ test("dashboard: groceries paid in the span, in the app currency", async () => {
   const { db } = await migratedDb();
   await addTrip(db, { shop: "Mercadona", amount: 40, day: "2026-10-20", timeZone: TZ }, "user", NOW);
   await addTrip(db, { shop: "Lidl", amount: 15.5, day: "2026-10-22", timeZone: TZ }, "user", NOW);
-  await addTrip(db, { shop: "Lidl", amount: 9, day: "2026-10-18", timeZone: TZ }, "user", NOW);
+  await addTrip(db, { shop: "Lidl", amount: 9, day: "2026-10-15", timeZone: TZ }, "user", NOW);
 
   const week = await loadDashboard(db, "week", "2026-10-22", TODAY);
-  assert.deepEqual(week.groceries, { total: 55.5, trips: 2, currency: "EUR" }, "Monday 19 to today, not the Saturday before");
+  assert.deepEqual(week.groceries, { total: 55.5, trips: 2, currency: "EUR" }, "the seven days up to the 22nd, not the day before them");
   const day = await loadDashboard(db, "day", TODAY, TODAY);
   assert.deepEqual([day.groceries.total, day.groceries.trips], [0, 0]);
 });
