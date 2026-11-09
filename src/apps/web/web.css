@@ -806,8 +806,22 @@ body:has(.app-frame) {
     border-radius: var(--radius);
     background: var(--surface);
   }
-  /* Settings pages made of cards, and meal prep batches: cards side by side. */
-  .app-frame .settings-cards,
+  /*
+   * Settings pages made of cards: two balanced columns, each card under the one before, so a short
+   * card beside a long one leaves no hole under it (9 Nov 2026: Connections, Privacy and data).
+   */
+  .app-frame .settings-cards {
+    display: block;
+    columns: 2;
+    column-gap: 1rem;
+  }
+  .app-frame .settings-cards > * {
+    break-inside: avoid;
+    display: flow-root;
+    width: 100%;
+    margin: 0 0 1rem;
+  }
+  /* Meal prep batches: cards side by side. */
   .app-frame .batch-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -818,7 +832,7 @@ body:has(.app-frame) {
   .app-frame .batch-grid {
     grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
   }
-  .app-frame :is(.settings-cards, .batch-grid) > * {
+  .app-frame .batch-grid > * {
     margin-bottom: 0;
   }
 }
@@ -864,4 +878,28 @@ body:has(.app-frame) {
 .app-frame .sidenav-item:disabled .sidenav-tile,
 .sidenav-item:disabled .sidenav-tile {
   filter: grayscale(1);
+}
+
+/* About, wide: where the data goes as four short columns across the full width. */
+@media (min-width: 64rem) {
+  .app-frame .about-flows ul.flows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0 1.25rem;
+  }
+  .app-frame .about-flows ul.flows li {
+    border-bottom: none;
+  }
+}
+
+/* You, signed in: the account's email as its label, cut with an ellipsis when long. */
+.sidenav-you-email {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidenav-you .sidenav-you-text {
+  min-width: 0;
 }

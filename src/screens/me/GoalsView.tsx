@@ -122,7 +122,7 @@ export function GoalsView({ db, goals, onChanged }: { db: SqlDriver; goals: Goal
       </div>
 
       {nutrition.length > 0 && (
-        <div className={others.length ? "card goal-card span-8" : "card goal-card span-12"}>
+        <div className="card goal-card span-12">
           <div className="row">
             <strong className="grow">Daily nutrition</strong>
             <span className="muted small">set in the food log</span>
@@ -160,59 +160,65 @@ export function GoalsView({ db, goals, onChanged }: { db: SqlDriver; goals: Goal
         </div>
       )}
 
-      {others.map(({ goal: g, progress: p }) => (
-        <div key={g.id} className="card goal-card span-4">
-          <div className="row">
-            <strong className="grow">{g.title}</strong>
-            {p && <StatusBadge status={STATUS[p.status].badge}>{STATUS[p.status].word}</StatusBadge>}
-            {confirmDelete !== g.id && (
-              <button type="button" className="icon-button ghost" aria-label={`Delete ${g.title}`} onClick={() => setConfirmDelete(g.id)}>
-                <Icon name="trash" size={18} />
-              </button>
-            )}
-          </div>
-          {p && g.targetNum !== null && (
-            <>
-              <div className="small">
-                {p.current === null ? `Nothing ${PERIOD_WORD[g.period]} yet` : `${fmtGoalValue(g, p.current)} ${PERIOD_WORD[g.period]}`}
-                <span className="muted">
-                  {" "}
-                  · {g.comparator === "<=" ? "at most" : "at least"} {fmtGoalValue(g, g.targetNum)}
-                </span>
+      {/* The other goals in an even row of their own, as many to a line as fit, one height a line
+          (9 Nov 2026: spans of 4 beside nutrition left holes and ragged heights). */}
+      {others.length > 0 && (
+        <div className="goal-cards span-12">
+          {others.map(({ goal: g, progress: p }) => (
+            <div key={g.id} className="card goal-card">
+              <div className="row goal-card-head">
+                <strong className="grow">{g.title}</strong>
+                {p && <StatusBadge status={STATUS[p.status].badge}>{STATUS[p.status].word}</StatusBadge>}
+                {confirmDelete !== g.id && (
+                  <button type="button" className="icon-button ghost" aria-label={`Delete ${g.title}`} onClick={() => setConfirmDelete(g.id)}>
+                    <Icon name="trash" size={18} />
+                  </button>
+                )}
               </div>
-              {p.current !== null && <Meter value={p.current} max={g.targetNum} label={g.title} overIsFine={g.comparator === ">="} />}
-              {p.last7 && p.last7.withData > 0 && (
+              {p && g.targetNum !== null && (
+                <>
+                  <div className="small">
+                    {p.current === null ? `Nothing ${PERIOD_WORD[g.period]} yet` : `${fmtGoalValue(g, p.current)} ${PERIOD_WORD[g.period]}`}
+                    <span className="muted">
+                      {" "}
+                      · {g.comparator === "<=" ? "at most" : "at least"} {fmtGoalValue(g, g.targetNum)}
+                    </span>
+                  </div>
+                  {p.current !== null && <Meter value={p.current} max={g.targetNum} label={g.title} overIsFine={g.comparator === ">="} />}
+                  {p.last7 && p.last7.withData > 0 && (
+                    <div className="muted small">
+                      Met {p.last7.met} of the last {plural(p.last7.withData, "day")} with data{p.streak ? ` · ${plural(p.streak, "day")} in a row` : ""}
+                    </div>
+                  )}
+                </>
+              )}
+              {!p && (
                 <div className="muted small">
-                  Met {p.last7.met} of the last {plural(p.last7.withData, "day")} with data{p.streak ? ` · ${plural(p.streak, "day")} in a row` : ""}
+                  Since {fmtDay(g.startDay)}
+                  {g.notes ? ` · ${g.notes}` : ""}
                 </div>
               )}
-            </>
-          )}
-          {!p && (
-            <div className="muted small">
-              Since {fmtDay(g.startDay)}
-              {g.notes ? ` · ${g.notes}` : ""}
+              {confirmDelete === g.id && (
+                <div className="actions compact">
+                  <button
+                    className="secondary danger"
+                    onClick={async () => {
+                      await deleteGoal(db, g.id);
+                      setConfirmDelete(null);
+                      await onChanged();
+                    }}
+                  >
+                    Delete goal
+                  </button>
+                  <button className="secondary" onClick={() => setConfirmDelete(null)}>
+                    Keep
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-          {confirmDelete === g.id && (
-            <div className="actions compact">
-              <button
-                className="secondary danger"
-                onClick={async () => {
-                  await deleteGoal(db, g.id);
-                  setConfirmDelete(null);
-                  await onChanged();
-                }}
-              >
-                Delete goal
-              </button>
-              <button className="secondary" onClick={() => setConfirmDelete(null)}>
-                Keep
-              </button>
-            </div>
-          )}
+          ))}
         </div>
-      ))}
+      )}
 
       {ideas.length > 0 && (
         <section className={adding ? "card span-8 wide-only" : "card span-8"}>

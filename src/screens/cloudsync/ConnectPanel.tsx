@@ -67,8 +67,10 @@ export function ConnectPanel({ secrets, isNative, onConnected }: Props) {
   // On the web the server is this origin; on the phone the code waits for an address that can work.
   const serverReady = !isNative || isUrl(server.trim());
   const flow = { server, serverReady, secrets, device, fetchFn, before, onConnected, onMode: setMode };
+  // The app's own green wherever it shows (You > Sync & devices too), as on the web's log-in gate,
+  // rather than the slate of the section around it (the owner's ask, 9 Nov 2026).
   return (
-    <div className="connect-panel">
+    <div className="connect-panel" data-area="today">
       <div className={pairing ? "connect-grid pairing" : "connect-grid"}>
         <section className="stack connect-account" aria-label="Log in or sign up">
           {isNative && (
