@@ -213,3 +213,13 @@
 .add-tile-body {
   padding: 0 0.85rem 0.85rem;
 }
+
+/*
+ * No overscroll stretch: Android's WebView stretched the whole page past its end, the tab bar
+ * fixed at the bottom with it, so it jumped and flickered (the owner's note, 9 Nov 2026). Pulling
+ * Today down to sync is the app's own (ui/PullToRefresh.tsx, touch events), so it still works.
+ */
+:root,
+:root body {
+  overscroll-behavior-y: none;
+}

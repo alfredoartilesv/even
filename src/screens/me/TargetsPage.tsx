@@ -72,7 +72,7 @@ export function TargetsPage({
                   Set {fmt(r.start)}
                 </button>
               ) : (
-                <>
+                <span className="target-controls">
                   <Stepper label={r.label} value={v} onChange={(n) => change(r.key, n)} min={r.min} max={r.max} step={r.step} format={fmt} />
                   <button
                     type="button"
@@ -82,7 +82,7 @@ export function TargetsPage({
                   >
                     Remove
                   </button>
-                </>
+                </span>
               )}
             </div>
           );
