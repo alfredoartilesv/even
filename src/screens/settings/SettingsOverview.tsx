@@ -25,7 +25,7 @@ function Line({ k, children }: { k: string; children: ReactNode }) {
 export function SettingsOverview({ summary: s, onPage }: { summary: SettingsSummary; onPage: (p: SettingsPage) => void }) {
   const readings = s.inventory.find((r) => r.label.startsWith("Health readings"))?.count ?? 0;
   return (
-    <div className="wide-grid">
+    <div className="wide-grid stretch">
       <p className="muted small span-12">Every settings page at a glance; pick one on the left to change it.</p>
       <section className="card span-6">
         <SectionHeader title="Connections" action="Connections" onAction={() => onPage("connections")} />
@@ -56,6 +56,9 @@ export function SettingsOverview({ summary: s, onPage }: { summary: SettingsSumm
         <dl className="overview-lines">
           <Line k="Name">{s.name ?? "–"}</Line>
           <Line k="Calorie target">{s.calorieTarget !== null ? `${Math.round(s.calorieTarget).toLocaleString()} kcal` : "not set"}</Line>
+          <Line k="Protein target">{s.targets.protein !== null ? `${Math.round(s.targets.protein)} g` : "not set"}</Line>
+          <Line k="Steps a day">{s.targets.steps !== null ? Math.round(s.targets.steps).toLocaleString() : "not set"}</Line>
+          <Line k="Drinks a week">{s.targets.drinks !== null ? `at most ${s.targets.drinks}` : "not set"}</Line>
         </dl>
       </section>
       <section className="card span-6">

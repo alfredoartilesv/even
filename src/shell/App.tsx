@@ -44,6 +44,7 @@ import { persistLogs } from "../domain/logs/store";
 import { DEFAULT_LOG_LEVEL } from "./logging";
 import { visibleTabs, type Tab } from "./tabs";
 import { coachOn } from "../domain/chat/mode";
+import { loadIdentity } from "../domain/settings/profile";
 import { needsFirstRun } from "../domain/settings/onboarding";
 import { PageHeader } from "../ui/layout";
 import { PullToRefresh } from "../ui/PullToRefresh";
@@ -116,6 +117,12 @@ export function App({ target }: { target: Target }) {
   }, []);
 
   const db = dbStatus.state === "ready" ? dbStatus.db : null;
+
+  // The name and picture the side menu shows over the account's email, read again after a change.
+  const [who, setWho] = useState<{ name: string | null; photo: string | null }>({ name: null, photo: null });
+  useEffect(() => {
+    if (db) void loadIdentity(db).then(setWho, (err) => log.warn("profile not read", { err }));
+  }, [db, version]);
 
   // Read again after every change, so saving or removing the key, or the switch, shows or hides Coach.
   useEffect(() => {
@@ -429,7 +436,7 @@ export function App({ target }: { target: Target }) {
       tab={tab}
       tabs={visibleTabs(chatOn)}
       add={add}
-      account={session ? { email: session.email, signOut: () => signOut(session) } : null}
+      account={session ? { email: session.email, name: who.name, photo: who.photo, signOut: () => signOut(session) } : null}
       onTab={(t) => {
         // A section goes to its top level: You shows its menu, Coach opens without a quick add's text.
         if (t === "you") setSettingsPage(null);

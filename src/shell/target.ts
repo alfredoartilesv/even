@@ -13,6 +13,9 @@ export interface GateState {
 /** The account this device is connected to, for a target's navigation to show and leave. */
 export interface FrameAccount {
   email: string;
+  /** The owner's name and picture from the profile, when set: the side menu shows them over the email. */
+  name?: string | null;
+  photo?: string | null;
   /** Disconnects this device; on the web its copy of the data goes too (and the page reloads). */
   signOut: () => Promise<void>;
 }
