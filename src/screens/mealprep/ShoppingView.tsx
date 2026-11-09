@@ -79,7 +79,7 @@ export function ShoppingView({ db, version, onChanged, onRecipes }: Props) {
 
   return (
     <div className="wide-grid">
-      <section className="span-4">
+      <section className="span-6">
         <SectionHeader title="Shopping list" action="Add from recipes" onAction={onRecipes} />
         {items.length > 0 && (
           <div className="basket">
