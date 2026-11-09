@@ -167,8 +167,10 @@ export function GoalsView({ db, goals, onChanged }: { db: SqlDriver; goals: Goal
           {others.map(({ goal: g, progress: p }) => (
             <div key={g.id} className="card goal-card">
               <div className="row goal-card-head">
-                <strong className="grow">{g.title}</strong>
-                {p && <StatusBadge status={STATUS[p.status].badge}>{STATUS[p.status].word}</StatusBadge>}
+                <span className="grow goal-card-title">
+                  <strong>{g.title}</strong>
+                  {p && <StatusBadge status={STATUS[p.status].badge}>{STATUS[p.status].word}</StatusBadge>}
+                </span>
                 {confirmDelete !== g.id && (
                   <button type="button" className="icon-button ghost" aria-label={`Delete ${g.title}`} onClick={() => setConfirmDelete(g.id)}>
                     <Icon name="trash" size={18} />
@@ -221,7 +223,7 @@ export function GoalsView({ db, goals, onChanged }: { db: SqlDriver; goals: Goal
       )}
 
       {ideas.length > 0 && (
-        <section className={adding ? "card span-8 wide-only" : "card span-8"}>
+        <section className={adding ? "card span-8 goal-add wide-only" : "card span-8 goal-add"}>
           <h3>{goals.length ? "Add a goal" : "Ideas"}</h3>
           <p className="muted small">The goals Even can track; pick one to start from its usual target</p>
           <div className="goal-ideas">
@@ -240,7 +242,7 @@ export function GoalsView({ db, goals, onChanged }: { db: SqlDriver; goals: Goal
           </button>
         </section>
       )}
-      <form onSubmit={addGoal} className={adding ? "card stack span-4" : "card stack span-4 wide-only"}>
+      <form onSubmit={addGoal} className={adding ? "card stack span-4 goal-add" : "card stack span-4 goal-add wide-only"}>
         <strong>New goal</strong>
         <label>
           Kind
