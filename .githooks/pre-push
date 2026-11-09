@@ -1,0 +1,16 @@
+#!/bin/sh
+# The repo is public: nothing private leaves this machine. Checks the commits being pushed
+# (licence, tracked files, commit emails, gitleaks). Enable once with `npm run hooks`.
+# Skip only for a reason you would write in the PR: git push --no-verify.
+z=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$z" ] && continue
+  if [ "$remote_sha" = "$z" ]; then
+    # New branch: the commits no remote branch has yet.
+    range="$local_sha --not --remotes"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  node scripts/public-check.mjs --range "$range" || exit 1
+done
+exit 0
