@@ -853,3 +853,15 @@ body:has(.app-frame) {
     overscroll-behavior: contain;
   }
 }
+
+/* Coach while it is off: in its place, grey and not clickable (shell/tabs.ts visibleTabs). */
+.app-frame .sidenav-item:disabled,
+.sidenav-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+}
+.app-frame .sidenav-item:disabled .sidenav-tile,
+.sidenav-item:disabled .sidenav-tile {
+  filter: grayscale(1);
+}

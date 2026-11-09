@@ -22,6 +22,7 @@ import {
   MeScreen,
   preloadScreens,
   QuickAdd,
+  QuickLog,
   SettingsScreen,
 } from "./screens";
 import type { AddActions, Target } from "./target";
@@ -413,6 +414,12 @@ export function App({ target }: { target: Target }) {
     drink: () => openFood("drinks"),
     checkIn: () => openJournal("checkin"),
     weight: () => openJournal("measurements"),
+    here: {
+      food: <QuickLog db={ready} kind="food" version={version} onChanged={changed} onMore={() => openFood("log")} />,
+      drink: <QuickLog db={ready} kind="drink" version={version} onChanged={changed} onMore={() => openFood("drinks")} />,
+      checkIn: <QuickLog db={ready} kind="checkIn" version={version} onChanged={changed} onMore={() => openJournal("checkin")} />,
+      weight: <QuickLog db={ready} kind="weight" version={version} onChanged={changed} onMore={() => openJournal("measurements")} />,
+    },
     coach: chatOn ? () => go("coach") : undefined,
     quick: <QuickAdd db={ready} version={version} onChanged={changed} onCoach={askCoach} />,
   };

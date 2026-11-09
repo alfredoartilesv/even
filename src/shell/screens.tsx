@@ -23,6 +23,7 @@ export const MealPrepScreen = screen(() => import("../screens/mealprep/MealPrepS
 export const FoodScreen = screen(() => import("../screens/food/FoodScreen").then((m) => m.FoodScreen));
 /** Quick add: the phone's Add sheet and Today's bar on a wide screen (screens/add). */
 export const QuickAdd = screen(() => import("../screens/add/QuickAdd").then((m) => m.QuickAdd));
+export const QuickLog = screen(() => import("../screens/add/QuickLog").then((m) => m.QuickLog));
 /** First run: connect the data and Coach, then units, body and targets (screens/start). */
 export const FirstRun = screen(() => import("../screens/start/FirstRun").then((m) => m.FirstRun));
 export const SettingsScreen = screen(() => import("../screens/settings/SettingsScreen").then((m) => m.SettingsScreen));

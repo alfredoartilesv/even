@@ -15,7 +15,7 @@ const STAGES = [
 ];
 
 /**
- * The top of Activity (handoff 0.7): this week's workouts, average steps, active energy and
+ * The top of Activity (handoff 0.7): the last 7 days' workouts, average steps, active energy and
  * resting heart rate; steps each day against the goal; and last night's sleep with its stages.
  */
 export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }) {
@@ -23,7 +23,7 @@ export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }
   const [night, setNight] = useState<DayValue[]>([]);
   useEffect(() => {
     const day = today();
-    void Promise.all([loadDashboard(db, "week", day, day), dayValues(db, day)]).then(([w, v]) => {
+    void Promise.all([loadDashboard(db, "last7", day, day), dayValues(db, day)]).then(([w, v]) => {
       setD(w);
       setNight(v);
     });
@@ -34,14 +34,14 @@ export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }
   const stages = STAGES.map((s) => ({ ...s, v: night.find((v) => v.metric === s.metric)?.value ?? null })).filter((s) => s.v !== null);
   return (
     <div className="activity-week">
-      <section className="today-tiles four" aria-label="This week">
-        <StatTile label="Workouts" value={String(d.workouts.count)} note={`${fmtDuration(d.workouts.durationS)} this week`} />
+      <section className="today-tiles four" aria-label="Last 7 days">
+        <StatTile label="Workouts" value={String(d.workouts.count)} note={`${fmtDuration(d.workouts.durationS)} in 7 days`} />
         <StatTile
           label="Average steps"
           value={d.steps.avg !== null ? int(d.steps.avg) : null}
           note={d.targets.steps ? `goal ${int(d.targets.steps)}` : undefined}
         />
-        <StatTile label="Active energy" value={d.active.total !== null ? int(d.active.total) : null} note="kcal this week" />
+        <StatTile label="Active energy" value={d.active.total !== null ? int(d.active.total) : null} note="kcal in 7 days" />
         <StatTile label="Resting heart rate" value={d.body.restingHr.avg !== null ? int(d.body.restingHr.avg) : null} note="bpm, average" />
       </section>
       <div className="activity-pair">
@@ -63,7 +63,7 @@ export function ActivityWeek({ db, version }: { db: SqlDriver; version: number }
           {/* The week beside last night, so the card says how the night compares instead of standing half empty. */}
           <dl className="sleep-week">
             <div>
-              <dt className="muted small">Average this week</dt>
+              <dt className="muted small">Average, 7 days</dt>
               <dd>{d.body.sleep.avg !== null ? fmtDuration(d.body.sleep.avg) : "–"}</dd>
             </div>
             <div>
