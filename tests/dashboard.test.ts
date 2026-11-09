@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { logDrink } from "../src/domain/alcohol/alcohol";
+import { DEFAULT_PINS, loadPins, savePins } from "../src/domain/dashboard/pins";
 import { figure, loadDashboard, pinnedAnchor, shiftSpan, spanRange } from "../src/domain/dashboard/dashboard";
 import { newestOnly } from "../src/core/newest";
 import { logFood, setCalorieGoal } from "../src/domain/food/food";
@@ -214,4 +215,14 @@ test("the last 7 days end on the anchor, so a Monday still shows a full week", (
   // 9 Nov 2026 is a Monday: its calendar week is that day alone so far.
   assert.deepEqual(spanRange("last7", "2026-11-09"), { from: "2026-11-03", to: "2026-11-09" });
   assert.deepEqual(spanRange("week", "2026-11-09"), { from: "2026-11-03", to: "2026-11-09" });
+});
+
+test("pinned charts keep the order they were pinned in", async () => {
+  const { db } = await migratedDb();
+  assert.deepEqual(await loadPins(db), DEFAULT_PINS);
+  await savePins(db, ["sleep", "calories", "heart"]);
+  assert.deepEqual(await loadPins(db), ["sleep", "calories", "heart"]);
+  // Unpinning one keeps the others where they were; pinning again puts it last.
+  await savePins(db, ["sleep", "heart", "calories"]);
+  assert.deepEqual(await loadPins(db), ["sleep", "heart", "calories"]);
 });
