@@ -131,6 +131,15 @@ test("web side menu: every section but You in the list, each with a tile in its 
   assert.match(html, /class="nav-scrim"/);
 });
 
+test("web side menu signed in: You shows the account's email in its place, with Sign out under it and no second email row", () => {
+  const account = { email: "alex@example.com", signOut: async () => {} };
+  const html = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account }));
+  assert.match(html, /class="sidenav-item sidenav-you"[^]*?<span class="sidenav-you-email">alex@example.com<\/span>/);
+  assert.doesNotMatch(html, /Targets, privacy, backup/);
+  assert.equal((html.match(/alex@example.com/g) ?? []).length, 1);
+  assert.match(html, /Sign out/);
+});
+
 test("web side menu: a closed drawer is inert and has no scrim; docked it never is, and as icons it offers to expand", () => {
   const closed = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({}), account: null }));
   assert.match(closed, /<nav[^>]*inert=""/);
@@ -145,10 +154,10 @@ test("web side menu: a closed drawer is inert and has no scrim; docked it never 
   assert.match(rail, /title="Meal prep"[^>]*>[^]*?<span class="sidenav-label">Meal prep<\/span>/);
 });
 
-test("web side menu: a connected account shows at the foot with Sign out, named on hover when the menu is icons only; none without one", () => {
+test("web side menu: a connected account is named on You, with Sign out at the foot, named on hover when the menu is icons only; none without one", () => {
   const account = { email: "alex@example.com", signOut: async () => {} };
   const html = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true }), account }));
-  assert.match(html, /class="sidenav-foot"[^]*alex@example\.com[^]*<span class="sidenav-label">Sign out<\/span>/);
+  assert.match(html, /alex@example\.com[^]*class="sidenav-foot"[^]*<span class="sidenav-label">Sign out<\/span>/);
   const rail = renderToStaticMarkup(h(SideNav, { tab: "coach", onTab: noop, nav: navState({ docked: true, rail: true }), account }));
   assert.match(rail, /title="alex@example\.com"/);
   assert.match(rail, /title="Sign out"/);
