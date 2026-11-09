@@ -1,6 +1,6 @@
 # Even: phases and targets
 
-Agreed 28 Oct 2026. Even ships to more than one target: the **Android app** (now), the **web app** (phase 2, shipped in 0.4, now 0.4.2: [users.md](users.md), [architecture.md section 6](architecture.md)) and the **iPhone app** (a later phase). Their UIs will grow apart, so the code splits at the top and shares everything below.
+Agreed 28 Oct 2026. Even ships to more than one target: the **Android app** (now), the **web app** (phase 2, shipped in 0.4, now 0.7.6: [users.md](users.md), [architecture.md section 6](architecture.md)) and the **iPhone app** (a later phase). Their UIs will grow apart, so the code splits at the top and shares everything below.
 
 ## How the code is split
 
@@ -25,7 +25,7 @@ Code moved into `apps/`, `shell/`, `screens/`, `domain/`; moves only, no behavio
 
 - `npm run test:device` on the S23. Backup export, share and restore by hand. One UI battery settings ([architecture.md section 9](architecture.md#9-next-steps)).
 - The Chat tab on the phone: camera, consent, confirmations, undo.
-- Settings > Sync & devices against the sync server (users.md section 2.1).
+- You > Sync & devices against the sync server (users.md section 2.1).
 
 ### Step C: Android-specific work
 
@@ -41,7 +41,7 @@ Releases are a signed APK on GitHub, sideloaded ([dev-setup section 6](dev-setup
 
 ## Web app (phase 2, 0.4)
 
-Shipped in 0.4.0 and deployed on Vercel; 0.4.2 adds the web Dashboard's macro split, two-week trends and Alcohol section, *Sign out* in the side menu, clearer connect screens, and a softer look on wide screens (`--lift`).
+Shipped in 0.4.0 and deployed on Vercel; 0.5 adds pairing by QR and the health connector, 0.6 the meal prep plan and faster sync, 0.7 the UI v2 redesign with wide layouts on the web (0.7.3 to 0.7.6). Before that, 0.4.2 added the web Dashboard's macro split, two-week trends and Alcohol section, *Sign out* in the side menu, clearer connect screens, and a softer look on wide screens (`--lift`).
 
 Order of work as in [users.md section 5](users.md#5-order-of-work-for-04). For the structure:
 
