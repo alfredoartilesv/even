@@ -3,6 +3,7 @@ import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import type { SqlDriver, SqlValue } from "../db/driver";
 import { createLogger } from "../core/log";
 import { idbDelete, idbGet, idbPut, openBytes, sealBytes } from "./idb";
+import { consumeTakeOver, holdTabLock } from "./tabLock";
 
 const log = createLogger("db.web");
 
@@ -17,24 +18,24 @@ const SAVE_DELAY_MS = 1_500;
 
 export class OtherTabError extends Error {
   constructor() {
-    super("Even is already open in another tab of this browser. Close that tab, then reload this one.");
+    super("Even is already open in another tab of this browser, maybe one in the background. Use it here, and that tab stops.");
     this.name = "OtherTabError";
   }
 }
 
-/** Holds the lock for as long as the page lives; false when another tab has it. */
-function holdTabLock(): Promise<boolean> {
-  if (!("locks" in navigator)) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    void navigator.locks.request("even-db", { ifAvailable: true }, (lock) => {
-      resolve(lock !== null);
-      return lock ? new Promise<void>(() => {}) : undefined;
-    });
-  });
-}
-
 export async function openWebDatabase(): Promise<SqlDriver> {
-  if (!(await holdTabLock())) throw new OtherTabError();
+  // Set once the lock is taken over by another tab: from then on this tab never saves, so it
+  // cannot overwrite the copy the new owner is using. It reloads, and asks again there.
+  let lost = false;
+  const lock = await holdTabLock({
+    takeOver: consumeTakeOver(),
+    onLost: () => {
+      lost = true;
+      log.info("database taken over by another tab");
+      location.reload();
+    },
+  });
+  if (!lock.held) throw new OtherTabError();
   void navigator.storage?.persist?.().then((ok) => log.info("persistent storage", { granted: ok }));
   const SQL = await initSqlJs({ locateFile: () => wasmUrl });
   let raw: Database;
@@ -55,6 +56,7 @@ export async function openWebDatabase(): Promise<SqlDriver> {
   const save = () => {
     if (timer) clearTimeout(timer);
     timer = null;
+    if (lost) return saving;
     if (inTransaction) {
       timer = setTimeout(() => void save(), SAVE_DELAY_MS);
       return saving;
