@@ -4761,3 +4761,33 @@ body {
 .today-tiles.recovery .viz-tile-value {
   white-space: nowrap;
 }
+
+/* Eaten, burned and the deficit or excess, under the macros on Today's balance card. */
+.energy-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+.energy-row div {
+  min-width: 0;
+}
+.energy-row dt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.energy-row dd {
+  margin: 0.1rem 0 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.energy-row .energy-deficit {
+  color: var(--good);
+}
+.energy-row .energy-excess {
+  color: var(--warning);
+}
