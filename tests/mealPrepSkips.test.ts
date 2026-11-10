@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { nextUp } from "../src/domain/dashboard/today";
 import { logFood } from "../src/domain/food/food";
 import { addMove, DEFAULT_MEAL_PREP, getPortionsPerDay, loadStock, logBatch, saveMealPrep, setPortionsPerDay } from "../src/domain/mealprep/mealPrep";
-import { getPrepMeals, planSkips, setPrepMeals, skipCounts, skipsBetween, skipTupper } from "../src/domain/mealprep/skips";
+import { getPrepMeals, planSkips, setDaySkips, setPrepMeals, skipCounts, skipsBetween, skipTupper } from "../src/domain/mealprep/skips";
 import { planDefrost } from "../src/domain/mealprep/stock";
 import { migratedDb } from "./helpers";
 
@@ -75,4 +75,35 @@ test("the tuppers a day are the meals picked; before any are picked, the old cou
   assert.equal(await getPortionsPerDay(db), 3);
   await setPrepMeals(db, []);
   assert.equal(await getPortionsPerDay(db), 0);
+});
+
+test("a meal logged out on a day skipped ahead uses that skip up instead of dropping the other tupper too", async () => {
+  const db = await withTuppers();
+  await setPrepMeals(db, ["lunch", "dinner"]);
+  const tomorrow = "2026-11-10";
+  const counts = async () => skipCounts((await planSkips(db, DAY, 2)).days).get(tomorrow) ?? 0;
+  await skipTupper(db, tomorrow, DAY, 1, NOW);
+  assert.equal(await counts(), 1);
+  await logFood(db, { name: "Menu del dia", meal: "lunch", calories: 800, proteinG: null, carbsG: null, fatG: null, atMs: NOW + 27 * H, timeZone: TZ });
+  // Lunch out was the planned skip: dinner's tupper is still eaten.
+  assert.equal(await counts(), 1);
+  // A second meal out that day, not planned, skips that tupper as well.
+  await logFood(db, { name: "Pizza", meal: "dinner", calories: 900, proteinG: null, carbsG: null, fatG: null, atMs: NOW + 34 * H, timeZone: TZ });
+  assert.equal(await counts(), 2);
+});
+
+test("a day can be set to skip one or two tuppers, and a meal logged out uses up one of the two", async () => {
+  const db = await withTuppers();
+  await setPrepMeals(db, ["lunch", "dinner"]);
+  const tomorrow = "2026-11-10";
+  const counts = async () => skipCounts((await planSkips(db, DAY, 2)).days).get(tomorrow) ?? 0;
+  assert.equal(await setDaySkips(db, tomorrow, DAY, 2, NOW), 2);
+  assert.equal(await counts(), 2);
+  await logFood(db, { name: "Menu del dia", meal: "lunch", calories: 800, proteinG: null, carbsG: null, fatG: null, atMs: NOW + 27 * H, timeZone: TZ });
+  assert.equal(await counts(), 2);
+  assert.equal(await setDaySkips(db, tomorrow, DAY, 1, NOW), 1);
+  assert.equal(await counts(), 1);
+  assert.equal(await setDaySkips(db, tomorrow, DAY, 0, NOW), 0);
+  assert.equal(await counts(), 1);
+  await assert.rejects(setDaySkips(db, tomorrow, DAY, -1, NOW), /how many/);
 });
