@@ -12,9 +12,20 @@ import {
   type StockEntry,
 } from "../../domain/mealprep/mealPrep";
 import { addRecipesToShopping, listShopping, type ShoppingItem } from "../../domain/mealprep/shopping";
-import { planSkips, PREP_MEALS, setPrepMeals, skipCounts, skipTupper, type DaySkips, type PrepMeal } from "../../domain/mealprep/skips";
+import {
+  daySkipCount,
+  planSkips,
+  PREP_MEALS,
+  setDaySkips,
+  setPrepMeals,
+  skipCounts,
+  skipsLeft,
+  type DaySkips,
+  type PrepMeal,
+} from "../../domain/mealprep/skips";
 import { planDefrost, type Plan } from "../../domain/mealprep/stock";
 import { seriesColor } from "../../ui/charts";
+import { ChipGroup } from "../../ui/controls";
 import { changeRunner, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { batchColors, DayStrip } from "../../ui/mealprep/components";
@@ -30,6 +41,8 @@ interface Props {
 
 /** Two weeks ahead: long enough to see when the tuppers run out and the next cook is due. */
 const HORIZON = 14;
+/** How many tuppers a day can be skipped by hand (the owner's ask, 10 Nov 2026), up to the tuppers a day. */
+const SKIP_CHOICES = [1, 2];
 
 /**
  * Which recipe to cook next: the one with the fewest portions left in stock, then the one cooked
@@ -39,6 +52,16 @@ function nextRecipe(preps: MealPrep[], stock: StockEntry[]): MealPrep | null {
   const left = (p: MealPrep) => stock.filter((s) => s.batch.mealPrepId === p.id).reduce((n, s) => n + s.left, 0);
   const lastCook = (p: MealPrep) => Math.max(0, ...stock.filter((s) => s.batch.mealPrepId === p.id).map((s) => s.batch.cookedAtMs));
   return [...preps].sort((a, b) => left(a) - left(b) || lastCook(a) - lastCook(b))[0] ?? null;
+}
+
+/**
+ * The line over the skip choice: what the hand skips still do once meals logged out used some up.
+ * Empty when the heading or the eaten-out line above already says it.
+ */
+function skipNote(s: DaySkips, tuppersLeft: boolean): string {
+  if (!s.manual && !s.ateOut.length) return "Eating out? Skip tuppers this day.";
+  if (s.manual && s.ateOut.length) return skipsLeft(s) ? `${plural(skipsLeft(s), "skip")} still planned.` : "";
+  return s.manual && tuppersLeft ? `${plural(s.manual, "tupper")} skipped.` : "";
 }
 
 /**
@@ -217,9 +240,11 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
                   </span>
                 </div>
               ))
-            ) : selSkips.manual + selSkips.ateOut.length > 0 ? (
+            ) : daySkipCount(selSkips) > 0 ? (
               <>
-                <strong className="next-name">{selSkips.manual ? "Tupper skipped" : "Eating out"}</strong>
+                <strong className="next-name">
+                  {selSkips.manual >= selSkips.ateOut.length ? `${plural(daySkipCount(selSkips), "tupper")} skipped` : "Eating out"}
+                </strong>
                 <span className="muted small">The tuppers move on a day.</span>
               </>
             ) : (
@@ -235,24 +260,23 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
             ))}
             {selSkips.ateOut.length > 0 && (
               <span className="plan-skip small">
-                You logged {selSkips.ateOut.join(" and ")} as something else, so {selSkips.ateOut.length > 1 ? "those tuppers move" : "that tupper moves"} on.
+                You logged {selSkips.ateOut.join(" and ")} as something else,{" "}
+                {selSkips.manual > 0
+                  ? `which uses up ${selSkips.ateOut.length > 1 ? "skips" : "a skip"} you planned.`
+                  : `so ${selSkips.ateOut.length > 1 ? "those tuppers move" : "that tupper moves"} on.`}
               </span>
             )}
-            {perDay > 0 && (
+            {perDay > 0 && (selSkips.manual > 0 || selSkips.ateOut.length < perDay) && (
               <div className="plan-skip-actions">
-                {selSkips.manual > 0 && (
-                  <span className="plan-skip small grow">
-                    {plural(selSkips.manual, "tupper")} skipped.{" "}
-                    <button type="button" className="link accent small" onClick={() => void run(() => skipTupper(db, sel.day, day, -1), "")}>
-                      Undo
-                    </button>
-                  </span>
-                )}
-                {sel.meals.length > 0 && (
-                  <button type="button" className="secondary" onClick={() => void run(() => skipTupper(db, sel.day, day, 1), "")}>
-                    Skip this tupper
-                  </button>
-                )}
+                <span className="plan-skip small" aria-live="polite">
+                  {skipNote(selSkips, sel.meals.length > 0)}
+                </span>
+                <ChipGroup
+                  label={`Tuppers to skip on ${fmtDay(sel.day)}`}
+                  options={[0, ...SKIP_CHOICES.filter((n) => n <= perDay)].map((n) => ({ id: n, label: n ? `Skip ${n}` : "No skip" }))}
+                  value={Math.min(selSkips.manual, perDay, SKIP_CHOICES[SKIP_CHOICES.length - 1])}
+                  onChange={(n) => void run(() => setDaySkips(db, sel.day, day, n), "")}
+                />
               </div>
             )}
           </section>
