@@ -53,7 +53,7 @@ Emulator, VS Code tasks and Docker: [docs/dev-setup.md](docs/dev-setup.md).
 
 ## Licence
 
-Copyright (C) 2026 Alfredo Artiles Vallecillos.
+Copyright (C) 2026 Alfredo Artiles Vallecillo.
 
 Even is free software under the [GNU Affero General Public License v3.0 or later](LICENSE) (SPDX: `AGPL-3.0-or-later`): you may use, study, change and share it, and if you share a changed version, or run one as a network service for others (the sync server, the web app), you must offer its full source under the same licence. It comes with no warranty, and it is not a medical device. Garmin and Claude are trademarks of their owners; this project is not affiliated with them.
 
