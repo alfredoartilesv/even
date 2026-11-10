@@ -3611,6 +3611,16 @@ button:active:not(:disabled) {
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+/* The skip choice is a touch target on its own: 44 px tall, like the app's buttons. */
+.plan-skip-actions .chip {
+  min-height: 44px;
+}
+.plan-skip-actions .plan-skip {
+  flex-basis: 100%;
+}
+.plan-skip-actions .plan-skip:empty {
+  display: none;
+}
 .plan-days-card .plan-per-day.stacked {
   flex-direction: column;
   align-items: flex-start;
