@@ -2475,6 +2475,10 @@ dl.overview-lines dd {
 .pinned-charts {
   margin-top: 1rem;
 }
+/* A day's eaten against burned, last on the day view, spaced like the charts above it. */
+.day-energy {
+  margin-top: 1rem;
+}
 .pinned-head {
   display: flex;
   flex-wrap: wrap;
