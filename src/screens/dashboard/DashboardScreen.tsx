@@ -96,11 +96,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" } as const;
 const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack", "prep"];
 
-/** "Mon, Nov 9", "Oct 20 – Oct 26", "October 2026". */
+/** "Mon, Nov 9", "Oct 20 – Oct 26" (a week or the 30 days of a month). */
 function spanTitle(span: Span, anchor: string): string {
   const { from, to } = spanRange(span, anchor);
   if (span === "day") return cap(fmtDay(from));
-  if (span === "month") return short(from, { month: "long", year: "numeric" });
   return `${short(from, { day: "numeric", month: "short" })} – ${short(to, { day: "numeric", month: "short" })}`;
 }
 
@@ -179,11 +178,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const first = shown?.name?.split(" ")[0];
   // The title is always the greeting (the owner's choice, 8 Nov 2026), so this line names the day
   // or the period being looked at.
-  const dateText = many
-    ? span === "month"
-      ? short(current.from, { month: "long", year: "numeric" })
-      : `${fmtDay(current.from)} – ${fmtDay(current.to)}`
-    : fmtDayLong(anchor);
+  const dateText = many ? `${fmtDay(current.from)} – ${fmtDay(current.to)}` : fmtDayLong(anchor);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -206,8 +201,9 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       title={dateText}
       unit={span}
       onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-      onNext={() => setAnchor(span === "week" && next > now ? now : next)}
-      nextDisabled={span === "week" ? current.to >= now : next > now}
+      // A week or a month runs up to its last day: the next one stops at today, never past it.
+      onNext={() => setAnchor(many && next > now ? now : next)}
+      nextDisabled={many ? current.to >= now : next > now}
       onCurrent={isCurrent ? null : () => setAnchor(now)}
       currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
     />
@@ -277,7 +273,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           <PinnedCharts
             db={db}
             d={chartsData}
-            period={span === "month" && isCurrent ? "this month" : many ? spanTitle(span, anchor) : "last 7 days"}
+            period={span === "month" && isCurrent ? "last 30 days" : many ? spanTitle(span, anchor) : "last 7 days"}
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
           />

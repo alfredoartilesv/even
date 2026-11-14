@@ -29,13 +29,14 @@ const daily = (metric: string, day: string, valueNum: number): SampleInput => ({
 test("dashboard spans: the seven days up to a day, calendar months, and moving between them", () => {
   assert.deepEqual(spanRange("day", "2026-10-22"), { from: "2026-10-22", to: "2026-10-22" });
   assert.deepEqual(spanRange("week", "2026-10-22"), { from: "2026-10-16", to: "2026-10-22" });
-  assert.deepEqual(spanRange("month", "2026-02-10"), { from: "2026-02-01", to: "2026-02-28" });
-  assert.deepEqual(spanRange("month", "2028-02-10"), { from: "2028-02-01", to: "2028-02-29" });
+  assert.deepEqual(spanRange("month", "2026-11-14"), { from: "2026-10-16", to: "2026-11-14" });
+  assert.deepEqual(spanRange("month", "2028-03-01"), { from: "2028-02-01", to: "2028-03-01" }, "a leap February counts 29 days");
+  assert.deepEqual(spanRange("month", "2026-03-01"), { from: "2026-01-31", to: "2026-03-01" });
   assert.equal(shiftSpan("day", "2026-10-01", -1), "2026-09-30");
   assert.equal(shiftSpan("week", "2026-10-22", 1), "2026-10-29");
   assert.equal(shiftSpan("week", "2026-10-22", -1), "2026-10-15");
-  assert.equal(shiftSpan("month", "2026-03-31", -1), "2026-02-01");
-  assert.equal(shiftSpan("month", "2026-12-15", 1), "2027-01-01");
+  assert.equal(shiftSpan("month", "2026-11-14", -1), "2026-10-15");
+  assert.equal(shiftSpan("month", "2026-10-15", 1), "2026-11-14");
 });
 
 test("dashboard figures: total, and the average over days with data only", () => {
@@ -169,8 +170,8 @@ test("the current period follows today (the app can stay open overnight); a past
   assert.equal(pinnedAnchor("day", "2026-10-26", today), "2026-10-26");
   assert.equal(pinnedAnchor("week", today, today), null, "the seven days up to today follow today");
   assert.equal(pinnedAnchor("week", "2026-10-26", today), "2026-10-26", "the seven days up to yesterday stay put");
-  assert.equal(pinnedAnchor("month", "2026-10-01", today), null);
-  assert.equal(pinnedAnchor("month", "2026-09-30", today), "2026-09-30");
+  assert.equal(pinnedAnchor("month", today, today), null, "the 30 days up to today follow today");
+  assert.equal(pinnedAnchor("month", "2026-10-26", today), "2026-10-26", "the 30 days up to yesterday stay put");
 });
 
 test("overlapping loads: only the newest answer is applied, whatever order they finish in", async () => {
