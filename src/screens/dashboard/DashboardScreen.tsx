@@ -278,6 +278,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             period={span === "month" && isCurrent ? "last 30 days" : many ? spanTitle(span, anchor) : "last 7 days"}
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
+            daySteps={!many}
           />
         )}
       </div>
@@ -418,7 +419,7 @@ function DayView({
                 onChanged={onChanged}
               />
             )}
-            <section className="today-tiles recovery" aria-label="Recovery">
+            <section className="card today-tiles recovery" aria-label="Recovery">
               <StatTile
                 label="Sleep"
                 value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}

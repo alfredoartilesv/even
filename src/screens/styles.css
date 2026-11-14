@@ -4892,6 +4892,29 @@ body {
 .today-tiles.recovery .viz-tile-value {
   white-space: nowrap;
 }
+/*
+ * One bar, not three tiles (the owner's ask, 14 Nov 2026): the three figures share one card, each
+ * column centered, with a barely visible line between them, so recovery reads as one thing.
+ */
+.today-tiles.recovery {
+  gap: 0;
+  margin: 0;
+  padding: 0.8rem 0;
+}
+.today-tiles.recovery .viz-tile,
+.app-frame .today-tiles.recovery .viz-tile {
+  justify-items: center;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  transform: none;
+}
+.today-tiles.recovery .viz-tile + .viz-tile {
+  border-left: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
 
 /* Eaten, burned and the deficit or excess, under the macros on Today's balance card. */
 .energy-row {
