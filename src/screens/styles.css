@@ -2806,7 +2806,7 @@ button {
 /* The macro rings around the calorie ring: thinner, each in its series color, the warning color past its target. */
 .balance-ring .macro-track,
 .balance-ring .macro-fill {
-  stroke-width: 8;
+  stroke-width: 6;
 }
 .balance-ring .macro-track {
   stroke: var(--viz-grid);
@@ -4045,8 +4045,8 @@ button:active:not(:disabled) {
 }
 /* The macro rings add a band outside the calorie ring: the box grows so the calorie ring stays as big. */
 .balance-card .balance-ring.with-macros {
-  width: 236px;
-  height: 236px;
+  width: 210px;
+  height: 210px;
 }
 .balance-side {
   flex: 1 1 180px;
@@ -4078,8 +4078,8 @@ button:active:not(:disabled) {
     height: 150px;
   }
   .balance-card .balance-ring.with-macros {
-    width: 208px;
-    height: 208px;
+    width: 184px;
+    height: 184px;
   }
   .balance-side {
     flex-basis: 160px;

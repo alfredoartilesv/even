@@ -230,9 +230,9 @@ export interface RingMacro {
   color: string;
 }
 
-/** The macro rings sit outside the calorie ring, protein nearest it: radius of the first and the step out. */
-const MACRO_R0 = 88;
-const MACRO_STEP = 12;
+/** The macro rings sit close outside the calorie ring, protein nearest it: radius of the first and the step out (6 wide, 2 apart). */
+const MACRO_R0 = 82;
+const MACRO_STEP = 8;
 
 /**
  * Today's big ring (handoff 0.7): calories eaten against the target, with what is left in the
