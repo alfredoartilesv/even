@@ -36,7 +36,7 @@ import { combineSyncs, lastSync, runSync, type LastSync } from "../domain/sync/r
 import { APPLE_HEALTH_SOURCE, AppleHealthSource, appleHealthEnabled } from "../domain/sync/appleHealth";
 import { appleHealthSupported, healthStore } from "../platform/health";
 import { refreshSyncReminder, RESYNC_ON_RESUME_MS } from "../domain/sync/reminder";
-import { SyncBanner, SyncButton } from "../screens/sync/SyncStatus";
+import { NotificationBell, SyncButton } from "../screens/sync/SyncStatus";
 import { notifier } from "../platform/notifications";
 import { applyStoredLogLevel } from "../domain/settings/logLevel";
 import { createLogger, recentLogs } from "../core/log";
@@ -454,7 +454,6 @@ export function App({ target }: { target: Target }) {
     >
       {/* data-area: the section's own accent (ui/palette.css). "wide": a wide screen may spread every page into columns (the web app's styles). */}
       <main className="shell with-nav wide" data-area={tab}>
-        <SyncBanner status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
         <div key={screenKey} className="screen">
           <Suspense>
             {tab === "today" ? (
@@ -466,7 +465,13 @@ export function App({ target }: { target: Target }) {
                   configured={configured}
                   syncWarnings={status?.warnings ?? []}
                   profile={<ProfileButton db={ready} version={version} onOpen={() => openYou(null)} />}
-                  sync={syncButton}
+                  // Today only: the bell (sync notices) beside the sync button (the owner's choice, 14 Nov 2026).
+                  sync={
+                    <>
+                      <NotificationBell db={ready} status={status} configured={configured} syncing={syncing} nowMs={now} onSync={() => void sync()} />
+                      {syncButton}
+                    </>
+                  }
                   onChanged={changed}
                   quickAdd={
                     <Suspense>

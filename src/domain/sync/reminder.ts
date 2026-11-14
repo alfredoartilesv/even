@@ -2,7 +2,7 @@ import { createLogger } from "../../core/log";
 import type { Notifier } from "../../core/notifier";
 import type { SqlDriver } from "../../db/driver";
 import { getSetting, setSetting } from "../../db/settings";
-import { lastSync } from "./runSync";
+import { lastSync, type LastSync } from "./runSync";
 
 /**
  * "Garmin has not synced for 3 days" reminders. Garmin keeps the history, so nothing is lost, but
@@ -100,4 +100,42 @@ export async function refreshSyncReminder(
     log.warn("reminder update failed", { err });
     return "cancelled";
   }
+}
+
+/**
+ * What Today's bell lists (the owner's choice, 14 Nov 2026, in place of the banner over every
+ * page): the last Garmin sync failed, or none has worked for 3 days. key names this failure or
+ * this stale stretch, so the dot comes back for the next one but not for one already seen.
+ */
+export interface SyncNotice {
+  key: string;
+  title: string;
+  /** The sync's error, for a failure. */
+  detail: string | null;
+  failed: boolean;
+  /** When it happened: the failed attempt, or the last success of a stale stretch. */
+  atMs: number;
+}
+
+export function syncNotice(status: LastSync | null, configured: boolean, nowMs: number): SyncNotice | null {
+  if (!configured || !status) return null;
+  const f = freshness(status.lastOkMs, nowMs);
+  if (status.status === "error") {
+    return { key: `failed:${status.startedMs}`, title: "Garmin sync failed", detail: status.error, failed: true, atMs: status.startedMs };
+  }
+  if (f.state === "stale") {
+    return { key: `stale:${f.lastOkMs}`, title: `No Garmin sync for ${days(f.ageMs)} days`, detail: null, failed: false, atMs: f.lastOkMs };
+  }
+  return null;
+}
+
+/** The key of the last notice the owner opened the bell on, kept across restarts. */
+export const NOTICE_SEEN_KEY = "notifications.seen";
+
+export async function seenNotice(db: SqlDriver): Promise<string | null> {
+  return getSetting(db, NOTICE_SEEN_KEY);
+}
+
+export async function markNoticeSeen(db: SqlDriver, key: string, nowMs: number = Date.now()): Promise<void> {
+  await setSetting(db, NOTICE_SEEN_KEY, key, nowMs);
 }
