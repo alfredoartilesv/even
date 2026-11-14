@@ -1,4 +1,4 @@
-import { Meter, StackedBar } from "./charts/figures";
+import { Meter, StackedBar, type RingMacro } from "./charts/figures";
 import { seriesColor } from "./charts/frame";
 import { kcalFromMacros } from "../core/health";
 import { numOrNull } from "./common";
@@ -199,5 +199,43 @@ export function MacroBars({
         );
       })}
     </div>
+  );
+}
+
+type Grams = { protein: number | null; carbs: number | null; fat: number | null };
+
+/** Protein, carbs and fat for Today's ring, in the series colors MacroBars and MacroSplit use. */
+export function ringMacros(grams: Grams, targets: Grams): RingMacro[] {
+  return (
+    [
+      { key: "protein", label: "Protein", slot: 1 },
+      { key: "carbs", label: "Carbs", slot: 2 },
+      { key: "fat", label: "Fat", slot: 3 },
+    ] as const
+  ).map((m) => ({ key: m.key, label: m.label, grams: grams[m.key], target: targets[m.key], color: `var(--series-${m.slot})` }));
+}
+
+/**
+ * The key under Today's ring: each macro's dot in its ring's color, then 80 / 150 g. Past the
+ * target the dot and the grams turn the warning color, as the ring does.
+ */
+export function MacroLegend({ macros }: { macros: RingMacro[] }) {
+  return (
+    <ul className="macro-legend">
+      {macros.map((m) => {
+        const g = Math.round(m.grams ?? 0);
+        const over = m.target !== null && (m.grams ?? 0) > m.target;
+        return (
+          <li key={m.key} className={over ? "over" : undefined}>
+            <span className="muted small">
+              <span className="macro-dot" aria-hidden style={over ? undefined : { background: m.color }} />
+              {m.label}
+            </span>
+            <strong>{m.target ? `${g} / ${Math.round(m.target)} g` : `${g} g`}</strong>
+            {over && <span className="sr-only">, over target</span>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
