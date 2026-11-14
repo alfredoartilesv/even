@@ -8,7 +8,7 @@ import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
-import { SCALE } from "../../domain/journal/entries";
+import { SCALE, type DayNote } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
 import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
@@ -403,6 +403,7 @@ function DayView({
             </div>
           </section>
           <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
+          <DayCheckIn note={d.journal.notes.find((n) => n.day === day) ?? null} isToday={isToday} onCheckIn={() => go.checkIn(day)} />
         </div>
 
         <div className="today-col right" ref={rightRef}>
@@ -763,9 +764,7 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
         <section className="card period-journal" aria-labelledby="period-journal">
           <div className="so-far-head">
             <h2 id="period-journal">Check-ins</h2>
-            <button type="button" className="link accent small" onClick={() => go.checkIn()}>
-              Journal ›
-            </button>
+            <CheckInButton onClick={() => go.checkIn()} />
           </div>
           <p className="muted small">
             {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
@@ -778,6 +777,43 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * The way to the check-in (mood, energy, a note) on every Today view, in the journal's own colors
+ * (the owner's ask, 14 Nov 2026: a real button rather than the small "Journal ›" link).
+ */
+function CheckInButton({ onClick, edit = false }: { onClick: () => void; edit?: boolean }) {
+  return (
+    <button type="button" className="checkin-button" onClick={onClick}>
+      <Icon name={edit ? "pencil" : "note"} size={16} />
+      {edit ? "Edit" : "Check in"}
+    </button>
+  );
+}
+
+/** A day's check-in under the day so far: not yet, or its mood and energy, with the button to it. */
+function DayCheckIn({ note, isToday, onCheckIn }: { note: DayNote | null; isToday: boolean; onCheckIn: () => void }) {
+  const parts = note
+    ? [note.mood !== null ? `Mood ${word(note.mood)}` : null, note.energy !== null ? `energy ${word(note.energy)}` : null].filter(Boolean)
+    : [];
+  return (
+    <section className="card day-checkin" aria-labelledby="day-checkin">
+      <div className="so-far-head">
+        <h2 id="day-checkin">Check-in</h2>
+        <CheckInButton onClick={onCheckIn} edit={note !== null} />
+      </div>
+      <p className="muted small">
+        {note
+          ? parts.length
+            ? parts.join(" · ")
+            : "A note, no mood or energy."
+          : isToday
+            ? "Not yet today. Mood, energy and a note."
+            : "No check-in this day."}
+      </p>
+    </section>
   );
 }
 
