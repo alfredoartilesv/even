@@ -2522,6 +2522,24 @@ dl.overview-lines dd {
 .pin-button.on .icon {
   fill: currentColor;
 }
+/* A chart's pin and Table share one height and line up on the title's first line (the owner's
+   ask, 14 Nov 2026: the round pin stood taller than the Table pill beside it). */
+.viz-head .pin-button,
+.viz-head .viz-toggle {
+  flex: none;
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 0;
+}
+.viz-head .pin-button {
+  width: 40px;
+}
+.viz-head .viz-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.85rem;
+  border-radius: var(--radius-pill);
+}
 
 /* Debug logs (logs/LogsScreen.tsx): by day, one row per record that opens to its fields. */
 .log-list {
@@ -4701,18 +4719,29 @@ body {
   width: 14em;
   text-align: center;
 }
+/*
+ * ‹ and › sit at the two ends of the middle column and the date fills the space between them, so
+ * the arrows never move and always keep a gap to the round button, whatever the phone's text size
+ * (a larger system font pushed › against it, 14 Nov 2026). A date too long for the row ends in "…".
+ */
 .today-datebar .period-nav.icon-back {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  gap: 0;
+  column-gap: 0.75rem;
 }
 .today-datebar .period-nav.icon-back .date-steps {
   grid-column: 2;
-  justify-self: center;
+  display: flex;
+  justify-self: stretch;
+  min-width: 0;
 }
 .today-datebar .period-nav .today-date-text {
-  width: 13.5em;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .period-nav .date-back,
 .app-frame .period-nav .date-back {
