@@ -57,6 +57,12 @@ const PATHS = {
       <path d="M17 21V3c-2 1.5-3 4-3 7h3" />
     </>
   ),
+  bell: (
+    <>
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="4" y="5" width="16" height="16" rx="2" />

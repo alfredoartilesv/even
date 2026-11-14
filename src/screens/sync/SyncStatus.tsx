@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import type { SqlDriver } from "../../db/driver";
 import { Icon } from "../../ui/icons";
 import type { LastSync } from "../../domain/sync/runSync";
-import { ago, freshness } from "../../domain/sync/reminder";
+import { ago, freshness, markNoticeSeen, seenNotice, syncNotice } from "../../domain/sync/reminder";
 
 interface Props {
   status: LastSync | null;
@@ -39,39 +41,99 @@ export function SyncButton({ status, configured, syncing, nowMs, onSync, onSetup
 }
 
 /**
- * Notice on every tab when Garmin is 3+ days behind or the last attempt failed. It floats over the
- * top of the page like a phone notification instead of pushing the page down, and can be closed:
- * closing hides this failure or this stale stretch only, so the next failure or the next gap shows
- * again. Soft amber with the title in the text color, so it reads as a notice rather than an alarm.
+ * Today's bell (the owner's choice, 14 Nov 2026, in place of the banner over every page): a dot in
+ * the accent color when there is a notice not yet seen (the last Garmin sync failed, or none for
+ * 3 days); a tap opens the list with Try again, and marks it seen until the next one. The notice
+ * stays listed until a sync works.
  */
-export function SyncBanner({ status, configured, syncing, nowMs, onSync }: Props) {
-  const [closed, setClosed] = useState<string | null>(null);
-  if (!configured) return null;
-  const f = freshness(status?.lastOkMs ?? null, nowMs);
-  const failed = status?.status === "error";
-  if (f.state !== "stale" && !failed) return null;
-  const key = failed ? `failed:${status?.startedMs}` : `stale:${status?.lastOkMs}`;
-  if (closed === key) return null;
-  const days = f.state === "stale" ? Math.floor(f.ageMs / 86_400_000) : 0;
-  const detail = failed ? status?.error : null;
+export function NotificationBell({ db, status, configured, syncing, nowMs, onSync }: Props & { db: SqlDriver | null }) {
+  const [open, setOpen] = useState(false);
+  const [seen, setSeen] = useState<string | null | undefined>(undefined);
+  const wrap = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  // Where the panel goes: under the bell, right-aligned with it. It is drawn on the page itself
+  // (a portal), because the header's fade mask would hide anything hanging below the header.
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const notice = syncNotice(status, configured, nowMs);
+  const fresh = notice !== null && seen !== undefined && seen !== notice.key;
+
+  useEffect(() => {
+    // The component gallery has no database: nothing is remembered there.
+    if (!db) setSeen(null);
+    else void seenNotice(db).then(setSeen, () => setSeen(null));
+  }, [db]);
+  // Closes on a tap outside or Escape, as menus do.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!wrap.current?.contains(t) && !panel.current?.contains(t)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && notice && seen !== notice.key) {
+      setSeen(notice.key);
+      if (db) void markNoticeSeen(db, notice.key);
+    }
+    const r = wrap.current?.getBoundingClientRect();
+    if (!open && r) setAt({ top: r.bottom + 4, right: Math.max(16, window.innerWidth - r.right) });
+    setOpen(!open);
+  };
+  const label = fresh ? "Notifications, 1 new" : "Notifications";
   return (
-    <div className={`banner${detail ? " detailed" : ""}`} role="status">
-      <span className="banner-icon">
-        <Icon name="alert" size={20} />
-      </span>
-      <div className="banner-text">
-        <strong>{f.state === "stale" ? `No Garmin sync for ${days} days` : "Garmin sync failed"}</strong>
-        {detail && <div className="small">{detail}</div>}
-      </div>
-      <button type="button" className="secondary banner-action" onClick={onSync} disabled={syncing}>
-        <span className={syncing ? "spin" : ""}>
-          <Icon name="sync" size={18} />
-        </span>
-        {syncing ? "Syncing…" : failed ? "Try again" : "Sync now"}
+    <div className="bell-wrap" ref={wrap}>
+      <button
+        type="button"
+        className={`bell-button icon-button${open ? " open" : ""}`}
+        aria-label={label}
+        title={label}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={toggle}
+      >
+        <Icon name="bell" size={26} />
+        {fresh && <span className="bell-dot" aria-hidden />}
       </button>
-      <button type="button" className="icon-button banner-close" onClick={() => setClosed(key)} aria-label="Close" title="Close">
-        <Icon name="close" size={18} />
-      </button>
+      {open &&
+        at &&
+        createPortal(
+          <div className="bell-panel" role="dialog" aria-label="Notifications" ref={panel} style={{ top: at.top, right: at.right }}>
+            <strong className="bell-title">Notifications</strong>
+            {notice ? (
+              <div className="bell-item">
+                <span className="bell-item-icon">
+                  <Icon name="alert" size={18} />
+                </span>
+                <div className="bell-item-text">
+                  <strong>{notice.title}</strong>
+                  <div className="muted small">
+                    {notice.detail ? `${notice.detail} ` : ""}
+                    {notice.failed ? ago(Math.max(0, nowMs - notice.atMs)) : `Last sync ${ago(Math.max(0, nowMs - notice.atMs))}`}
+                  </div>
+                  <button type="button" className="secondary bell-action" onClick={onSync} disabled={syncing}>
+                    <span className={syncing ? "spin" : ""}>
+                      <Icon name="sync" size={16} />
+                    </span>
+                    {syncing ? "Syncing…" : notice.failed ? "Try again" : "Sync now"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="muted small bell-empty">Nothing new.</p>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

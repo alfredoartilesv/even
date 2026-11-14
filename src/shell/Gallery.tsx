@@ -7,7 +7,7 @@ import { Icon, ICON_NAMES } from "../ui/icons";
 import { MenuList, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../ui/layout";
 import { BatchBar, batchColors, PlanDays, StockAlerts, StockSummary } from "../ui/mealprep/components";
 import { CalorieMeter, MacroSplit } from "../ui/nutrition";
-import { SyncBanner } from "../screens/sync/SyncStatus";
+import { NotificationBell } from "../screens/sync/SyncStatus";
 import { LogsScreen } from "../screens/logs/LogsScreen";
 import type { LastSync } from "../domain/sync/runSync";
 import "../ui/palette.css";
@@ -165,7 +165,7 @@ export default function Gallery() {
         <StatusBadge status="warning">eat soon</StatusBadge>
         <StatusBadge status="critical">past eat-by</StatusBadge>
       </div>
-      <SyncBanner status={failedSync} configured syncing={false} nowMs={nowMs} onSync={() => {}} />
+      <NotificationBell db={null} status={failedSync} configured syncing={false} nowMs={nowMs} onSync={() => {}} />
 
       <h2>Layout</h2>
       <PageHeader title="Page title" onBack={() => {}} backLabel="Dashboard" actions={<button className="secondary small-button">Action</button>} />
