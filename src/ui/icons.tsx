@@ -57,6 +57,13 @@ const PATHS = {
       <path d="M17 21V3c-2 1.5-3 4-3 7h3" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="4" y="5" width="16" height="16" rx="2" />
+      <path d="M4 10h16M8 3v4M16 3v4" />
+      <rect x="11" y="13.5" width="4" height="4" rx="0.8" />
+    </>
+  ),
   pin: <path d="M9 3h6l-1 6 3 4H7l3-4zM12 13v8" />,
   pulse: <path d="M3 12h4l3-8 4 16 3-8h4" />,
   book: <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM9 8h6M9 12h6" />,

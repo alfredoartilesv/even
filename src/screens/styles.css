@@ -4692,7 +4692,8 @@ body {
 /*
  * Today's ‹ date › keeps one width for a day, a week and a month (the owner's ask, 14 Nov 2026):
  * the date sits centered in a box wide enough for the longest day name, so the arrows never move
- * when the period changes. On a phone the row is centered, with the way back under it.
+ * when the period changes. On a phone the row is centered, with the way back as a round button
+ * at its end (a matching empty column on the left keeps ‹ date › centered).
  */
 .today .period-nav .today-date-text {
   flex: none;
@@ -4700,13 +4701,34 @@ body {
   width: 14em;
   text-align: center;
 }
-.today-datebar .period-nav {
-  flex-direction: column;
+.today-datebar .period-nav.icon-back {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  flex-wrap: nowrap;
+  gap: 0;
 }
-.today-datebar .period-nav .date-today {
-  margin-left: 0;
+.today-datebar .period-nav.icon-back .date-steps {
+  grid-column: 2;
+  justify-self: center;
+}
+.today-datebar .period-nav .today-date-text {
+  width: 13.5em;
+}
+.period-nav .date-back,
+.app-frame .period-nav .date-back {
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
 }
 /* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
 .empty-week {

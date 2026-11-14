@@ -195,9 +195,11 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 
   // The day or period with ‹ ›: under the greeting on a wide screen, a row of its own on a phone,
-  // where beside the menu and sync it would be cut.
-  const dateNav = (
+  // where beside the menu and sync it would be cut. On the phone the way back is a round button at
+  // the end of the row (the owner's choice, 14 Nov 2026), so opening a past day moves nothing under it.
+  const dateNav = (currentIcon: boolean) => (
     <PeriodNav
+      currentIcon={currentIcon}
       title={dateText}
       unit={span}
       onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
@@ -214,7 +216,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <div className="today-main">
         <PageHeader
           title={`Hi${first ? `, ${first}` : ""}`}
-          subtitle={<span className="wide-only">{dateNav}</span>}
+          subtitle={<span className="wide-only">{dateNav(false)}</span>}
           leading={<span className="narrow-only">{profile}</span>}
           actions={
             <div className="today-tools">
@@ -234,7 +236,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             </div>
           }
         />
-        <div className="narrow-only today-datebar">{dateNav}</div>
+        <div className="narrow-only today-datebar">{dateNav(true)}</div>
         <div className="narrow-only today-period">{period}</div>
 
         {syncWarnings.map((w) => (
