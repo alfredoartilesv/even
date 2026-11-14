@@ -2803,6 +2803,51 @@ button {
 .balance-ring.over .fill {
   stroke: var(--warning);
 }
+/* The macro rings around the calorie ring: thinner, each in its series color, the warning color past its target. */
+.balance-ring .macro-track,
+.balance-ring .macro-fill {
+  stroke-width: 8;
+}
+.balance-ring .macro-track {
+  stroke: var(--viz-grid);
+}
+.balance-ring .macro-fill {
+  stroke-linecap: round;
+}
+.balance-ring .macro.over .macro-fill {
+  stroke: var(--warning);
+}
+/* Under the ring, one column per macro: its dot and name, then the grams against the target. */
+.macro-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.macro-legend li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.macro-legend strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.macro-legend .over strong {
+  color: var(--warning);
+}
+.macro-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: var(--warning);
+  vertical-align: 1px;
+}
 .balance-ring .big {
   font-size: 38px;
   font-weight: 700;
@@ -3188,7 +3233,8 @@ button:active:not(:disabled) {
   .viz-plot .viz-area {
     animation: ev-fade 0.9s ease-out 0.4s backwards;
   }
-  .balance-ring .fill {
+  .balance-ring .fill,
+  .balance-ring .macro-fill {
     animation: ev-fade 0.6s ease-out backwards;
   }
   .macro-track > span {
@@ -3997,6 +4043,11 @@ button:active:not(:disabled) {
   width: 168px;
   height: 168px;
 }
+/* The macro rings add a band outside the calorie ring: the box grows so the calorie ring stays as big. */
+.balance-card .balance-ring.with-macros {
+  width: 236px;
+  height: 236px;
+}
 .balance-side {
   flex: 1 1 180px;
 }
@@ -4025,6 +4076,10 @@ button:active:not(:disabled) {
   .balance-card .balance-ring {
     width: 150px;
     height: 150px;
+  }
+  .balance-card .balance-ring.with-macros {
+    width: 208px;
+    height: 208px;
   }
   .balance-side {
     flex-basis: 160px;

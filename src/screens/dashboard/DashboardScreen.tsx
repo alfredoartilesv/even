@@ -5,7 +5,7 @@ import type { SqlDriver } from "../../db/driver";
 import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
-import { MacroBars } from "../../ui/nutrition";
+import { MacroLegend, ringMacros } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
@@ -370,6 +370,7 @@ function DayView({
   const eaten = d.eaten.total;
   const target = d.targets.kcal;
   const left = target !== null ? target - (eaten ?? 0) : null;
+  const macros = ringMacros({ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }, d.targets);
   const heroLine =
     eaten === null
       ? isToday
@@ -392,10 +393,10 @@ function DayView({
       <div className="today-grid">
         <div className="today-col left" ref={leftRef}>
           <section className="card balance-card" aria-label="Balance">
-            <BalanceRing eaten={eaten} target={target} caption="kcal left" />
+            <BalanceRing eaten={eaten} target={target} caption="kcal left" macros={macros} />
             <div className="balance-side">
               <p className="balance-line">{heroLine}</p>
-              <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+              <MacroLegend macros={macros} />
               <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
