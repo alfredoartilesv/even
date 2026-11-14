@@ -3032,6 +3032,30 @@ button {
   background: var(--accent);
   color: var(--on-accent);
 }
+/* The check-in button on Today (day, week, month): a pill in the journal's colors, as tall as Coach's starter buttons (44px). */
+.checkin-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--area-journal-line);
+  border-radius: var(--radius-pill);
+  background: var(--area-journal-soft);
+  color: var(--area-journal-deep);
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-frame .checkin-button {
+  border-color: var(--area-journal-line);
+  background: var(--area-journal-soft);
+}
+.day-checkin p {
+  margin: 0.35rem 0 0;
+}
 .so-far-head {
   display: flex;
   justify-content: space-between;
@@ -4550,7 +4574,9 @@ body:not(:has(.app-frame)) .today .date-step {
   margin: 0;
 }
 @media (max-width: 59.99rem) {
-  .today-col.left > .so-far {
+  /* The check-in follows the day so far (same order, later in the page). */
+  .today-col.left > .so-far,
+  .today-col.left > .day-checkin {
     order: 3;
   }
   .today-col.right > .today-stack {
