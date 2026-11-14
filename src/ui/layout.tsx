@@ -140,7 +140,8 @@ export function Segmented<T extends string>({ items, value, onChange, label }: {
  * ‹ title › between periods (a day, a week, a month), with a pill back to the current one when
  * another is open; the same row on Today and in the logs. The date is never cut and the arrows
  * never split from it: the pill moves to the next line when the row is full. The next button is
- * disabled past today.
+ * disabled past today. With currentIcon the way back is a round calendar button at the end of the
+ * row instead of the pill (Today on a phone: the row keeps its height, so nothing under it jumps).
  */
 export function PeriodNav({
   title,
@@ -150,6 +151,7 @@ export function PeriodNav({
   nextDisabled,
   onCurrent,
   currentLabel,
+  currentIcon = false,
 }: {
   title: string;
   /** "day", "week", "month": read out on the arrows. */
@@ -161,9 +163,11 @@ export function PeriodNav({
   onCurrent?: (() => void) | null;
   /** What the pill does, read out ("Back to this week"); the pill itself says "Today" or "This week". */
   currentLabel?: string;
+  /** The way back as a round calendar button, named by currentLabel, instead of the pill. */
+  currentIcon?: boolean;
 }) {
   return (
-    <div className="period-nav date-nav">
+    <div className={currentIcon ? "period-nav date-nav icon-back" : "period-nav date-nav"}>
       <span className="date-steps">
         <button type="button" className="date-step" aria-label={`Previous ${unit}`} onClick={onPrev}>
           <Icon name="back" size={18} />
@@ -173,11 +177,22 @@ export function PeriodNav({
           <Icon name="chevron" size={18} />
         </button>
       </span>
-      {onCurrent && (
-        <button type="button" className="date-today" aria-label={currentLabel ?? `Back to this ${unit}`} onClick={onCurrent}>
-          {unit === "day" ? "Today" : `This ${unit}`}
-        </button>
-      )}
+      {onCurrent &&
+        (currentIcon ? (
+          <button
+            type="button"
+            className="date-back"
+            aria-label={currentLabel ?? `Back to this ${unit}`}
+            title={currentLabel ?? `Back to this ${unit}`}
+            onClick={onCurrent}
+          >
+            <Icon name="calendar" size={18} />
+          </button>
+        ) : (
+          <button type="button" className="date-today" aria-label={currentLabel ?? `Back to this ${unit}`} onClick={onCurrent}>
+            {unit === "day" ? "Today" : `This ${unit}`}
+          </button>
+        ))}
     </div>
   );
 }
