@@ -7,7 +7,6 @@ import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
-import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
@@ -740,19 +739,26 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
       </section>
       {/* The averages two by two with the check-ins under them, as tall as the chart beside them. */}
       <div className="period-side">
-        <section className="today-tiles four" aria-label="Averages">
-          <StatTile label="Average calories" value={avg(d.eaten)} note={d.targets.kcal ? `target ${int(d.targets.kcal)}` : undefined} />
-          <StatTile
-            label="Average protein"
-            value={avg(d.protein, (n) => `${int(n)} g`)}
-            note={d.targets.protein ? `goal ${int(d.targets.protein)} g` : undefined}
-          />
-          <StatTile label="Average steps" value={avg(d.steps)} note={d.targets.steps ? `goal ${int(d.targets.steps)}` : undefined} />
-          <StatTile
-            label="Average sleep"
-            value={avg(d.body.sleep, fmtDuration)}
-            note={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : undefined}
-          />
+        <section className="card averages-card" aria-labelledby="period-averages">
+          <h2 id="period-averages">Daily averages</h2>
+          <div className="avg-grid">
+            <AverageCell label="Calories" value={avg(d.eaten)} of={d.targets.kcal} mean={d.eaten.avg} limit note={(t) => `of ${int(t)} target`} />
+            <AverageCell
+              label="Protein"
+              value={avg(d.protein, (n) => `${int(n)} g`)}
+              of={d.targets.protein}
+              mean={d.protein.avg}
+              note={(t) => `of ${int(t)} g goal`}
+            />
+            <AverageCell label="Steps" value={avg(d.steps)} of={d.targets.steps} mean={d.steps.avg} note={(t, met) => `goal ${int(t)}${met ? " · met" : ""}`} />
+            <AverageCell
+              label="Sleep"
+              value={avg(d.body.sleep, hm)}
+              of={null}
+              mean={null}
+              fallback={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : "a night"}
+            />
+          </div>
         </section>
         <section className="card period-journal" aria-labelledby="period-journal">
           <div className="so-far-head">
@@ -771,6 +777,48 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
           </button>
         </section>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One of a week's or month's daily averages (the owner's ask, 14 Nov 2026: one card, two by two,
+ * faint lines between): the figure, its target in words and a thin bar toward it. A calorie
+ * target is a limit, so past it the bar turns the warning color; a goal (protein, steps) past it
+ * reads "met". Without a target there is no bar, only the fallback line.
+ */
+function AverageCell({
+  label,
+  value,
+  of,
+  mean,
+  limit = false,
+  note,
+  fallback,
+}: {
+  label: string;
+  value: string | null;
+  /** The daily target or goal; null when none is set. */
+  of: number | null;
+  mean: number | null;
+  /** A ceiling (calories) rather than a goal to reach. */
+  limit?: boolean;
+  note?: (target: number, met: boolean) => string;
+  fallback?: string;
+}) {
+  const has = of !== null && of > 0 && mean !== null;
+  const frac = has ? mean / of : 0;
+  const over = limit && frac > 1;
+  return (
+    <div className="avg-cell">
+      <span className="muted small">{label}</span>
+      <strong className={over ? "over" : undefined}>{value ?? "–"}</strong>
+      <span className="muted small">{of !== null && of > 0 && note ? note(of, !limit && frac >= 1) : (fallback ?? "")}</span>
+      {has && (
+        <span className="avg-bar" aria-hidden>
+          <span className={over ? "over" : undefined} style={{ width: `${Math.min(100, Math.round(frac * 100))}%` }} />
+        </span>
+      )}
     </div>
   );
 }

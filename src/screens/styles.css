@@ -2924,6 +2924,64 @@ button {
 .today-tiles.four {
   grid-template-columns: repeat(auto-fit, minmax(min(9rem, 45%), 1fr));
 }
+/* A week's or month's daily averages: one card, two by two, a barely visible line between the
+   cells, each with a thin bar toward its target (warning color past a calorie limit). */
+.averages-card h2 {
+  margin: 0 0 0.25rem;
+}
+.avg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.avg-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+}
+/* The outer edges line up with the card's own padding, as the check-ins card below does. */
+.avg-cell:nth-child(odd) {
+  padding-left: 0;
+}
+.avg-cell:nth-child(even) {
+  padding-right: 0;
+}
+.avg-cell:nth-child(n + 3) {
+  padding-bottom: 0;
+}
+.avg-cell:nth-child(even) {
+  border-left: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.avg-cell:nth-child(-n + 2) {
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.avg-cell strong {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.avg-cell strong.over {
+  color: var(--warning);
+}
+.avg-bar {
+  display: block;
+  height: 4px;
+  margin-top: 0.45rem;
+  border-radius: var(--radius-pill);
+  background: var(--viz-grid);
+  overflow: hidden;
+}
+.avg-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.avg-bar > span.over {
+  background: var(--warning);
+}
 .next-up {
   display: flex;
   flex-direction: column;
