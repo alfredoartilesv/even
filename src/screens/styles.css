@@ -477,89 +477,102 @@ ul.saved-list {
     animation: none;
   }
 }
-/* Floats over the top of the page, below the status bar and above the side menu's scrim, as wide as
-   the page column at most. */
-.banner {
+/* Today's bell: the symbol alone like the sync button, a dot in the accent color for a notice not yet seen. */
+.bell-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.bell-button.icon-button {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+.bell-button.icon-button:active:not(:disabled),
+.bell-button.icon-button.open {
+  background: var(--accent-soft);
+}
+.bell-button.icon-button:focus:not(:focus-visible) {
+  outline: none;
+}
+.bell-button.icon-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.bell-dot {
+  position: absolute;
+  top: 11px;
+  right: 12px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+/* The list drops under the bell, right-aligned with it (top and right set from the bell), never wider than the screen. */
+.bell-panel {
   position: fixed;
-  top: calc(var(--safe-top) + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 24;
   box-sizing: border-box;
-  width: calc(100% - 2 * 16px);
-  max-width: 36rem;
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  align-items: center;
-  gap: 0.6rem;
-  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  width: min(18rem, calc(100vw - 2 * 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-pop);
-  padding: 0.5rem 0.4rem 0.5rem 0.75rem;
-  animation: banner-in var(--normal) var(--ease);
+  text-align: left;
+  animation: bell-in var(--fast) var(--ease);
 }
-@keyframes banner-in {
+@keyframes bell-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -0.75rem);
+    transform: translateY(-0.4rem);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .banner {
+  .bell-panel {
     animation: none;
   }
 }
-.banner-icon {
+.bell-title {
+  font-weight: 600;
+}
+.bell-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+.bell-item-icon {
   display: flex;
+  padding-top: 0.1rem;
   color: var(--warning);
 }
-.banner-text {
+.bell-item-text {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.banner strong {
+.bell-item-text strong {
   font-weight: 600;
 }
-.banner .small {
-  color: var(--muted);
-  margin-top: 0.15rem;
-}
-.banner-action {
+.bell-action {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  margin-top: 0.5rem;
   white-space: nowrap;
-  background: var(--surface);
 }
-.banner-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  border-radius: 50%;
-}
-/* On a phone a notice with an error line drops the button under the text instead of squeezing it
-   to a few words a line; the close button stays top right. */
-@media (max-width: 30rem) {
-  .banner.detailed {
-    grid-template-columns: auto 1fr auto;
-    align-items: start;
-  }
-  .banner.detailed .banner-icon {
-    padding-top: 0.6rem;
-  }
-  .banner.detailed .banner-text {
-    padding-top: 0.55rem;
-  }
-  .banner.detailed .banner-action {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-  }
-  .banner.detailed .banner-close {
-    grid-column: 3;
-    grid-row: 1;
-  }
+.bell-empty {
+  margin: 0;
 }
 a.file-button {
   color: var(--fg);
@@ -2521,6 +2534,24 @@ dl.overview-lines dd {
 }
 .pin-button.on .icon {
   fill: currentColor;
+}
+/* A chart's pin and Table share one height and line up on the title's first line (the owner's
+   ask, 14 Nov 2026: the round pin stood taller than the Table pill beside it). */
+.viz-head .pin-button,
+.viz-head .viz-toggle {
+  flex: none;
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 0;
+}
+.viz-head .pin-button {
+  width: 40px;
+}
+.viz-head .viz-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.85rem;
+  border-radius: var(--radius-pill);
 }
 
 /* Debug logs (logs/LogsScreen.tsx): by day, one row per record that opens to its fields. */
@@ -4701,18 +4732,29 @@ body {
   width: 14em;
   text-align: center;
 }
+/*
+ * ‹ and › sit at the two ends of the middle column and the date fills the space between them, so
+ * the arrows never move and always keep a gap to the round button, whatever the phone's text size
+ * (a larger system font pushed › against it, 14 Nov 2026). A date too long for the row ends in "…".
+ */
 .today-datebar .period-nav.icon-back {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  gap: 0;
+  column-gap: 0.75rem;
 }
 .today-datebar .period-nav.icon-back .date-steps {
   grid-column: 2;
-  justify-self: center;
+  display: flex;
+  justify-self: stretch;
+  min-width: 0;
 }
 .today-datebar .period-nav .today-date-text {
-  width: 13.5em;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .period-nav .date-back,
 .app-frame .period-nav .date-back {

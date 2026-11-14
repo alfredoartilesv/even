@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { pluginNotification, type LocalNotice, type Notifier } from "../src/core/notifier";
 import {
   ago,
+  markNoticeSeen,
+  seenNotice,
+  syncNotice,
   freshness,
   nextReminderAt,
   refreshSyncReminder,
@@ -107,4 +110,31 @@ test("the reminder asks Android for an inexact alarm, so scheduling never opens 
     schedule: { at: new Date(at), allowWhileIdle: true },
     isExactNotification: false,
   });
+});
+
+test("the bell's notice: a failed sync, or none for 3 days; each failure or stale stretch has its own key", () => {
+  const now = 10 * 86_400_000;
+  const base = { finishedMs: null, samplesWritten: null, warnings: [], error: null };
+  const ok = { ...base, status: "ok" as const, startedMs: now - 60_000, lastOkMs: now - 60_000 };
+  assert.equal(syncNotice(ok, true, now), null, "a recent good sync: nothing to say");
+  assert.equal(syncNotice(null, true, now), null);
+  const failed = { ...base, status: "error" as const, startedMs: now - 600_000, error: "Garmin did not answer", lastOkMs: now - 3_600_000 };
+  assert.equal(syncNotice(failed, false, now), null, "no Garmin key: no notice");
+  assert.deepEqual(syncNotice(failed, true, now), {
+    key: `failed:${now - 600_000}`,
+    title: "Garmin sync failed",
+    detail: "Garmin did not answer",
+    failed: true,
+    atMs: now - 600_000,
+  });
+  const stale = { ...ok, startedMs: now - 4 * 86_400_000, lastOkMs: now - 4 * 86_400_000 };
+  assert.equal(syncNotice(stale, true, now)?.title, "No Garmin sync for 4 days");
+  assert.equal(syncNotice(stale, true, now)?.key, syncNotice(stale, true, now + 3_600_000)?.key, "the same stretch keeps its key, so a seen dot stays off");
+});
+
+test("the notice the bell was opened on is remembered across restarts", async () => {
+  const { db } = await migratedDb();
+  assert.equal(await seenNotice(db), null);
+  await markNoticeSeen(db, "failed:123", 1);
+  assert.equal(await seenNotice(db), "failed:123");
 });
