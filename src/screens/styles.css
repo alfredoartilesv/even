@@ -803,6 +803,17 @@ details.card > summary {
 .sync-button.icon-button:active:not(:disabled) {
   background: var(--accent-soft);
 }
+/* A tap shows the round fill only: no square tap flash (Android WebView) or focus box after a click; the keyboard still gets a round ring. */
+.sync-button.icon-button {
+  -webkit-tap-highlight-color: transparent;
+}
+.sync-button.icon-button:focus:not(:focus-visible) {
+  outline: none;
+}
+.sync-button.icon-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .sync-button.icon-button:disabled {
   opacity: 1;
 }
@@ -4623,11 +4634,24 @@ body {
 .today-datebar .period-nav {
   margin: 0;
 }
+/*
+ * Today's ‹ date › keeps one width for a day, a week and a month (the owner's ask, 14 Nov 2026):
+ * the date sits centered in a box wide enough for the longest day name, so the arrows never move
+ * when the period changes. On a phone the row is centered, with the way back under it.
+ */
+.today .period-nav .today-date-text {
+  flex: none;
+  box-sizing: content-box;
+  width: 14em;
+  text-align: center;
+}
 .today-datebar .period-nav {
+  flex-direction: column;
+  align-items: center;
   flex-wrap: nowrap;
 }
 .today-datebar .period-nav .date-today {
-  margin-left: auto;
+  margin-left: 0;
 }
 /* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
 .empty-week {

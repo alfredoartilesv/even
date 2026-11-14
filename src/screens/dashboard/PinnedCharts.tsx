@@ -12,7 +12,7 @@ const int = (n: number) => Math.round(n).toLocaleString();
 interface Props {
   db: SqlDriver;
   d: Dashboard;
-  /** "this week" or "this month", for the heading. */
+  /** "last 30 days" or the period's dates, for the heading. */
   period: string;
   formatX: (day: string) => string;
   /** Tap a day on the steps chart to open it. */
