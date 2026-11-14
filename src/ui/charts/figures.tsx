@@ -220,20 +220,39 @@ export function Ring({
   );
 }
 
+/** One macro around Today's ring: grams eaten against the day's target (null: no target set). */
+export interface RingMacro {
+  key: string;
+  label: string;
+  grams: number | null;
+  target: number | null;
+  /** Its series color while within the target. */
+  color: string;
+}
+
+/** The macro rings sit close outside the calorie ring, protein nearest it: radius of the first and the step out (6 wide, 2 apart). */
+const MACRO_R0 = 82;
+const MACRO_STEP = 8;
+
 /**
  * Today's big ring (handoff 0.7): calories eaten against the target, with what is left in the
  * middle, or how far over in the warning colour. Without a target it shows what was eaten.
+ * With macros, each wraps the calorie ring as a thinner ring of its own (the owner's choice,
+ * 14 Nov 2026): it fills toward its target and, past it, closes in the warning colour like the
+ * calories do. A macro without a target keeps an empty track.
  */
 export function BalanceRing({
   eaten,
   target,
   size = 184,
   caption = "kcal left today",
+  macros,
 }: {
   eaten: number | null;
   target: number | null;
   size?: number;
   caption?: string;
+  macros?: RingMacro[];
 }) {
   const r = 70;
   const c = 2 * Math.PI * r;
@@ -241,18 +260,54 @@ export function BalanceRing({
   const over = target !== null && e > target;
   const frac = target ? Math.min(1, e / target) : 0;
   const big = target === null ? Math.round(e).toLocaleString() : Math.round(Math.abs(target - e)).toLocaleString();
+  const rings = macros ?? [];
+  // The box grows by the macro rings so the calorie ring keeps its size inside it.
+  const half = 80 + (rings.length ? MACRO_R0 - 80 + MACRO_STEP * (rings.length - 1) + 10 : 0);
+  const mid = half;
+  const macroText = rings.map((m) => `${m.label} ${Math.round(m.grams ?? 0)}${m.target ? ` of ${Math.round(m.target)}` : ""} g`).join(", ");
   const label =
-    target === null
+    (target === null
       ? `${Math.round(e).toLocaleString()} kcal eaten, no target set`
-      : `${Math.round(e).toLocaleString()} of ${Math.round(target).toLocaleString()} kcal eaten, ${big} ${over ? "over" : "left"}`;
+      : `${Math.round(e).toLocaleString()} of ${Math.round(target).toLocaleString()} kcal eaten, ${big} ${over ? "over" : "left"}`) +
+    (macroText ? `. ${macroText}` : "");
   return (
-    <svg className={`balance-ring${over ? " over" : ""}`} role="img" aria-label={label} width={size} height={size} viewBox="0 0 160 160">
-      <circle className="track" cx="80" cy="80" r={r} />
-      <circle className="fill" cx="80" cy="80" r={r} strokeDasharray={`${(frac * c).toFixed(1)} ${c.toFixed(1)}`} transform="rotate(-90 80 80)" />
-      <text className="big" x="80" y="82" textAnchor="middle">
+    <svg
+      className={`balance-ring${over ? " over" : ""}${rings.length ? " with-macros" : ""}`}
+      role="img"
+      aria-label={label}
+      width={size}
+      height={size}
+      viewBox={`0 0 ${half * 2} ${half * 2}`}
+    >
+      {rings.map((m, i) => {
+        const mr = MACRO_R0 + MACRO_STEP * i;
+        const mc = 2 * Math.PI * mr;
+        const g = m.grams ?? 0;
+        const mOver = m.target !== null && g > m.target;
+        const mf = m.target ? Math.min(1, g / m.target) : 0;
+        return (
+          <g key={m.key} className={`macro${mOver ? " over" : ""}`}>
+            <circle className="macro-track" cx={mid} cy={mid} r={mr} />
+            {mf > 0 && (
+              <circle
+                className="macro-fill"
+                cx={mid}
+                cy={mid}
+                r={mr}
+                style={mOver ? undefined : { stroke: m.color }}
+                strokeDasharray={`${(mf * mc).toFixed(1)} ${mc.toFixed(1)}`}
+                transform={`rotate(-90 ${mid} ${mid})`}
+              />
+            )}
+          </g>
+        );
+      })}
+      <circle className="track" cx={mid} cy={mid} r={r} />
+      <circle className="fill" cx={mid} cy={mid} r={r} strokeDasharray={`${(frac * c).toFixed(1)} ${c.toFixed(1)}`} transform={`rotate(-90 ${mid} ${mid})`} />
+      <text className="big" x={mid} y={mid + 2} textAnchor="middle">
         {big}
       </text>
-      <text className="small" x="80" y="104" textAnchor="middle">
+      <text className="small" x={mid} y={mid + 24} textAnchor="middle">
         {target === null ? "kcal eaten" : over ? "kcal over target" : caption}
       </text>
     </svg>

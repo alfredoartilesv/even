@@ -803,6 +803,17 @@ details.card > summary {
 .sync-button.icon-button:active:not(:disabled) {
   background: var(--accent-soft);
 }
+/* A tap shows the round fill only: no square tap flash (Android WebView) or focus box after a click; the keyboard still gets a round ring. */
+.sync-button.icon-button {
+  -webkit-tap-highlight-color: transparent;
+}
+.sync-button.icon-button:focus:not(:focus-visible) {
+  outline: none;
+}
+.sync-button.icon-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .sync-button.icon-button:disabled {
   opacity: 1;
 }
@@ -2792,6 +2803,51 @@ button {
 .balance-ring.over .fill {
   stroke: var(--warning);
 }
+/* The macro rings around the calorie ring: thinner, each in its series color, the warning color past its target. */
+.balance-ring .macro-track,
+.balance-ring .macro-fill {
+  stroke-width: 6;
+}
+.balance-ring .macro-track {
+  stroke: var(--viz-grid);
+}
+.balance-ring .macro-fill {
+  stroke-linecap: round;
+}
+.balance-ring .macro.over .macro-fill {
+  stroke: var(--warning);
+}
+/* Under the ring, one column per macro: its dot and name, then the grams against the target. */
+.macro-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+.macro-legend li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.macro-legend strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.macro-legend .over strong {
+  color: var(--warning);
+}
+.macro-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: var(--warning);
+  vertical-align: 1px;
+}
 .balance-ring .big {
   font-size: 38px;
   font-weight: 700;
@@ -3177,7 +3233,8 @@ button:active:not(:disabled) {
   .viz-plot .viz-area {
     animation: ev-fade 0.9s ease-out 0.4s backwards;
   }
-  .balance-ring .fill {
+  .balance-ring .fill,
+  .balance-ring .macro-fill {
     animation: ev-fade 0.6s ease-out backwards;
   }
   .macro-track > span {
@@ -3986,6 +4043,11 @@ button:active:not(:disabled) {
   width: 168px;
   height: 168px;
 }
+/* The macro rings add a band outside the calorie ring: the box grows so the calorie ring stays as big. */
+.balance-card .balance-ring.with-macros {
+  width: 210px;
+  height: 210px;
+}
 .balance-side {
   flex: 1 1 180px;
 }
@@ -4014,6 +4076,10 @@ button:active:not(:disabled) {
   .balance-card .balance-ring {
     width: 150px;
     height: 150px;
+  }
+  .balance-card .balance-ring.with-macros {
+    width: 184px;
+    height: 184px;
   }
   .balance-side {
     flex-basis: 160px;
@@ -4623,11 +4689,46 @@ body {
 .today-datebar .period-nav {
   margin: 0;
 }
-.today-datebar .period-nav {
-  flex-wrap: nowrap;
+/*
+ * Today's ‹ date › keeps one width for a day, a week and a month (the owner's ask, 14 Nov 2026):
+ * the date sits centered in a box wide enough for the longest day name, so the arrows never move
+ * when the period changes. On a phone the row is centered, with the way back as a round button
+ * at its end (a matching empty column on the left keeps ‹ date › centered).
+ */
+.today .period-nav .today-date-text {
+  flex: none;
+  box-sizing: content-box;
+  width: 14em;
+  text-align: center;
 }
-.today-datebar .period-nav .date-today {
-  margin-left: auto;
+.today-datebar .period-nav.icon-back {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 0;
+}
+.today-datebar .period-nav.icon-back .date-steps {
+  grid-column: 2;
+  justify-self: center;
+}
+.today-datebar .period-nav .today-date-text {
+  width: 13.5em;
+}
+.period-nav .date-back,
+.app-frame .period-nav .date-back {
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--area-deep);
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
 }
 /* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
 .empty-week {
@@ -4790,6 +4891,29 @@ body {
 }
 .today-tiles.recovery .viz-tile-value {
   white-space: nowrap;
+}
+/*
+ * One bar, not three tiles (the owner's ask, 14 Nov 2026): the three figures share one card, each
+ * column centered, with a barely visible line between them, so recovery reads as one thing.
+ */
+.today-tiles.recovery {
+  gap: 0;
+  margin: 0;
+  padding: 0.8rem 0;
+}
+.today-tiles.recovery .viz-tile,
+.app-frame .today-tiles.recovery .viz-tile {
+  justify-items: center;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  transform: none;
+}
+.today-tiles.recovery .viz-tile + .viz-tile {
+  border-left: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 
 /* Eaten, burned and the deficit or excess, under the macros on Today's balance card. */

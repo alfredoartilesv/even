@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { BarChart, CalendarHeatmap, LineChart, StatTile } from "../src/ui/charts";
+import { BalanceRing, BarChart, CalendarHeatmap, LineChart, StatTile } from "../src/ui/charts";
 import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, present, segments } from "../src/ui/charts/scale";
 import { batchColors, PlanDays, StockAlerts } from "../src/ui/mealprep/components";
 import { daysCovered, timelineDays } from "../src/ui/mealprep/timeline";
-import { MacroSplit } from "../src/ui/nutrition";
+import { MacroLegend, MacroSplit, ringMacros } from "../src/ui/nutrition";
 import { Logo } from "../src/ui/logo";
 
 test("niceTicks: round steps that cover the data, flat and odd ranges included", () => {
@@ -156,4 +156,17 @@ test("logo: named Even, or hidden next to the name; colors from the palette only
   assert.match(renderToStaticMarkup(h(Logo, { decorative: true })), /aria-hidden="true"/);
   assert.doesNotMatch(renderToStaticMarkup(h(Logo, { decorative: true })), /role="img"/);
   for (const c of named.match(/(?:fill|stroke)="[^"]*"/g) ?? []) assert.match(c, /="(none|var\(--(brand|brand-ring|on-brand)\))"/, c);
+});
+
+test("Today's ring: the macros wrap the calorie ring, and one past its target closes in the warning color", () => {
+  const macros = ringMacros({ protein: 80, carbs: 300, fat: null }, { protein: 150, carbs: 260, fat: 75 });
+  const ring = renderToStaticMarkup(h(BalanceRing, { eaten: 1210, target: 2300, macros }));
+  assert.equal((ring.match(/class="macro-track"/g) ?? []).length, 3, "a track for each macro, even one with nothing eaten");
+  assert.equal((ring.match(/class="macro-fill"/g) ?? []).length, 2, "no fill for a macro with nothing eaten");
+  assert.match(ring, /class="macro over"/, "carbs past the target");
+  assert.match(ring, /aria-label="1,210 of 2,300 kcal eaten, 1,090 left\. Protein 80 of 150 g, Carbs 300 of 260 g, Fat 0 of 75 g"/);
+  assert.doesNotMatch(renderToStaticMarkup(h(BalanceRing, { eaten: 1210, target: 2300 })), /macro/, "without macros the ring is as before");
+  const legend = renderToStaticMarkup(h(MacroLegend, { macros }));
+  assert.match(legend, /80 \/ 150 g/);
+  assert.match(legend, /<li class="over">.*300 \/ 260 g.*over target/);
 });

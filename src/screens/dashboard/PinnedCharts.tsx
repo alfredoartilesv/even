@@ -12,11 +12,16 @@ const int = (n: number) => Math.round(n).toLocaleString();
 interface Props {
   db: SqlDriver;
   d: Dashboard;
-  /** "this week" or "this month", for the heading. */
+  /** "last 30 days" or the period's dates, for the heading. */
   period: string;
   formatX: (day: string) => string;
   /** Tap a day on the steps chart to open it. */
   onDay: (day: string) => void;
+  /**
+   * A single day already has its own steps chart (two weeks, beside recovery), so there a pinned
+   * Steps shows as Energy balance, eaten against burned, instead (the owner's ask, 14 Nov 2026).
+   */
+  daySteps?: boolean;
 }
 
 /**
@@ -24,7 +29,7 @@ interface Props {
  * Each card has a pin button; what is pinned is kept on this device (domain/dashboard/pins.ts).
  * Pinned charts come first when all are shown.
  */
-export function PinnedCharts({ db, d, period, formatX, onDay }: Props) {
+export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }: Props) {
   const [pins, setPins] = useState<ChartId[] | null>(null);
   const [all, setAll] = useState(false);
   useEffect(() => {
@@ -32,15 +37,18 @@ export function PinnedCharts({ db, d, period, formatX, onDay }: Props) {
   }, [db]);
   if (pins === null) return null;
 
+  // On a day, Energy balance stands in for a pinned Steps: it reads as pinned, and unpinning it
+  // unpins both.
+  const isOn = (id: ChartId) => pins.includes(id) || (daySteps && id === "energy" && pins.includes("steps"));
   const toggle = (id: ChartId) => {
-    const next = pins.includes(id) ? pins.filter((p) => p !== id) : [...pins, id];
+    const next = isOn(id) ? pins.filter((p) => p !== id && !(daySteps && id === "energy" && p === "steps")) : [...pins, id];
     setPins(next);
     void savePins(db, next);
   };
   const x = d.days.map((r) => r.day);
   const long = (day: string) => fmtDay(day);
   const pin = (id: ChartId, title: string) => {
-    const on = pins.includes(id);
+    const on = isOn(id);
     return (
       <button
         type="button"
@@ -143,9 +151,12 @@ export function PinnedCharts({ db, d, period, formatX, onDay }: Props) {
     ),
   };
 
-  // Pinned first, in the order they were pinned; the rest after them in the usual order.
-  const ordered = [...pins, ...CHART_IDS.filter((id) => !pins.includes(id))];
-  const shown = all ? ordered : ordered.filter((id) => pins.includes(id));
+  // Pinned first, in the order they were pinned; the rest after them in the usual order. On a day,
+  // Steps gives its place to Energy balance (once, if that is pinned too) and is not offered.
+  const swap = (ids: ChartId[]) => (daySteps ? [...new Set(ids.map((id) => (id === "steps" ? "energy" : id)))] : ids);
+  const pinned = swap(pins);
+  const ordered = swap([...pins, ...CHART_IDS.filter((id) => !pins.includes(id))]);
+  const shown = all ? ordered : pinned;
   return (
     <section className="pinned-charts" aria-labelledby="charts-title">
       <div className="pinned-head">
@@ -154,7 +165,7 @@ export function PinnedCharts({ db, d, period, formatX, onDay }: Props) {
           {all ? "" : " · pinned"}
         </h2>
         <button type="button" className="secondary" aria-expanded={all} onClick={() => setAll(!all)}>
-          {all ? "Show pinned only" : `Show all charts (${CHART_IDS.length})`}
+          {all ? "Show pinned only" : `Show all charts (${ordered.length})`}
         </button>
       </div>
       {shown.length === 0 && <p className="muted small pinned-empty">No charts pinned. Open Show all charts and pin the ones you want to keep here.</p>}

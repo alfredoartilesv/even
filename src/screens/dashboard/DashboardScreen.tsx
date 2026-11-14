@@ -5,7 +5,7 @@ import type { SqlDriver } from "../../db/driver";
 import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
-import { MacroBars } from "../../ui/nutrition";
+import { MacroLegend, ringMacros } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { fmtDuration } from "../../domain/me/workouts";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
@@ -96,11 +96,10 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" } as const;
 const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack", "prep"];
 
-/** "Mon, Nov 9", "Oct 20 – Oct 26", "October 2026". */
+/** "Mon, Nov 9", "Oct 20 – Oct 26" (a week or the 30 days of a month). */
 function spanTitle(span: Span, anchor: string): string {
   const { from, to } = spanRange(span, anchor);
   if (span === "day") return cap(fmtDay(from));
-  if (span === "month") return short(from, { month: "long", year: "numeric" });
   return `${short(from, { day: "numeric", month: "short" })} – ${short(to, { day: "numeric", month: "short" })}`;
 }
 
@@ -179,11 +178,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   const first = shown?.name?.split(" ")[0];
   // The title is always the greeting (the owner's choice, 8 Nov 2026), so this line names the day
   // or the period being looked at.
-  const dateText = many
-    ? span === "month"
-      ? short(current.from, { month: "long", year: "numeric" })
-      : `${fmtDay(current.from)} – ${fmtDay(current.to)}`
-    : fmtDayLong(anchor);
+  const dateText = many ? `${fmtDay(current.from)} – ${fmtDay(current.to)}` : fmtDayLong(anchor);
   const hasAny = d && (d.steps.total !== null || d.burned.total !== null || d.eaten.total !== null || d.workouts.count > 0);
   const chartsData = many ? d : (shown?.week ?? null);
   const period = (
@@ -200,14 +195,17 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 
   // The day or period with ‹ ›: under the greeting on a wide screen, a row of its own on a phone,
-  // where beside the menu and sync it would be cut.
-  const dateNav = (
+  // where beside the menu and sync it would be cut. On the phone the way back is a round button at
+  // the end of the row (the owner's choice, 14 Nov 2026), so opening a past day moves nothing under it.
+  const dateNav = (currentIcon: boolean) => (
     <PeriodNav
+      currentIcon={currentIcon}
       title={dateText}
       unit={span}
       onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-      onNext={() => setAnchor(span === "week" && next > now ? now : next)}
-      nextDisabled={span === "week" ? current.to >= now : next > now}
+      // A week or a month runs up to its last day: the next one stops at today, never past it.
+      onNext={() => setAnchor(many && next > now ? now : next)}
+      nextDisabled={many ? current.to >= now : next > now}
       onCurrent={isCurrent ? null : () => setAnchor(now)}
       currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
     />
@@ -218,7 +216,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       <div className="today-main">
         <PageHeader
           title={`Hi${first ? `, ${first}` : ""}`}
-          subtitle={<span className="wide-only">{dateNav}</span>}
+          subtitle={<span className="wide-only">{dateNav(false)}</span>}
           leading={<span className="narrow-only">{profile}</span>}
           actions={
             <div className="today-tools">
@@ -238,7 +236,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             </div>
           }
         />
-        <div className="narrow-only today-datebar">{dateNav}</div>
+        <div className="narrow-only today-datebar">{dateNav(true)}</div>
         <div className="narrow-only today-period">{period}</div>
 
         {syncWarnings.map((w) => (
@@ -277,9 +275,10 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
           <PinnedCharts
             db={db}
             d={chartsData}
-            period={span === "month" && isCurrent ? "this month" : many ? spanTitle(span, anchor) : "last 7 days"}
+            period={span === "month" && isCurrent ? "last 30 days" : many ? spanTitle(span, anchor) : "last 7 days"}
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
+            daySteps={!many}
           />
         )}
       </div>
@@ -374,6 +373,7 @@ function DayView({
   const eaten = d.eaten.total;
   const target = d.targets.kcal;
   const left = target !== null ? target - (eaten ?? 0) : null;
+  const macros = ringMacros({ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }, d.targets);
   const heroLine =
     eaten === null
       ? isToday
@@ -396,10 +396,10 @@ function DayView({
       <div className="today-grid">
         <div className="today-col left" ref={leftRef}>
           <section className="card balance-card" aria-label="Balance">
-            <BalanceRing eaten={eaten} target={target} caption="kcal left" />
+            <BalanceRing eaten={eaten} target={target} caption="kcal left" macros={macros} />
             <div className="balance-side">
               <p className="balance-line">{heroLine}</p>
-              <MacroBars grams={{ protein: d.protein.total, carbs: d.carbs.total, fat: d.fat.total }} targets={d.targets} />
+              <MacroLegend macros={macros} />
               <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
@@ -419,7 +419,7 @@ function DayView({
                 onChanged={onChanged}
               />
             )}
-            <section className="today-tiles recovery" aria-label="Recovery">
+            <section className="card today-tiles recovery" aria-label="Recovery">
               <StatTile
                 label="Sleep"
                 value={d.body.sleep.total !== null ? hm(d.body.sleep.total) : null}
