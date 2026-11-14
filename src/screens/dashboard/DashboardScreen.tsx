@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
+import { BalanceRing, BarChart, LineChart, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
@@ -12,6 +12,8 @@ import { SCALE } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
 import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
+import { listDrinks } from "../../domain/alcohol/alcohol";
+import { clockOf, intradayEnergy, type EnergyPoint } from "../../domain/dashboard/intraday";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { skipTupper } from "../../domain/mealprep/skips";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
@@ -33,6 +35,8 @@ interface Shown {
   metrics: DayValue[];
   food: FoodEntry[];
   next: NextUp | null;
+  /** A day's eaten against burned, hour by hour (the chart at the end of the day view). */
+  intraday: EnergyPoint[] | null;
   name: string | null;
   /** The owner's weight unit (You > Profile); weights are stored in kg. */
   weightUnit: WeightUnit;
@@ -139,17 +143,27 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     const all = log.time("dashboard loaded", "info");
     performance.mark("even:dashboard-query");
     const day = span === "day";
-    const [d, p, m, food, next, week] = await Promise.all([
+    const [d, p, m, food, next, week, drinks] = await Promise.all([
       timed("figures", loadDashboard(db, span, anchor, today())),
       loadProfile(db),
       day ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
       day ? dayFood(db, anchor) : Promise.resolve([]),
       day && anchor === today() ? nextUp(db, timeZone()) : Promise.resolve(null),
       day ? loadDashboard(db, "last7", anchor, today()) : Promise.resolve(null),
+      day ? listDrinks(db, anchor, anchor) : Promise.resolve([]),
     ]);
+    const intraday = day
+      ? intradayEnergy(
+          anchor,
+          timeZone(),
+          [...food.map((f) => ({ atMs: f.eatenAtMs, kcal: f.calories ?? 0 })), ...drinks.map((x) => ({ atMs: x.drunkAtMs, kcal: x.kcal }))],
+          d.burned.total,
+          anchor === today() ? Date.now() : null,
+        )
+      : null;
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
-    const fresh = { data: d, week, metrics: m, food, next, name: p.name, weightUnit: p.weightUnit };
+    const fresh = { data: d, week, metrics: m, food, next, intraday, name: p.name, weightUnit: p.weightUnit };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
@@ -280,6 +294,8 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             daySteps={!many}
           />
         )}
+        {/* The day's eaten against burned, last on the page (the owner's ask, 14 Nov 2026). */}
+        {!many && shown?.intraday && shown.intraday.length > 1 && <DayEnergy points={shown.intraday} isToday={anchor === now} />}
       </div>
       {rail && go.askClaude && d && (
         <CoachRail
@@ -778,6 +794,32 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * A day's calories eaten against burned, hour by hour: eaten climbs at each meal and drink, burned
+ * is the watch's day total spread evenly (it gives no hourly burn), up to now on the current day.
+ */
+function DayEnergy({ points, isToday }: { points: EnergyPoint[]; isToday: boolean }) {
+  const last = points[points.length - 1];
+  const hasBurn = last.burned !== null;
+  return (
+    <section className="day-energy" aria-label="Eaten against burned">
+      <LineChart
+        title={isToday ? "Eaten vs burned today" : "Eaten vs burned"}
+        subtitle={`${int(last.eaten)} kcal eaten${hasBurn ? ` · ${int(last.burned ?? 0)} burned${isToday ? " so far" : ""}` : ""}. ${hasBurn ? "Burned is the watch's day total spread evenly." : "No burn from the watch for this day."}`}
+        x={points.map((p) => clockOf(p.minute))}
+        series={[
+          { id: "eaten", label: "Eaten", values: points.map((p) => p.eaten), slot: 1 },
+          ...(hasBurn ? [{ id: "burned", label: "Burned", values: points.map((p) => p.burned), slot: 2 }] : []),
+        ]}
+        formatX={(t) => (t.endsWith(":00") ? `${Number(t.slice(0, 2))}h` : t)}
+        formatValue={int}
+        unit="kcal"
+        zero
+      />
+    </section>
   );
 }
 
