@@ -65,6 +65,12 @@ export function EatAgain({
     await onUndo(logged.entryId);
     setLogged(null);
   };
+  // Another meal's chip closes an open edit, so coming back shows the list, not a half-done form.
+  const pickChip = (s: Slot) => {
+    setChip(s);
+    setEditing(null);
+    setMsg(null);
+  };
   const edit = async (c: Candidate) => {
     setMsg(null);
     if (editing?.key === c.key) return setEditing(null);
@@ -95,7 +101,7 @@ export function EatAgain({
       </div>
       <div className="chips eat-again-chips" role="group" aria-label="Meal">
         {order.map((s) => (
-          <button key={s} type="button" className={chip === s ? `chip active ${s}` : "chip"} aria-pressed={chip === s} onClick={() => setChip(s)}>
+          <button key={s} type="button" className={chip === s ? `chip active ${s}` : "chip"} aria-pressed={chip === s} onClick={() => pickChip(s)}>
             {LABEL[s]}
             {isToday && s === now ? " now" : ""}
           </button>
