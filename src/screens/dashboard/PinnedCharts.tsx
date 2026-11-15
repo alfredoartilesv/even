@@ -25,7 +25,7 @@ interface Props {
 }
 
 /**
- * Today's charts for a week or a month: the pinned ones, or every chart with "Show all charts".
+ * Today's charts for a week or a month: the pinned ones, or every chart with "All".
  * Each card has a pin button; what is pinned is kept on this device (domain/dashboard/pins.ts).
  * Pinned charts come first when all are shown.
  */
@@ -161,14 +161,13 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }
     <section className="pinned-charts" aria-labelledby="charts-title">
       <div className="pinned-head">
         <h2 id="charts-title">
-          Charts · {period}
-          {all ? "" : " · pinned"}
+          Charts <span className="muted small">{period}</span>
         </h2>
-        <button type="button" className="secondary" aria-expanded={all} onClick={() => setAll(!all)}>
-          {all ? "Show pinned only" : `Show all charts (${ordered.length})`}
+        <button type="button" className="secondary pinned-toggle" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Pinned" : `All ${ordered.length}`}
         </button>
       </div>
-      {shown.length === 0 && <p className="muted small pinned-empty">No charts pinned. Open Show all charts and pin the ones you want to keep here.</p>}
+      {shown.length === 0 && <p className="muted small pinned-empty">No charts pinned. Open All and pin the ones you want to keep here.</p>}
       <div className="pinned-grid">
         {shown.map((id) => (
           <div key={id}>{charts[id]}</div>

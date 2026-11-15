@@ -3,7 +3,7 @@ import { getSetting, setSetting } from "../../db/settings";
 
 /**
  * The charts Today keeps for a week or a month (handoff 0.7, "pinned charts"): the owner pins the
- * ones they want, "Show all charts" shows the rest. A layout choice of this device, so it stays
+ * ones they want, "All" shows the rest. A layout choice of this device, so it stays
  * in app_settings, which syncs only the profile. Kept in the order they were pinned, which is the
  * order Today shows them in (the owner's ask, 9 Nov 2026).
  */

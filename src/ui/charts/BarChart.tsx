@@ -23,6 +23,8 @@ export interface BarChartProps {
   dim?: boolean;
   /** A button in the card's head beside Table (Today's pin). */
   action?: ReactNode;
+  /** Under the chart, inside its card (the picked day's numbers). */
+  footer?: ReactNode;
 }
 
 const PAD = { top: 18, right: 8, bottom: 24, left: 40 };
@@ -48,6 +50,7 @@ export function BarChart({
   height = 170,
   dim,
   action,
+  footer,
 }: BarChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -78,7 +81,7 @@ export function BarChart({
   const max = Math.max(0, target ?? 0, ...values.map((v) => v ?? 0));
   if (!x.length || (max === 0 && values.every((v) => v === null))) {
     return (
-      <ChartFrame title={title} subtitle={subtitle} dim={dim} action={action}>
+      <ChartFrame title={title} subtitle={subtitle} dim={dim} action={action} footer={footer}>
         <EmptyPlot height={height} />
       </ChartFrame>
     );
@@ -94,7 +97,7 @@ export function BarChart({
   const cx = (i: number) => PAD.left + band * i + band / 2;
 
   return (
-    <ChartFrame title={title} subtitle={subtitle} legend={legend} table={table} dim={dim} action={action}>
+    <ChartFrame title={title} subtitle={subtitle} legend={legend} table={table} dim={dim} action={action} footer={footer}>
       <div ref={ref} className="viz-plot">
         <svg width={width} height={height} role={onSelect ? "group" : "img"} aria-label={title}>
           {ticks.map((t) => (
@@ -134,7 +137,8 @@ export function BarChart({
               <g
                 key={x[i]}
                 {...interactive}
-                onPointerEnter={() => setHover(i)}
+                // A tap is a pick, not a hover: on touch the tooltip would pop up and stay over the bars.
+                onPointerEnter={(e) => e.pointerType === "mouse" && setHover(i)}
                 onPointerLeave={() => setHover(null)}
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
@@ -160,7 +164,8 @@ export function BarChart({
             </g>
           )}
         </svg>
-        {hover !== null && (
+        {/* The picked bar already shows its value on top (and the page its details), so no tooltip for it. */}
+        {hover !== null && x[hover] !== selected && (
           <Tooltip
             x={cx(hover)}
             width={width}
