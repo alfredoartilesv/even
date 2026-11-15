@@ -2017,14 +2017,6 @@ ol.steps li::marker {
   text-transform: uppercase;
   color: var(--muted);
 }
-.drink-plus {
-  flex: none;
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
 .drink-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2044,10 +2036,6 @@ ol.steps li::marker {
   padding: 0.75rem;
   border-radius: var(--radius);
   background: var(--accent-soft);
-}
-ul.drink-list li {
-  flex-wrap: wrap;
-  align-items: center;
 }
 ol.drink-days {
   list-style: none;
@@ -2276,141 +2264,11 @@ dl.overview-lines dd {
   font-weight: 600;
 }
 
-/*
- * Start-up (screens/start): Loading on the ink green of the menu, with a spinning ring, a counter
- * and a bar that follow the real steps; first run (Connect, About you, Targets) on the page.
- */
-@property --ev-n {
-  syntax: "<integer>";
-  inherits: false;
-  initial-value: 0;
-}
-.loading-page {
-  min-height: 100vh;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: calc(2rem + var(--safe-top)) 1rem calc(2rem + var(--safe-bottom));
-  background: var(--nav-ink);
-  color: var(--on-nav);
-  text-align: center;
-}
-.loading-page .topbar {
-  position: static;
-  background: none;
-  justify-content: center;
-}
-.loading-page .topbar h1 {
-  color: var(--on-nav);
-}
-.loading-page .topbar .muted {
-  color: var(--on-nav-muted);
-}
-.loading-mark {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 96px;
-  height: 96px;
-}
-.loading-mark .logo {
-  position: absolute;
-}
-.loading-ring circle {
-  fill: none;
-  stroke: var(--nav-active);
-  stroke-width: 6;
-}
-.loading-ring .spin {
-  stroke: var(--on-nav);
-  stroke-linecap: round;
-  stroke-dasharray: 70 200;
-  transform-origin: 50% 50%;
-  animation: loading-spin 1.6s linear infinite;
-}
-@keyframes loading-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.loading-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  width: min(20rem, 100%);
-  margin-top: 0.5rem;
-}
-.loading-count {
-  counter-reset: evn var(--ev-n);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.75rem;
-  font-weight: 700;
-  transition: --ev-n 0.6s var(--ease);
-}
-.loading-count::after {
-  content: counter(evn) "%";
-}
-.loading-bar {
-  display: block;
-  width: 100%;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--nav-active);
-  overflow: hidden;
-}
-.loading-bar > span {
-  display: block;
-  height: 100%;
-  background: var(--area-today);
-  transform-origin: left;
-  transition: transform 0.6s var(--ease);
-}
-.loading-steps {
-  list-style: none;
-  margin: 0.5rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  text-align: left;
-}
-.loading-steps li {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--on-nav-muted);
-}
-.loading-steps li.done {
-  color: var(--on-nav);
-}
-.loading-check {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid var(--nav-active);
-  box-sizing: border-box;
-}
-.loading-steps li.done .loading-check {
-  border-color: var(--area-today);
-  background: var(--area-today);
-}
-.loading-error {
+/* Start-up error (shell/App.tsx): the data could not be opened. No loading screen (15 Nov 2026). */
+.start-error {
   max-width: 36rem;
-  text-align: left;
-  color: var(--fg);
-}
-@media (prefers-reduced-motion: reduce) {
-  .loading-ring .spin {
-    animation: none;
-  }
-  .loading-count,
-  .loading-bar > span {
-    transition: none;
-  }
+  margin: calc(2rem + var(--safe-top)) auto 2rem;
+  padding: 0 1rem;
 }
 
 .start-page {
@@ -3257,7 +3115,7 @@ button {
   justify-content: flex-start;
   text-align: left;
 }
-/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, QuickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
+/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, ui/quickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
 .eat-again,
 .from-prep,
 .meal-form {
@@ -3826,43 +3684,57 @@ button:active:not(:disabled) {
   margin: 0;
   font-size: 1.05rem;
 }
-.drink-fav-list {
-  display: flex;
-  flex-direction: column;
+/* Drinks in the Eat again style (the owner's design, 15 Nov 2026): a colour and icon per kind. */
+.drink-kind {
+  --meal-color: var(--area-food);
 }
-.drink-fav {
+.drink-kind.beer {
+  --meal-color: color-mix(in srgb, var(--warning) 70%, var(--area-food));
+}
+.drink-kind.wine {
+  --meal-color: var(--area-journal);
+}
+.drink-kind.cocktail {
+  --meal-color: var(--area-coach);
+}
+.drink-kind.mixed {
+  --meal-color: var(--area-prep);
+}
+button.link.tap-row-main.drink-another {
   width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 60px;
-  padding: 0.5rem 0;
-  border: none;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  color: var(--fg);
-  text-align: left;
-  font-weight: 400;
-}
-.drink-fav:first-child {
-  border-top: none;
-}
-.drink-fav .drink-plus {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--accent-soft);
+  min-height: 0;
   color: var(--accent);
-  font-size: 1.2rem;
+  font-weight: 600;
+}
+.drink-another-icon {
+  --meal-color: var(--accent);
+  background: none;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.drink-price {
+  flex: none;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.drink-another {
-  align-self: flex-start;
+.drink-favs > p {
+  margin: -0.3rem 0 0;
 }
+.drink-when-fields.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.drink-day + .drink-day {
+  margin-top: 0.9rem;
+}
+.drink-day-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0.25rem 0.4rem;
+}
+.drinks-list > p.muted.small:last-child {
+  margin-top: 0.6rem;
+}
+/* A one-line confirmation with Undo (meal prep's plan uses it too). */
 .drink-added {
   display: flex;
   align-items: center;
@@ -4946,10 +4818,6 @@ body:not(:has(.app-frame)) .today .date-step {
   margin: 0;
 }
 @media (max-width: 59.99rem) {
-  /* Check in and Activities after Next up and recovery. */
-  .today-col.left > .today-actions {
-    order: 3;
-  }
   .today-col.right > .today-stack {
     order: 2;
   }
@@ -4966,6 +4834,16 @@ body:not(:has(.app-frame)) .today .date-step {
     flex-direction: column;
     gap: 1rem;
     min-width: 0;
+  }
+  /* Both columns end together whatever is shown (the owner's ask, 15 Nov 2026): the shorter side's
+     card grows, its content centered: the balance card on the left, recovery on the right. */
+  .today-col.left > .balance-card,
+  .today-col.right > .today-stack,
+  .today-stack > .today-tiles.recovery {
+    flex: 1;
+  }
+  .today-stack > .today-tiles.recovery {
+    align-content: center;
   }
 }
 
@@ -4992,6 +4870,22 @@ body:not(:has(.app-frame)) .today .date-step {
   }
   .drinks-col.side > * {
     order: 4;
+  }
+}
+/*
+ * Even spacing (the owner's ask, 15 Nov 2026): the date row keeps no margin of its own here, so the
+ * card under it is one gap away like everything else; on a wide screen the side column's last card
+ * runs down to the end of the period card, so both columns finish together.
+ */
+.drinks-period .today-datebar.page-datebar {
+  margin: 0 auto;
+}
+@media (min-width: 60rem) {
+  .drinks-top {
+    align-items: stretch;
+  }
+  .drinks-col.side > :last-child {
+    flex: 1;
   }
 }
 /* Day / Week / Month over the ‹ date › row, as on Today (15 Nov 2026). */
@@ -5108,22 +5002,6 @@ body {
   margin-left: auto;
 }
 
-/* Drinks list rows as History's: the menu card's rows, the edit panel opening under its row. */
-.drink-row {
-  flex-wrap: wrap;
-  box-sizing: border-box;
-  width: auto;
-  min-height: 0;
-  gap: 0.25rem;
-  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
-}
-.drink-row .grow {
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-.drink-row .edit-panel {
-  flex-basis: 100%;
-}
 /* Today's date row on a phone sits close under the greeting and the period close under it. */
 .today-datebar {
   margin: -0.75rem 0 -0.5rem;

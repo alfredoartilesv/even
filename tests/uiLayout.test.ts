@@ -18,6 +18,7 @@ import { Ring } from "../src/ui/charts";
 import { ChipGroup, RangePicker, ScaleRating, Switch } from "../src/ui/controls";
 import { Icon, ICON_NAMES } from "../src/ui/icons";
 import { MenuList, NavMenu, PageHeader, QuickActions, SectionHeader, Segmented, SubTabs } from "../src/ui/layout";
+import { drinkKind } from "../src/screens/alcohol/AlcoholView";
 
 const noop = () => {};
 
@@ -318,12 +319,13 @@ test("profile pictures come from the phone's picker: no input forces the camera"
 
 test("web app: waits for the sync session, asks to connect without one, and lets the app through with one", () => {
   const opening = renderToStaticMarkup(h(() => connectGate({ session: undefined, connect: noop })));
-  assert.match(opening, /Opening…/);
+  assert.doesNotMatch(opening, /Opening…|Loading/, "no loading screen while the session is read");
+  assert.match(opening, /aria-busy="true"/);
   const connect = renderToStaticMarkup(h(() => connectGate({ session: null, connect: noop })));
   assert.match(connect, /<h1>Even<\/h1>/);
   assert.match(connect, /aria-label="Connect"/);
   assert.match(connect, /opened only here, in this browser/);
-  assert.match(connect, /Loading…/, "the lazy panel has a fallback, so the card is never empty");
+  assert.doesNotMatch(connect, /Loading…/, "no loading text while the lazy panel arrives");
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
 });
 
@@ -371,4 +373,16 @@ test("with Coach off the tab bar and the side menu keep it, greyed out and not c
   assert.match(bar, /<button[^>]*disabled=""[^>]*>.*?Coach/);
   const side = renderToStaticMarkup(h(SideNav, { tab: "today", onTab: noop, nav: navState({ docked: true }), account: null, tabs: off }));
   assert.match(side, /<button[^>]*data-area="coach"[^>]*disabled=""/);
+});
+
+test("drinks: each gets a kind for its icon from its name, or its strength when the name says nothing", () => {
+  assert.equal(drinkKind("Cerveza", 5), "beer");
+  assert.equal(drinkKind("Michelada", 4), "beer");
+  assert.equal(drinkKind("Vino tinto", 13), "wine");
+  assert.equal(drinkKind("Kalimotxo", 6.5), "wine");
+  assert.equal(drinkKind("Ron con cola", 10), "mixed");
+  assert.equal(drinkKind("Mojito", 12), "cocktail");
+  assert.equal(drinkKind("Florero", 6.5), "beer");
+  assert.equal(drinkKind("Something", 13), "wine");
+  assert.equal(drinkKind("Something", 40), "mixed");
 });
