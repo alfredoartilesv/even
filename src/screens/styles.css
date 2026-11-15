@@ -2485,7 +2485,7 @@ dl.overview-lines dd {
 }
 .pinned-head {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -2493,7 +2493,24 @@ dl.overview-lines dd {
 }
 .pinned-head h2 {
   margin: 0;
+  min-width: 0;
   font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinned-head h2 .muted {
+  margin-left: 0.35rem;
+  font-weight: 400;
+}
+/* One line with the title in every case (15 Nov 2026): a short label, never wrapping. */
+.pinned-toggle {
+  flex: none;
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0.3rem 0.9rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.9rem;
 }
 .pinned-grid {
   display: grid;

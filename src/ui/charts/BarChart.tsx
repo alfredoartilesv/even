@@ -137,7 +137,8 @@ export function BarChart({
               <g
                 key={x[i]}
                 {...interactive}
-                onPointerEnter={() => setHover(i)}
+                // A tap is a pick, not a hover: on touch the tooltip would pop up and stay over the bars.
+                onPointerEnter={(e) => e.pointerType === "mouse" && setHover(i)}
                 onPointerLeave={() => setHover(null)}
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
@@ -163,7 +164,8 @@ export function BarChart({
             </g>
           )}
         </svg>
-        {hover !== null && (
+        {/* The picked bar already shows its value on top (and the page its details), so no tooltip for it. */}
+        {hover !== null && x[hover] !== selected && (
           <Tooltip
             x={cx(hover)}
             width={width}
