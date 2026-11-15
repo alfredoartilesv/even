@@ -2479,6 +2479,10 @@ dl.overview-lines dd {
 .day-energy {
   margin-top: 1rem;
 }
+/* The day so far, last on the day view under every chart (15 Nov 2026). */
+.so-far.card {
+  margin-top: 1rem;
+}
 .pinned-head {
   display: flex;
   flex-wrap: wrap;
@@ -3145,7 +3149,9 @@ button {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-top: 0.6rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -4760,8 +4766,7 @@ body:not(:has(.app-frame)) .today .date-step {
   margin: 0;
 }
 @media (max-width: 59.99rem) {
-  /* The check-in follows the day so far (same order, later in the page). */
-  .today-col.left > .so-far,
+  /* Check in and Activities after Next up and recovery. */
   .today-col.left > .today-actions {
     order: 3;
   }
@@ -4863,7 +4868,7 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }
 
-/* Week and month: the chart and the chosen day on the left; the averages two by two and the
+/* Week and month: the chart with the chosen day in its card on the left; the averages two by two and the
    Check in and Activities buttons on the right, ending with the left column. */
 .period-side {
   display: flex;
@@ -4881,9 +4886,6 @@ body {
 }
 .period-days > * {
   margin: 0;
-}
-.period-days .period-pick {
-  margin-top: 0;
 }
 @media (min-width: 60rem) {
   .today-grid.period {
@@ -5378,14 +5380,10 @@ dl.inventory {
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
 }
 
-/* Wide Today: when the right column is the taller one, the day so far grows to meet it, so the two
-   columns end together either way (the steps chart already grows the other way). */
+/* Wide Today: the two columns stretch to the same height (the steps chart grows to fill its side). */
 @media (min-width: 60rem) {
   .today-grid {
     align-items: stretch;
-  }
-  .today-col.left > .so-far {
-    flex: 1 1 auto;
   }
 }
 /* kcal, protein, carbs and fat: four across, or two by two, never three and one left alone. */

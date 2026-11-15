@@ -292,8 +292,10 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             daySteps={!many}
           />
         )}
-        {/* The day's eaten against burned, last on the page (the owner's ask, 14 Nov 2026). */}
+        {/* The day's eaten against burned, after the pinned charts (the owner's ask, 14 Nov 2026). */}
         {!many && shown?.intraday && shown.intraday.length > 1 && <DayEnergy points={shown.intraday} isToday={anchor === now} />}
+        {/* What was eaten and drunk so far, under every chart (the owner's ask, 15 Nov 2026). */}
+        {!many && d && shown && <SoFar d={d} food={shown.food} isToday={anchor === now} go={go} />}
       </div>
       {rail && go.askClaude && d && (
         <CoachRail
@@ -416,7 +418,6 @@ function DayView({
               <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
-          <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
           <TodayActions
             checkIn={dayCheckInLine(d.journal.notes.find((n) => n.day === day) ?? null, isToday)}
             edit={d.journal.notes.some((n) => n.day === day)}
@@ -741,24 +742,26 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
           target={d.targets.kcal}
           selected={pickDay}
           onSelect={setSel}
+          footer={
+            r && (
+              <div className="period-pick">
+                <strong>{cap(fmtDay(r.day))}</strong>
+                <span>
+                  Calories<b>{r.eatenKcal !== null ? int(r.eatenKcal) : "–"}</b>
+                </span>
+                <span>
+                  Protein<b>{r.proteinG !== null ? `${int(r.proteinG)} g` : "–"}</b>
+                </span>
+                <span>
+                  Steps<b>{r.steps !== null ? int(r.steps) : "–"}</b>
+                </span>
+                <span>
+                  Workouts<b>{r.workouts}</b>
+                </span>
+              </div>
+            )
+          }
         />
-        {r && (
-          <div className="card period-pick">
-            <strong>{cap(fmtDay(r.day))}</strong>
-            <span>
-              Calories<b>{r.eatenKcal !== null ? int(r.eatenKcal) : "–"}</b>
-            </span>
-            <span>
-              Protein<b>{r.proteinG !== null ? `${int(r.proteinG)} g` : "–"}</b>
-            </span>
-            <span>
-              Steps<b>{r.steps !== null ? int(r.steps) : "–"}</b>
-            </span>
-            <span>
-              Workouts<b>{r.workouts}</b>
-            </span>
-          </div>
-        )}
       </section>
       {/* The averages two by two with Check in and Activities under them, as tall as the chart beside them. */}
       <div className="period-side">
