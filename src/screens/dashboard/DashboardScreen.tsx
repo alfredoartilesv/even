@@ -354,9 +354,6 @@ function DayView({
       onActivity={go.profile}
     />
   );
-  // Without Next up the right column held only recovery, a gap beside Check in on a wide screen
-  // (the owner's ask, 15 Nov 2026): Check in and Activities move under recovery instead.
-  const actionsRight = !(isToday && shown.next);
   return (
     <>
       {/* Two columns that stack on their own on a wide screen (no row is as tall as its taller card);
@@ -372,7 +369,6 @@ function DayView({
               <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
-          {!actionsRight && actions}
         </div>
 
         <div className="today-col right">
@@ -406,7 +402,8 @@ function DayView({
                 note={shown.week && shown.week.body.restingHr.avg !== null ? `7-day avg ${int(shown.week.body.restingHr.avg)}` : undefined}
               />
             </section>
-            {actionsRight && actions}
+            {/* Check in and Activities in the right column, under recovery (the owner's ask, 15 Nov 2026). */}
+            {actions}
           </div>
         </div>
       </div>

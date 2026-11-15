@@ -4816,10 +4816,6 @@ body:not(:has(.app-frame)) .today .date-step {
   margin: 0;
 }
 @media (max-width: 59.99rem) {
-  /* Check in and Activities after Next up and recovery. */
-  .today-col.left > .today-actions {
-    order: 3;
-  }
   .today-col.right > .today-stack {
     order: 2;
   }
@@ -4837,13 +4833,14 @@ body:not(:has(.app-frame)) .today .date-step {
     gap: 1rem;
     min-width: 0;
   }
-  /* The right column runs as tall as the left (the owner's ask, 15 Nov 2026): its last card, the
-     recovery bar, takes what is left, figures centered, instead of a gap beside Check in. */
-  .today-col.right > .today-stack {
+  /* Both columns end together whatever is shown (the owner's ask, 15 Nov 2026): the shorter side's
+     card grows, its content centered: the balance card on the left, recovery on the right. */
+  .today-col.left > .balance-card,
+  .today-col.right > .today-stack,
+  .today-stack > .today-tiles.recovery {
     flex: 1;
   }
-  .today-stack > .today-tiles.recovery:last-child {
-    flex: 1;
+  .today-stack > .today-tiles.recovery {
     align-content: center;
   }
 }
