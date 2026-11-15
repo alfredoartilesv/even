@@ -480,7 +480,7 @@ const SCREENS: Screen[] = [
     tab: "Web app",
     web: true,
     title: "Drinks on a computer",
-    about: "Log a drink with the drinks per day of the last week beside the one-off form, four tiles, then the drinks with the favourites beside them.",
+    about: "Week, month or year with what it adds up to, beside the one-off form and the favourites, then the drinks.",
     viewport: { width: 1440, height: 900, mobile: false },
     go: async (p) => {
       await section(p, "food");

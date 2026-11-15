@@ -5,7 +5,7 @@ import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, plural
 import { Icon } from "../../ui/icons";
 import { PeriodNav, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { listGoals } from "../../domain/me/goals";
-import { AddDrink, draftFrom, DrinksWeek, type Draft } from "./AddDrink";
+import { AddDrink, draftFrom, type Draft } from "./AddDrink";
 import {
   deleteDrink,
   deleteDrinkType,
@@ -148,7 +148,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [types, setTypes] = useState<DrinkType[]>([]);
   const [recent, setRecent] = useState<Map<string, number>>(new Map());
   const [drinks, setDrinks] = useState<DrinkEntry[]>([]);
-  const [week, setWeek] = useState<DrinkEntry[]>([]);
   const [currency, setCur] = useState("EUR");
   const [msg, setMsg] = useState<Msg>(null);
   const [lastIds, setLastIds] = useState<string[]>([]);
@@ -164,12 +163,11 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     const to = today();
     const { from, to: end } = spanRange(span, anchor);
     const weekFrom = addDays(to, -6);
-    const [w, t, r, d, wk, c, goals] = await Promise.all([
+    const [w, t, r, d, c, goals] = await Promise.all([
       weightWithoutAlcohol(db, from, end),
       listDrinkTypes(db),
       typeUsesSince(db, weekFrom),
       listDrinks(db, from, end),
-      listDrinks(db, weekFrom, to),
       getCurrency(db),
       listGoals(db, to),
     ]);
@@ -180,7 +178,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     setTypes(t);
     setRecent(r);
     setDrinks(d);
-    setWeek(wk);
     setCur(c);
   }, [db, span, anchor]);
 
@@ -305,7 +302,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           the order is the week, adding, then the period. */}
       <div className="drinks-top">
         <div className="drinks-col main">
-          <DrinksWeek week={week} limit={limit} currency={currency} />
           {/* Week / Month / Year and Today's ‹ date › row (ui/layout PeriodNav bar). */}
           <div className="drinks-period">
             <Segmented

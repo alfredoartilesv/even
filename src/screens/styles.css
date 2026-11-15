@@ -3814,52 +3814,6 @@ button:active:not(:disabled) {
 .drinks-top > * {
   margin: 0;
 }
-.drinks-week {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.drinks-week-head {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.drinks-week-big {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-.drinks-week-big .muted {
-  font-size: 1rem;
-  font-weight: 500;
-}
-.drinks-week-days {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.4rem;
-  text-align: center;
-}
-.drinks-week-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-}
-.drinks-week-day .dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--area-line, var(--line));
-  box-sizing: border-box;
-}
-.drinks-week-day .dot.on {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.drinks-week-day .dot.many {
-  background: var(--warning);
-  border-color: var(--warning);
-}
 .drink-favs {
   display: flex;
   flex-direction: column;
@@ -5026,14 +4980,10 @@ body:not(:has(.app-frame)) .today .date-step {
   }
 }
 
-/* Drinks on a phone: one column in the board's order, the week, adding, then the period and figures. */
+/* Drinks on a phone: one column, the period and what it adds up to, then adding and the favourites. */
 @media (max-width: 59.99rem) {
   .drinks-col {
     display: contents;
-  }
-  .drinks-col.main > .drinks-week,
-  .drinks-col.main > :first-child {
-    order: 1;
   }
   /* The period and what it adds up to come before the favourites (15 Nov 2026). */
   .drinks-col.main > .drinks-period,
@@ -5042,18 +4992,6 @@ body:not(:has(.app-frame)) .today .date-step {
   }
   .drinks-col.side > * {
     order: 4;
-  }
-}
-/* On a wide screen both columns end together: the week card takes what is left beside the favourites. */
-@media (min-width: 60rem) {
-  .drinks-top {
-    align-items: stretch;
-  }
-  .drinks-col.main > :first-child {
-    flex: 1;
-  }
-  .drinks-col.main > .drinks-week {
-    justify-content: space-between;
   }
 }
 /* Day / Week / Month over the ‹ date › row, as on Today (15 Nov 2026). */
