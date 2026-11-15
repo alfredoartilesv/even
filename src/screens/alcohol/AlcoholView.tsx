@@ -348,34 +348,33 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 
   return (
     <div>
-      {/* A wide screen: the week and the period on the left, as tall as adding on the right, then
-          the figures and the list across. On a phone the columns step aside (display: contents) and
-          the order is the week, adding, then the period. */}
+      {/* Week / Month / Year and Today's ‹ date › row across the page, over both columns (15 Nov 2026). */}
+      <div className="drinks-period">
+        <Segmented
+          items={SPANS}
+          value={span}
+          label="Period"
+          onChange={(id) => {
+            setSpan(id);
+            // The last day of the span stays in view.
+            setAnchor(range.to);
+          }}
+        />
+        <PeriodNav
+          bar
+          title={span === "year" ? `${monthYear(range.from)} – ${monthYear(range.to)}` : `${fmtDay(range.from)} – ${fmtDay(range.to)}`}
+          unit={span}
+          onPrev={() => setAnchor(addDays(anchor, -SPAN_DAYS[span]))}
+          onNext={() => setAnchor(next > now ? now : next)}
+          nextDisabled={isCurrent}
+          onCurrent={isCurrent ? null : () => setAnchor(now)}
+          currentLabel={`Back to this ${span}`}
+        />
+      </div>
+      {/* A wide screen: what the period adds up to on the left, your drinks on the right, each card
+          as tall as its content; then the list across. On a phone one column. */}
       <div className="drinks-top">
         <div className="drinks-col main">
-          {/* Week / Month / Year and Today's ‹ date › row (ui/layout PeriodNav bar). */}
-          <div className="drinks-period">
-            <Segmented
-              items={SPANS}
-              value={span}
-              label="Period"
-              onChange={(id) => {
-                setSpan(id);
-                // The last day of the span stays in view.
-                setAnchor(range.to);
-              }}
-            />
-            <PeriodNav
-              bar
-              title={span === "year" ? `${monthYear(range.from)} – ${monthYear(range.to)}` : `${fmtDay(range.from)} – ${fmtDay(range.to)}`}
-              unit={span}
-              onPrev={() => setAnchor(addDays(anchor, -SPAN_DAYS[span]))}
-              onNext={() => setAnchor(next > now ? now : next)}
-              nextDisabled={isCurrent}
-              onCurrent={isCurrent ? null : () => setAnchor(now)}
-              currentLabel={`Back to this ${span}`}
-            />
-          </div>
           {t && (
             <DrinksSummary drinks={drinks} days={periodDays} limit={limit} totals={t} periodLabel={periodLabel} when={when} money={money} impact={impact} />
           )}

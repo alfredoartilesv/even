@@ -4864,8 +4864,7 @@ body:not(:has(.app-frame)) .today .date-step {
   .drinks-col {
     display: contents;
   }
-  /* The period and what it adds up to come before the favourites (15 Nov 2026). */
-  .drinks-col.main > .drinks-period,
+  /* What the period adds up to comes before your drinks (15 Nov 2026). */
   .drinks-col.main > .drinks-summary {
     order: 3;
   }
@@ -4874,34 +4873,47 @@ body:not(:has(.app-frame)) .today .date-step {
   }
 }
 /*
- * Even spacing (the owner's ask, 15 Nov 2026): the date row keeps no margin of its own here, so the
- * card under it is one gap away like everything else; on a wide screen the side column's last card
- * runs down to the end of the period card, so both columns finish together.
+ * Even spacing (the owner's ask, 15 Nov 2026): the period row runs across the page, so the two
+ * cards under it start on one line, each as tall as its content. On a wide screen Week / Month /
+ * Year and the ‹ date › share one row, and your drinks' title goes inside its card.
  */
 .drinks-period .today-datebar.page-datebar {
   margin: 0 auto;
 }
-@media (min-width: 60rem) {
-  .drinks-top {
-    align-items: stretch;
-  }
-  .drinks-col.side > :last-child {
-    flex: 1;
-  }
-  /* The drinks card itself runs down with the column, not only the section around it. */
-  .drinks-col.side > .drink-favs {
-    display: flex;
-    flex-direction: column;
-  }
-  .drinks-col.side > .drink-favs > .drink-tap-list {
-    flex: 1;
-  }
-}
-/* Day / Week / Month over the ‹ date › row, as on Today (15 Nov 2026). */
+/* Week / Month / Year over the ‹ date › row on a phone, as on Today. */
 .drinks-period {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 60rem) {
+  .drinks-top {
+    align-items: start;
+  }
+  .drinks-period {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .drinks-period > .segmented {
+    flex: 0 0 22rem;
+  }
+  .drinks-period .today-datebar.page-datebar {
+    flex: 0 1 26rem;
+    margin: 0;
+  }
+  .drinks-col.side > .drink-favs {
+    padding: 1rem 1.1rem 0.4rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .drinks-col.side > .drink-favs > .drink-tap-list {
+    padding: 0;
+    border: none;
+    background: none;
+  }
 }
 .drinks-period > * {
   margin: 0;
