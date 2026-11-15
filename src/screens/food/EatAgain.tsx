@@ -1,17 +1,17 @@
 import { useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { saveSuggestion, suggestionMeal } from "../../domain/food/food";
+import { hideSuggestion, saveSuggestion, suggestionMeal } from "../../domain/food/food";
 import { usualMeal, type Candidate, type Meal } from "../../domain/food/suggest";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { Icon, type IconName } from "../../ui/icons";
-import { draftFrom, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
+import { draftFrom, FormFooter, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
 import { DoneBar, QuickRow } from "./QuickRows";
 
 type Slot = Exclude<Meal, "prep">;
 const SLOTS: Slot[] = ["breakfast", "lunch", "dinner", "snack"];
 const LABEL: Record<Slot, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snacks" };
 const ICON: Record<Slot, IconName> = { breakfast: "coffee", lunch: "bowl", dinner: "food", snack: "apple" };
-/** Rows per meal: enough to find the usual ones without a long list. */
+/** Rows per meal besides the starred ones: enough to find the usual ones without a long list. */
 const SHOWN = 5;
 
 export interface Logged {
@@ -54,7 +54,10 @@ export function EatAgain({
     const m = usualMeal(c);
     return m && m !== "prep" ? m : now;
   };
-  const rows = suggested.filter((c) => slotOf(c) === chip).slice(0, SHOWN);
+  // Starred meals always show (the owner's ask, 15 Nov 2026); the usual ones fill up to SHOWN, in rank order.
+  const inChip = suggested.filter((c) => slotOf(c) === chip);
+  let room = SHOWN - inChip.filter((c) => c.savedMealId).length;
+  const rows = inChip.filter((c) => c.savedMealId || room-- > 0);
 
   const log = async (c: Candidate) => {
     const r = await onLog(c);
@@ -93,6 +96,19 @@ export function EatAgain({
     }
   };
 
+  // Delete takes it out of Eat again for good (starring it again brings it back); entries stay.
+  const remove = async (c: Candidate) => {
+    if (!confirm(`Delete ${c.name} from Eat again? Meals already logged stay.${c.savedMealId ? " It is unstarred and its photo goes." : ""}`)) return;
+    try {
+      await hideSuggestion(db, c);
+      setEditing(null);
+      setMsg(null);
+      onSaved();
+    } catch (err) {
+      setMsg(failed(err, "food"));
+    }
+  };
+
   return (
     <section className="eat-again" aria-label="Eat again">
       <div className="eat-again-head">
@@ -108,7 +124,7 @@ export function EatAgain({
         ))}
       </div>
       {rows.length === 0 ? (
-        <p className="muted small eat-again-empty">Nothing you usually have for {LABEL[chip].toLowerCase()} yet. Meals you log twice show up here.</p>
+        <p className="muted small eat-again-empty">Nothing you usually have for {LABEL[chip].toLowerCase()} yet. Meals you log twice or star show up here.</p>
       ) : (
         <ul className="tap-list">
           {rows.map((c) => {
@@ -135,7 +151,7 @@ export function EatAgain({
                   <>
                     {c.name}
                     {c.savedMealId && (
-                      <span className="eat-again-star" aria-label="Saved meal">
+                      <span className="eat-again-star" aria-label="Starred">
                         {" "}
                         ★
                       </span>
@@ -151,15 +167,10 @@ export function EatAgain({
                     <form className="tap-edit stack" onSubmit={(e) => void save(e, c)}>
                       <MealFields draft={open.draft} onChange={(d) => setEditing({ key: c.key, draft: d })} />
                       <p className="muted small">
-                        {c.savedMealId ? "Changes this saved meal." : "Saves it as a saved meal."} Meals already logged stay as they were.
+                        {c.savedMealId ? "Changes this starred meal." : "Stars it, so it always shows here."} Meals already logged stay as they were.
                       </p>
                       <MsgLine msg={msg} />
-                      <div className="actions">
-                        <button type="submit">Save</button>
-                        <button type="button" className="secondary" onClick={() => setEditing(null)}>
-                          Cancel
-                        </button>
-                      </div>
+                      <FormFooter onCancel={() => setEditing(null)} onDelete={() => void remove(c)} />
                     </form>
                   )
                 }

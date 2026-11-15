@@ -693,14 +693,6 @@ body:has(.app-frame) {
   .app-frame .plan-day.gap {
     grid-column: span var(--gap-days, 1);
   }
-  .app-frame ul.saved-list:not(.most) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 1.25rem;
-  }
-  .app-frame ul.saved-list:not(.most) .saved-row:nth-last-child(2) {
-    border-bottom: none;
-  }
   .app-frame .goal-ideas {
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   }

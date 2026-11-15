@@ -1,5 +1,5 @@
 import type { SqlDriver } from "../../db/driver";
-import { deleteFood, logTimeFor, relogFood, saveEntryAsMeal, updateFood, type FoodEntry } from "../../domain/food/food";
+import { deleteFood, deleteSavedMeal, logTimeFor, relogFood, saveEntryAsMeal, updateFood, type FoodEntry } from "../../domain/food/food";
 import { localDateTimeToMs } from "../../core/tz";
 import { failed, timeZone, type Msg } from "../../ui/common";
 import { parseDraft, type MealDraft } from "./components";
@@ -27,9 +27,10 @@ export function entryActions(db: SqlDriver, reload: () => void, setMsg: (m: Msg)
         `Logged ${e.name} again.`,
       ),
     onSave: (e: FoodEntry) =>
+      // The star toggles: a starred meal always shows in Eat again, unstarring takes it out.
       e.savedMealId
-        ? setMsg({ kind: "ok", text: `${e.name} is already saved. Change its photo or details in Saved.` })
-        : void run(() => saveEntryAsMeal(db, e.id), `Saved ${e.name}. Add a photo in Saved.`),
+        ? void run(() => deleteSavedMeal(db, e.savedMealId!), `Unstarred ${e.name}. Meals already logged stay.`)
+        : void run(() => saveEntryAsMeal(db, e.id), `Starred ${e.name}. It now shows in Eat again.`),
     onUpdate: (e: FoodEntry, d: MealDraft) =>
       run(
         () => {

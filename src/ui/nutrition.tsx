@@ -155,6 +155,93 @@ export function MacroInputs({ draft, set, kcalHint = null }: { draft: MacroDraft
   );
 }
 
+/** "689" from 689, "12.5" from 12.5: what a stepper writes back into its field. */
+const stepText = (n: number) => String(Math.round(n * 10) / 10);
+
+/**
+ * A number typed in or nudged with − and + (the owner's ask, 15 Nov 2026): never below 0, and an
+ * empty field starts from `base` (the kcal the macros add up to), so + is never a jump from 0.
+ */
+export function NumberStepper({
+  label,
+  value,
+  onChange,
+  step,
+  unit,
+  base = 0,
+  placeholder,
+  color,
+  big = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  step: number;
+  unit: string;
+  base?: number;
+  placeholder?: string;
+  /** The macro's colour, as a dot before the label. */
+  color?: string;
+  big?: boolean;
+}) {
+  const nudge = (dir: 1 | -1) => {
+    const n = numOrNull(value);
+    onChange(stepText(Math.max(0, (n !== null && n >= 0 ? n : base) + dir * step)));
+  };
+  return (
+    <div className={big ? "num-step big" : "num-step"}>
+      <span className="num-step-label">
+        {color && <span className="num-step-dot" style={{ background: color }} aria-hidden />}
+        {label}
+      </span>
+      <span className="num-step-controls">
+        <button type="button" className="secondary num-step-btn" aria-label={`Less ${label.toLowerCase()}`} onClick={() => nudge(-1)}>
+          −
+        </button>
+        <span className="num-step-field">
+          <input
+            inputMode="decimal"
+            aria-label={`${label}, ${unit}`}
+            value={value}
+            placeholder={placeholder ?? "0"}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <span className="num-step-unit">{unit}</span>
+        </span>
+        <button type="button" className="secondary num-step-btn" aria-label={`More ${label.toLowerCase()}`} onClick={() => nudge(1)}>
+          +
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A meal's calories (large, 10 kcal a tap) and protein, carbs and fat (5 g a tap) as steppers, with
+ * what the macros add up to under them. Left empty, the calories are estimated from the macros.
+ */
+export function MacroSteppers({ draft, set }: { draft: MacroDraft; set: (patch: Partial<MacroDraft>) => void }) {
+  const hint = estimateKcal(draft);
+  return (
+    <div className="macro-steppers">
+      <NumberStepper
+        big
+        label="Calories"
+        unit="kcal"
+        step={10}
+        base={hint ?? 0}
+        value={draft.calories}
+        placeholder={hint !== null ? `≈ ${hint}` : undefined}
+        onChange={(v) => set({ calories: v })}
+      />
+      <NumberStepper label="Protein" unit="g" step={5} color={seriesColor(1)} value={draft.proteinG} onChange={(v) => set({ proteinG: v })} />
+      <NumberStepper label="Carbs" unit="g" step={5} color={seriesColor(2)} value={draft.carbsG} onChange={(v) => set({ carbsG: v })} />
+      <NumberStepper label="Fat" unit="g" step={5} color={seriesColor(3)} value={draft.fatG} onChange={(v) => set({ fatG: v })} />
+      {hint !== null && <span className="muted small">Protein, carbs and fat add up to ≈ {hint.toLocaleString()} kcal</span>}
+    </div>
+  );
+}
+
 /**
  * Protein, carbs and fat against their daily targets as three bars (handoff 0.7, Today's balance
  * card), in the macro colours every screen shares. A bar without a target shows the grams only.

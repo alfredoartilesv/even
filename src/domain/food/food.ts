@@ -4,7 +4,7 @@ import { uuidv7 } from "../../core/uuidv7.js";
 import { mealForHour, rankSuggestions, type Candidate, type Meal } from "./suggest.js";
 import type { SqlDriver, SqlValue } from "../../db/driver.js";
 import { undoMove } from "../mealprep/mealPrep.js";
-import { deviceId } from "../../db/settings.js";
+import { deviceId, getSetting, setSetting } from "../../db/settings.js";
 import { createLogger } from "../../core/log.js";
 
 const log = createLogger("food");
@@ -52,7 +52,7 @@ export interface PhotoInput {
 export const MAX_PHOTO_BYTES = 1_500_000;
 
 const ENTRY_COLS = `e.id, e.eaten_at_ms, e.local_day, e.name, e.meal, e.calories, e.protein_g, e.carbs_g, e.fat_g, e.notes,
-  e.saved_meal_id, s.photo_id AS photo_id,
+  s.id AS saved_meal_id, s.photo_id AS photo_id,
   EXISTS (SELECT 1 FROM meal_prep_moves m WHERE m.food_entry_id = e.id AND m.deleted_at IS NULL) AS from_prep`;
 const ENTRY_FROM = `food_entries e
   LEFT JOIN saved_meals s ON s.id = e.saved_meal_id AND s.deleted_at IS NULL`;
@@ -579,6 +579,31 @@ export async function saveSuggestion(
 // ---- Suggestions: what you eat again and again ----
 
 const LOOKBACK_DAYS = 30;
+/** Meals taken out of Eat again, by lower-case name (JSON array). A starred meal shows whatever this says. */
+const HIDDEN_KEY = "food.eat_again.hidden";
+
+async function hiddenNames(db: SqlDriver): Promise<Set<string>> {
+  try {
+    const v: unknown = JSON.parse((await getSetting(db, HIDDEN_KEY)) ?? "[]");
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Delete from Eat again (the owner's ask, 15 Nov 2026): unstars it if starred and hides its name,
+ * so logging it twice more does not bring it back. Starring it again does. Entries stay.
+ */
+export async function hideSuggestion(db: SqlDriver, c: Pick<Candidate, "savedMealId" | "name">, nowMs: number = Date.now()): Promise<void> {
+  await withTransaction(db, async () => {
+    if (c.savedMealId) await deleteSavedMeal(db, c.savedMealId, nowMs);
+    const hidden = await hiddenNames(db);
+    hidden.add(c.name.trim().toLowerCase());
+    await setSetting(db, HIDDEN_KEY, JSON.stringify([...hidden]), nowMs);
+  });
+  log.info("suggestion hidden", { wasSaved: Boolean(c.savedMealId) });
+}
 
 /**
  * Meals to offer for one-tap logging now: saved meals, plus anything not saved that was
@@ -607,6 +632,7 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     [since],
   );
   const saved = await listSavedMeals(db);
+  const hidden = await hiddenNames(db);
 
   const cands = new Map<string, Candidate>();
   // A meal logged by hand under a saved meal's name is that saved meal: one row, not two.
@@ -661,7 +687,7 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     if (e.meal) c.slots[e.meal] = (c.slots[e.meal] ?? 0) + 1;
     if (e.local_day === today) c.loggedToday = true;
   }
-  const pool = [...cands.values()].filter((c) => c.savedMealId || c.uses >= 2);
+  const pool = [...cands.values()].filter((c) => c.savedMealId || (c.uses >= 2 && !hidden.has(c.name.trim().toLowerCase())));
   log.debug("suggestions", { candidates: pool.length, slot: mealForHour(hour) });
   return rankSuggestions(pool, mealForHour(hour), now, opts.limit ?? 8);
 }
