@@ -237,6 +237,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
   return (
     <div>
       <PeriodNav
+        bar
         title={fmtDayLong(day)}
         unit="day"
         onPrev={() => onDay(addDays(day, -1))}

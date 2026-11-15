@@ -2123,11 +2123,86 @@ ol.drink-days li {
 }
 
 /* On a phone the weight estimate takes its own row under the three counts. */
-.alcohol-tiles {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Drinks: the period in one card, the drinks against the weekly limit, then two tiles (15 Nov 2026). */
+.drink-limit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
 }
-.alcohol-tiles .viz-tile:nth-child(4) {
-  grid-column: 1 / -1;
+.drink-limit-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.drink-limit-figure.end {
+  text-align: right;
+  align-items: flex-end;
+}
+.drink-limit-figure strong {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.drink-limit-figure strong .muted {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.drink-limit-bar {
+  display: block;
+  height: 12px;
+  margin: 0.75rem 0 0.3rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg) 10%, var(--surface));
+  overflow: hidden;
+}
+.drink-limit-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--area-food);
+}
+.drink-limit-bar > span.over {
+  background: var(--warning);
+}
+.drink-limit-note {
+  display: block;
+}
+.drink-limit-note.over {
+  color: var(--warning);
+}
+.drink-limit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.drink-limit-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg) 5%, var(--surface));
+}
+.drink-limit-tile strong {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.drink-sum-weight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.drink-sum-weight strong {
+  font-size: 1.3rem;
 }
 
 /* Settings: where each page stands under its row, the backup nudge, and the facts of About. */
@@ -4826,10 +4901,12 @@ body:not(:has(.app-frame)) .today .date-step {
   .drinks-col.main > .drink-when {
     order: 2;
   }
-  .drinks-col.side > * {
+  /* The period and what it adds up to come before the favourites (15 Nov 2026). */
+  .drinks-col.main > .drinks-period,
+  .drinks-col.main > .drinks-summary {
     order: 3;
   }
-  .drinks-col.main > .drinks-period {
+  .drinks-col.side > * {
     order: 4;
   }
 }
@@ -4972,6 +5049,11 @@ body {
 /* Today's date row on a phone sits close under the greeting and the period close under it. */
 .today-datebar {
   margin: -0.75rem 0 -0.5rem;
+}
+/* Food and drinks (day and week) use Today's phone date row on every screen, not too wide on a computer. */
+.today-datebar.page-datebar {
+  max-width: 26rem;
+  margin: 0 auto 0.75rem;
 }
 
 /* The shared date row (ui/layout PeriodNav) looks the same on every page as on Today. */
@@ -5186,11 +5268,6 @@ body {
   padding: 0.5rem 1rem;
   text-align: center;
 }
-/* The three drink figures share a phone's width: the money fits its tile instead of touching the edge. */
-.alcohol-tiles .viz-tile-value strong {
-  font-size: clamp(1.15rem, 5vw, 1.6rem);
-  white-space: nowrap;
-}
 .quick-log-row input,
 .quick-log-row input.quick-log-num {
   width: auto;
@@ -5394,7 +5471,7 @@ dl.inventory {
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
 }
 
-/* Wide Today: the two columns stretch to the same height (the steps chart grows to fill its side). */
+/* Wide Today: the two columns stretch to the same height. */
 @media (min-width: 60rem) {
   .today-grid {
     align-items: stretch;
