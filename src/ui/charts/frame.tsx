@@ -113,6 +113,7 @@ export function ChartFrame({
   table,
   dim = false,
   action,
+  footer,
   children,
 }: {
   title: string;
@@ -123,6 +124,8 @@ export function ChartFrame({
   dim?: boolean;
   /** Another button in the head, before Table. */
   action?: ReactNode;
+  /** Under the chart, inside its card: the picked bar's details. */
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const [asTable, setAsTable] = useState(false);
@@ -143,6 +146,7 @@ export function ChartFrame({
       </div>
       {legend && legend.length > 1 && <Legend items={legend} />}
       {asTable && table ? <DataTable table={table} caption={title} /> : children}
+      {footer}
     </figure>
   );
 }

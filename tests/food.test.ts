@@ -17,6 +17,8 @@ import {
   saveMeal,
   setCalorieGoal,
   suggestions,
+  saveSuggestion,
+  suggestionMeal,
   updateFood,
   type PhotoInput,
 } from "../src/domain/food/food";
@@ -43,6 +45,7 @@ test("meal slot by hour, usual slot, ranking", () => {
     lastEntryId: null,
     name: "",
     calories: null,
+    proteinG: null,
     photoId: null,
     uses: 2,
     lastMs: MORNING - 10 * DAY,
@@ -183,6 +186,45 @@ test("suggestions: saved meals and repeated meals, ranked for the time of day, p
 
   const evening = await suggestions(db, { nowMs: MORNING + 12 * H, timeZone: TZ });
   assert.equal(evening[0].name, "Chicken rice");
+});
+
+test("suggestions: a meal logged by hand under a saved meal's name joins that saved meal, with its protein", async () => {
+  const { db } = await migratedDb();
+  await saveMeal(db, { name: "Chicken rice bowl", meal: "lunch", ...none, calories: 720, proteinG: 48 }, MORNING - 10 * DAY);
+  for (let d = 1; d <= 3; d++) await logFood(db, { name: "chicken rice bowl ", meal: "lunch", ...none, calories: 798, atMs: MORNING - d * DAY, timeZone: TZ });
+
+  const s = await suggestions(db, { nowMs: MORNING, timeZone: TZ });
+  assert.equal(s.length, 1);
+  assert.equal(s[0].name, "Chicken rice bowl");
+  assert.equal(s[0].calories, 720);
+  assert.equal(s[0].proteinG, 48);
+  assert.equal(s[0].uses, 3);
+});
+
+test("editing a suggestion: a saved meal is updated, a meal not saved becomes a saved meal with its history", async () => {
+  const { db } = await migratedDb();
+  for (let d = 1; d <= 2; d++)
+    await logFood(db, { name: "Toast", meal: "breakfast", ...none, calories: 300, carbsG: 40, atMs: MORNING - d * DAY, timeZone: TZ });
+  const [toast] = await suggestions(db, { nowMs: MORNING, timeZone: TZ });
+  const start = await suggestionMeal(db, toast);
+  assert.equal(start.carbsG, 40);
+
+  const id = await saveSuggestion(db, toast, { ...start, name: "Toast and jam", calories: 350 }, MORNING);
+  const [after] = await suggestions(db, { nowMs: MORNING, timeZone: TZ });
+  assert.equal(after.savedMealId, id);
+  assert.equal(after.name, "Toast and jam");
+  assert.equal(after.calories, 350);
+  assert.equal(after.uses, 2);
+
+  await saveSuggestion(db, after, { ...(await suggestionMeal(db, after)), proteinG: 12 }, MORNING);
+  const meals = await listSavedMeals(db);
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].proteinG, 12);
+  // Entries already logged keep their own numbers.
+  assert.deepEqual(
+    (await dayFood(db, "2026-10-19")).map((e) => e.calories),
+    [300],
+  );
 });
 
 test("deleting a food entry made by eating meal prep puts the portion back", async () => {

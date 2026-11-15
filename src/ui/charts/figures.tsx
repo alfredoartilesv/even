@@ -24,6 +24,62 @@ export function Sparkline({ values, label, width = 96, height = 28 }: { values: 
   );
 }
 
+/**
+ * One small bar a day with no axes, under a headline number: the target as a dashed line, days
+ * over a ceiling in the warning color, the last day (today) at full strength. Day letters show
+ * when there are a week or fewer bars. The number beside it carries the meaning, so no table view.
+ */
+export function MiniBars({
+  values,
+  days,
+  target = null,
+  limit = false,
+  label,
+}: {
+  values: (number | null)[];
+  /** "YYYY-MM-DD" per value, for the day letters. */
+  days: string[];
+  target?: number | null;
+  /** The target is a ceiling (calories), so bars past it warn. */
+  limit?: boolean;
+  label: string;
+}) {
+  const n = values.length;
+  if (n === 0 || values.every((v) => v === null)) return null;
+  const W = 140;
+  const H = 52;
+  const letters = n <= 7;
+  const top = Math.max(target ?? 0, ...values.map((v) => v ?? 0)) * 1.1 || 1;
+  const slot = W / n;
+  const bw = slot * (n > 14 ? 0.62 : 0.7);
+  const ty = target !== null && target > 0 ? H - (target / top) * H : null;
+  return (
+    <svg className="mini-bars" viewBox={`0 -2 ${W} ${H + (letters ? 14 : 4)}`} role="img" aria-label={label}>
+      {values.map((v, i) => {
+        const h = v === null ? 0 : Math.max(1.5, (v / top) * H);
+        const cls = ["mini-bar", limit && target !== null && v !== null && v > target ? "over" : "", i === n - 1 ? "last" : ""].filter(Boolean).join(" ");
+        return (
+          <g key={days[i] ?? i}>
+            {v !== null && <rect className={cls} x={i * slot + (slot - bw) / 2} y={H - h} width={bw} height={h} rx={Math.min(3, bw / 3)} />}
+            {letters && (
+              <text className="mini-day" x={i * slot + slot / 2} y={H + 11} textAnchor="middle">
+                {weekdayLetter(days[i])}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      {ty !== null && <line className="mini-target" x1={0} x2={W} y1={ty} y2={ty} />}
+    </svg>
+  );
+}
+
+function weekdayLetter(day: string | undefined): string {
+  if (!day) return "";
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" });
+}
+
 export interface Delta {
   /** Signed change, already in display units. */
   value: number;

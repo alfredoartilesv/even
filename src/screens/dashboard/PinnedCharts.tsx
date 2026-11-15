@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import type { Dashboard } from "../../domain/dashboard/dashboard";
+import { clockOf, type EnergyPoint } from "../../domain/dashboard/intraday";
 import { CHART_IDS, loadPins, savePins, type ChartId } from "../../domain/dashboard/pins";
 import { fmtDuration } from "../../domain/me/workouts";
 import { BarChart, LineChart } from "../../ui/charts";
@@ -22,14 +23,16 @@ interface Props {
    * Steps shows as Energy balance, eaten against burned, instead (the owner's ask, 14 Nov 2026).
    */
   daySteps?: boolean;
+  /** A day's eaten against burned, hour by hour; null on a week or month, where it is not offered. */
+  intraday?: { points: EnergyPoint[]; isToday: boolean } | null;
 }
 
 /**
- * Today's charts for a week or a month: the pinned ones, or every chart with "Show all charts".
+ * Today's charts for a week or a month: the pinned ones, or every chart with "All".
  * Each card has a pin button; what is pinned is kept on this device (domain/dashboard/pins.ts).
  * Pinned charts come first when all are shown.
  */
-export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }: Props) {
+export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false, intraday = null }: Props) {
   const [pins, setPins] = useState<ChartId[] | null>(null);
   const [all, setAll] = useState(false);
   useEffect(() => {
@@ -63,6 +66,7 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }
   };
 
   const charts: Record<ChartId, ReactNode> = {
+    intraday: intraday && intradayChart(intraday.points, intraday.isToday, pin("intraday", "Eaten vs burned")),
     calories: (
       <BarChart
         title="Calories eaten"
@@ -153,7 +157,9 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }
 
   // Pinned first, in the order they were pinned; the rest after them in the usual order. On a day,
   // Steps gives its place to Energy balance (once, if that is pinned too) and is not offered.
-  const swap = (ids: ChartId[]) => (daySteps ? [...new Set(ids.map((id) => (id === "steps" ? "energy" : id)))] : ids);
+  // Eaten vs burned is offered only where there is a day to draw.
+  const swap = (ids: ChartId[]) =>
+    (daySteps ? [...new Set(ids.map((id) => (id === "steps" ? "energy" : id)))] : ids).filter((id) => id !== "intraday" || intraday !== null);
   const pinned = swap(pins);
   const ordered = swap([...pins, ...CHART_IDS.filter((id) => !pins.includes(id))]);
   const shown = all ? ordered : pinned;
@@ -161,19 +167,43 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false }
     <section className="pinned-charts" aria-labelledby="charts-title">
       <div className="pinned-head">
         <h2 id="charts-title">
-          Charts · {period}
-          {all ? "" : " · pinned"}
+          Charts <span className="muted small">{period}</span>
         </h2>
-        <button type="button" className="secondary" aria-expanded={all} onClick={() => setAll(!all)}>
-          {all ? "Show pinned only" : `Show all charts (${ordered.length})`}
+        <button type="button" className="secondary pinned-toggle" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Pinned" : `All ${ordered.length}`}
         </button>
       </div>
-      {shown.length === 0 && <p className="muted small pinned-empty">No charts pinned. Open Show all charts and pin the ones you want to keep here.</p>}
+      {shown.length === 0 && <p className="muted small pinned-empty">No charts pinned. Open All and pin the ones you want to keep here.</p>}
       <div className="pinned-grid">
         {shown.map((id) => (
           <div key={id}>{charts[id]}</div>
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * A day's calories eaten against burned, hour by hour: eaten climbs at each meal and drink, burned
+ * is the watch's day total spread evenly (it gives no hourly burn), up to now on the current day.
+ */
+function intradayChart(points: EnergyPoint[], isToday: boolean, action: ReactNode) {
+  const last = points[points.length - 1];
+  const hasBurn = last.burned !== null;
+  return (
+    <LineChart
+      title={isToday ? "Eaten vs burned today" : "Eaten vs burned"}
+      subtitle={`${int(last.eaten)} kcal eaten${hasBurn ? ` · ${int(last.burned ?? 0)} burned${isToday ? " so far" : ""}` : ""}. ${hasBurn ? "Burned is the watch's day total spread evenly." : "No burn from the watch for this day."}`}
+      x={points.map((p) => clockOf(p.minute))}
+      series={[
+        { id: "eaten", label: "Eaten", values: points.map((p) => p.eaten), slot: 1 },
+        ...(hasBurn ? [{ id: "burned", label: "Burned", values: points.map((p) => p.burned), slot: 2 }] : []),
+      ]}
+      formatX={(t) => (t.endsWith(":00") ? `${Number(t.slice(0, 2))}h` : t)}
+      formatValue={int}
+      unit="kcal"
+      zero
+      action={action}
+    />
   );
 }

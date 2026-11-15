@@ -2,16 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BalanceRing, BarChart, StatTile } from "../../ui/charts";
+import { BalanceRing, BarChart, MiniBars, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
 import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
-import { SCALE } from "../../domain/journal/entries";
+import { SCALE, type DayNote } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
-import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
+import { listDrinks } from "../../domain/alcohol/alcohol";
+import { intradayEnergy, type EnergyPoint } from "../../domain/dashboard/intraday";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { skipTupper } from "../../domain/mealprep/skips";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
@@ -33,9 +34,10 @@ interface Shown {
   metrics: DayValue[];
   food: FoodEntry[];
   next: NextUp | null;
+  /** A day's eaten against burned, hour by hour (the chart at the end of the day view). */
+  intraday: EnergyPoint[] | null;
   name: string | null;
   /** The owner's weight unit (You > Profile); weights are stored in kg. */
-  weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
 const CACHED_VIEWS = 12;
@@ -139,17 +141,27 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
     const all = log.time("dashboard loaded", "info");
     performance.mark("even:dashboard-query");
     const day = span === "day";
-    const [d, p, m, food, next, week] = await Promise.all([
+    const [d, p, m, food, next, week, drinks] = await Promise.all([
       timed("figures", loadDashboard(db, span, anchor, today())),
       loadProfile(db),
       day ? timed("day metrics", dayValues(db, anchor)) : Promise.resolve([]),
       day ? dayFood(db, anchor) : Promise.resolve([]),
       day && anchor === today() ? nextUp(db, timeZone()) : Promise.resolve(null),
       day ? loadDashboard(db, "last7", anchor, today()) : Promise.resolve(null),
+      day ? listDrinks(db, anchor, anchor) : Promise.resolve([]),
     ]);
+    const intraday = day
+      ? intradayEnergy(
+          anchor,
+          timeZone(),
+          [...food.map((f) => ({ atMs: f.eatenAtMs, kcal: f.calories ?? 0 })), ...drinks.map((x) => ({ atMs: x.drunkAtMs, kcal: x.kcal }))],
+          d.burned.total,
+          anchor === today() ? Date.now() : null,
+        )
+      : null;
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
-    const fresh = { data: d, week, metrics: m, food, next, name: p.name, weightUnit: p.weightUnit };
+    const fresh = { data: d, week, metrics: m, food, next, intraday, name: p.name };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
@@ -268,7 +280,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             }}
           />
         )}
-        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} wu={shown?.weightUnit ?? "kg"} />}
+        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} />}
 
         {chartsData && (
           <PinnedCharts
@@ -278,8 +290,11 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
             daySteps={!many}
+            intraday={!many && shown?.intraday && shown.intraday.length > 1 ? { points: shown.intraday, isToday: anchor === now } : null}
           />
         )}
+        {/* What was eaten and drunk so far, under every chart (the owner's ask, 15 Nov 2026). */}
+        {!many && d && shown && <SoFar d={d} food={shown.food} isToday={anchor === now} go={go} />}
       </div>
       {rail && go.askClaude && d && (
         <CoachRail
@@ -402,7 +417,13 @@ function DayView({
               <EnergyRow eaten={eaten} burned={d.burned.total} isToday={isToday} />
             </div>
           </section>
-          <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
+          <TodayActions
+            checkIn={dayCheckInLine(d.journal.notes.find((n) => n.day === day) ?? null, isToday)}
+            edit={d.journal.notes.some((n) => n.day === day)}
+            activity={activityLine(d)}
+            onCheckIn={() => go.checkIn(day)}
+            onActivity={go.profile}
+          />
         </div>
 
         <div className="today-col right" ref={rightRef}>
@@ -696,13 +717,15 @@ function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
 
 /** A week or a month: calories per day (a tap shows that day's numbers), the averages, and the check-ins. */
-function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks; wu: WeightUnit }) {
+function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks }) {
   const days = d.days;
   const [sel, setSel] = useState<string | null>(null);
   const pickDay = sel ?? [...days].reverse().find((r) => r.eatenKcal !== null)?.day ?? days[days.length - 1]?.day ?? null;
   const r = days.find((x) => x.day === pickDay);
   const j = d.journal;
   const avg = (f: { avg: number | null }, fmt: (n: number) => string = int) => (f.avg !== null ? fmt(f.avg) : null);
+  const dayList = d.days.map((x) => x.day);
+  const sleepBy = new Map(d.trendDays.map((day, i) => [day, d.body.sleep.trend[i]]));
   return (
     <div className="today-grid period">
       <section className="period-days" aria-label="Calories each day">
@@ -718,67 +741,138 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
           target={d.targets.kcal}
           selected={pickDay}
           onSelect={setSel}
+          footer={
+            r && (
+              <div className="period-pick">
+                <strong>{cap(fmtDay(r.day))}</strong>
+                <span>
+                  Calories<b>{r.eatenKcal !== null ? int(r.eatenKcal) : "–"}</b>
+                </span>
+                <span>
+                  Protein<b>{r.proteinG !== null ? `${int(r.proteinG)} g` : "–"}</b>
+                </span>
+                <span>
+                  Steps<b>{r.steps !== null ? int(r.steps) : "–"}</b>
+                </span>
+                <span>
+                  Workouts<b>{r.workouts}</b>
+                </span>
+              </div>
+            )
+          }
         />
-        {r && (
-          <div className="card period-pick">
-            <strong>{cap(fmtDay(r.day))}</strong>
-            <span>
-              Calories<b>{r.eatenKcal !== null ? int(r.eatenKcal) : "–"}</b>
-            </span>
-            <span>
-              Protein<b>{r.proteinG !== null ? `${int(r.proteinG)} g` : "–"}</b>
-            </span>
-            <span>
-              Steps<b>{r.steps !== null ? int(r.steps) : "–"}</b>
-            </span>
-            <span>
-              Workouts<b>{r.workouts}</b>
-            </span>
-          </div>
-        )}
       </section>
-      {/* The averages two by two with the check-ins under them, as tall as the chart beside them. */}
+      {/* The averages two by two with Check in and Activities under them, as tall as the chart beside them. */}
       <div className="period-side">
         <section className="card averages-card" aria-labelledby="period-averages">
           <h2 id="period-averages">Daily averages</h2>
           <div className="avg-grid">
-            <AverageCell label="Calories" value={avg(d.eaten)} of={d.targets.kcal} mean={d.eaten.avg} limit note={(t) => `of ${int(t)} target`} />
+            <AverageCell
+              label="Calories"
+              kind="kcal"
+              value={avg(d.eaten)}
+              of={d.targets.kcal}
+              mean={d.eaten.avg}
+              limit
+              note={(t) => `of ${int(t)} target`}
+              values={d.days.map((x) => x.eatenKcal)}
+              days={dayList}
+            />
             <AverageCell
               label="Protein"
+              kind="protein"
               value={avg(d.protein, (n) => `${int(n)} g`)}
               of={d.targets.protein}
               mean={d.protein.avg}
               note={(t) => `of ${int(t)} g goal`}
+              values={d.days.map((x) => x.proteinG)}
+              days={dayList}
             />
-            <AverageCell label="Steps" value={avg(d.steps)} of={d.targets.steps} mean={d.steps.avg} note={(t, met) => `goal ${int(t)}${met ? " · met" : ""}`} />
+            <AverageCell
+              label="Steps"
+              kind="steps"
+              value={avg(d.steps)}
+              of={d.targets.steps}
+              mean={d.steps.avg}
+              note={(t, met) => `goal ${int(t)}${met ? " · met" : ""}`}
+              values={d.days.map((x) => x.steps)}
+              days={dayList}
+            />
             <AverageCell
               label="Sleep"
+              kind="sleep"
               value={avg(d.body.sleep, hm)}
               of={null}
               mean={null}
               fallback={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : "a night"}
+              values={dayList.map((day) => sleepBy.get(day) ?? null)}
+              days={dayList}
+              line={SLEEP_GUIDE_S}
             />
           </div>
         </section>
-        <section className="card period-journal" aria-labelledby="period-journal">
-          <div className="so-far-head">
-            <h2 id="period-journal">Check-ins</h2>
-            <button type="button" className="link accent small" onClick={() => go.checkIn()}>
-              Journal ›
-            </button>
-          </div>
-          <p className="muted small">
-            {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
-            {j.mood.avg !== null ? ` · mood about ${word(j.mood.avg)}` : ""}
-            {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
-          </p>
-          <button type="button" className="link small" onClick={go.measurements}>
-            {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
-          </button>
-        </section>
+        <TodayActions
+          checkIn={[j.notes.length ? plural(j.notes.length, "note") : `None this ${span}`, j.mood.avg !== null ? `mood ${word(j.mood.avg)}` : null]
+            .filter(Boolean)
+            .join(" · ")}
+          activity={activityLine(d)}
+          onCheckIn={() => go.checkIn()}
+          onActivity={go.profile}
+        />
       </div>
     </div>
   );
+}
+
+/**
+ * Two big buttons side by side on every Today view (the owner's ask, 15 Nov 2026): Check in (mood,
+ * energy, a note) in the journal's colors and Activities in the activity colors, each with a line
+ * on where it stands. No card around them: they are the way in, not a summary.
+ */
+function TodayActions({
+  checkIn,
+  edit = false,
+  activity,
+  onCheckIn,
+  onActivity,
+}: {
+  checkIn: string;
+  edit?: boolean;
+  activity: string;
+  onCheckIn: () => void;
+  onActivity: () => void;
+}) {
+  return (
+    <div className="today-actions">
+      <button type="button" className="big-action checkin" onClick={onCheckIn}>
+        <Icon name={edit ? "pencil" : "note"} size={22} />
+        <span>
+          <strong>{edit ? "Edit check-in" : "Check in"}</strong>
+          <span className="small block">{checkIn}</span>
+        </span>
+      </button>
+      <button type="button" className="big-action activity" onClick={onActivity}>
+        <Icon name="workout" size={22} />
+        <span>
+          <strong>Activities</strong>
+          <span className="small block">{activity}</span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** A day's check-in in a few words: not yet, or its mood and energy. */
+function dayCheckInLine(note: DayNote | null, isToday: boolean): string {
+  if (!note) return isToday ? "Not yet today" : "None this day";
+  const parts = [note.mood !== null ? `Mood ${word(note.mood)}` : null, note.energy !== null ? `energy ${word(note.energy)}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "A note";
+}
+
+/** Workouts and steps in the day or span, in a few words. */
+function activityLine(d: Dashboard): string {
+  const w = d.workouts.count ? plural(d.workouts.count, "workout") : "No workouts";
+  return d.steps.avg !== null && d.days.length === 1 ? `${w} · ${int(d.steps.avg)} steps` : w;
 }
 
 /**
@@ -787,16 +881,25 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
  * target is a limit, so past it the bar turns the warning color; a goal (protein, steps) past it
  * reads "met". Without a target there is no bar, only the fallback line.
  */
+/** The dashed guide on the sleep bars: 8 hours, as there is no sleep target to draw. */
+const SLEEP_GUIDE_S = 8 * 3600;
+
 function AverageCell({
   label,
+  kind,
   value,
   of,
   mean,
   limit = false,
   note,
   fallback,
+  values,
+  days,
+  line = of,
 }: {
   label: string;
+  /** Picks the cell's color. */
+  kind: "kcal" | "protein" | "steps" | "sleep";
   value: string | null;
   /** The daily target or goal; null when none is set. */
   of: number | null;
@@ -805,20 +908,20 @@ function AverageCell({
   limit?: boolean;
   note?: (target: number, met: boolean) => string;
   fallback?: string;
+  /** One value a day over the span, for the bars. */
+  values: (number | null)[];
+  days: string[];
+  /** The dashed line on the bars: the target, or a fixed guide where there is none (8 h of sleep). */
+  line?: number | null;
 }) {
-  const has = of !== null && of > 0 && mean !== null;
-  const frac = has ? mean / of : 0;
+  const frac = of !== null && of > 0 && mean !== null ? mean / of : 0;
   const over = limit && frac > 1;
   return (
-    <div className="avg-cell">
+    <div className={`avg-cell ${kind}`}>
       <span className="muted small">{label}</span>
       <strong className={over ? "over" : undefined}>{value ?? "–"}</strong>
       <span className="muted small">{of !== null && of > 0 && note ? note(of, !limit && frac >= 1) : (fallback ?? "")}</span>
-      {has && (
-        <span className="avg-bar" aria-hidden>
-          <span className={over ? "over" : undefined} style={{ width: `${Math.min(100, Math.round(frac * 100))}%` }} />
-        </span>
-      )}
+      <MiniBars values={values} days={days} target={line} limit={limit} label={`${label} each day`} />
     </div>
   );
 }

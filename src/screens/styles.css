@@ -2475,9 +2475,14 @@ dl.overview-lines dd {
 .pinned-charts {
   margin-top: 1rem;
 }
+/* A day's eaten against burned, last on the day view, spaced like the charts above it. */
+/* The day so far, last on the day view under every chart (15 Nov 2026). */
+.so-far.card {
+  margin-top: 1rem;
+}
 .pinned-head {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -2485,7 +2490,24 @@ dl.overview-lines dd {
 }
 .pinned-head h2 {
   margin: 0;
+  min-width: 0;
   font-size: 1.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinned-head h2 .muted {
+  margin-left: 0.35rem;
+  font-weight: 400;
+}
+/* One line with the title in every case (15 Nov 2026): a short label, never wrapping. */
+.pinned-toggle {
+  flex: none;
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0.3rem 0.9rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.9rem;
 }
 .pinned-grid {
   display: grid;
@@ -2965,22 +2987,43 @@ button {
 .avg-cell strong.over {
   color: var(--warning);
 }
-.avg-bar {
-  display: block;
-  height: 4px;
-  margin-top: 0.45rem;
-  border-radius: var(--radius-pill);
-  background: var(--viz-grid);
-  overflow: hidden;
+/* The bars under each average: one a day, colored by what they count. */
+.avg-cell.kcal {
+  --cell: var(--area-food);
 }
-.avg-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
+.avg-cell.protein {
+  --cell: var(--area-coach);
 }
-.avg-bar > span.over {
-  background: var(--warning);
+.avg-cell.steps {
+  --cell: var(--area-activity);
+}
+.avg-cell.sleep {
+  --cell: var(--area-today);
+}
+.mini-bars {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 0.5rem;
+  overflow: visible;
+}
+.mini-bar {
+  fill: color-mix(in srgb, var(--cell, var(--accent)) 72%, var(--surface));
+}
+.mini-bar.last {
+  fill: var(--cell, var(--accent));
+}
+.mini-bar.over {
+  fill: var(--warning);
+}
+.mini-target {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.mini-day {
+  fill: var(--muted);
+  font-size: 9px;
 }
 .next-up {
   display: flex;
@@ -3027,6 +3070,46 @@ button {
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
+}
+/* The check-in button on Today (day, week, month): a pill in the journal's colors, as tall as Coach's starter buttons (44px). */
+/* Check in and Activities (dashboard TodayActions): two big buttons side by side, no card around them. */
+.today-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.big-action {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 76px;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  text-align: left;
+  font-weight: 400;
+}
+.big-action strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.big-action .small {
+  opacity: 0.85;
+}
+.big-action > span {
+  min-width: 0;
+}
+.big-action.checkin,
+.app-frame .big-action.checkin {
+  border: 1px solid transparent;
+  background: var(--area-journal-soft);
+  color: var(--area-journal-deep);
+}
+.big-action.activity,
+.app-frame .big-action.activity {
+  border: 1px solid transparent;
+  background: var(--area-activity-soft);
+  color: var(--area-activity-deep);
 }
 .so-far-head {
   display: flex;
@@ -3080,7 +3163,9 @@ button {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-top: 0.6rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
   font-size: 0.8rem;
   color: var(--muted);
 }
@@ -3145,8 +3230,157 @@ button {
   justify-content: flex-start;
   text-align: left;
 }
-.eat-again h3 {
-  margin: 1rem 0 0.5rem;
+/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, QuickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
+.eat-again,
+.from-prep {
+  --meal-breakfast: var(--area-coach);
+  /* Amber: the warning yellow alone reads olive on a dark card. */
+  --meal-lunch: color-mix(in srgb, var(--warning) 60%, var(--area-food));
+  --meal-dinner: var(--area-food);
+  --meal-snack: var(--area-activity);
+}
+.from-prep .prep {
+  --meal-color: var(--area-prep);
+}
+.eat-again-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.eat-again-head h3 {
+  margin: 0;
+}
+.eat-again-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 0.6rem 0 0.75rem;
+  scrollbar-width: none;
+}
+.eat-again-chips .chip {
+  flex: none;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+}
+.eat-again-chips .chip.active {
+  border-color: transparent;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--meal-color, var(--accent)) 22%, var(--surface));
+}
+.eat-again .breakfast {
+  --meal-color: var(--meal-breakfast);
+}
+.eat-again .lunch {
+  --meal-color: var(--meal-lunch);
+}
+.eat-again .dinner {
+  --meal-color: var(--meal-dinner);
+}
+.eat-again .snack {
+  --meal-color: var(--meal-snack);
+}
+.tap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.9rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.tap-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+.tap-row + .tap-row {
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.tap-row-main .thumb {
+  border-radius: 12px;
+  flex: none;
+}
+.tap-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--meal-color);
+  background: color-mix(in srgb, var(--meal-color) 18%, var(--surface));
+}
+.tap-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.tap-row-name {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.eat-again-star {
+  color: var(--meal-lunch);
+  font-size: 0.8em;
+}
+.tap-sub {
+  color: color-mix(in srgb, var(--muted) 75%, var(--surface));
+}
+.tap-had {
+  color: var(--good);
+}
+.tap-row-add {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.tap-row-add.done {
+  background: color-mix(in srgb, var(--good) 20%, var(--surface));
+  border-color: transparent;
+  color: var(--good);
+}
+.tap-done {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fg) 8%, var(--surface));
+  font-size: 0.9rem;
+}
+.tap-row-edit {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--muted);
+}
+.tap-row-edit[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tap-edit {
+  padding: 0 0 0.9rem;
+}
+.tap-done .link {
+  font-weight: 700;
+}
+.eat-again-empty {
+  margin: 0;
 }
 
 /* Activity's week (me/ActivityWeek.tsx): tiles, then steps and last night's sleep side by side on a wide screen. */
@@ -4546,7 +4780,8 @@ body:not(:has(.app-frame)) .today .date-step {
   margin: 0;
 }
 @media (max-width: 59.99rem) {
-  .today-col.left > .so-far {
+  /* Check in and Activities after Next up and recovery. */
+  .today-col.left > .today-actions {
     order: 3;
   }
   .today-col.right > .today-stack {
@@ -4647,8 +4882,8 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
 }
 
-/* Week and month: the chart and the chosen day on the left; the averages two by two and the
-   check-ins on the right, ending with the left column. */
+/* Week and month: the chart with the chosen day in its card on the left; the averages two by two and the
+   Check in and Activities buttons on the right, ending with the left column. */
 .period-side {
   display: flex;
   flex-direction: column;
@@ -4666,9 +4901,6 @@ body {
 .period-days > * {
   margin: 0;
 }
-.period-days .period-pick {
-  margin-top: 0;
-}
 @media (min-width: 60rem) {
   .today-grid.period {
     align-items: stretch;
@@ -4676,12 +4908,8 @@ body {
   .period-side .today-tiles.four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .period-side .period-journal {
+  .period-side .averages-card {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 0.5rem;
   }
 }
 
@@ -5166,14 +5394,10 @@ dl.inventory {
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
 }
 
-/* Wide Today: when the right column is the taller one, the day so far grows to meet it, so the two
-   columns end together either way (the steps chart already grows the other way). */
+/* Wide Today: the two columns stretch to the same height (the steps chart grows to fill its side). */
 @media (min-width: 60rem) {
   .today-grid {
     align-items: stretch;
-  }
-  .today-col.left > .so-far {
-    flex: 1 1 auto;
   }
 }
 /* kcal, protein, carbs and fat: four across, or two by two, never three and one left alone. */

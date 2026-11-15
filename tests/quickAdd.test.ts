@@ -10,6 +10,7 @@ const food = (name: string, uses = 1): Candidate => ({
   lastEntryId: `e-${name}`,
   name,
   calories: 100,
+  proteinG: null,
   photoId: null,
   uses,
   lastMs: 0,
