@@ -3703,6 +3703,8 @@ button:active:not(:disabled) {
 button.link.tap-row-main.drink-another {
   width: 100%;
   min-height: 0;
+  /* The same height as a drink's row: button.link drops a button's padding, this row needs it back. */
+  padding: 0.75rem 0;
   color: var(--accent);
   font-weight: 600;
 }
