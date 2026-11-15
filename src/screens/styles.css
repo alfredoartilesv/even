@@ -2476,9 +2476,6 @@ dl.overview-lines dd {
   margin-top: 1rem;
 }
 /* A day's eaten against burned, last on the day view, spaced like the charts above it. */
-.day-energy {
-  margin-top: 1rem;
-}
 /* The day so far, last on the day view under every chart (15 Nov 2026). */
 .so-far.card {
   margin-top: 1rem;

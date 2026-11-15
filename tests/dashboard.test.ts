@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { logDrink } from "../src/domain/alcohol/alcohol";
-import { DEFAULT_PINS, loadPins, savePins } from "../src/domain/dashboard/pins";
+import { DEFAULT_PINS, loadPins, PINS_KEY, savePins } from "../src/domain/dashboard/pins";
+import { setSetting } from "../src/db/settings";
 import { figure, loadDashboard, pinnedAnchor, shiftSpan, spanRange } from "../src/domain/dashboard/dashboard";
 import { newestOnly } from "../src/core/newest";
 import { logFood, setCalorieGoal } from "../src/domain/food/food";
@@ -226,4 +227,13 @@ test("pinned charts keep the order they were pinned in", async () => {
   // Unpinning one keeps the others where they were; pinning again puts it last.
   await savePins(db, ["sleep", "heart", "calories"]);
   assert.deepEqual(await loadPins(db), ["sleep", "heart", "calories"]);
+});
+
+test("pinned charts saved before eaten vs burned was a chart get it pinned once, last", async () => {
+  const { db } = await migratedDb();
+  await setSetting(db, PINS_KEY, "sleep,calories");
+  assert.deepEqual(await loadPins(db), ["sleep", "calories", "intraday"]);
+  // Unpinned afterwards, it stays unpinned.
+  await savePins(db, ["sleep", "calories"]);
+  assert.deepEqual(await loadPins(db), ["sleep", "calories"]);
 });
