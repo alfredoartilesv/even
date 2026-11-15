@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { addDays } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
-import { logDrink, saveDrinkType, servingKcal, type DrinkEntry, type DrinkType } from "../../domain/alcohol/alcohol";
+import { logDrink, saveDrinkType, servingKcal, type DrinkType } from "../../domain/alcohol/alcohol";
 import { alcoholGrams, standardDrinks } from "../../core/health";
-import { fmtDay, fmtMoney, plural, timeZone, today } from "../../ui/common";
+import { fmtMoney, timeZone } from "../../ui/common";
 import { ChipGroup, MoneyInput, Stepper, Switch } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 
@@ -35,44 +34,6 @@ export const draftFrom = (t: DrinkType | null): Draft =>
     : { type: null, kind: "beer", name: "Beer", volumeMl: 330, abvPercent: 5, price: 3.5, count: 1, favourite: false };
 
 const one = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-
-/**
- * This week at a glance (handoff 0.7): how many drinks of the weekly limit, what they cost, and
- * a dot per day, filled on a day with drinks.
- */
-export function DrinksWeek({ week, limit, currency }: { week: DrinkEntry[]; limit: number | null; currency: string }) {
-  const to = today();
-  const days = Array.from({ length: 7 }, (_, i) => addDays(to, i - 6));
-  const spent = week.reduce((n, d) => n + (d.price ?? 0), 0);
-  const std = standardDrinks(week.reduce((n, d) => n + d.alcoholG, 0));
-  const free = days.filter((d) => !week.some((w) => w.localDay === d)).length;
-  return (
-    <section className="card drinks-week" aria-label="Last 7 days">
-      <div className="drinks-week-head">
-        <span className="muted small">Last 7 days</span>
-        <span className="drinks-week-big">
-          {week.length}
-          <span className="muted"> {limit !== null ? `of ${limit} drinks` : week.length === 1 ? "drink" : "drinks"}</span>
-        </span>
-        <span className="muted small">
-          {fmtMoney(spent, currency)} spent · {one(std)} standard · {plural(free, "day")} without
-        </span>
-      </div>
-      <div className="drinks-week-days">
-        {days.map((d) => {
-          const n = week.filter((w) => w.localDay === d).length;
-          const label = `${fmtDay(d)}: ${n ? plural(n, "drink") : "none"}`;
-          return (
-            <div key={d} className="drinks-week-day">
-              <span role="img" aria-label={label} className={n ? (limit !== null && n > 2 ? "dot many" : "dot on") : "dot"} />
-              <span className="muted small">{new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" })}</span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 /**
  * The add panel: a favourite with its usual price filled in (change it for this one), or another
