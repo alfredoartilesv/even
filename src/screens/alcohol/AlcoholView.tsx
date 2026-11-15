@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../ui/common";
-import { MiniBars } from "../../ui/charts";
 import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
@@ -477,9 +476,10 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 }
 
 /**
- * What the period adds up to, in one card (the owner's ask, 15 Nov 2026): drinks, calories and
- * spent, one a row with small bars beside it, one a day (one a month over a year), then the weight without
- * alcohol. A single day has no bars, only the numbers.
+ * What the period adds up to, in one card (the owner's ask, 15 Nov 2026, option B): drinks,
+ * calories and spent side by side, then a calendar of which days had drinks, a dot sized by how
+ * many and a small green ring for a dry day (a dot a month over a year), then the weight without
+ * alcohol. A single day has no calendar, only the numbers.
  */
 function DrinksSummary({
   drinks,
@@ -498,53 +498,40 @@ function DrinksSummary({
   money: (n: number) => string;
   impact: WeightWithoutAlcohol | null;
 }) {
-  // One bucket a day, or a month over a year (365 bars would be hairlines).
-  const keyOf = (day: string) => (byMonth ? `${day.slice(0, 7)}-01` : day);
-  const keys = [...new Set(days.map(keyOf))];
-  const sum = (pick: (d: DrinkEntry) => number) => {
-    const by = new Map<string, number>();
-    for (const d of drinks) by.set(keyOf(d.localDay), (by.get(keyOf(d.localDay)) ?? 0) + pick(d));
-    return keys.map((k) => by.get(k) ?? 0);
-  };
-  const bars = keys.length > 1;
-  const per = byMonth ? "month" : "day";
-  const cells = [
+  const count = new Map<string, number>();
+  for (const d of drinks) count.set(d.localDay, (count.get(d.localDay) ?? 0) + 1);
+  const drinkingDays = days.filter((d) => count.has(d)).length;
+  const dry = days.length - drinkingDays;
+  const figures = [
     {
-      kind: "drinks",
       label: "Drinks",
       value: String(totals.drinks),
-      note: `${totals.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`,
-      values: sum(() => 1),
+      note: days.length > 1 ? `${drinkingDays} of ${days.length} days` : `${fmtStd(totals.standardDrinks)} standard`,
     },
+    { label: "Calories", value: kcal(totals.kcal), note: totals.kcalEstimated ? "kcal, some estimated" : "kcal" },
     {
-      kind: "kcal",
-      label: "Calories",
-      value: `${kcal(totals.kcal)} kcal`,
-      note: totals.kcalEstimated ? "some estimated" : "from drinks",
-      values: sum((d) => d.kcal),
-    },
-    {
-      kind: "spent",
       label: "Spent",
       value: money(totals.money),
       note: totals.priced < totals.drinks ? `${totals.drinks - totals.priced} without price` : periodLabel === "Today" ? "today" : periodLabel,
-      values: sum((d) => d.price ?? 0),
     },
   ];
   return (
     <section className="card drinks-summary" aria-label={`Drinks, ${periodLabel}`}>
-      <div className="drink-sum-grid">
-        {cells.map((c) => (
-          <div key={c.kind} className={`drink-sum-cell ${c.kind}`}>
-            <span className="drink-sum-figure">
-              <span className="muted small">{c.label}</span>
-              <strong>{c.value}</strong>
-              <span className="muted small">{c.note}</span>
-            </span>
-            {bars && <MiniBars values={c.values.map((v) => (v > 0 ? v : null))} days={keys} label={`${c.label} each ${per}`} />}
-          </div>
+      <div className="drink-sum-figures">
+        {figures.map((f) => (
+          <span key={f.label} className="drink-sum-figure">
+            <span className="muted small">{f.label}</span>
+            <strong>{f.value}</strong>
+            <span className="muted small">{f.note}</span>
+          </span>
         ))}
       </div>
+      {days.length > 1 && (byMonth ? <MonthDots days={days} count={count} /> : <DayDots days={days} count={count} />)}
+      {days.length > 1 && !byMonth && (
+        <p className="muted small drink-dots-note">
+          Dot size is drinks that day · {dry} dry {dry === 1 ? "day" : "days"}
+        </p>
+      )}
       {impact?.weight && impact.expectedKg !== null && (
         <p className="drink-sum-weight">
           <span className="muted small">Weight without alcohol</span>
@@ -555,5 +542,83 @@ function DrinksSummary({
         </p>
       )}
     </section>
+  );
+}
+
+const fmtStd = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+const noon = (day: string) => new Date(`${day}T12:00:00Z`);
+const dayLetter = (day: string) => noon(day).toLocaleDateString(undefined, { weekday: "narrow", timeZone: "UTC" });
+const drinksWord = (n: number) => (n ? `${n} ${n === 1 ? "drink" : "drinks"}` : "no drinks");
+
+/** A filled dot sized against the busiest one in view, or a small ring for none. */
+function Dot({ n, max, big, label }: { n: number; max: number; big: number; label: string }) {
+  if (n === 0) return <span className="drink-dot dry" role="img" aria-label={label} />;
+  const size = Math.round(big * (0.4 + 0.6 * (n / max)));
+  return <span className="drink-dot" role="img" aria-label={label} style={{ width: size, height: size }} />;
+}
+
+/**
+ * Days as a calendar: a week in one row with its letters and counts; 30 days in weeks under the
+ * weekday letters (Monday first), each day under its own weekday.
+ */
+function DayDots({ days, count }: { days: string[]; count: Map<string, number> }) {
+  const max = Math.max(1, ...days.map((d) => count.get(d) ?? 0));
+  const week = days.length <= 7;
+  const lead = week ? 0 : (noon(days[0]).getUTCDay() + 6) % 7;
+  const heads = week ? days.map(dayLetter) : ["M", "T", "W", "T", "F", "S", "S"];
+  return (
+    <div className={week ? "drink-dots week" : "drink-dots month"} role="group" aria-label="Drinks each day">
+      {heads.map((h, i) => (
+        <span key={`h${i}`} className="drink-dots-head" aria-hidden>
+          {h}
+        </span>
+      ))}
+      {Array.from({ length: lead }, (_, i) => (
+        <span key={`b${i}`} />
+      ))}
+      {days.map((d) => {
+        const n = count.get(d) ?? 0;
+        return (
+          <span key={d} className="drink-dots-cell">
+            <span className="drink-dot-box">
+              <Dot n={n} max={max} big={week ? 34 : 20} label={`${fmtDay(d)}: ${drinksWord(n)}`} />
+            </span>
+            {week && <span className="drink-dots-n">{n || ""}</span>}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A year as its months, a dot each sized by the month's drinks. */
+function MonthDots({ days, count }: { days: string[]; count: Map<string, number> }) {
+  // 365 days touch 13 calendar months; the twelve up to now fit one row.
+  const months = [...new Set(days.map((d) => d.slice(0, 7)))].slice(-12);
+  const per = new Map<string, number>();
+  for (const [d, n] of count) per.set(d.slice(0, 7), (per.get(d.slice(0, 7)) ?? 0) + n);
+  const max = Math.max(1, ...per.values());
+  const month = (m: string, style: "narrow" | "long") =>
+    noon(`${m}-15`).toLocaleDateString(
+      undefined,
+      style === "long" ? { month: "long", year: "numeric", timeZone: "UTC" } : { month: "narrow", timeZone: "UTC" },
+    );
+  return (
+    <div className="drink-dots year" role="group" aria-label="Drinks each month">
+      {months.map((m) => {
+        const n = per.get(m) ?? 0;
+        return (
+          <span key={m} className="drink-dots-cell">
+            <span className="drink-dots-head" aria-hidden>
+              {month(m, "narrow")}
+            </span>
+            <span className="drink-dot-box">
+              <Dot n={n} max={max} big={24} label={`${month(m, "long")}: ${drinksWord(n)}`} />
+            </span>
+            <span className="drink-dots-n">{n || ""}</span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
