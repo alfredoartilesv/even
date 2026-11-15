@@ -5394,7 +5394,7 @@ dl.inventory {
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
 }
 
-/* Wide Today: the two columns stretch to the same height (the steps chart grows to fill its side). */
+/* Wide Today: the two columns stretch to the same height. */
 @media (min-width: 60rem) {
   .today-grid {
     align-items: stretch;
