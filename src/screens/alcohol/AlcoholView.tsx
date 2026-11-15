@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
-import { changeRunner, EditActions, fmtDay, fmtDayLong, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
+import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { PeriodNav, SectionHeader, Segmented, type Choice } from "../../ui/layout";
-import { pinnedAnchor, shiftSpan, spanRange, type Span } from "../../domain/dashboard/dashboard";
 import { listGoals } from "../../domain/me/goals";
 import { AddDrink, draftFrom, DrinksWeek, type Draft } from "./AddDrink";
 import {
@@ -34,12 +33,17 @@ interface Props {
   onManage: (open: boolean) => void;
 }
 
-/** The same spans as Today (the owner's ask, 15 Nov 2026): a day, or the 7 or 30 days up to one. */
+/** Week, month and year (the owner's ask, 15 Nov 2026): the 7, 30 or 365 days up to a day, stepped like Today. */
+type Span = "week" | "month" | "year";
 const SPANS: Choice<Span>[] = [
-  { id: "day", label: "Day" },
   { id: "week", label: "Week" },
   { id: "month", label: "Month" },
+  { id: "year", label: "Year" },
 ];
+const SPAN_DAYS: Record<Span, number> = { week: 7, month: 30, year: 365 };
+const spanRange = (span: Span, anchor: string) => ({ from: addDays(anchor, 1 - SPAN_DAYS[span]), to: anchor });
+/** "Nov 2025 – Nov 2026": a year's days would not say which year. */
+const monthYear = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" });
 
 const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const kcal = (n: number) => Math.round(n).toLocaleString();
@@ -124,7 +128,7 @@ function TypeFields({ d, set, currency }: { d: TypeDraft; set: (d: TypeDraft) =>
 }
 
 /**
- * Drinks: favourites logged in one tap (on a day picked first, for one forgotten), a one-off form
+ * Drinks: favourites logged in one tap, a one-off form
  * for anything else, what the period adds up to, the drinks logged (each can be changed or
  * deleted) and the favourites themselves. On a wide screen the one-off form and the favourites sit
  * beside the rest; on a phone they open on demand.
@@ -135,11 +139,11 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [picked, setPicked] = useState<string | null>(null);
   const now = today();
   const anchor = picked ?? now;
-  const setAnchor = (d: string, sp: Span = span) => setPicked(pinnedAnchor(sp, d, now));
+  // A span that holds today follows it (null), so the screen moves on by itself after midnight.
+  const setAnchor = (d: string) => setPicked(d >= now ? null : d);
   const range = spanRange(span, anchor);
-  const isCurrent = range.from <= now && now <= range.to;
-  const many = span !== "day";
-  const next = shiftSpan(span, anchor, 1);
+  const isCurrent = range.to >= now;
+  const next = addDays(anchor, SPAN_DAYS[span]);
   const [impact, setImpact] = useState<WeightWithoutAlcohol | null>(null);
   const [types, setTypes] = useState<DrinkType[]>([]);
   const [recent, setRecent] = useState<Map<string, number>>(new Map());
@@ -155,16 +159,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [editingFav, setEditingFav] = useState<TypeDraft | null>(null);
   const [editingDrink, setEditingDrink] = useState<DrinkDraft | null>(null);
   const [curInput, setCurInput] = useState<string | null>(null);
-  // The day drinks are logged for: today logs "now", an earlier day logs at the time picked under it.
-  const [day, setDay] = useState(today());
-  const [at, setAt] = useState(EVENING);
-  const isToday = day === today();
-  const forDay = isToday ? "" : ` for ${fmtDay(day)}`;
-  // Logging on a day outside the span moves the span to it, so the drink shows up once logged.
-  function pickDay(d: string) {
-    setDay(d);
-    if (d < range.from || d > range.to) setAnchor(d);
-  }
 
   const load = useCallback(async () => {
     const to = today();
@@ -196,23 +190,14 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 
   const money = (n: number) => fmtMoney(n, currency);
   const run = changeRunner({ setMsg, load, onChanged, scope: "alcohol" });
-  // "Today", "Sat, Nov 14", "the last 7 days", "Nov 2 – Nov 8": the summary and the list say it.
-  const periodLabel = !many
-    ? anchor === now
-      ? "Today"
-      : upper(fmtDay(anchor))
-    : isCurrent
-      ? `the last ${span === "week" ? 7 : 30} days`
+  // "the last 7 days", "Nov 2 – Nov 8": the summary and the list say it.
+  const periodLabel = isCurrent
+    ? `the last ${SPAN_DAYS[span]} days`
+    : span === "year"
+      ? `${monthYear(range.from)} – ${monthYear(range.to)}`
       : `${fmtDay(range.from)} – ${fmtDay(range.to)}`;
-  // The date range is in the row above, so a past week or month is "that week" here, not the dates again.
-  const when = !many ? (anchor === now ? "today" : `on ${periodLabel}`) : isCurrent ? `in ${periodLabel}` : `in that ${span === "week" ? "week" : "month"}`;
-
-  /** When the drink was had: now for today, otherwise the picked time on the picked day. */
-  function drunkAt(): number | undefined {
-    if (isToday) return undefined;
-    if (day > today()) throw new Error("That day has not happened yet");
-    return localDateTimeToMs(day, at, timeZone()).ms;
-  }
+  // The dates are in the row above, so a past span is "that week" here, not the dates again.
+  const when = isCurrent ? `in ${periodLabel}` : `in that ${span}`;
 
   async function saveFav(e: FormEvent) {
     e.preventDefault();
@@ -240,7 +225,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     `${t.volumeMl} ml · ${t.abvPercent}% · ${servingKcal(t)} kcal${t.price !== null ? ` · ${money(t.price)}` : ""}`;
   const t = impact?.totals;
   // The days the span covers, oldest first (the same range load() reads).
-  const periodDays = Array.from({ length: span === "day" ? 1 : span === "week" ? 7 : 30 }, (_, i) => addDays(range.to, -i)).reverse();
+  const periodDays = Array.from({ length: SPAN_DAYS[span] }, (_, i) => addDays(range.to, -i)).reverse();
   const shown = showAll ? drinks : drinks.slice(0, FIRST);
   const favourite = editingDrink ? types.find((x) => x.id === drinks.find((d) => d.id === editingDrink.entryId)?.typeId) : undefined;
 
@@ -321,28 +306,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
       <div className="drinks-top">
         <div className="drinks-col main">
           <DrinksWeek week={week} limit={limit} currency={currency} />
-          <div className="drink-when">
-            {isToday ? (
-              <button type="button" className="link small" onClick={() => pickDay(addDays(today(), -1))}>
-                Forgot one? Log it on an earlier day
-              </button>
-            ) : (
-              <>
-                <label>
-                  Day
-                  <input type="date" value={day} max={today()} onChange={(e) => pickDay(e.target.value || today())} />
-                </label>
-                <label>
-                  Time
-                  <input type="time" value={at} onChange={(e) => setAt(e.target.value || EVENING)} />
-                </label>
-                <button type="button" className="link small" onClick={() => pickDay(today())}>
-                  Back to today
-                </button>
-              </>
-            )}
-          </div>
-          {/* Today's Day / Week / Month and its ‹ date › row (ui/layout PeriodNav bar). */}
+          {/* Week / Month / Year and Today's ‹ date › row (ui/layout PeriodNav bar). */}
           <div className="drinks-period">
             <Segmented
               items={SPANS}
@@ -350,19 +314,19 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               label="Period"
               onChange={(id) => {
                 setSpan(id);
-                // The day picked, or the last day of the week or month, stays in view.
-                setAnchor(isCurrent ? now : range.to, id);
+                // The last day of the span stays in view.
+                setAnchor(range.to);
               }}
             />
             <PeriodNav
               bar
-              title={many ? `${fmtDay(range.from)} – ${fmtDay(range.to)}` : fmtDayLong(anchor)}
+              title={span === "year" ? `${monthYear(range.from)} – ${monthYear(range.to)}` : `${fmtDay(range.from)} – ${fmtDay(range.to)}`}
               unit={span}
-              onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
-              onNext={() => setAnchor(many && next > now ? now : next)}
-              nextDisabled={many ? range.to >= now : next > now}
+              onPrev={() => setAnchor(addDays(anchor, -SPAN_DAYS[span]))}
+              onNext={() => setAnchor(next > now ? now : next)}
+              nextDisabled={isCurrent}
               onCurrent={isCurrent ? null : () => setAnchor(now)}
-              currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+              currentLabel={`Back to this ${span}`}
             />
           </div>
           {t && (
@@ -376,8 +340,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               draft={draft}
               setDraft={setDraft}
               currency={currency}
-              atMs={drunkAt}
-              dayLabel={forDay}
+              atMs={() => undefined}
+              dayLabel=""
               onClose={() => setDraft(null)}
               onLogged={(ids, text) => {
                 setLastIds(ids);
@@ -398,7 +362,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
             <p className="muted small">Tap one to add it. The usual price is filled in and you can change it.</p>
             <div className="drink-fav-list">
               {types.map((d) => (
-                <button key={d.id} type="button" className="drink-fav" onClick={() => setDraft(draftFrom(d))} aria-label={`Add ${d.name}${forDay}`}>
+                <button key={d.id} type="button" className="drink-fav" onClick={() => setDraft(draftFrom(d))} aria-label={`Add ${d.name}`}>
                   <span className="grow">
                     <strong>{d.name}</strong>
                     <span className="muted small block">
