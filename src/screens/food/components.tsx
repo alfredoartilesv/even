@@ -1,12 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedMeal } from "../../domain/food/food";
 import { localDay } from "../../core/tz";
 import { MEALS, type Meal } from "../../domain/food/suggest";
-import { failed, numOrNull } from "../../ui/common";
-import { estimateKcal, MacroInputs } from "../../ui/nutrition";
+import { failed, fmtDay, numOrNull } from "../../ui/common";
+import { estimateKcal, MacroSteppers } from "../../ui/nutrition";
 import { downscalePhoto, photoInputUrl } from "./photo";
-import { Icon } from "../../ui/icons";
+import { Icon, type IconName } from "../../ui/icons";
 
 export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack", prep: "Meal prep" };
 export const kcal = (n: number | null) => (n === null ? "–" : Math.round(n).toLocaleString());
@@ -115,24 +115,41 @@ export const parseDraft = (d: MealDraft) => ({
 });
 
 /** Name, slot, macros and notes. The caller adds its own buttons and extras as children. */
+/** Each meal's icon, the same as Eat again's rows. */
+export const MEAL_ICON: Record<Meal, IconName> = { breakfast: "coffee", lunch: "bowl", dinner: "food", snack: "apple", prep: "mealprep" };
+
+/**
+ * A meal's fields (the owner's design, 15 Nov 2026): the name beside the meal's icon, the meal as
+ * buttons with icons, calories and macros as steppers (typed, or − and +), what the caller adds
+ * (when it was eaten), then the notes, folded until there is one or the owner opens them.
+ */
 export function MealFields({
   draft,
   onChange,
   saved,
   allowPrep = false,
+  children,
 }: {
   draft: MealDraft;
   onChange: (d: MealDraft) => void;
   /** Offered as name completions; picking one fills the macros. */
   saved?: SavedMeal[];
   allowPrep?: boolean;
+  /** Shown between the numbers and the notes: the day and time of a logged meal. */
+  children?: ReactNode;
 }) {
   const set = (patch: Partial<MealDraft>) => onChange({ ...draft, ...patch });
+  const [noteOpen, setNoteOpen] = useState(Boolean(draft.notes));
   return (
-    <>
-      <label>
-        What did you eat?
+    <div className="meal-form stack">
+      <div className="meal-form-head">
+        <span className={`tap-icon ${draft.meal ?? ""}`} aria-hidden>
+          <Icon name={draft.meal ? MEAL_ICON[draft.meal] : "food"} size={22} />
+        </span>
         <input
+          className="meal-form-name"
+          aria-label="What did you eat?"
+          placeholder="What did you eat?"
           list={saved ? "saved-meal-names" : undefined}
           value={draft.name}
           onChange={(e) => {
@@ -149,22 +166,91 @@ export function MealFields({
             ))}
           </datalist>
         )}
-      </label>
-      <div className="chips">
+      </div>
+      <div className="meal-form-meals" role="radiogroup" aria-label="Meal">
         {MEALS.filter((m) => allowPrep || m !== "prep" || draft.meal === "prep").map((m) => (
-          <button type="button" key={m} className={draft.meal === m ? "chip active" : "chip"} onClick={() => set({ meal: draft.meal === m ? null : m })}>
+          <button
+            type="button"
+            key={m}
+            role="radio"
+            aria-checked={draft.meal === m}
+            className={draft.meal === m ? `on ${m}` : m}
+            onClick={() => set({ meal: draft.meal === m ? null : m })}
+          >
+            <Icon name={MEAL_ICON[m]} size={20} />
             {MEAL_LABEL[m]}
           </button>
         ))}
       </div>
-      <MacroInputs draft={draft} set={set} kcalHint={estimateKcal(draft)} />
-      <label>
-        Notes
-        <input value={draft.notes} onChange={(e) => set({ notes: e.target.value })} />
-      </label>
-    </>
+      <MacroSteppers draft={draft} set={set} />
+      {children}
+      {noteOpen ? (
+        <label>
+          Notes
+          <input value={draft.notes} autoFocus={!draft.notes} onChange={(e) => set({ notes: e.target.value })} />
+        </label>
+      ) : (
+        <button type="button" className="link meal-form-line" onClick={() => setNoteOpen(true)}>
+          <Icon name="note" size={18} />
+          <span className="grow">Add a note</span>
+          <Icon name="plus" size={18} />
+        </button>
+      )}
+    </div>
   );
 }
+
+/** When a logged meal was eaten as one line, "Today, 20:00", with the day and time fields behind Change. */
+export function WhenLine({ day, at, today, onChange }: { day: string; at: string; today: string; onChange: (day: string, at: string) => void }) {
+  const [open, setOpen] = useState(false);
+  if (!open)
+    return (
+      <div className="meal-form-line">
+        <Icon name="calendar" size={18} />
+        <span className="grow">
+          {day === today ? "Today" : cap(fmtDay(day))}, {at}
+        </span>
+        <button type="button" className="link accent" onClick={() => setOpen(true)}>
+          Change
+        </button>
+      </div>
+    );
+  return (
+    <div className="grid">
+      <label>
+        Day
+        <input type="date" value={day} max={today} onChange={(x) => onChange(x.target.value, at)} />
+      </label>
+      <label>
+        Time
+        <input type="time" value={at} onChange={(x) => onChange(day, x.target.value)} />
+      </label>
+    </div>
+  );
+}
+
+/** Save across the form, Cancel and Delete (when there is one) under it at either end. */
+export function FormFooter({ save = "Save", onCancel, onDelete }: { save?: string; onCancel: () => void; onDelete?: () => void }) {
+  return (
+    <div className="form-footer">
+      <button type="submit" className="form-footer-save">
+        {save}
+      </button>
+      <div className="form-footer-row">
+        <button type="button" className="link" onClick={onCancel}>
+          Cancel
+        </button>
+        {onDelete && (
+          <button type="button" className="link danger" onClick={onDelete}>
+            <Icon name="trash" size={16} /> Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 interface EntryActions {
   onAgain: (e: FoodEntry) => void;
@@ -198,30 +284,17 @@ export function EntryList({ db, entries, timeZone, ...act }: { db: SqlDriver; en
               editing === e.id && draft ? (
                 <li key={e.id}>
                   <form className="stack tight grow" onSubmit={(ev) => submit(ev, e)}>
-                    <MealFields draft={draft} onChange={setDraft} allowPrep={e.meal === "prep"} />
-                    {!e.fromPrep && (
-                      <div className="grid">
-                        <label>
-                          Day
-                          <input
-                            type="date"
-                            value={draft.day ?? ""}
-                            max={localDay(Date.now(), timeZone)}
-                            onChange={(x) => setDraft({ ...draft, day: x.target.value })}
-                          />
-                        </label>
-                        <label>
-                          Time
-                          <input type="time" value={draft.time ?? ""} onChange={(x) => setDraft({ ...draft, time: x.target.value })} />
-                        </label>
-                      </div>
-                    )}
-                    <div className="actions">
-                      <button type="submit">Save</button>
-                      <button type="button" className="secondary" onClick={() => setEditing(null)}>
-                        Cancel
-                      </button>
-                    </div>
+                    <MealFields draft={draft} onChange={setDraft} allowPrep={e.meal === "prep"}>
+                      {!e.fromPrep && (
+                        <WhenLine
+                          day={draft.day ?? e.localDay}
+                          at={draft.time ?? ""}
+                          today={localDay(Date.now(), timeZone)}
+                          onChange={(day, at) => setDraft({ ...draft, day, time: at })}
+                        />
+                      )}
+                    </MealFields>
+                    <FormFooter onCancel={() => setEditing(null)} onDelete={() => act.onDelete(e)} />
                   </form>
                 </li>
               ) : (

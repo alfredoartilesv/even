@@ -4,7 +4,7 @@ import { hideSuggestion, saveSuggestion, suggestionMeal } from "../../domain/foo
 import { usualMeal, type Candidate, type Meal } from "../../domain/food/suggest";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { Icon, type IconName } from "../../ui/icons";
-import { draftFrom, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
+import { draftFrom, FormFooter, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
 import { DoneBar, QuickRow } from "./QuickRows";
 
 type Slot = Exclude<Meal, "prep">;
@@ -170,15 +170,7 @@ export function EatAgain({
                         {c.savedMealId ? "Changes this starred meal." : "Stars it, so it always shows here."} Meals already logged stay as they were.
                       </p>
                       <MsgLine msg={msg} />
-                      <div className="actions">
-                        <button type="submit">Save</button>
-                        <button type="button" className="secondary" onClick={() => setEditing(null)}>
-                          Cancel
-                        </button>
-                        <button type="button" className="secondary danger" onClick={() => void remove(c)}>
-                          Delete
-                        </button>
-                      </div>
+                      <FormFooter onCancel={() => setEditing(null)} onDelete={() => void remove(c)} />
                     </form>
                   )
                 }

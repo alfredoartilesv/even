@@ -3259,7 +3259,8 @@ button {
 }
 /* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, QuickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
 .eat-again,
-.from-prep {
+.from-prep,
+.meal-form {
   --meal-breakfast: var(--area-coach);
   /* Amber: the warning yellow alone reads olive on a dark card. */
   --meal-lunch: color-mix(in srgb, var(--warning) 60%, var(--area-food));
@@ -3306,6 +3307,196 @@ button {
 }
 .eat-again .snack {
   --meal-color: var(--meal-snack);
+}
+/* A meal's form (food/components.tsx MealFields, the owner's design, 15 Nov 2026): the name beside
+   the meal's icon, the meals as icon buttons, calories and macros as steppers, Save across. */
+.meal-form .tap-icon {
+  --meal-color: var(--muted);
+}
+.meal-form .breakfast {
+  --meal-color: var(--meal-breakfast);
+}
+.meal-form .lunch {
+  --meal-color: var(--meal-lunch);
+}
+.meal-form .dinner {
+  --meal-color: var(--meal-dinner);
+}
+.meal-form .snack {
+  --meal-color: var(--meal-snack);
+}
+.meal-form .prep {
+  --meal-color: var(--area-prep);
+}
+.meal-form-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.meal-form input.meal-form-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0;
+  border: none;
+  border-bottom: 1px dashed var(--line);
+  border-radius: 0;
+  background: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.meal-form input.meal-form-name:focus {
+  border-bottom: 1px solid var(--accent);
+  outline: none;
+}
+.meal-form-meals {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fg) 5%, var(--surface));
+}
+.meal-form-meals button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 52px;
+  padding: 0.35rem 0;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.meal-form-meals button.on {
+  color: var(--meal-color);
+  background: color-mix(in srgb, var(--meal-color) 18%, var(--surface));
+  font-weight: 600;
+}
+.macro-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.num-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fg) 5%, var(--surface));
+}
+.num-step.big {
+  padding: 0.6rem 0.5rem 0.6rem 0.9rem;
+}
+.num-step-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.num-step-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.num-step-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.num-step-field {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+.meal-form .num-step input {
+  flex: none;
+  width: 3.6rem;
+  min-height: 40px;
+  padding: 0 0.25rem;
+  text-align: right;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border: none;
+  background: none;
+}
+.meal-form .num-step.big input {
+  width: 4.6rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.num-step input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+  border-radius: 8px;
+}
+.num-step-unit {
+  flex: none;
+  min-width: 1.9rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.meal-form button.num-step-btn {
+  border: none;
+  background: color-mix(in srgb, var(--fg) 10%, var(--surface));
+  color: var(--fg);
+}
+.num-step-btn {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  flex: none;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.meal-form-line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.25rem 0;
+  border-top: 1px solid var(--line);
+  color: inherit;
+}
+button.link.meal-form-line {
+  color: var(--muted);
+}
+.form-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.form-footer-save {
+  width: 100%;
+  min-height: 48px;
+}
+.form-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.form-footer-row button.link {
+  min-height: 44px;
+  padding: 0 0.25rem;
+  color: var(--muted);
+}
+.form-footer-row button.link.danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--error);
 }
 .tap-list {
   list-style: none;
