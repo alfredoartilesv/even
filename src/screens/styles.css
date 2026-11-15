@@ -2969,22 +2969,43 @@ button {
 .avg-cell strong.over {
   color: var(--warning);
 }
-.avg-bar {
-  display: block;
-  height: 4px;
-  margin-top: 0.45rem;
-  border-radius: var(--radius-pill);
-  background: var(--viz-grid);
-  overflow: hidden;
+/* The bars under each average: one a day, colored by what they count. */
+.avg-cell.kcal {
+  --cell: var(--area-food);
 }
-.avg-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
+.avg-cell.protein {
+  --cell: var(--area-coach);
 }
-.avg-bar > span.over {
-  background: var(--warning);
+.avg-cell.steps {
+  --cell: var(--area-activity);
+}
+.avg-cell.sleep {
+  --cell: var(--area-today);
+}
+.mini-bars {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 0.5rem;
+  overflow: visible;
+}
+.mini-bar {
+  fill: color-mix(in srgb, var(--cell, var(--accent)) 72%, var(--surface));
+}
+.mini-bar.last {
+  fill: var(--cell, var(--accent));
+}
+.mini-bar.over {
+  fill: var(--warning);
+}
+.mini-target {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.mini-day {
+  fill: var(--muted);
+  font-size: 9px;
 }
 .next-up {
   display: flex;
