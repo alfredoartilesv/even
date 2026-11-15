@@ -24,11 +24,12 @@ import { drinkKcalByDay } from "../../domain/alcohol/alcohol";
 import { eatPortions, loadStock, type StockEntry } from "../../domain/mealprep/mealPrep";
 import { mealForHour, usualMeal, type Candidate } from "../../domain/food/suggest";
 import { addDays, localDateTimeToMs } from "../../core/tz";
-import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
-import { PeriodNav, SectionHeader } from "../../ui/layout";
+import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, timeZone, today, type Msg } from "../../ui/common";
+import { PeriodNav } from "../../ui/layout";
 import { MacroBars } from "../../ui/nutrition";
 import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, type MealDraft } from "./components";
 import { EatAgain, type Logged } from "./EatAgain";
+import { FromMealPrep } from "./FromMealPrep";
 import { entryActions } from "./entryActions";
 
 interface Props {
@@ -170,23 +171,22 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
 
   /** Eat one fridge portion: it leaves stock and lands in the log (meal prep slot). Tapped again right after, it goes back. */
   async function eatPrep(s: StockEntry) {
-    if (ate?.batchId === s.batch.id) {
-      try {
+    try {
+      if (ate?.batchId === s.batch.id) {
         await deleteFood(db, ate.entryId);
         setAte(null);
-        setUndo(null);
-        setMsg({ kind: "ok", text: `Put the portion of ${s.batch.name} back in the fridge.` });
-        reload();
-      } catch (err) {
-        setMsg(failed(err, "food"));
+      } else {
+        const tz = timeZone();
+        const id = await eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
+        setAte({ batchId: s.batch.id, entryId: id });
       }
-      return;
+      // The list shows what happened and its own Undo, so the message above is cleared.
+      setUndo(null);
+      setMsg(null);
+      reload();
+    } catch (err) {
+      setMsg(failed(err, "food"));
     }
-    const id = await run(() => {
-      const tz = timeZone();
-      return eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
-    }, `Ate a portion of ${s.batch.name}${on}. Tap it again to undo.`);
-    if (id) setAte({ batchId: s.batch.id, entryId: id });
   }
 
   async function add(e: FormEvent) {
@@ -362,29 +362,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
         </div>
 
         <div className="span-4 wide-col">
-          {prep.length > 0 && (
-            <section>
-              <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
-              <div className="suggest column">
-                {prep.map((s) => {
-                  const pressed = ate?.batchId === s.batch.id;
-                  return (
-                    <button
-                      key={s.batch.id}
-                      className={pressed ? "suggestion pressed" : "suggestion secondary"}
-                      aria-pressed={pressed}
-                      onClick={() => void eatPrep(s)}
-                    >
-                      <span>
-                        {pressed ? `✓ Ate 1 · ${s.batch.name}` : `Eat 1 · ${s.batch.name}`}
-                        <span className="muted small block">{pressed ? "Tap again to undo" : `${plural(s.fridgeCount, "portion")} in the fridge`}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+          {prep.length > 0 && <FromMealPrep stock={prep} ateBatchId={ate?.batchId ?? null} onEat={(x) => void eatPrep(x)} onStock={onStock} />}
           {adding ? null : (
             <button className="wide-button" onClick={() => setAdding(true)}>
               Log a meal{on}
@@ -402,6 +380,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
                 await deleteFood(db, id);
                 reload();
               }}
+              onSaved={reload}
             />
           )}
         </div>

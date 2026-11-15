@@ -3173,13 +3173,17 @@ button {
   justify-content: flex-start;
   text-align: left;
 }
-/* Eat again (food/EatAgain.tsx): one card of rows, a color and icon per meal, a round + that logs. */
-.eat-again {
+/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, QuickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
+.eat-again,
+.from-prep {
   --meal-breakfast: var(--area-coach);
   /* Amber: the warning yellow alone reads olive on a dark card. */
   --meal-lunch: color-mix(in srgb, var(--warning) 60%, var(--area-food));
   --meal-dinner: var(--area-food);
   --meal-snack: var(--area-activity);
+}
+.from-prep .prep {
+  --meal-color: var(--area-prep);
 }
 .eat-again-head {
   display: flex;
@@ -3219,7 +3223,7 @@ button {
 .eat-again .snack {
   --meal-color: var(--meal-snack);
 }
-.eat-again-list {
+.tap-list {
   list-style: none;
   margin: 0;
   padding: 0 0.9rem;
@@ -3227,20 +3231,20 @@ button {
   background: var(--surface);
   border: 1px solid var(--line);
 }
-.eat-again-row {
+.tap-row-main {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 0;
 }
-.eat-again-row + .eat-again-row {
+.tap-row + .tap-row {
   border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
-.eat-again-row .thumb {
+.tap-row-main .thumb {
   border-radius: 12px;
   flex: none;
 }
-.eat-again-icon {
+.tap-icon {
   width: 42px;
   height: 42px;
   border-radius: 12px;
@@ -3251,11 +3255,11 @@ button {
   color: var(--meal-color);
   background: color-mix(in srgb, var(--meal-color) 18%, var(--surface));
 }
-.eat-again-text {
+.tap-row-text {
   flex: 1;
   min-width: 0;
 }
-.eat-again-name {
+.tap-row-name {
   display: block;
   overflow-wrap: anywhere;
 }
@@ -3263,13 +3267,13 @@ button {
   color: var(--meal-lunch);
   font-size: 0.8em;
 }
-.eat-again-usual {
+.tap-sub {
   color: color-mix(in srgb, var(--muted) 75%, var(--surface));
 }
-.eat-again-had {
+.tap-had {
   color: var(--good);
 }
-.eat-again-add {
+.tap-row-add {
   width: 44px;
   height: 44px;
   min-height: 44px;
@@ -3280,12 +3284,12 @@ button {
   justify-content: center;
   flex: none;
 }
-.eat-again-add.done {
+.tap-row-add.done {
   background: color-mix(in srgb, var(--good) 20%, var(--surface));
   border-color: transparent;
   color: var(--good);
 }
-.eat-again-toast {
+.tap-done {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -3296,7 +3300,26 @@ button {
   background: color-mix(in srgb, var(--fg) 8%, var(--surface));
   font-size: 0.9rem;
 }
-.eat-again-toast .link {
+.tap-row-edit {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--muted);
+}
+.tap-row-edit[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tap-edit {
+  padding: 0 0 0.9rem;
+}
+.tap-done .link {
   font-weight: 700;
 }
 .eat-again-empty {

@@ -549,6 +549,33 @@ export async function photoDataUrl(db: SqlDriver, id: string): Promise<string | 
   return p ? `data:${p.mime};base64,${p.data_b64}` : null;
 }
 
+/** What editing a suggestion starts from: the saved meal, or the newest entry of a meal not saved. */
+export async function suggestionMeal(db: SqlDriver, c: Pick<Candidate, "savedMealId" | "lastEntryId">): Promise<SavedMealInput> {
+  if (c.savedMealId) {
+    const m = await getSavedMeal(db, c.savedMealId);
+    if (!m) throw new Error("That saved meal no longer exists");
+    return { name: m.name, meal: m.meal, calories: m.calories, proteinG: m.proteinG, carbsG: m.carbsG, fatG: m.fatG, notes: m.notes };
+  }
+  const [e] = await db.all<EntryRow>(`SELECT ${ENTRY_COLS} FROM ${ENTRY_FROM} WHERE e.id = ? AND e.deleted_at IS NULL`, [c.lastEntryId]);
+  if (!e) throw new Error("That entry no longer exists");
+  return { name: e.name, meal: e.meal, calories: e.calories, proteinG: e.protein_g, carbsG: e.carbs_g, fatG: e.fat_g, notes: e.notes };
+}
+
+/**
+ * Save an edited suggestion for next time. A meal not saved yet becomes a saved meal (with its
+ * earlier entries linked, as ☆ Save does), so the edit sticks. Entries already logged stay as they were.
+ */
+export async function saveSuggestion(
+  db: SqlDriver,
+  c: Pick<Candidate, "savedMealId" | "lastEntryId">,
+  m: Omit<SavedMealInput, "id" | "photo">,
+  nowMs: number = Date.now(),
+): Promise<string> {
+  const id = c.savedMealId ?? (c.lastEntryId ? await saveEntryAsMeal(db, c.lastEntryId, undefined, nowMs) : null);
+  if (!id) throw new Error("Nothing to save");
+  return saveMeal(db, { ...m, id }, nowMs);
+}
+
 // ---- Suggestions: what you eat again and again ----
 
 const LOOKBACK_DAYS = 30;

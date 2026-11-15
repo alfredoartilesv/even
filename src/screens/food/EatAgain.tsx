@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
+import { saveSuggestion, suggestionMeal } from "../../domain/food/food";
 import { usualMeal, type Candidate, type Meal } from "../../domain/food/suggest";
+import { failed, MsgLine, type Msg } from "../../ui/common";
 import { Icon, type IconName } from "../../ui/icons";
-import { kcal, PhotoThumb } from "./components";
+import { draftFrom, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
+import { DoneBar, QuickRow } from "./QuickRows";
 
 type Slot = Exclude<Meal, "prep">;
 const SLOTS: Slot[] = ["breakfast", "lunch", "dinner", "snack"];
@@ -18,8 +21,8 @@ export interface Logged {
 
 /**
  * Eat again: the meals you have most, filtered by meal (the one for now first), each with a
- * round + that logs it. The + turns into a check that undoes it, and a bar under the list says
- * what was logged, so the owner sees the tap worked without scrolling up to the message.
+ * round + that logs it and a pencil that edits it for next time. The + turns into a check that
+ * undoes it, and a bar under the list says what was logged, so the tap shows where it was made.
  */
 export function EatAgain({
   db,
@@ -28,6 +31,7 @@ export function EatAgain({
   isToday,
   onLog,
   onUndo,
+  onSaved,
 }: {
   db: SqlDriver;
   suggested: Candidate[];
@@ -36,10 +40,14 @@ export function EatAgain({
   isToday: boolean;
   onLog: (c: Candidate) => Promise<Logged | null>;
   onUndo: (entryId: string) => Promise<void>;
+  /** An edit was saved: reload the suggestions. */
+  onSaved: () => void;
 }) {
   const now: Slot = slot === "prep" ? "lunch" : slot;
   const [chip, setChip] = useState<Slot>(now);
   const [logged, setLogged] = useState<(Logged & { key: string; calories: number | null }) | null>(null);
+  const [editing, setEditing] = useState<{ key: string; draft: MealDraft } | null>(null);
+  const [msg, setMsg] = useState<Msg>(null);
   const order = [now, ...SLOTS.filter((s) => s !== now)];
   // A meal never given a slot shows with the meal for now, so it is never out of reach.
   const slotOf = (c: Candidate): Slot => {
@@ -56,6 +64,27 @@ export function EatAgain({
     if (!logged) return;
     await onUndo(logged.entryId);
     setLogged(null);
+  };
+  const edit = async (c: Candidate) => {
+    setMsg(null);
+    if (editing?.key === c.key) return setEditing(null);
+    try {
+      setEditing({ key: c.key, draft: draftFrom({ notes: null, ...(await suggestionMeal(db, c)) }) });
+    } catch (err) {
+      setMsg(failed(err, "food"));
+    }
+  };
+  const save = async (e: FormEvent, c: Candidate) => {
+    e.preventDefault();
+    if (!editing) return;
+    try {
+      await saveSuggestion(db, c, parseDraft(editing.draft));
+      setEditing(null);
+      setMsg(null);
+      onSaved();
+    } catch (err) {
+      setMsg(failed(err, "food"));
+    }
   };
 
   return (
@@ -75,26 +104,29 @@ export function EatAgain({
       {rows.length === 0 ? (
         <p className="muted small eat-again-empty">Nothing you usually have for {LABEL[chip].toLowerCase()} yet. Meals you log twice show up here.</p>
       ) : (
-        <ul className="eat-again-list">
+        <ul className="tap-list">
           {rows.map((c) => {
-            const done = logged?.key === c.key;
             const s = slotOf(c);
             const facts = [c.calories !== null ? `${kcal(c.calories)} kcal` : null, c.proteinG !== null ? `${Math.round(c.proteinG)} g protein` : null].filter(
               Boolean,
             );
             const usual = usualMeal(c);
             const habit = [usual && usual !== "prep" ? `Usually ${usual}` : null, c.uses > 1 ? `${c.uses}× this month` : null].filter(Boolean).join(" · ");
+            const open = editing?.key === c.key ? editing : null;
             return (
-              <li key={c.key} className="eat-again-row">
-                {c.photoId ? (
-                  <PhotoThumb db={db} id={c.photoId} size={42} />
-                ) : (
-                  <span className={`eat-again-icon ${s}`} aria-hidden>
-                    <Icon name={ICON[s]} size={22} />
-                  </span>
-                )}
-                <span className="eat-again-text">
-                  <span className="eat-again-name">
+              <QuickRow
+                key={c.key}
+                picture={
+                  c.photoId ? (
+                    <PhotoThumb db={db} id={c.photoId} size={42} />
+                  ) : (
+                    <span className={`tap-icon ${s}`} aria-hidden>
+                      <Icon name={ICON[s]} size={22} />
+                    </span>
+                  )
+                }
+                title={
+                  <>
                     {c.name}
                     {c.savedMealId && (
                       <span className="eat-again-star" aria-label="Saved meal">
@@ -102,38 +134,43 @@ export function EatAgain({
                         ★
                       </span>
                     )}
-                  </span>
-                  {facts.length > 0 && <span className="muted small block">{facts.join(" · ")}</span>}
-                  {isToday && c.loggedToday ? (
-                    <span className="eat-again-had small block">✓ Had it today</span>
-                  ) : (
-                    habit && <span className="eat-again-usual small block">{habit}</span>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  className={done ? "eat-again-add done" : "eat-again-add"}
-                  aria-label={done ? `Undo logging ${c.name}` : `Log ${c.name}`}
-                  onClick={() => void (done ? undo() : log(c))}
-                >
-                  <Icon name={done ? "check" : "plus"} size={22} />
-                </button>
-              </li>
+                  </>
+                }
+                done={logged?.key === c.key}
+                label={`Log ${c.name}`}
+                onTap={() => void (logged?.key === c.key ? undo() : log(c))}
+                onEdit={() => void edit(c)}
+                editing={
+                  open && (
+                    <form className="tap-edit stack" onSubmit={(e) => void save(e, c)}>
+                      <MealFields draft={open.draft} onChange={(d) => setEditing({ key: c.key, draft: d })} />
+                      <p className="muted small">
+                        {c.savedMealId ? "Changes this saved meal." : "Saves it as a saved meal."} Meals already logged stay as they were.
+                      </p>
+                      <MsgLine msg={msg} />
+                      <div className="actions">
+                        <button type="submit">Save</button>
+                        <button type="button" className="secondary" onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )
+                }
+              >
+                {facts.length > 0 && <span className="muted small block">{facts.join(" · ")}</span>}
+                {isToday && c.loggedToday ? (
+                  <span className="tap-had small block">✓ Had it today</span>
+                ) : (
+                  habit && <span className="tap-sub small block">{habit}</span>
+                )}
+              </QuickRow>
             );
           })}
         </ul>
       )}
-      {logged && (
-        <div className="eat-again-toast" role="status">
-          <span>
-            Logged for {logged.meal}
-            {logged.calories !== null ? ` · ${kcal(logged.calories)} kcal` : ""}
-          </span>
-          <button type="button" className="link accent" onClick={() => void undo()}>
-            Undo
-          </button>
-        </div>
-      )}
+      {!editing && <MsgLine msg={msg} />}
+      {logged && <DoneBar text={`Logged for ${logged.meal}${logged.calories !== null ? ` · ${kcal(logged.calories)} kcal` : ""}`} onUndo={() => void undo()} />}
     </section>
   );
 }
