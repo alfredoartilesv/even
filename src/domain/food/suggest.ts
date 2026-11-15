@@ -22,6 +22,7 @@ export interface Candidate {
   lastEntryId: string | null;
   name: string;
   calories: number | null;
+  proteinG: number | null;
   photoId: string | null;
   /** Times logged in the look-back window (30 days). */
   uses: number;

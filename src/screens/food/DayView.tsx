@@ -24,10 +24,12 @@ import { drinkKcalByDay } from "../../domain/alcohol/alcohol";
 import { eatPortions, loadStock, type StockEntry } from "../../domain/mealprep/mealPrep";
 import { mealForHour, usualMeal, type Candidate } from "../../domain/food/suggest";
 import { addDays, localDateTimeToMs } from "../../core/tz";
-import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
-import { PeriodNav, SectionHeader } from "../../ui/layout";
+import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, timeZone, today, type Msg } from "../../ui/common";
+import { PeriodNav } from "../../ui/layout";
 import { MacroBars } from "../../ui/nutrition";
-import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
+import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, type MealDraft } from "./components";
+import { EatAgain, type Logged } from "./EatAgain";
+import { FromMealPrep } from "./FromMealPrep";
 import { entryActions } from "./entryActions";
 
 interface Props {
@@ -148,35 +150,43 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
     }
   }
 
-  const quickLog = (c: Candidate) => {
+  // Eat again shows its own confirmation and undo beside the list, so this clears the message above.
+  const quickLog = async (c: Candidate): Promise<Logged | null> => {
     const tz = timeZone();
     const meal = isToday ? mealForHour(new Date().getHours()) : (usualMeal(c) ?? mealForHour(12));
     const atMs = logTimeFor(day, meal, tz);
-    return run(
-      () => (c.savedMealId ? logSavedMeal(db, c.savedMealId, { meal, atMs, timeZone: tz }) : relogFood(db, c.lastEntryId!, { atMs, timeZone: tz })),
-      `Logged ${c.name}${on}.`,
-    );
+    try {
+      const entryId = await (c.savedMealId
+        ? logSavedMeal(db, c.savedMealId, { meal, atMs, timeZone: tz })
+        : relogFood(db, c.lastEntryId!, { atMs, timeZone: tz }));
+      setUndo(null);
+      setMsg(null);
+      reload();
+      return { entryId, meal };
+    } catch (err) {
+      setMsg(failed(err, "food"));
+      return null;
+    }
   };
 
   /** Eat one fridge portion: it leaves stock and lands in the log (meal prep slot). Tapped again right after, it goes back. */
   async function eatPrep(s: StockEntry) {
-    if (ate?.batchId === s.batch.id) {
-      try {
+    try {
+      if (ate?.batchId === s.batch.id) {
         await deleteFood(db, ate.entryId);
         setAte(null);
-        setUndo(null);
-        setMsg({ kind: "ok", text: `Put the portion of ${s.batch.name} back in the fridge.` });
-        reload();
-      } catch (err) {
-        setMsg(failed(err, "food"));
+      } else {
+        const tz = timeZone();
+        const id = await eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
+        setAte({ batchId: s.batch.id, entryId: id });
       }
-      return;
+      // The list shows what happened and its own Undo, so the message above is cleared.
+      setUndo(null);
+      setMsg(null);
+      reload();
+    } catch (err) {
+      setMsg(failed(err, "food"));
     }
-    const id = await run(() => {
-      const tz = timeZone();
-      return eatPortions(db, { batchId: s.batch.id, portions: 1, atMs: logTimeFor(day, mealForHour(new Date().getHours()), tz), timeZone: tz });
-    }, `Ate a portion of ${s.batch.name}${on}. Tap it again to undo.`);
-    if (id) setAte({ batchId: s.batch.id, entryId: id });
   }
 
   async function add(e: FormEvent) {
@@ -352,56 +362,26 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
         </div>
 
         <div className="span-4 wide-col">
-          {prep.length > 0 && (
-            <section>
-              <SectionHeader title="From your meal prep" action="Stock" onAction={onStock} />
-              <div className="suggest column">
-                {prep.map((s) => {
-                  const pressed = ate?.batchId === s.batch.id;
-                  return (
-                    <button
-                      key={s.batch.id}
-                      className={pressed ? "suggestion pressed" : "suggestion secondary"}
-                      aria-pressed={pressed}
-                      onClick={() => void eatPrep(s)}
-                    >
-                      <span>
-                        {pressed ? `✓ Ate 1 · ${s.batch.name}` : `Eat 1 · ${s.batch.name}`}
-                        <span className="muted small block">{pressed ? "Tap again to undo" : `${plural(s.fridgeCount, "portion")} in the fridge`}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+          {prep.length > 0 && <FromMealPrep stock={prep} ateBatchId={ate?.batchId ?? null} onEat={(x) => void eatPrep(x)} onStock={onStock} />}
           {adding ? null : (
             <button className="wide-button" onClick={() => setAdding(true)}>
               Log a meal{on}
             </button>
           )}
           {suggested.length > 0 && (
-            <section className="eat-again">
-              <h3>Eat again</h3>
-              <div className="suggest column">
-                {suggested.map((c) => (
-                  <button
-                    key={c.key}
-                    className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"}
-                    onClick={() => void quickLog(c)}
-                  >
-                    <PhotoThumb db={db} id={c.photoId} size={40} />
-                    <span>
-                      {c.savedMealId && "★ "}
-                      {c.name}
-                      <span className="muted small block">
-                        {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
+            <EatAgain
+              key={day}
+              db={db}
+              suggested={suggested}
+              slot={isToday ? mealForHour(new Date().getHours()) : "lunch"}
+              isToday={isToday}
+              onLog={quickLog}
+              onUndo={async (id) => {
+                await deleteFood(db, id);
+                reload();
+              }}
+              onSaved={reload}
+            />
           )}
         </div>
 
