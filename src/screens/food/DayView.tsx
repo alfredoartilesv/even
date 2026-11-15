@@ -27,7 +27,8 @@ import { addDays, localDateTimeToMs } from "../../core/tz";
 import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { PeriodNav, SectionHeader } from "../../ui/layout";
 import { MacroBars } from "../../ui/nutrition";
-import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, PhotoThumb, type MealDraft } from "./components";
+import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, type MealDraft } from "./components";
+import { EatAgain, type Logged } from "./EatAgain";
 import { entryActions } from "./entryActions";
 
 interface Props {
@@ -148,14 +149,23 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
     }
   }
 
-  const quickLog = (c: Candidate) => {
+  // Eat again shows its own confirmation and undo beside the list, so this clears the message above.
+  const quickLog = async (c: Candidate): Promise<Logged | null> => {
     const tz = timeZone();
     const meal = isToday ? mealForHour(new Date().getHours()) : (usualMeal(c) ?? mealForHour(12));
     const atMs = logTimeFor(day, meal, tz);
-    return run(
-      () => (c.savedMealId ? logSavedMeal(db, c.savedMealId, { meal, atMs, timeZone: tz }) : relogFood(db, c.lastEntryId!, { atMs, timeZone: tz })),
-      `Logged ${c.name}${on}.`,
-    );
+    try {
+      const entryId = await (c.savedMealId
+        ? logSavedMeal(db, c.savedMealId, { meal, atMs, timeZone: tz })
+        : relogFood(db, c.lastEntryId!, { atMs, timeZone: tz }));
+      setUndo(null);
+      setMsg(null);
+      reload();
+      return { entryId, meal };
+    } catch (err) {
+      setMsg(failed(err, "food"));
+      return null;
+    }
   };
 
   /** Eat one fridge portion: it leaves stock and lands in the log (meal prep slot). Tapped again right after, it goes back. */
@@ -381,27 +391,18 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
             </button>
           )}
           {suggested.length > 0 && (
-            <section className="eat-again">
-              <h3>Eat again</h3>
-              <div className="suggest column">
-                {suggested.map((c) => (
-                  <button
-                    key={c.key}
-                    className={isToday && c.loggedToday ? "suggestion secondary dim" : "suggestion secondary"}
-                    onClick={() => void quickLog(c)}
-                  >
-                    <PhotoThumb db={db} id={c.photoId} size={40} />
-                    <span>
-                      {c.savedMealId && "★ "}
-                      {c.name}
-                      <span className="muted small block">
-                        {kcal(c.calories)} kcal{c.uses > 1 && ` · ${c.uses}× this month`}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
+            <EatAgain
+              key={day}
+              db={db}
+              suggested={suggested}
+              slot={isToday ? mealForHour(new Date().getHours()) : "lunch"}
+              isToday={isToday}
+              onLog={quickLog}
+              onUndo={async (id) => {
+                await deleteFood(db, id);
+                reload();
+              }}
+            />
           )}
         </div>
 

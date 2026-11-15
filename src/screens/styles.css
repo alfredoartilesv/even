@@ -3173,8 +3173,134 @@ button {
   justify-content: flex-start;
   text-align: left;
 }
-.eat-again h3 {
-  margin: 1rem 0 0.5rem;
+/* Eat again (food/EatAgain.tsx): one card of rows, a color and icon per meal, a round + that logs. */
+.eat-again {
+  --meal-breakfast: var(--area-coach);
+  /* Amber: the warning yellow alone reads olive on a dark card. */
+  --meal-lunch: color-mix(in srgb, var(--warning) 60%, var(--area-food));
+  --meal-dinner: var(--area-food);
+  --meal-snack: var(--area-activity);
+}
+.eat-again-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.eat-again-head h3 {
+  margin: 0;
+}
+.eat-again-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 0.6rem 0 0.75rem;
+  scrollbar-width: none;
+}
+.eat-again-chips .chip {
+  flex: none;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+}
+.eat-again-chips .chip.active {
+  border-color: transparent;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--meal-color, var(--accent)) 22%, var(--surface));
+}
+.eat-again .breakfast {
+  --meal-color: var(--meal-breakfast);
+}
+.eat-again .lunch {
+  --meal-color: var(--meal-lunch);
+}
+.eat-again .dinner {
+  --meal-color: var(--meal-dinner);
+}
+.eat-again .snack {
+  --meal-color: var(--meal-snack);
+}
+.eat-again-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.9rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.eat-again-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+.eat-again-row + .eat-again-row {
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.eat-again-row .thumb {
+  border-radius: 12px;
+  flex: none;
+}
+.eat-again-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--meal-color);
+  background: color-mix(in srgb, var(--meal-color) 18%, var(--surface));
+}
+.eat-again-text {
+  flex: 1;
+  min-width: 0;
+}
+.eat-again-name {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.eat-again-star {
+  color: var(--meal-lunch);
+  font-size: 0.8em;
+}
+.eat-again-usual {
+  color: color-mix(in srgb, var(--muted) 75%, var(--surface));
+}
+.eat-again-had {
+  color: var(--good);
+}
+.eat-again-add {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.eat-again-add.done {
+  background: color-mix(in srgb, var(--good) 20%, var(--surface));
+  border-color: transparent;
+  color: var(--good);
+}
+.eat-again-toast {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--fg) 8%, var(--surface));
+  font-size: 0.9rem;
+}
+.eat-again-toast .link {
+  font-weight: 700;
+}
+.eat-again-empty {
+  margin: 0;
 }
 
 /* Activity's week (me/ActivityWeek.tsx): tiles, then steps and last night's sleep side by side on a wide screen. */

@@ -43,6 +43,7 @@ test("meal slot by hour, usual slot, ranking", () => {
     lastEntryId: null,
     name: "",
     calories: null,
+    proteinG: null,
     photoId: null,
     uses: 2,
     lastMs: MORNING - 10 * DAY,
@@ -183,6 +184,19 @@ test("suggestions: saved meals and repeated meals, ranked for the time of day, p
 
   const evening = await suggestions(db, { nowMs: MORNING + 12 * H, timeZone: TZ });
   assert.equal(evening[0].name, "Chicken rice");
+});
+
+test("suggestions: a meal logged by hand under a saved meal's name joins that saved meal, with its protein", async () => {
+  const { db } = await migratedDb();
+  await saveMeal(db, { name: "Chicken rice bowl", meal: "lunch", ...none, calories: 720, proteinG: 48 }, MORNING - 10 * DAY);
+  for (let d = 1; d <= 3; d++) await logFood(db, { name: "chicken rice bowl ", meal: "lunch", ...none, calories: 798, atMs: MORNING - d * DAY, timeZone: TZ });
+
+  const s = await suggestions(db, { nowMs: MORNING, timeZone: TZ });
+  assert.equal(s.length, 1);
+  assert.equal(s[0].name, "Chicken rice bowl");
+  assert.equal(s[0].calories, 720);
+  assert.equal(s[0].proteinG, 48);
+  assert.equal(s[0].uses, 3);
 });
 
 test("deleting a food entry made by eating meal prep puts the portion back", async () => {

@@ -568,11 +568,12 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     name: string;
     meal: Meal | null;
     calories: number | null;
+    protein_g: number | null;
     saved_meal_id: string | null;
     eaten_at_ms: number;
     local_day: string;
   }>(
-    `SELECT e.id, e.name, e.meal, e.calories, s.id AS saved_meal_id, e.eaten_at_ms, e.local_day
+    `SELECT e.id, e.name, e.meal, e.calories, e.protein_g, s.id AS saved_meal_id, e.eaten_at_ms, e.local_day
      FROM food_entries e LEFT JOIN saved_meals s ON s.id = e.saved_meal_id AND s.deleted_at IS NULL
      WHERE e.deleted_at IS NULL AND e.local_day >= ? AND COALESCE(e.meal, '') <> 'prep'
      ORDER BY e.eaten_at_ms`,
@@ -581,13 +582,17 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
   const saved = await listSavedMeals(db);
 
   const cands = new Map<string, Candidate>();
+  // A meal logged by hand under a saved meal's name is that saved meal: one row, not two.
+  const savedByName = new Map<string, string>();
   for (const s of saved) {
+    savedByName.set(s.name.trim().toLowerCase(), `saved:${s.id}`);
     cands.set(`saved:${s.id}`, {
       key: `saved:${s.id}`,
       savedMealId: s.id,
       lastEntryId: null,
       name: s.name,
       calories: s.calories,
+      proteinG: s.proteinG,
       photoId: s.photoId,
       uses: 0,
       lastMs: s.lastMs,
@@ -597,7 +602,8 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
     });
   }
   for (const e of recent) {
-    const key = e.saved_meal_id ? `saved:${e.saved_meal_id}` : `name:${e.name.trim().toLowerCase()}`;
+    const name = e.name.trim().toLowerCase();
+    const key = e.saved_meal_id ? `saved:${e.saved_meal_id}` : (savedByName.get(name) ?? `name:${name}`);
     let c = cands.get(key);
     if (!c) {
       c = {
@@ -606,6 +612,7 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
         lastEntryId: null,
         name: e.name,
         calories: e.calories,
+        proteinG: e.protein_g,
         photoId: null,
         uses: 0,
         lastMs: null,
@@ -622,6 +629,7 @@ export async function suggestions(db: SqlDriver, opts: { nowMs?: number; timeZon
       c.lastEntryId = e.id;
       c.name = e.name;
       c.calories = e.calories;
+      c.proteinG = e.protein_g;
     }
     if (e.meal) c.slots[e.meal] = (c.slots[e.meal] ?? 0) + 1;
     if (e.local_day === today) c.loggedToday = true;
