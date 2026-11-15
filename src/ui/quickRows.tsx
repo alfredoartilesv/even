@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon } from "../../ui/icons";
+import { Icon } from "./icons";
 
 /**
  * One row of a one-tap list (Eat again, From your meal prep): a picture, the name and a line or

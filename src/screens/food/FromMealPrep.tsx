@@ -2,7 +2,7 @@ import type { StockEntry } from "../../domain/mealprep/mealPrep";
 import { plural } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
-import { DoneBar, QuickRow } from "./QuickRows";
+import { DoneBar, QuickRow } from "../../ui/quickRows";
 
 /**
  * From your meal prep: the batches with portions in the fridge, in the same rows as Eat again.
