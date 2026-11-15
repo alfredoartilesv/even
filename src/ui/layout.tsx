@@ -149,6 +149,7 @@ export function PeriodNav({
   onPrev,
   onNext,
   nextDisabled,
+  prevDisabled = false,
   onCurrent,
   currentLabel,
   currentIcon = false,
@@ -160,6 +161,8 @@ export function PeriodNav({
   onPrev: () => void;
   onNext: () => void;
   nextDisabled: boolean;
+  /** For a view that only looks ahead (meal prep's plan): no period before the current one. */
+  prevDisabled?: boolean;
   /** Shown as a pill when set: back to today, this week... */
   onCurrent?: (() => void) | null;
   /** What the pill does, read out ("Back to this week"); the pill itself says "Today" or "This week". */
@@ -181,6 +184,7 @@ export function PeriodNav({
           onPrev={onPrev}
           onNext={onNext}
           nextDisabled={nextDisabled}
+          prevDisabled={prevDisabled}
           onCurrent={onCurrent}
           currentLabel={currentLabel}
           currentIcon
@@ -190,7 +194,7 @@ export function PeriodNav({
   return (
     <div className={currentIcon ? "period-nav date-nav icon-back" : "period-nav date-nav"}>
       <span className="date-steps">
-        <button type="button" className="date-step" aria-label={`Previous ${unit}`} onClick={onPrev}>
+        <button type="button" className="date-step" aria-label={`Previous ${unit}`} disabled={prevDisabled} onClick={onPrev}>
           <Icon name="back" size={18} />
         </button>
         <span className="today-date-text">{title}</span>
