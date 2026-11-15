@@ -10,7 +10,6 @@ import { PageHeader, PeriodNav, Segmented, type Choice } from "../../ui/layout";
 import { dayValues, type DayValue } from "../../domain/metrics/queries";
 import { SCALE, type DayNote } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
-import { fmtWeight, type WeightUnit } from "../../core/units";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { listDrinks } from "../../domain/alcohol/alcohol";
 import { clockOf, intradayEnergy, type EnergyPoint } from "../../domain/dashboard/intraday";
@@ -39,7 +38,6 @@ interface Shown {
   intraday: EnergyPoint[] | null;
   name: string | null;
   /** The owner's weight unit (You > Profile); weights are stored in kg. */
-  weightUnit: WeightUnit;
 }
 const shownCache = new Map<string, Shown>();
 const CACHED_VIEWS = 12;
@@ -163,7 +161,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
       : null;
     all({ span, cached: Boolean(cached) });
     performance.mark("even:dashboard-data");
-    const fresh = { data: d, week, metrics: m, food, next, intraday, name: p.name, weightUnit: p.weightUnit };
+    const fresh = { data: d, week, metrics: m, food, next, intraday, name: p.name };
     remember(key, fresh);
     if (isNewest()) setShown(fresh);
   }, [db, span, anchor, begin]);
@@ -282,7 +280,7 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             }}
           />
         )}
-        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} wu={shown?.weightUnit ?? "kg"} />}
+        {d && many && <PeriodView d={d} span={span} axis={axis} go={go} />}
 
         {chartsData && (
           <PinnedCharts
@@ -419,7 +417,13 @@ function DayView({
             </div>
           </section>
           <SoFar d={d} food={shown.food} isToday={isToday} go={go} />
-          <DayCheckIn note={d.journal.notes.find((n) => n.day === day) ?? null} isToday={isToday} onCheckIn={() => go.checkIn(day)} />
+          <TodayActions
+            checkIn={dayCheckInLine(d.journal.notes.find((n) => n.day === day) ?? null, isToday)}
+            edit={d.journal.notes.some((n) => n.day === day)}
+            activity={activityLine(d)}
+            onCheckIn={() => go.checkIn(day)}
+            onActivity={go.profile}
+          />
         </div>
 
         <div className="today-col right" ref={rightRef}>
@@ -713,7 +717,7 @@ function Noticed({ d, next, go, isToday }: { d: Dashboard; next: NextUp | null; 
 const word = (v: number) => SCALE[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase();
 
 /** A week or a month: calories per day (a tap shows that day's numbers), the averages, and the check-ins. */
-function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks; wu: WeightUnit }) {
+function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (day: string) => string; go: DashboardLinks }) {
   const days = d.days;
   const [sel, setSel] = useState<string | null>(null);
   const pickDay = sel ?? [...days].reverse().find((r) => r.eatenKcal !== null)?.day ?? days[days.length - 1]?.day ?? null;
@@ -754,7 +758,7 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
           </div>
         )}
       </section>
-      {/* The averages two by two with the check-ins under them, as tall as the chart beside them. */}
+      {/* The averages two by two with Check in and Activities under them, as tall as the chart beside them. */}
       <div className="period-side">
         <section className="card averages-card" aria-labelledby="period-averages">
           <h2 id="period-averages">Daily averages</h2>
@@ -777,60 +781,68 @@ function PeriodView({ d, span, axis, go, wu }: { d: Dashboard; span: Span; axis:
             />
           </div>
         </section>
-        <section className="card period-journal" aria-labelledby="period-journal">
-          <div className="so-far-head">
-            <h2 id="period-journal">Check-ins</h2>
-            <CheckInButton onClick={() => go.checkIn()} />
-          </div>
-          <p className="muted small">
-            {j.notes.length ? `${plural(j.notes.length, "day")} with a note` : `No notes this ${span}`}
-            {j.mood.avg !== null ? ` · mood about ${word(j.mood.avg)}` : ""}
-            {j.energy.avg !== null ? `, energy about ${word(j.energy.avg)}` : ""}
-          </p>
-          <button type="button" className="link small" onClick={go.measurements}>
-            {j.weight ? `Weight ${fmtWeight(j.weight.kg, wu)} · ${fmtDay(j.weight.day)}` : "Log your weight"}
-          </button>
-        </section>
+        <TodayActions
+          checkIn={[j.notes.length ? plural(j.notes.length, "note") : `None this ${span}`, j.mood.avg !== null ? `mood ${word(j.mood.avg)}` : null]
+            .filter(Boolean)
+            .join(" · ")}
+          activity={activityLine(d)}
+          onCheckIn={() => go.checkIn()}
+          onActivity={go.profile}
+        />
       </div>
     </div>
   );
 }
 
 /**
- * The way to the check-in (mood, energy, a note) on every Today view, in the journal's own colors
- * (the owner's ask, 14 Nov 2026: a real button rather than the small "Journal ›" link).
+ * Two big buttons side by side on every Today view (the owner's ask, 15 Nov 2026): Check in (mood,
+ * energy, a note) in the journal's colors and Activities in the activity colors, each with a line
+ * on where it stands. No card around them: they are the way in, not a summary.
  */
-function CheckInButton({ onClick, edit = false }: { onClick: () => void; edit?: boolean }) {
+function TodayActions({
+  checkIn,
+  edit = false,
+  activity,
+  onCheckIn,
+  onActivity,
+}: {
+  checkIn: string;
+  edit?: boolean;
+  activity: string;
+  onCheckIn: () => void;
+  onActivity: () => void;
+}) {
   return (
-    <button type="button" className="checkin-button" onClick={onClick}>
-      <Icon name={edit ? "pencil" : "note"} size={16} />
-      {edit ? "Edit" : "Check in"}
-    </button>
+    <div className="today-actions">
+      <button type="button" className="big-action checkin" onClick={onCheckIn}>
+        <Icon name={edit ? "pencil" : "note"} size={22} />
+        <span>
+          <strong>{edit ? "Edit check-in" : "Check in"}</strong>
+          <span className="small block">{checkIn}</span>
+        </span>
+      </button>
+      <button type="button" className="big-action activity" onClick={onActivity}>
+        <Icon name="workout" size={22} />
+        <span>
+          <strong>Activities</strong>
+          <span className="small block">{activity}</span>
+        </span>
+      </button>
+    </div>
   );
 }
 
-/** A day's check-in under the day so far: not yet, or its mood and energy, with the button to it. */
-function DayCheckIn({ note, isToday, onCheckIn }: { note: DayNote | null; isToday: boolean; onCheckIn: () => void }) {
-  const parts = note
-    ? [note.mood !== null ? `Mood ${word(note.mood)}` : null, note.energy !== null ? `energy ${word(note.energy)}` : null].filter(Boolean)
-    : [];
-  return (
-    <section className="card day-checkin" aria-labelledby="day-checkin">
-      <div className="so-far-head">
-        <h2 id="day-checkin">Check-in</h2>
-        <CheckInButton onClick={onCheckIn} edit={note !== null} />
-      </div>
-      <p className="muted small">
-        {note
-          ? parts.length
-            ? parts.join(" · ")
-            : "A note, no mood or energy."
-          : isToday
-            ? "Not yet today. Mood, energy and a note."
-            : "No check-in this day."}
-      </p>
-    </section>
-  );
+/** A day's check-in in a few words: not yet, or its mood and energy. */
+function dayCheckInLine(note: DayNote | null, isToday: boolean): string {
+  if (!note) return isToday ? "Not yet today" : "None this day";
+  const parts = [note.mood !== null ? `Mood ${word(note.mood)}` : null, note.energy !== null ? `energy ${word(note.energy)}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "A note";
+}
+
+/** Workouts and steps in the day or span, in a few words. */
+function activityLine(d: Dashboard): string {
+  const w = d.workouts.count ? plural(d.workouts.count, "workout") : "No workouts";
+  return d.steps.avg !== null && d.days.length === 1 ? `${w} · ${int(d.steps.avg)} steps` : w;
 }
 
 /**
