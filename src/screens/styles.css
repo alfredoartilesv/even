@@ -2123,83 +2123,75 @@ ol.drink-days li {
 }
 
 /* On a phone the weight estimate takes its own row under the three counts. */
-/* Drinks: the period in one card, the three figures side by side, then a calendar of dots (15 Nov 2026). */
-.drink-sum-figures {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+/* Drinks: the period in one card, the drinks against the weekly limit, then two tiles (15 Nov 2026). */
+.drink-limit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
 }
-.drink-sum-figure {
+.drink-limit-figure {
   display: flex;
   flex-direction: column;
   gap: 0.05rem;
   min-width: 0;
 }
-.drink-sum-figure strong {
-  font-size: clamp(1.05rem, 4.6vw, 1.3rem);
+.drink-limit-figure.end {
+  text-align: right;
+  align-items: flex-end;
+}
+.drink-limit-figure strong {
+  font-size: 1.45rem;
   font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
 }
-.drink-dots {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  justify-items: center;
-  align-items: center;
-  row-gap: 0.25rem;
-  margin-top: 1rem;
+.drink-limit-figure strong .muted {
+  font-size: 0.85rem;
+  font-weight: 400;
 }
-.drink-dots.year {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-}
-.drink-dots-head {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.drink-dots-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-}
-/* Every dot sits in a box of one height, so the letters above and the counts below line up. */
-.drink-dot-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-}
-.drink-dots.month .drink-dot-box {
-  height: 22px;
-}
-.drink-dots.year .drink-dot-box {
-  height: 26px;
-}
-.drink-dots-n {
-  min-height: 1em;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.drink-dot {
+.drink-limit-bar {
   display: block;
-  border-radius: 50%;
+  height: 12px;
+  margin: 0.75rem 0 0.3rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg) 10%, var(--surface));
+  overflow: hidden;
+}
+.drink-limit-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
   background: var(--area-food);
 }
-.drink-dot.dry {
-  width: 9px;
-  height: 9px;
-  box-sizing: border-box;
-  background: transparent;
-  border: 1.5px solid var(--good);
+.drink-limit-bar > span.over {
+  background: var(--warning);
 }
-.drink-dots.week .drink-dot.dry {
-  width: 12px;
-  height: 12px;
+.drink-limit-note {
+  display: block;
 }
-.drink-dots-note {
-  margin: 0.5rem 0 0;
+.drink-limit-note.over {
+  color: var(--warning);
+}
+.drink-limit-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.drink-limit-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg) 5%, var(--surface));
+}
+.drink-limit-tile strong {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 .drink-sum-weight {
   display: flex;
