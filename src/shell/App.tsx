@@ -11,7 +11,6 @@ import type { FoodView } from "../screens/food/FoodScreen";
 import type { SettingsPage } from "../screens/settings/SettingsScreen";
 import { ProfileButton } from "../screens/dashboard/ProfileButton";
 import type { JournalView } from "../screens/journal/JournalScreen";
-import { Loading } from "../screens/start/Loading";
 import {
   ChatScreen,
   FirstRun,
@@ -71,8 +70,6 @@ export function App({ target }: { target: Target }) {
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
   // First run (Connect, About you, Targets): null until it is known whether this install needs it.
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
-  // The Loading screen only once the start takes long enough to notice (docs/LLD.md, start-up).
-  const [slowStart, setSlowStart] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [version, setVersion] = useState(0);
@@ -136,10 +133,6 @@ export function App({ target }: { target: Target }) {
   useEffect(() => {
     document.body.dataset.area = firstRun || dbStatus.state !== "ready" ? "today" : tab;
   }, [tab, firstRun, dbStatus.state]);
-  useEffect(() => {
-    const t = setTimeout(() => setSlowStart(true), 400);
-    return () => clearTimeout(t);
-  }, []);
   // On the phone only: the web app's first run is its connect gate, and its data comes from the account.
   useEffect(() => {
     if (!db) return;
@@ -294,30 +287,19 @@ export function App({ target }: { target: Target }) {
     void refreshStatus().then(() => sync());
   }, [db, session, sync, refreshStatus]);
 
-  // While the database opens and the account is read: nothing for a quick start (Today comes up
-  // directly), the Loading screen once it takes longer than about 400 ms.
+  // While the database opens and the account is read: the empty page, never a loading screen
+  // (the owner's ask, 15 Nov 2026); Today comes up as soon as it is ready.
   const starting = dbStatus.state === "opening" || (dbStatus.state === "ready" && (session === undefined || firstRun === null));
-  if (starting) {
-    if (!slowStart)
-      return (
-        <main className="shell" aria-busy="true">
-          <span className="sr-only">Loading</span>
-        </main>
-      );
+  if (starting)
     return (
-      <Loading
-        steps={[
-          { label: "Unlocking your data on this device", done: dbStatus.state === "ready" },
-          { label: isNative ? "Reading your account and connections" : "Opening your account", done: dbStatus.state === "ready" && session !== undefined },
-          { label: "Ready", done: false },
-        ]}
-      />
+      <main className="shell" aria-busy="true">
+        <span className="sr-only">Opening Even</span>
+      </main>
     );
-  }
   if (dbStatus.state === "error") {
     return (
-      <Loading steps={[{ label: "Unlocking your data on this device", done: false }]}>
-        <section className="card loading-error" role="alert">
+      <main className="start-error">
+        <section className="card" role="alert">
           <h2>Your data could not be opened</h2>
           <p className="muted">Nothing was changed or deleted. {dbStatus.message}</p>
           {dbStatus.otherTab && (
@@ -332,7 +314,7 @@ export function App({ target }: { target: Target }) {
             <LogsScreen db={null} />
           </Suspense>
         </section>
-      </Loading>
+      </main>
     );
   }
   if (dbStatus.state !== "ready") return null;

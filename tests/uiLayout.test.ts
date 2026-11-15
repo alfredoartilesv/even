@@ -318,12 +318,13 @@ test("profile pictures come from the phone's picker: no input forces the camera"
 
 test("web app: waits for the sync session, asks to connect without one, and lets the app through with one", () => {
   const opening = renderToStaticMarkup(h(() => connectGate({ session: undefined, connect: noop })));
-  assert.match(opening, /Opening…/);
+  assert.doesNotMatch(opening, /Opening…|Loading/, "no loading screen while the session is read");
+  assert.match(opening, /aria-busy="true"/);
   const connect = renderToStaticMarkup(h(() => connectGate({ session: null, connect: noop })));
   assert.match(connect, /<h1>Even<\/h1>/);
   assert.match(connect, /aria-label="Connect"/);
   assert.match(connect, /opened only here, in this browser/);
-  assert.match(connect, /Loading…/, "the lazy panel has a fallback, so the card is never empty");
+  assert.doesNotMatch(connect, /Loading…/, "no loading text while the lazy panel arrives");
   assert.equal(connectGate({ session: {} as SyncSession, connect: noop }), null);
 });
 

@@ -14,9 +14,9 @@ import { forgetOnClose } from "./browserCopy";
 export function connectGate({ session, connect }: GateState, notice: string | null = null) {
   if (session === undefined) {
     return (
-      <main className="shell">
-        <PageHeader title="Even" />
-        <p className="muted">Opening…</p>
+      // No loading text while the session is read (15 Nov 2026): the page stays empty for that moment.
+      <main className="shell" aria-busy="true">
+        <span className="sr-only">Opening Even</span>
       </main>
     );
   }
@@ -32,8 +32,8 @@ export function connectGate({ session, connect }: GateState, notice: string | nu
       </div>
       {notice && <p className="warning small">{notice}</p>}
       <section className="card connect-card" aria-label="Connect">
-        {/* The panel is lazy: without a fallback the card sat empty while it loaded. */}
-        <Suspense fallback={<p className="muted">Loading…</p>}>
+        {/* The panel is lazy; no loading text while it arrives (15 Nov 2026). */}
+        <Suspense>
           <ConnectPanel
             secrets={secretStore}
             isNative={false}
