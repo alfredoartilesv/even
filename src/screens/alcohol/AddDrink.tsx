@@ -143,7 +143,7 @@ export function AddDrink({
       {!draft.type && (
         <Switch
           label="Save as favourite"
-          description="Shows in Favourites, one tap next time"
+          description="Shows in Your drinks, one tap next time"
           checked={draft.favourite}
           onChange={(favourite) => setDraft({ ...draft, favourite })}
         />

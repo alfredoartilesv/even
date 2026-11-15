@@ -3756,15 +3756,25 @@ button.link.tap-row-main.drink-another {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* The close button is a 44 px target; the title row gives back the room it adds (15 Nov 2026). */
+  margin: -0.4rem 0 -0.3rem;
 }
 .add-drink-head h2 {
   margin: 0;
   font-size: 1.05rem;
 }
+/* Price takes the row, How many keeps its size at the end, on a phone and a wide screen alike. */
 .add-drink-steppers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 0.75rem;
+}
+.add-drink-steppers .money-input {
+  display: flex;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 .stepper-field {
   display: flex;
