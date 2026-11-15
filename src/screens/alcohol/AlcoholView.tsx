@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
-import { Icon } from "../../ui/icons";
+import { Icon, type IconName } from "../../ui/icons";
+import { DoneBar, QuickRow } from "../../ui/quickRows";
 import { PeriodNav, SectionHeader, Segmented, type Choice } from "../../ui/layout";
 import { listGoals } from "../../domain/me/goals";
 import { AddDrink, draftFrom, type Draft } from "./AddDrink";
 import {
   deleteDrink,
   deleteDrinkType,
+  logDrink,
   getCurrency,
   listDrinks,
   listDrinkTypes,
@@ -50,9 +52,37 @@ const kcal = (n: number) => Math.round(n).toLocaleString();
 const kg = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 /** A drink logged for an earlier day lands at this time unless the owner sets another. */
 const EVENING = "20:00";
-const time = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 /** The drinks list shows this many before "All n". */
 const FIRST = 5;
+/** "20:42": short enough to keep a drink's line to one row on a phone. */
+const clock = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+type DrinkKind = "beer" | "wine" | "cocktail" | "mixed";
+const KIND_ICON: Record<DrinkKind, IconName> = { beer: "beer", wine: "wine", cocktail: "cocktail", mixed: "glass" };
+/**
+ * The kind of a drink for its icon and colour (the owner's design, 15 Nov 2026). Drinks keep no
+ * kind, so it comes from the name (in English or Spanish) and, failing that, the strength.
+ */
+export function drinkKind(name: string, abvPercent: number): DrinkKind {
+  const n = name.toLowerCase();
+  if (/cocktail|c[oó]ctel|mojito|margarita|spritz|daiquiri|pi[nñ]a colada|caipiri|martini|negroni/.test(n)) return "cocktail";
+  if (/\b(ron|rum|whisk|vodka|gin|tequila|brandy|cubata|copa|cola|tonic|spirit|chupito|shot)/.test(n)) return "mixed";
+  if (/wine|vino|tinto|blanco|ros[eé]|cava|champ|prosecco|kalimotxo|calimocho|sangr[ií]a|vermut|vermouth/.test(n)) return "wine";
+  if (/beer|cerveza|ca[nñ]a|lager|ipa|ale\b|stout|michelada|clara|cider|sidra|shandy/.test(n)) return "beer";
+  return abvPercent <= 8 ? "beer" : abvPercent <= 18 ? "wine" : "mixed";
+}
+
+/** The days of a list of drinks, newest first, each once. */
+const daysOf = (list: DrinkEntry[]) => [...new Set(list.map((d) => d.localDay))];
+
+function DrinkPicture({ name, abvPercent }: { name: string; abvPercent: number }) {
+  const kind = drinkKind(name, abvPercent);
+  return (
+    <span className={`tap-icon drink-kind ${kind}`} aria-hidden>
+      <Icon name={KIND_ICON[kind]} size={22} />
+    </span>
+  );
+}
 
 interface TypeDraft {
   id?: string;
@@ -158,6 +188,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [editingFav, setEditingFav] = useState<TypeDraft | null>(null);
   const [editingDrink, setEditingDrink] = useState<DrinkDraft | null>(null);
   const [curInput, setCurInput] = useState<string | null>(null);
+  // The favourite just logged with its +: its row shows a check that undoes it.
+  const [tapped, setTapped] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const to = today();
@@ -217,7 +249,26 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     setEditingDrink({ ...toDraft({ ...d, calories: d.kcalEstimated ? null : Math.round(d.kcal) }), entryId: d.id, day: d.localDay, at: hhmm });
   };
 
-  const usedLine = (t: DrinkType) => `${recent.get(t.id) ?? 0}× in 7 days`;
+  const usedLine = (t: DrinkType) => (recent.get(t.id) ? `${recent.get(t.id)}× in 7 days` : "None in 7 days");
+  /** One tap on a favourite's +: logged now with its usual price, or the last tap taken back. */
+  async function quickLog(t: DrinkType) {
+    if (tapped === t.id && lastIds.length) return undo();
+    const ok = await run(
+      async () => {
+        const ids = await logDrink(db, { typeId: t.id, timeZone: timeZone() });
+        setLastIds(ids);
+      },
+      `Added ${t.name}${t.price !== null ? ` · ${money(t.price)}` : ""}`,
+    );
+    setTapped(ok ? t.id : null);
+  }
+  async function undo() {
+    await run(async () => {
+      for (const id of lastIds) await deleteDrink(db, id);
+      setLastIds([]);
+    }, "Undone.");
+    setTapped(null);
+  }
   const typeLine = (t: Pick<DrinkType, "volumeMl" | "abvPercent" | "calories" | "price">) =>
     `${t.volumeMl} ml · ${t.abvPercent}% · ${servingKcal(t)} kcal${t.price !== null ? ` · ${money(t.price)}` : ""}`;
   const t = impact?.totals;
@@ -348,52 +399,38 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               }}
             />
           )}
-          <section className="card drink-favs" aria-labelledby="drink-favs">
+          <section className="drink-favs" aria-labelledby="drink-favs">
             <div className="section-head">
-              <h2 id="drink-favs">Favourites</h2>
+              <h2 id="drink-favs">Your drinks</h2>
               <button type="button" className="link accent small" onClick={() => onManage(true)}>
                 Manage ›
               </button>
             </div>
-            <p className="muted small">Tap one to add it. The usual price is filled in and you can change it.</p>
-            <div className="drink-fav-list">
+            <p className="muted small">One tap logs it, with its usual price</p>
+            <ul className="tap-list drink-tap-list">
               {types.map((d) => (
-                <button key={d.id} type="button" className="drink-fav" onClick={() => setDraft(draftFrom(d))} aria-label={`Add ${d.name}`}>
-                  <span className="grow">
-                    <strong>{d.name}</strong>
-                    <span className="muted small block">
-                      {typeLine(d)} · {usedLine(d)}
-                    </span>
-                  </span>
-                  <span className="drink-plus" aria-hidden>
-                    +
-                  </span>
-                </button>
-              ))}
-              {types.length === 0 && <p className="muted small">No favourites yet. Add a drink and keep it as a favourite.</p>}
-            </div>
-            <button type="button" className="secondary drink-another" onClick={() => setDraft(draftFrom(null))}>
-              + Add another drink
-            </button>
-            {lastIds.length > 0 && msg?.kind === "ok" ? (
-              <div className="drink-added" role="status">
-                <span>{msg.text}</span>
-                <button
-                  type="button"
-                  className="link accent"
-                  onClick={() =>
-                    void run(async () => {
-                      for (const id of lastIds) await deleteDrink(db, id);
-                      setLastIds([]);
-                    }, "Undone.")
-                  }
+                <QuickRow
+                  key={d.id}
+                  picture={<DrinkPicture name={d.name} abvPercent={d.abvPercent} />}
+                  title={d.name}
+                  done={tapped === d.id && lastIds.length > 0}
+                  label={`Add ${d.name}`}
+                  onTap={() => void quickLog(d)}
                 >
-                  Undo
+                  <span className="muted small block">{typeLine(d)}</span>
+                  <span className="tap-sub small block">{usedLine(d)}</span>
+                </QuickRow>
+              ))}
+              <li className="tap-row">
+                <button type="button" className="link tap-row-main drink-another" onClick={() => setDraft(draftFrom(null))}>
+                  <span className="tap-icon drink-another-icon" aria-hidden>
+                    <Icon name="plus" size={22} />
+                  </span>
+                  <span className="tap-row-text">{types.length ? "Another drink" : "Add a drink, and keep it here for one tap"}</span>
                 </button>
-              </div>
-            ) : (
-              <MsgLine msg={msg} />
-            )}
+              </li>
+            </ul>
+            {lastIds.length > 0 && msg?.kind === "ok" ? <DoneBar text={msg.text} onUndo={() => void undo()} /> : <MsgLine msg={msg} />}
           </section>
         </div>
       </div>
@@ -403,66 +440,84 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
         <section className="drinks-list">
           <SectionHeader title="Drinks" action={!showAll && drinks.length > FIRST ? `All ${drinks.length}` : undefined} onAction={() => setShowAll(true)} />
           <p className="muted small">
-            {upper(periodLabel)} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change one
+            {upper(periodLabel)} · {plural(drinks.length, "drink")}
           </p>
           {drinks.length ? (
-            <div className="menu-group">
-              <ul className="drink-list">
-                {shown.map((d) => (
-                  <li key={d.id} className={editingDrink?.entryId === d.id ? "menu-row drink-row editing" : "menu-row drink-row"}>
-                    <div className="grow">
-                      <span className="menu-label">{d.name}</span>
-                      <div className="menu-desc muted small">
-                        {fmtDay(d.localDay)} · {time(d.drunkAtMs)} · {d.volumeMl} ml · {d.abvPercent}% · {kcal(d.kcal)} kcal{d.kcalEstimated ? " (est.)" : ""}
-                        {d.price !== null && ` · ${money(d.price)}`}
-                      </div>
+            <>
+              {daysOf(shown).map((day) => {
+                const all = drinks.filter((x) => x.localDay === day);
+                const spent = all.reduce((n, x) => n + (x.price ?? 0), 0);
+                return (
+                  <div key={day} className="drink-day">
+                    <div className="drink-day-head muted small">
+                      <span>{upper(fmtDay(day))}</span>
+                      <span>
+                        {plural(all.length, "drink")}
+                        {spent > 0 && ` · ${money(spent)}`}
+                      </span>
                     </div>
-                    <button className="icon-button ghost" aria-label={`Change ${d.name}, ${fmtDay(d.localDay)}`} onClick={() => editDrink(d)}>
-                      <Icon name="pencil" size={18} />
-                    </button>
-                    <button
-                      className="icon-button ghost"
-                      aria-label={`Delete ${d.name}, ${fmtDay(d.localDay)}`}
-                      onClick={() => void run(() => deleteDrink(db, d.id), "Deleted.")}
-                    >
-                      <Icon name="trash" size={18} />
-                    </button>
-                    {editingDrink?.entryId === d.id && (
-                      <form className="stack edit-panel" onSubmit={saveDrink}>
-                        <strong>
-                          Edit drink{" "}
-                          <span className="muted small">
-                            {fmtDay(d.localDay)}, {time(d.drunkAtMs)}
-                          </span>
-                        </strong>
-                        <TypeFields d={editingDrink} set={(x) => setEditingDrink({ ...editingDrink, ...x })} currency={currency} />
-                        <div className="drink-when-fields">
-                          <label>
-                            Day
-                            <input
-                              type="date"
-                              value={editingDrink.day}
-                              max={today()}
-                              onChange={(e) => setEditingDrink({ ...editingDrink, day: e.target.value || today() })}
-                            />
-                          </label>
-                          <label>
-                            Time
-                            <input type="time" value={editingDrink.at} onChange={(e) => setEditingDrink({ ...editingDrink, at: e.target.value || EVENING })} />
-                          </label>
-                        </div>
-                        {favourite && <p className="muted small">Changes this drink only; the {favourite.name} favourite stays as it is.</p>}
-                        <EditActions
-                          onCancel={() => setEditingDrink(null)}
-                          onRemove={() => void run(() => deleteDrink(db, d.id), "Deleted.").then((ok) => ok && setEditingDrink(null))}
-                          confirmRemove={`Delete this ${d.name}?`}
-                        />
-                      </form>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    <ul className="tap-list drink-log">
+                      {shown
+                        .filter((x) => x.localDay === day)
+                        .map((d) => (
+                          <li key={d.id} className={editingDrink?.entryId === d.id ? "tap-row editing" : "tap-row"}>
+                            <div className="tap-row-main">
+                              <DrinkPicture name={d.name} abvPercent={d.abvPercent} />
+                              <span className="tap-row-text">
+                                <span className="tap-row-name">{d.name}</span>
+                                <span className="muted small block">
+                                  {clock(d.drunkAtMs)} · {d.volumeMl} ml · {kcal(d.kcal)} kcal{d.kcalEstimated ? " (est.)" : ""}
+                                </span>
+                              </span>
+                              {d.price !== null && <span className="drink-price">{money(d.price)}</span>}
+                              <button
+                                type="button"
+                                className="tap-row-edit secondary"
+                                aria-label={`Change or delete ${d.name}, ${fmtDay(d.localDay)}`}
+                                aria-expanded={editingDrink?.entryId === d.id}
+                                onClick={() => (editingDrink?.entryId === d.id ? setEditingDrink(null) : editDrink(d))}
+                              >
+                                <Icon name="pencil" size={18} />
+                              </button>
+                            </div>
+                            {editingDrink?.entryId === d.id && (
+                              <form className="stack tap-edit" onSubmit={saveDrink}>
+                                <TypeFields d={editingDrink} set={(x) => setEditingDrink({ ...editingDrink, ...x })} currency={currency} />
+                                <div className="drink-when-fields two">
+                                  <label>
+                                    Day
+                                    <input
+                                      type="date"
+                                      value={editingDrink.day}
+                                      max={today()}
+                                      onChange={(e) => setEditingDrink({ ...editingDrink, day: e.target.value || today() })}
+                                    />
+                                  </label>
+                                  <label>
+                                    Time
+                                    <input
+                                      type="time"
+                                      value={editingDrink.at}
+                                      onChange={(e) => setEditingDrink({ ...editingDrink, at: e.target.value || EVENING })}
+                                    />
+                                  </label>
+                                </div>
+                                {favourite && <p className="muted small">Changes this drink only; the {favourite.name} favourite stays as it is.</p>}
+                                <EditActions
+                                  onCancel={() => setEditingDrink(null)}
+                                  onRemove={() => void run(() => deleteDrink(db, d.id), "Deleted.").then((ok) => ok && setEditingDrink(null))}
+                                  confirmRemove={`Delete this ${d.name}?`}
+                                />
+                              </form>
+                            )}
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                );
+              })}
+              <p className="muted small">The pencil opens a drink to change or delete it</p>
+            </>
           ) : (
             <p className="muted">No drinks {when}.</p>
           )}

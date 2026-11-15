@@ -5,7 +5,7 @@ import { usualMeal, type Candidate, type Meal } from "../../domain/food/suggest"
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { Icon, type IconName } from "../../ui/icons";
 import { draftFrom, FormFooter, kcal, MealFields, parseDraft, PhotoThumb, type MealDraft } from "./components";
-import { DoneBar, QuickRow } from "./QuickRows";
+import { DoneBar, QuickRow } from "../../ui/quickRows";
 
 type Slot = Exclude<Meal, "prep">;
 const SLOTS: Slot[] = ["breakfast", "lunch", "dinner", "snack"];

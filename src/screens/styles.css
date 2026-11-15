@@ -2017,14 +2017,6 @@ ol.steps li::marker {
   text-transform: uppercase;
   color: var(--muted);
 }
-.drink-plus {
-  flex: none;
-  padding: 0.3rem 0.6rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
 .drink-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2044,10 +2036,6 @@ ol.steps li::marker {
   padding: 0.75rem;
   border-radius: var(--radius);
   background: var(--accent-soft);
-}
-ul.drink-list li {
-  flex-wrap: wrap;
-  align-items: center;
 }
 ol.drink-days {
   list-style: none;
@@ -3127,7 +3115,7 @@ button {
   justify-content: flex-start;
   text-align: left;
 }
-/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, QuickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
+/* Eat again and From your meal prep (food/EatAgain.tsx, FromMealPrep.tsx, ui/quickRows.tsx): one card of rows, a color and icon per meal, a round + that logs. */
 .eat-again,
 .from-prep,
 .meal-form {
@@ -3696,43 +3684,57 @@ button:active:not(:disabled) {
   margin: 0;
   font-size: 1.05rem;
 }
-.drink-fav-list {
-  display: flex;
-  flex-direction: column;
+/* Drinks in the Eat again style (the owner's design, 15 Nov 2026): a colour and icon per kind. */
+.drink-kind {
+  --meal-color: var(--area-food);
 }
-.drink-fav {
+.drink-kind.beer {
+  --meal-color: color-mix(in srgb, var(--warning) 70%, var(--area-food));
+}
+.drink-kind.wine {
+  --meal-color: var(--area-journal);
+}
+.drink-kind.cocktail {
+  --meal-color: var(--area-coach);
+}
+.drink-kind.mixed {
+  --meal-color: var(--area-prep);
+}
+button.link.tap-row-main.drink-another {
   width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 60px;
-  padding: 0.5rem 0;
-  border: none;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  color: var(--fg);
-  text-align: left;
-  font-weight: 400;
-}
-.drink-fav:first-child {
-  border-top: none;
-}
-.drink-fav .drink-plus {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--accent-soft);
+  min-height: 0;
   color: var(--accent);
-  font-size: 1.2rem;
+  font-weight: 600;
+}
+.drink-another-icon {
+  --meal-color: var(--accent);
+  background: none;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.drink-price {
+  flex: none;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.drink-another {
-  align-self: flex-start;
+.drink-favs > p {
+  margin: -0.3rem 0 0;
 }
+.drink-when-fields.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.drink-day + .drink-day {
+  margin-top: 0.9rem;
+}
+.drink-day-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0.25rem 0.4rem;
+}
+.drinks-list > p.muted.small:last-child {
+  margin-top: 0.6rem;
+}
+/* A one-line confirmation with Undo (meal prep's plan uses it too). */
 .drink-added {
   display: flex;
   align-items: center;
@@ -5000,22 +5002,6 @@ body {
   margin-left: auto;
 }
 
-/* Drinks list rows as History's: the menu card's rows, the edit panel opening under its row. */
-.drink-row {
-  flex-wrap: wrap;
-  box-sizing: border-box;
-  width: auto;
-  min-height: 0;
-  gap: 0.25rem;
-  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
-}
-.drink-row .grow {
-  min-width: 0;
-  flex: 1 1 12rem;
-}
-.drink-row .edit-panel {
-  flex-basis: 100%;
-}
 /* Today's date row on a phone sits close under the greeting and the period close under it. */
 .today-datebar {
   margin: -0.75rem 0 -0.5rem;

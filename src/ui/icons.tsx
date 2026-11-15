@@ -28,6 +28,30 @@ const PATHS = {
       <path d="M12 14v7M8 21h8" />
     </>
   ),
+  beer: (
+    <>
+      <path d="M5 6h10v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" />
+      <path d="M15 9h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2M8.5 10v7M11.5 10v7" />
+    </>
+  ),
+  wine: (
+    <>
+      <path d="M8 3h8v5a4 4 0 0 1-8 0z" />
+      <path d="M12 12v9M8 21h8M8 7h8" />
+    </>
+  ),
+  cocktail: (
+    <>
+      <path d="M4 4h16l-8 9z" />
+      <path d="M12 13v8M8 21h8M17 2l-2 4" />
+    </>
+  ),
+  glass: (
+    <>
+      <path d="M7 4h10l-1.5 16a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z" />
+      <path d="M7.5 10h9" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3" />
