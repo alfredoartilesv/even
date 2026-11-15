@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
-import { deleteSavedMeal, saveSuggestion, suggestionMeal } from "../../domain/food/food";
+import { hideSuggestion, saveSuggestion, suggestionMeal } from "../../domain/food/food";
 import { usualMeal, type Candidate, type Meal } from "../../domain/food/suggest";
 import { failed, MsgLine, type Msg } from "../../ui/common";
 import { Icon, type IconName } from "../../ui/icons";
@@ -96,10 +96,11 @@ export function EatAgain({
     }
   };
 
-  const unstar = async (c: Candidate) => {
-    if (!c.savedMealId || !confirm(`Unstar ${c.name}? Meals already logged stay; its photo goes.`)) return;
+  // Delete takes it out of Eat again for good (starring it again brings it back); entries stay.
+  const remove = async (c: Candidate) => {
+    if (!confirm(`Delete ${c.name} from Eat again? Meals already logged stay.${c.savedMealId ? " It is unstarred and its photo goes." : ""}`)) return;
     try {
-      await deleteSavedMeal(db, c.savedMealId);
+      await hideSuggestion(db, c);
       setEditing(null);
       setMsg(null);
       onSaved();
@@ -174,11 +175,9 @@ export function EatAgain({
                         <button type="button" className="secondary" onClick={() => setEditing(null)}>
                           Cancel
                         </button>
-                        {c.savedMealId && (
-                          <button type="button" className="secondary" onClick={() => void unstar(c)}>
-                            Unstar
-                          </button>
-                        )}
+                        <button type="button" className="secondary danger" onClick={() => void remove(c)}>
+                          Delete
+                        </button>
                       </div>
                     </form>
                   )

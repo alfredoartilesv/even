@@ -297,7 +297,7 @@ const SCREENS: Screen[] = [
   {
     id: "mealprep-log",
     tab: "Food and drinks",
-    title: "Log",
+    title: "Food",
     about:
       "One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.",
     go: (p) => section(p, "food"),

@@ -17,6 +17,7 @@ import {
   saveMeal,
   setCalorieGoal,
   suggestions,
+  hideSuggestion,
   saveSuggestion,
   suggestionMeal,
   updateFood,
@@ -200,6 +201,27 @@ test("suggestions: a meal logged by hand under a saved meal's name joins that sa
   assert.equal(s[0].calories, 720);
   assert.equal(s[0].proteinG, 48);
   assert.equal(s[0].uses, 3);
+});
+
+test("deleting from Eat again: a usual meal stays hidden when logged again, a starred one is unstarred, starring brings it back", async () => {
+  const { db } = await migratedDb();
+  const ids: string[] = [];
+  for (let d = 1; d <= 2; d++) {
+    ids.push(await logFood(db, { name: "Toast", meal: "breakfast", ...none, calories: 300, atMs: MORNING - d * DAY, timeZone: TZ }));
+    await logFood(db, { name: "Soup", meal: "dinner", ...none, calories: 400, atMs: MORNING - d * DAY + H, timeZone: TZ });
+  }
+  const names = async () => (await suggestions(db, { nowMs: MORNING, timeZone: TZ })).map((c) => c.name).sort();
+  const [toast] = (await suggestions(db, { nowMs: MORNING, timeZone: TZ })).filter((c) => c.name === "Toast");
+  await hideSuggestion(db, toast, MORNING);
+  await logFood(db, { name: "toast", meal: "breakfast", ...none, calories: 300, atMs: MORNING - 3 * DAY, timeZone: TZ });
+  assert.deepEqual(await names(), ["Soup"], "hidden by name, whatever its case");
+  const savedId = await saveEntryAsMeal(db, ids[0], undefined, MORNING + 1);
+  assert.deepEqual(await names(), ["Soup", "Toast"], "starring brings it back");
+  const [starred] = (await suggestions(db, { nowMs: MORNING, timeZone: TZ })).filter((c) => c.savedMealId === savedId);
+  await hideSuggestion(db, starred, MORNING + 2);
+  assert.deepEqual(await names(), ["Soup"], "a starred meal deleted is unstarred and hidden");
+  assert.deepEqual(await listSavedMeals(db), []);
+  assert.equal((await dayFood(db, "2026-10-19")).length, 2, "entries stay");
 });
 
 test("editing a suggestion: a saved meal is updated, a meal not saved becomes a saved meal with its history", async () => {

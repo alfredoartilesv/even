@@ -8,7 +8,7 @@ import { DayView } from "./DayView";
 export type FoodView = "log" | "drinks";
 
 export const FOOD_VIEWS: Choice<FoodView>[] = [
-  { id: "log", label: "Log" },
+  { id: "log", label: "Food" },
   { id: "drinks", label: "Drinks" },
 ];
 
