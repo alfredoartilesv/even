@@ -4922,6 +4922,12 @@ body:not(:has(.app-frame)) .today .date-step {
     justify-content: space-between;
   }
 }
+/* Day / Week / Month over the ‹ date › row, as on Today (15 Nov 2026). */
+.drinks-period {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
 .drinks-period > * {
   margin: 0;
 }
@@ -5140,15 +5146,6 @@ body {
   box-shadow: none;
   -webkit-tap-highlight-color: transparent;
 }
-/* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
-.empty-week {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
 /* The pill keeps its fill and size inside any card or frame (generic button rules are more specific). */
 .period-nav .date-today,
 .app-frame .period-nav .date-today {

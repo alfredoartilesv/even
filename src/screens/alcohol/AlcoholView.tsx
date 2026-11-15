@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
-import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
-import { ChipGroup } from "../../ui/controls";
+import { changeRunner, EditActions, fmtDay, fmtDayLong, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { Icon } from "../../ui/icons";
-import { SectionHeader } from "../../ui/layout";
+import { PeriodNav, SectionHeader, Segmented, type Choice } from "../../ui/layout";
+import { pinnedAnchor, shiftSpan, spanRange, type Span } from "../../domain/dashboard/dashboard";
 import { listGoals } from "../../domain/me/goals";
 import { AddDrink, draftFrom, DrinksWeek, type Draft } from "./AddDrink";
 import {
@@ -34,14 +34,14 @@ interface Props {
   onManage: (open: boolean) => void;
 }
 
-const PERIODS = [
-  { key: "today", label: "Today", days: 1 },
-  { key: "week", label: "7 days", days: 7 },
-  { key: "month", label: "30 days", days: 30 },
-  { key: "year", label: "Year", days: 365 },
-] as const;
-type Period = (typeof PERIODS)[number]["key"];
+/** The same spans as Today (the owner's ask, 15 Nov 2026): a day, or the 7 or 30 days up to one. */
+const SPANS: Choice<Span>[] = [
+  { id: "day", label: "Day" },
+  { id: "week", label: "Week" },
+  { id: "month", label: "Month" },
+];
 
+const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const kcal = (n: number) => Math.round(n).toLocaleString();
 const kg = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 /** A drink logged for an earlier day lands at this time unless the owner sets another. */
@@ -130,7 +130,16 @@ function TypeFields({ d, set, currency }: { d: TypeDraft; set: (d: TypeDraft) =>
  * beside the rest; on a phone they open on demand.
  */
 export function AlcoholView({ db, version, onChanged, managing, onManage }: Props) {
-  const [period, setPeriod] = useState<Period>("week");
+  const [span, setSpan] = useState<Span>("week");
+  // null = the current span, which follows today; a past one the owner stepped back to stays put.
+  const [picked, setPicked] = useState<string | null>(null);
+  const now = today();
+  const anchor = picked ?? now;
+  const setAnchor = (d: string, sp: Span = span) => setPicked(pinnedAnchor(sp, d, now));
+  const range = spanRange(span, anchor);
+  const isCurrent = range.from <= now && now <= range.to;
+  const many = span !== "day";
+  const next = shiftSpan(span, anchor, 1);
   const [impact, setImpact] = useState<WeightWithoutAlcohol | null>(null);
   const [types, setTypes] = useState<DrinkType[]>([]);
   const [recent, setRecent] = useState<Map<string, number>>(new Map());
@@ -151,21 +160,21 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const [at, setAt] = useState(EVENING);
   const isToday = day === today();
   const forDay = isToday ? "" : ` for ${fmtDay(day)}`;
-  // Picking an earlier day widens a "Today" list to 7 days, so the drink shows up once logged.
+  // Logging on a day outside the span moves the span to it, so the drink shows up once logged.
   function pickDay(d: string) {
     setDay(d);
-    if (d !== today() && period === "today") setPeriod("week");
+    if (d < range.from || d > range.to) setAnchor(d);
   }
 
   const load = useCallback(async () => {
     const to = today();
-    const from = addDays(to, -(PERIODS.find((p) => p.key === period)!.days - 1));
+    const { from, to: end } = spanRange(span, anchor);
     const weekFrom = addDays(to, -6);
     const [w, t, r, d, wk, c, goals] = await Promise.all([
-      weightWithoutAlcohol(db, from, to),
+      weightWithoutAlcohol(db, from, end),
       listDrinkTypes(db),
       typeUsesSince(db, weekFrom),
-      listDrinks(db, from, to),
+      listDrinks(db, from, end),
       listDrinks(db, weekFrom, to),
       getCurrency(db),
       listGoals(db, to),
@@ -179,7 +188,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     setDrinks(d);
     setWeek(wk);
     setCur(c);
-  }, [db, period]);
+  }, [db, span, anchor]);
 
   useEffect(() => {
     void load();
@@ -187,7 +196,16 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
 
   const money = (n: number) => fmtMoney(n, currency);
   const run = changeRunner({ setMsg, load, onChanged, scope: "alcohol" });
-  const periodLabel = PERIODS.find((p) => p.key === period)!.label;
+  // "Today", "Sat, Nov 14", "the last 7 days", "Nov 2 – Nov 8": the summary and the list say it.
+  const periodLabel = !many
+    ? anchor === now
+      ? "Today"
+      : upper(fmtDay(anchor))
+    : isCurrent
+      ? `the last ${span === "week" ? 7 : 30} days`
+      : `${fmtDay(range.from)} – ${fmtDay(range.to)}`;
+  // The date range is in the row above, so a past week or month is "that week" here, not the dates again.
+  const when = !many ? (anchor === now ? "today" : `on ${periodLabel}`) : isCurrent ? `in ${periodLabel}` : `in that ${span === "week" ? "week" : "month"}`;
 
   /** When the drink was had: now for today, otherwise the picked time on the picked day. */
   function drunkAt(): number | undefined {
@@ -221,8 +239,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const typeLine = (t: Pick<DrinkType, "volumeMl" | "abvPercent" | "calories" | "price">) =>
     `${t.volumeMl} ml · ${t.abvPercent}% · ${servingKcal(t)} kcal${t.price !== null ? ` · ${money(t.price)}` : ""}`;
   const t = impact?.totals;
-  // The days the period covers, oldest first, for its bars (the same range load() reads).
-  const periodDays = Array.from({ length: PERIODS.find((p) => p.key === period)!.days }, (_, i) => addDays(today(), -i)).reverse();
+  // The days the span covers, oldest first (the same range load() reads).
+  const periodDays = Array.from({ length: span === "day" ? 1 : span === "week" ? 7 : 30 }, (_, i) => addDays(range.to, -i)).reverse();
   const shown = showAll ? drinks : drinks.slice(0, FIRST);
   const favourite = editingDrink ? types.find((x) => x.id === drinks.find((d) => d.id === editingDrink.entryId)?.typeId) : undefined;
 
@@ -324,10 +342,32 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               </>
             )}
           </div>
+          {/* Today's Day / Week / Month and its ‹ date › row (ui/layout PeriodNav bar). */}
           <div className="drinks-period">
-            <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
+            <Segmented
+              items={SPANS}
+              value={span}
+              label="Period"
+              onChange={(id) => {
+                setSpan(id);
+                // The day picked, or the last day of the week or month, stays in view.
+                setAnchor(isCurrent ? now : range.to, id);
+              }}
+            />
+            <PeriodNav
+              bar
+              title={many ? `${fmtDay(range.from)} – ${fmtDay(range.to)}` : fmtDayLong(anchor)}
+              unit={span}
+              onPrev={() => setAnchor(shiftSpan(span, anchor, -1))}
+              onNext={() => setAnchor(many && next > now ? now : next)}
+              nextDisabled={many ? range.to >= now : next > now}
+              onCurrent={isCurrent ? null : () => setAnchor(now)}
+              currentLabel={`Back to ${span === "day" ? "today" : `this ${span}`}`}
+            />
           </div>
-          {t && <DrinksSummary drinks={drinks} days={periodDays} limit={limit} totals={t} periodLabel={periodLabel} money={money} impact={impact} />}
+          {t && (
+            <DrinksSummary drinks={drinks} days={periodDays} limit={limit} totals={t} periodLabel={periodLabel} when={when} money={money} impact={impact} />
+          )}
         </div>
         <div className="drinks-col side">
           {draft && (
@@ -403,8 +443,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
         <section className="drinks-list">
           <SectionHeader title="Drinks" action={!showAll && drinks.length > FIRST ? `All ${drinks.length}` : undefined} onAction={() => setShowAll(true)} />
           <p className="muted small">
-            {periodLabel === "Today" ? "Today" : `Last ${periodLabel}`} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change
-            one
+            {upper(periodLabel)} · {drinks.length} {drinks.length === 1 ? "drink" : "drinks"} · tap the pencil to change one
           </p>
           {drinks.length ? (
             <div className="menu-group">
@@ -465,7 +504,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
               </ul>
             </div>
           ) : (
-            <p className="muted">No drinks in this period.</p>
+            <p className="muted">No drinks {when}.</p>
           )}
         </section>
       </div>
@@ -484,6 +523,7 @@ function DrinksSummary({
   limit,
   totals,
   periodLabel,
+  when,
   money,
   impact,
 }: {
@@ -493,6 +533,8 @@ function DrinksSummary({
   limit: number | null;
   totals: NonNullable<WeightWithoutAlcohol["totals"]>;
   periodLabel: string;
+  /** "today", "on Sat, Nov 14", "in the last 7 days". */
+  when: string;
   money: (n: number) => string;
   impact: WeightWithoutAlcohol | null;
 }) {
@@ -509,7 +551,6 @@ function DrinksSummary({
   const cap = limit !== null ? Math.max(1, Math.round((limit * days.length) / 7)) : null;
   const over = cap !== null && totals.drinks > cap;
   const left = cap !== null ? cap - totals.drinks : null;
-  const when = periodLabel === "Today" ? "today" : `in ${periodLabel}`;
   return (
     <section className="card drinks-summary" aria-label={`Drinks, ${periodLabel}`}>
       <div className="drink-limit-head">

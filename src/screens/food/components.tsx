@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SqlDriver } from "../../db/driver";
 import { photoDataUrl, type FoodEntry, type Macros, type PhotoInput, type SavedMeal } from "../../domain/food/food";
-import { addDays, localDay } from "../../core/tz";
+import { localDay } from "../../core/tz";
 import { MEALS, type Meal } from "../../domain/food/suggest";
 import { failed, numOrNull } from "../../ui/common";
 import { estimateKcal, MacroInputs } from "../../ui/nutrition";
@@ -73,8 +73,6 @@ export function PhotoPicker({ value, onChange }: { value: PhotoInput | null; onC
 /** "13:05": the local clock time of an instant, for a time field. */
 export const clockOf = (ms: number, timeZone: string) =>
   new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone }).format(ms);
-
-export const weekEnding = (day: string) => Array.from({ length: 7 }, (_, i) => addDays(day, i - 6));
 
 export interface MealDraft {
   name: string;
