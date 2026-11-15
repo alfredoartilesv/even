@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
-import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../ui/common";
-import { StatTile } from "../../ui/charts";
+import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, plural, timeZone, today, type Msg } from "../../ui/common";
 import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
@@ -222,6 +221,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const typeLine = (t: Pick<DrinkType, "volumeMl" | "abvPercent" | "calories" | "price">) =>
     `${t.volumeMl} ml · ${t.abvPercent}% · ${servingKcal(t)} kcal${t.price !== null ? ` · ${money(t.price)}` : ""}`;
   const t = impact?.totals;
+  // The days the period covers, oldest first, for its bars (the same range load() reads).
+  const periodDays = Array.from({ length: PERIODS.find((p) => p.key === period)!.days }, (_, i) => addDays(today(), -i)).reverse();
   const shown = showAll ? drinks : drinks.slice(0, FIRST);
   const favourite = editingDrink ? types.find((x) => x.id === drinks.find((d) => d.id === editingDrink.entryId)?.typeId) : undefined;
 
@@ -326,6 +327,7 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           <div className="drinks-period">
             <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
           </div>
+          {t && <DrinksSummary drinks={drinks} days={periodDays} limit={limit} totals={t} periodLabel={periodLabel} money={money} impact={impact} />}
         </div>
         <div className="drinks-col side">
           {draft && (
@@ -395,26 +397,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           </section>
         </div>
       </div>
-
-      {t && (
-        <div className="viz-tiles alcohol-tiles">
-          <StatTile label="Drinks" value={String(t.drinks)} note={`${t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`} />
-          <StatTile label="Calories" value={kcal(t.kcal)} unit="kcal" note={t.kcalEstimated ? "some estimated" : "from drinks"} />
-          <StatTile
-            label="Spent"
-            value={money(t.money)}
-            note={t.priced < t.drinks ? `${t.drinks - t.priced} without price` : periodLabel === "Today" ? "today" : periodLabel}
-          />
-          {impact?.weight && impact.expectedKg !== null && (
-            <StatTile
-              label="Weight without alcohol"
-              value={kg(impact.expectedKg)}
-              unit="kg"
-              note={`instead of ${kg(impact.weight.kg)} kg (${impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)}` : "no difference"}) · an upper bound`}
-            />
-          )}
-        </div>
-      )}
 
       <div>
         {/* Built like History's Days: the title and the line about it on the page, the rows in one card. */}
@@ -490,3 +472,103 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
     </div>
   );
 }
+
+/**
+ * What the period adds up to, in one card (the owner's ask, 15 Nov 2026, option C): the drinks
+ * against the weekly limit (scaled to the period) with what they cost, then calories and dry days
+ * as two tiles, then the weight without alcohol. Without a limit the bar is left out.
+ */
+function DrinksSummary({
+  drinks,
+  days,
+  limit,
+  totals,
+  periodLabel,
+  money,
+  impact,
+}: {
+  drinks: DrinkEntry[];
+  days: string[];
+  /** The weekly limit in drinks, from the goals; null when none is set. */
+  limit: number | null;
+  totals: NonNullable<WeightWithoutAlcohol["totals"]>;
+  periodLabel: string;
+  money: (n: number) => string;
+  impact: WeightWithoutAlcohol | null;
+}) {
+  const had = new Set(drinks.map((d) => d.localDay));
+  const dry = days.filter((d) => !had.has(d)).length;
+  // The longest run of days in a row without a drink, in the period.
+  let run = 0;
+  let longest = 0;
+  for (const d of days) {
+    run = had.has(d) ? 0 : run + 1;
+    longest = Math.max(longest, run);
+  }
+  // A weekly limit spread over the period: 7 days is the limit itself, 30 days about four weeks of it.
+  const cap = limit !== null ? Math.max(1, Math.round((limit * days.length) / 7)) : null;
+  const over = cap !== null && totals.drinks > cap;
+  const left = cap !== null ? cap - totals.drinks : null;
+  const when = periodLabel === "Today" ? "today" : `in ${periodLabel}`;
+  return (
+    <section className="card drinks-summary" aria-label={`Drinks, ${periodLabel}`}>
+      <div className="drink-limit-head">
+        <span className="drink-limit-figure">
+          <span className="muted small">Drinks {when}</span>
+          <strong>
+            {totals.drinks}
+            <span className="muted"> {cap !== null ? `of ${cap} limit` : `· ${fmtStd(totals.standardDrinks)} standard`}</span>
+          </strong>
+        </span>
+        <span className="drink-limit-figure end">
+          <span className="muted small">Spent</span>
+          <strong>{money(totals.money)}</strong>
+          {totals.priced < totals.drinks && <span className="muted small">{totals.drinks - totals.priced} without price</span>}
+        </span>
+      </div>
+      {cap !== null && left !== null && (
+        <>
+          <span className="drink-limit-bar" aria-hidden>
+            <span className={over ? "over" : undefined} style={{ width: `${Math.min(100, Math.round((totals.drinks / cap) * 100))}%` }} />
+          </span>
+          <span className={over ? "small drink-limit-note over" : "muted small drink-limit-note"}>
+            {over ? `${-left} over your limit` : left === 0 ? "At your limit" : `${left} left before your limit`}
+          </span>
+        </>
+      )}
+      <div className="drink-limit-tiles">
+        <span className="drink-limit-tile">
+          <span className="muted small">Calories</span>
+          <strong>{kcal(totals.kcal)}</strong>
+          <span className="muted small">{totals.kcalEstimated ? "kcal, some estimated" : "kcal from drinks"}</span>
+        </span>
+        {days.length > 1 ? (
+          <span className="drink-limit-tile">
+            <span className="muted small">Dry days</span>
+            <strong>
+              {dry} / {days.length}
+            </strong>
+            <span className="muted small">longest {plural(longest, "day")} in a row</span>
+          </span>
+        ) : (
+          <span className="drink-limit-tile">
+            <span className="muted small">Standard drinks</span>
+            <strong>{fmtStd(totals.standardDrinks)}</strong>
+            <span className="muted small">10 g of alcohol each</span>
+          </span>
+        )}
+      </div>
+      {impact?.weight && impact.expectedKg !== null && (
+        <p className="drink-sum-weight">
+          <span className="muted small">Weight without alcohol</span>
+          <strong>{kg(impact.expectedKg)} kg</strong>
+          <span className="muted small">
+            instead of {kg(impact.weight.kg)} kg ({impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)}` : "no difference"}) · an upper bound
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
+
+const fmtStd = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
