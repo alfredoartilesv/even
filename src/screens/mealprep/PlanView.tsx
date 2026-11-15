@@ -29,6 +29,7 @@ import { ChipGroup } from "../../ui/controls";
 import { changeRunner, fmtDay, MsgLine, plural, timeZone, today, type Msg } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { batchColors, DayStrip } from "../../ui/mealprep/components";
+import { PeriodNav } from "../../ui/layout";
 import { daysCovered, timelineDays } from "../../ui/mealprep/timeline";
 
 interface Props {
@@ -40,7 +41,10 @@ interface Props {
 }
 
 /** Two weeks ahead: long enough to see when the tuppers run out and the next cook is due. */
-const HORIZON = 14;
+const upper = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** Four weeks ahead (the owner's ask, 15 Nov 2026): shown a week at a time, like Today's weeks but forwards. */
+const WEEKS = 4;
+const HORIZON = WEEKS * 7;
 /** How many tuppers a day can be skipped by hand (the owner's ask, 10 Nov 2026), up to the tuppers a day. */
 const SKIP_CHOICES = [1, 2];
 
@@ -77,6 +81,8 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [msg, setMsg] = useState<Msg>(null);
   const [picked, setPicked] = useState(today());
+  // Which week of the plan is shown: 0 is the week starting today.
+  const [week, setWeek] = useState(0);
   const [thawed, setThawed] = useState<{ moveId: string; name: string; forDay: string } | null>(null);
   const [added, setAdded] = useState(0);
   const [meals, setMeals] = useState<PrepMeal[]>([]);
@@ -128,7 +134,12 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
     d === day ? "Tonight" : `${new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })} night`;
 
   const days = timelineDays(plan, day, HORIZON);
-  const sel = days.find((d) => d.day === picked) ?? days[0];
+  const weekDays = days.slice(week * 7, week * 7 + 7);
+  const sel = weekDays.find((d) => d.day === picked) ?? weekDays[0];
+  const showWeek = (w: number) => {
+    setWeek(w);
+    setPicked(w === 0 ? day : (days[w * 7]?.day ?? day));
+  };
   const selSkips = skips.get(sel.day) ?? { manual: 0, ateOut: [] };
   const recipesShown = [...new Map(plan.meals.map((m) => [m.batchId, m.name])).entries()];
 
@@ -183,7 +194,7 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
           )}
           <section className="card plan-days-card" aria-labelledby="plan-days">
             <div className="plan-days-head">
-              <h2 id="plan-days">Next {HORIZON} days</h2>
+              <h2 id="plan-days">{week === 0 ? "This week" : week === 1 ? "Next week" : `In ${week} weeks`}</h2>
               <span className="plan-legend">
                 {recipesShown.map(([id, name]) => (
                   <span key={id} className="small">
@@ -194,7 +205,20 @@ export function PlanView({ db, version, onChanged, onRecipes, onShopping }: Prop
               </span>
             </div>
             {perDay > 0 ? (
-              <DayStrip days={days} value={sel.day} onChange={setPicked} colors={colors} />
+              <>
+                <PeriodNav
+                  bar
+                  title={`${upper(fmtDay(weekDays[0].day))} – ${fmtDay(weekDays[weekDays.length - 1].day)}`}
+                  unit="week"
+                  onPrev={() => showWeek(week - 1)}
+                  prevDisabled={week === 0}
+                  onNext={() => showWeek(week + 1)}
+                  nextDisabled={week >= WEEKS - 1}
+                  onCurrent={week === 0 ? null : () => showWeek(0)}
+                  currentLabel="Back to this week"
+                />
+                <DayStrip days={weekDays} value={sel.day} onChange={setPicked} colors={colors} />
+              </>
             ) : (
               <p className="muted small">Pick the meals your tuppers are for to get a plan.</p>
             )}

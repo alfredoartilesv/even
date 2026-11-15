@@ -3983,9 +3983,10 @@ button.link.tap-row-main.drink-another {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  min-height: 72px;
-  padding: 0.4rem 0.2rem;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 96px;
+  padding: 0.6rem 0.2rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -3993,7 +3994,7 @@ button.link.tap-row-main.drink-another {
   font-weight: 500;
 }
 .day-pick strong {
-  font-size: 1.05rem;
+  font-size: 1.25rem;
 }
 .day-pick.on {
   border: 2px solid var(--accent);
@@ -4751,7 +4752,7 @@ body:not(:has(.app-frame)) .today .date-step {
   color: var(--fg);
 }
 .today .date-step:disabled {
-  opacity: 0.35;
+  visibility: hidden;
 }
 .today-date-text {
   padding: 0 0.35rem;
@@ -4885,6 +4886,14 @@ body:not(:has(.app-frame)) .today .date-step {
     align-items: stretch;
   }
   .drinks-col.side > :last-child {
+    flex: 1;
+  }
+  /* The drinks card itself runs down with the column, not only the section around it. */
+  .drinks-col.side > .drink-favs {
+    display: flex;
+    flex-direction: column;
+  }
+  .drinks-col.side > .drink-favs > .drink-tap-list {
     flex: 1;
   }
 }
@@ -5033,8 +5042,10 @@ body {
   color: var(--fg);
   font-size: 1rem;
 }
+/* No next period yet: the › is not drawn (the owner's ask, 15 Nov 2026), its place is kept so the
+   date stays where it is. */
 .period-nav .date-step:disabled {
-  opacity: 0.35;
+  visibility: hidden;
 }
 .period-nav .today-date-text {
   color: var(--fg);
