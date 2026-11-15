@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BalanceRing, BarChart, LineChart, StatTile } from "../../ui/charts";
+import { BalanceRing, BarChart, LineChart, MiniBars, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
@@ -724,6 +724,8 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
   const r = days.find((x) => x.day === pickDay);
   const j = d.journal;
   const avg = (f: { avg: number | null }, fmt: (n: number) => string = int) => (f.avg !== null ? fmt(f.avg) : null);
+  const dayList = d.days.map((x) => x.day);
+  const sleepBy = new Map(d.trendDays.map((day, i) => [day, d.body.sleep.trend[i]]));
   return (
     <div className="today-grid period">
       <section className="period-days" aria-label="Calories each day">
@@ -763,21 +765,47 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
         <section className="card averages-card" aria-labelledby="period-averages">
           <h2 id="period-averages">Daily averages</h2>
           <div className="avg-grid">
-            <AverageCell label="Calories" value={avg(d.eaten)} of={d.targets.kcal} mean={d.eaten.avg} limit note={(t) => `of ${int(t)} target`} />
+            <AverageCell
+              label="Calories"
+              kind="kcal"
+              value={avg(d.eaten)}
+              of={d.targets.kcal}
+              mean={d.eaten.avg}
+              limit
+              note={(t) => `of ${int(t)} target`}
+              values={d.days.map((x) => x.eatenKcal)}
+              days={dayList}
+            />
             <AverageCell
               label="Protein"
+              kind="protein"
               value={avg(d.protein, (n) => `${int(n)} g`)}
               of={d.targets.protein}
               mean={d.protein.avg}
               note={(t) => `of ${int(t)} g goal`}
+              values={d.days.map((x) => x.proteinG)}
+              days={dayList}
             />
-            <AverageCell label="Steps" value={avg(d.steps)} of={d.targets.steps} mean={d.steps.avg} note={(t, met) => `goal ${int(t)}${met ? " · met" : ""}`} />
+            <AverageCell
+              label="Steps"
+              kind="steps"
+              value={avg(d.steps)}
+              of={d.targets.steps}
+              mean={d.steps.avg}
+              note={(t, met) => `goal ${int(t)}${met ? " · met" : ""}`}
+              values={d.days.map((x) => x.steps)}
+              days={dayList}
+            />
             <AverageCell
               label="Sleep"
+              kind="sleep"
               value={avg(d.body.sleep, hm)}
               of={null}
               mean={null}
               fallback={d.body.sleepScore.avg !== null ? `score ${int(d.body.sleepScore.avg)}` : "a night"}
+              values={dayList.map((day) => sleepBy.get(day) ?? null)}
+              days={dayList}
+              line={SLEEP_GUIDE_S}
             />
           </div>
         </section>
@@ -877,16 +905,25 @@ function DayEnergy({ points, isToday }: { points: EnergyPoint[]; isToday: boolea
  * target is a limit, so past it the bar turns the warning color; a goal (protein, steps) past it
  * reads "met". Without a target there is no bar, only the fallback line.
  */
+/** The dashed guide on the sleep bars: 8 hours, as there is no sleep target to draw. */
+const SLEEP_GUIDE_S = 8 * 3600;
+
 function AverageCell({
   label,
+  kind,
   value,
   of,
   mean,
   limit = false,
   note,
   fallback,
+  values,
+  days,
+  line = of,
 }: {
   label: string;
+  /** Picks the cell's color. */
+  kind: "kcal" | "protein" | "steps" | "sleep";
   value: string | null;
   /** The daily target or goal; null when none is set. */
   of: number | null;
@@ -895,20 +932,20 @@ function AverageCell({
   limit?: boolean;
   note?: (target: number, met: boolean) => string;
   fallback?: string;
+  /** One value a day over the span, for the bars. */
+  values: (number | null)[];
+  days: string[];
+  /** The dashed line on the bars: the target, or a fixed guide where there is none (8 h of sleep). */
+  line?: number | null;
 }) {
-  const has = of !== null && of > 0 && mean !== null;
-  const frac = has ? mean / of : 0;
+  const frac = of !== null && of > 0 && mean !== null ? mean / of : 0;
   const over = limit && frac > 1;
   return (
-    <div className="avg-cell">
+    <div className={`avg-cell ${kind}`}>
       <span className="muted small">{label}</span>
       <strong className={over ? "over" : undefined}>{value ?? "–"}</strong>
       <span className="muted small">{of !== null && of > 0 && note ? note(of, !limit && frac >= 1) : (fallback ?? "")}</span>
-      {has && (
-        <span className="avg-bar" aria-hidden>
-          <span className={over ? "over" : undefined} style={{ width: `${Math.min(100, Math.round(frac * 100))}%` }} />
-        </span>
-      )}
+      <MiniBars values={values} days={days} target={line} limit={limit} label={`${label} each day`} />
     </div>
   );
 }

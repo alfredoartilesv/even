@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { BalanceRing, BarChart, CalendarHeatmap, LineChart, StatTile } from "../src/ui/charts";
+import { BalanceRing, BarChart, CalendarHeatmap, LineChart, MiniBars, StatTile } from "../src/ui/charts";
 import { columnPath, compact, labelIndexes, linear, nearestIndex, niceTicks, present, segments } from "../src/ui/charts/scale";
 import { batchColors, PlanDays, StockAlerts } from "../src/ui/mealprep/components";
 import { daysCovered, timelineDays } from "../src/ui/mealprep/timeline";
@@ -169,4 +169,20 @@ test("Today's ring: the macros wrap the calorie ring, and one past its target cl
   const legend = renderToStaticMarkup(h(MacroLegend, { macros }));
   assert.match(legend, /80 \/ 150 g/);
   assert.match(legend, /<li class="over">.*300 \/ 260 g.*over target/);
+});
+
+test("MiniBars: a bar a day, the target dashed, days past a ceiling warn, day letters only on a week", () => {
+  const days = ["2026-11-09", "2026-11-10", "2026-11-11"];
+  const week = renderToStaticMarkup(h(MiniBars, { values: [2000, null, 2500], days, target: 2300, limit: true, label: "Calories each day" }));
+  assert.equal((week.match(/<rect/g) ?? []).length, 2, "no bar for a day with nothing");
+  assert.match(week, /class="mini-bar over last"/, "the last day, past the limit");
+  assert.equal((week.match(/class="mini-target"/g) ?? []).length, 1);
+  assert.equal((week.match(/class="mini-day"/g) ?? []).length, 3);
+  assert.match(week, /aria-label="Calories each day"/);
+
+  const month = Array.from({ length: 30 }, (_, i) => `2026-10-${String(i + 1).padStart(2, "0")}`);
+  const many = renderToStaticMarkup(h(MiniBars, { values: month.map((_, i) => 8000 + i * 100), days: month, target: 10000, label: "Steps each day" }));
+  assert.doesNotMatch(many, /mini-day/, "30 bars are too narrow for letters");
+  assert.doesNotMatch(many, /over/, "a goal to reach never warns");
+  assert.equal(renderToStaticMarkup(h(MiniBars, { values: [null, null], days: days.slice(0, 2), label: "x" })), "", "nothing to draw");
 });
