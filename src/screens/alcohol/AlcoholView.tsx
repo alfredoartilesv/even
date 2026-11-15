@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { addDays, localDateTimeToMs } from "../../core/tz";
 import type { SqlDriver } from "../../db/driver";
 import { changeRunner, EditActions, fmtDay, fmtMoney, MsgLine, numOrNull, timeZone, today, type Msg } from "../../ui/common";
-import { StatTile } from "../../ui/charts";
+import { MiniBars } from "../../ui/charts";
 import { ChipGroup } from "../../ui/controls";
 import { Icon } from "../../ui/icons";
 import { SectionHeader } from "../../ui/layout";
@@ -222,6 +222,8 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
   const typeLine = (t: Pick<DrinkType, "volumeMl" | "abvPercent" | "calories" | "price">) =>
     `${t.volumeMl} ml · ${t.abvPercent}% · ${servingKcal(t)} kcal${t.price !== null ? ` · ${money(t.price)}` : ""}`;
   const t = impact?.totals;
+  // The days the period covers, oldest first, for its bars (the same range load() reads).
+  const periodDays = Array.from({ length: PERIODS.find((p) => p.key === period)!.days }, (_, i) => addDays(today(), -i)).reverse();
   const shown = showAll ? drinks : drinks.slice(0, FIRST);
   const favourite = editingDrink ? types.find((x) => x.id === drinks.find((d) => d.id === editingDrink.entryId)?.typeId) : undefined;
 
@@ -326,6 +328,9 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           <div className="drinks-period">
             <ChipGroup options={PERIODS.map((p) => ({ id: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Period" />
           </div>
+          {t && (
+            <DrinksSummary drinks={drinks} days={periodDays} byMonth={period === "year"} totals={t} periodLabel={periodLabel} money={money} impact={impact} />
+          )}
         </div>
         <div className="drinks-col side">
           {draft && (
@@ -395,26 +400,6 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
           </section>
         </div>
       </div>
-
-      {t && (
-        <div className="viz-tiles alcohol-tiles">
-          <StatTile label="Drinks" value={String(t.drinks)} note={`${t.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`} />
-          <StatTile label="Calories" value={kcal(t.kcal)} unit="kcal" note={t.kcalEstimated ? "some estimated" : "from drinks"} />
-          <StatTile
-            label="Spent"
-            value={money(t.money)}
-            note={t.priced < t.drinks ? `${t.drinks - t.priced} without price` : periodLabel === "Today" ? "today" : periodLabel}
-          />
-          {impact?.weight && impact.expectedKg !== null && (
-            <StatTile
-              label="Weight without alcohol"
-              value={kg(impact.expectedKg)}
-              unit="kg"
-              note={`instead of ${kg(impact.weight.kg)} kg (${impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)}` : "no difference"}) · an upper bound`}
-            />
-          )}
-        </div>
-      )}
 
       <div>
         {/* Built like History's Days: the title and the line about it on the page, the rows in one card. */}
@@ -488,5 +473,87 @@ export function AlcoholView({ db, version, onChanged, managing, onManage }: Prop
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * What the period adds up to, in one card (the owner's ask, 15 Nov 2026): drinks, calories and
+ * spent, one a row with small bars beside it, one a day (one a month over a year), then the weight without
+ * alcohol. A single day has no bars, only the numbers.
+ */
+function DrinksSummary({
+  drinks,
+  days,
+  byMonth,
+  totals,
+  periodLabel,
+  money,
+  impact,
+}: {
+  drinks: DrinkEntry[];
+  days: string[];
+  byMonth: boolean;
+  totals: NonNullable<WeightWithoutAlcohol["totals"]>;
+  periodLabel: string;
+  money: (n: number) => string;
+  impact: WeightWithoutAlcohol | null;
+}) {
+  // One bucket a day, or a month over a year (365 bars would be hairlines).
+  const keyOf = (day: string) => (byMonth ? `${day.slice(0, 7)}-01` : day);
+  const keys = [...new Set(days.map(keyOf))];
+  const sum = (pick: (d: DrinkEntry) => number) => {
+    const by = new Map<string, number>();
+    for (const d of drinks) by.set(keyOf(d.localDay), (by.get(keyOf(d.localDay)) ?? 0) + pick(d));
+    return keys.map((k) => by.get(k) ?? 0);
+  };
+  const bars = keys.length > 1;
+  const per = byMonth ? "month" : "day";
+  const cells = [
+    {
+      kind: "drinks",
+      label: "Drinks",
+      value: String(totals.drinks),
+      note: `${totals.standardDrinks.toLocaleString(undefined, { maximumFractionDigits: 1 })} standard`,
+      values: sum(() => 1),
+    },
+    {
+      kind: "kcal",
+      label: "Calories",
+      value: `${kcal(totals.kcal)} kcal`,
+      note: totals.kcalEstimated ? "some estimated" : "from drinks",
+      values: sum((d) => d.kcal),
+    },
+    {
+      kind: "spent",
+      label: "Spent",
+      value: money(totals.money),
+      note: totals.priced < totals.drinks ? `${totals.drinks - totals.priced} without price` : periodLabel === "Today" ? "today" : periodLabel,
+      values: sum((d) => d.price ?? 0),
+    },
+  ];
+  return (
+    <section className="card drinks-summary" aria-label={`Drinks, ${periodLabel}`}>
+      <div className="drink-sum-grid">
+        {cells.map((c) => (
+          <div key={c.kind} className={`drink-sum-cell ${c.kind}`}>
+            <span className="drink-sum-figure">
+              <span className="muted small">{c.label}</span>
+              <strong>{c.value}</strong>
+              <span className="muted small">{c.note}</span>
+            </span>
+            {bars && <MiniBars values={c.values.map((v) => (v > 0 ? v : null))} days={keys} label={`${c.label} each ${per}`} />}
+          </div>
+        ))}
+      </div>
+      {impact?.weight && impact.expectedKg !== null && (
+        <p className="drink-sum-weight">
+          <span className="muted small">Weight without alcohol</span>
+          <strong>{kg(impact.expectedKg)} kg</strong>
+          <span className="muted small">
+            instead of {kg(impact.weight.kg)} kg ({impact.kgFromAlcohol > 0 ? `−${kg(impact.kgFromAlcohol)}` : "no difference"}) · an upper bound
+          </span>
+        </p>
+      )}
+    </section>
   );
 }

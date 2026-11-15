@@ -2123,11 +2123,58 @@ ol.drink-days li {
 }
 
 /* On a phone the weight estimate takes its own row under the three counts. */
-.alcohol-tiles {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* Drinks: the period in one card, drinks, calories and spent one a row, the figure left and a bar a day right. */
+.drink-sum-grid {
+  display: flex;
+  flex-direction: column;
 }
-.alcohol-tiles .viz-tile:nth-child(4) {
-  grid-column: 1 / -1;
+.drink-sum-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 0;
+}
+.drink-sum-cell:first-child {
+  padding-top: 0;
+}
+.drink-sum-cell + .drink-sum-cell {
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.drink-sum-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.drink-sum-cell strong {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.drink-sum-cell .mini-bars {
+  margin-top: 0;
+}
+.drink-sum-cell.drinks {
+  --cell: var(--area-food);
+}
+.drink-sum-cell.kcal {
+  --cell: color-mix(in srgb, var(--warning) 60%, var(--area-food));
+}
+.drink-sum-cell.spent {
+  --cell: var(--area-prep);
+}
+.drink-sum-weight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.drink-sum-weight strong {
+  font-size: 1.3rem;
 }
 
 /* Settings: where each page stands under its row, the backup nudge, and the facts of About. */
@@ -4826,10 +4873,12 @@ body:not(:has(.app-frame)) .today .date-step {
   .drinks-col.main > .drink-when {
     order: 2;
   }
-  .drinks-col.side > * {
+  /* The period and what it adds up to come before the favourites (15 Nov 2026). */
+  .drinks-col.main > .drinks-period,
+  .drinks-col.main > .drinks-summary {
     order: 3;
   }
-  .drinks-col.main > .drinks-period {
+  .drinks-col.side > * {
     order: 4;
   }
 }
@@ -5190,11 +5239,6 @@ body {
   margin: 0.25rem auto 0.75rem;
   padding: 0.5rem 1rem;
   text-align: center;
-}
-/* The three drink figures share a phone's width: the money fits its tile instead of touching the edge. */
-.alcohol-tiles .viz-tile-value strong {
-  font-size: clamp(1.15rem, 5vw, 1.6rem);
-  white-space: nowrap;
 }
 .quick-log-row input,
 .quick-log-row input.quick-log-num {
