@@ -27,7 +27,7 @@ import { addDays, localDateTimeToMs } from "../../core/tz";
 import { failed, fmtDay, fmtDayLong, MsgWithUndo, numOrNull, timeZone, today, type Msg } from "../../ui/common";
 import { PeriodNav } from "../../ui/layout";
 import { MacroBars } from "../../ui/nutrition";
-import { emptyDraft, EntryList, kcal, MealFields, parseDraft, PhotoPicker, type MealDraft } from "./components";
+import { emptyDraft, EntryList, FormFooter, kcal, MealFields, parseDraft, PhotoPicker, type MealDraft } from "./components";
 import { EatAgain, type Logged } from "./EatAgain";
 import { FromMealPrep } from "./FromMealPrep";
 import { entryActions } from "./entryActions";
@@ -407,12 +407,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
               <input type="checkbox" checked={bookmark || Boolean(photo)} disabled={Boolean(photo)} onChange={(e) => setBookmark(e.target.checked)} />
               Star it, so it always shows in Eat again{photo ? " (photos are kept with starred meals)" : ""}
             </label>
-            <div className="actions">
-              <button type="submit">Log meal{on}</button>
-              <button type="button" className="secondary" onClick={() => setAdding(false)}>
-                Cancel
-              </button>
-            </div>
+            <FormFooter save={`Log meal${on}`} onCancel={() => setAdding(false)} />
           </form>
         ) : null}
       </div>
