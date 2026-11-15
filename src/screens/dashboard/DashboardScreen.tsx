@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
-import { BalanceRing, BarChart, LineChart, MiniBars, StatTile } from "../../ui/charts";
+import { BalanceRing, BarChart, MiniBars, StatTile } from "../../ui/charts";
 import { fmtDay, fmtDayLong, plural, timeZone, today } from "../../ui/common";
 import { Icon } from "../../ui/icons";
 import { MacroLegend, ringMacros } from "../../ui/nutrition";
@@ -12,7 +12,7 @@ import { SCALE, type DayNote } from "../../domain/journal/entries";
 import { loadProfile } from "../../domain/settings/profile";
 import { dayFood, type FoodEntry } from "../../domain/food/food";
 import { listDrinks } from "../../domain/alcohol/alcohol";
-import { clockOf, intradayEnergy, type EnergyPoint } from "../../domain/dashboard/intraday";
+import { intradayEnergy, type EnergyPoint } from "../../domain/dashboard/intraday";
 import { addMove, undoMove } from "../../domain/mealprep/mealPrep";
 import { skipTupper } from "../../domain/mealprep/skips";
 import { loadDashboard, pinnedAnchor, shiftSpan, spanRange, type Dashboard, type Span } from "../../domain/dashboard/dashboard";
@@ -290,10 +290,9 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             formatX={span === "month" ? axis : (day) => short(day, { weekday: "narrow" })}
             onDay={openDay}
             daySteps={!many}
+            intraday={!many && shown?.intraday && shown.intraday.length > 1 ? { points: shown.intraday, isToday: anchor === now } : null}
           />
         )}
-        {/* The day's eaten against burned, after the pinned charts (the owner's ask, 14 Nov 2026). */}
-        {!many && shown?.intraday && shown.intraday.length > 1 && <DayEnergy points={shown.intraday} isToday={anchor === now} />}
         {/* What was eaten and drunk so far, under every chart (the owner's ask, 15 Nov 2026). */}
         {!many && d && shown && <SoFar d={d} food={shown.food} isToday={anchor === now} go={go} />}
       </div>
@@ -874,32 +873,6 @@ function dayCheckInLine(note: DayNote | null, isToday: boolean): string {
 function activityLine(d: Dashboard): string {
   const w = d.workouts.count ? plural(d.workouts.count, "workout") : "No workouts";
   return d.steps.avg !== null && d.days.length === 1 ? `${w} · ${int(d.steps.avg)} steps` : w;
-}
-
-/**
- * A day's calories eaten against burned, hour by hour: eaten climbs at each meal and drink, burned
- * is the watch's day total spread evenly (it gives no hourly burn), up to now on the current day.
- */
-function DayEnergy({ points, isToday }: { points: EnergyPoint[]; isToday: boolean }) {
-  const last = points[points.length - 1];
-  const hasBurn = last.burned !== null;
-  return (
-    <section className="day-energy" aria-label="Eaten against burned">
-      <LineChart
-        title={isToday ? "Eaten vs burned today" : "Eaten vs burned"}
-        subtitle={`${int(last.eaten)} kcal eaten${hasBurn ? ` · ${int(last.burned ?? 0)} burned${isToday ? " so far" : ""}` : ""}. ${hasBurn ? "Burned is the watch's day total spread evenly." : "No burn from the watch for this day."}`}
-        x={points.map((p) => clockOf(p.minute))}
-        series={[
-          { id: "eaten", label: "Eaten", values: points.map((p) => p.eaten), slot: 1 },
-          ...(hasBurn ? [{ id: "burned", label: "Burned", values: points.map((p) => p.burned), slot: 2 }] : []),
-        ]}
-        formatX={(t) => (t.endsWith(":00") ? `${Number(t.slice(0, 2))}h` : t)}
-        formatValue={int}
-        unit="kcal"
-        zero
-      />
-    </section>
-  );
 }
 
 /**
