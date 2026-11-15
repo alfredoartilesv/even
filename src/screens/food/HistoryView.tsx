@@ -51,6 +51,7 @@ export function HistoryView({ db, version, onOpenDay }: Props) {
   return (
     <div>
       <PeriodNav
+        bar
         title={`${cap(fmtDay(addDays(weekEnd, -6)))} – ${fmtDay(weekEnd)}`}
         unit="week"
         onPrev={() => setWeekEnd(addDays(weekEnd, -7))}
