@@ -5050,8 +5050,8 @@ body {
 .today-datebar {
   margin: -0.75rem 0 -0.5rem;
 }
-/* Food and drinks uses Today's phone date row on every screen, not too wide to read on a computer. */
-.today-datebar.food-datebar {
+/* Food and drinks (day and week) use Today's phone date row on every screen, not too wide on a computer. */
+.today-datebar.page-datebar {
   max-width: 26rem;
   margin: 0 auto 0.75rem;
 }

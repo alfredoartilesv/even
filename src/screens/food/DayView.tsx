@@ -236,20 +236,16 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
 
   return (
     <div>
-      {/* The same ‹ date › row as Today's on a phone: the date centered between fixed arrows, and
-          the way back as a round calendar button at the end, so moving between days moves nothing. */}
-      <div className="today-datebar food-datebar">
-        <PeriodNav
-          currentIcon
-          title={fmtDayLong(day)}
-          unit="day"
-          onPrev={() => onDay(addDays(day, -1))}
-          onNext={() => onDay(addDays(day, 1))}
-          nextDisabled={isToday}
-          onCurrent={isToday ? null : () => onDay(now)}
-          currentLabel="Back to today"
-        />
-      </div>
+      <PeriodNav
+        bar
+        title={fmtDayLong(day)}
+        unit="day"
+        onPrev={() => onDay(addDays(day, -1))}
+        onNext={() => onDay(addDays(day, 1))}
+        nextDisabled={isToday}
+        onCurrent={isToday ? null : () => onDay(now)}
+        currentLabel="Back to today"
+      />
 
       <div className="wide-grid stretch">
         <div className="span-8 wide-col">

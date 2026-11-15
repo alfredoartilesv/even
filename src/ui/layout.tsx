@@ -152,6 +152,7 @@ export function PeriodNav({
   onCurrent,
   currentLabel,
   currentIcon = false,
+  bar = false,
 }: {
   title: string;
   /** "day", "week", "month": read out on the arrows. */
@@ -165,7 +166,27 @@ export function PeriodNav({
   currentLabel?: string;
   /** The way back as a round calendar button, named by currentLabel, instead of the pill. */
   currentIcon?: boolean;
+  /**
+   * Today's phone date row on another page (Food and drinks' day and week, 15 Nov 2026): the date
+   * centered between arrows that stay put, the way back as the round calendar button at the end.
+   */
+  bar?: boolean;
 }) {
+  if (bar)
+    return (
+      <div className="today-datebar page-datebar">
+        <PeriodNav
+          title={title}
+          unit={unit}
+          onPrev={onPrev}
+          onNext={onNext}
+          nextDisabled={nextDisabled}
+          onCurrent={onCurrent}
+          currentLabel={currentLabel}
+          currentIcon
+        />
+      </div>
+    );
   return (
     <div className={currentIcon ? "period-nav date-nav icon-back" : "period-nav date-nav"}>
       <span className="date-steps">
