@@ -34,7 +34,7 @@
  *                 cobalt, Journal plum, Coach violet, You slate. The shell sets data-area on the
  *                 page and areas.css points --accent at the area's own,
  *                 so every button, chip, switch, link and title follows without a change.
- *   --nav-ink     the one bold surface: the wide side menu, Loading, the phone's Add button
+ *   --nav-ink     the one bold surface: the wide side menu, the phone's Add button
  *   --on-nav, --on-nav-muted, --nav-active  text and the open row on it
  *
  * Series colors are the validated categorical palette (dataviz reference instance), checked with
