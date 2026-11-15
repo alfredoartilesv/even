@@ -52,7 +52,7 @@ export interface PhotoInput {
 export const MAX_PHOTO_BYTES = 1_500_000;
 
 const ENTRY_COLS = `e.id, e.eaten_at_ms, e.local_day, e.name, e.meal, e.calories, e.protein_g, e.carbs_g, e.fat_g, e.notes,
-  e.saved_meal_id, s.photo_id AS photo_id,
+  s.id AS saved_meal_id, s.photo_id AS photo_id,
   EXISTS (SELECT 1 FROM meal_prep_moves m WHERE m.food_entry_id = e.id AND m.deleted_at IS NULL) AS from_prep`;
 const ENTRY_FROM = `food_entries e
   LEFT JOIN saved_meals s ON s.id = e.saved_meal_id AND s.deleted_at IS NULL`;

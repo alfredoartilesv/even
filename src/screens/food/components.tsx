@@ -238,7 +238,7 @@ export function EntryList({ db, entries, timeZone, ...act }: { db: SqlDriver; en
                         Again
                       </button>
                       <button className="secondary" onClick={() => act.onSave(e)} aria-pressed={Boolean(e.savedMealId)}>
-                        {e.savedMealId ? "★ Saved" : "☆ Save"}
+                        {e.savedMealId ? "★ Starred" : "☆ Star"}
                       </button>
                       <button
                         className="secondary"

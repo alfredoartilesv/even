@@ -103,7 +103,8 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
     const [e, t, s, sv, dk, st] = await Promise.all([
       dayFood(db, day),
       getNutritionTargets(db),
-      suggestions(db, { timeZone: tz }),
+      // Enough for every starred meal: Eat again shows them all, whatever their rank.
+      suggestions(db, { timeZone: tz, limit: 200 }),
       listSavedMeals(db),
       drinkKcalByDay(db, day, day),
       loadStock(db),
@@ -404,7 +405,7 @@ export function DayView({ db, version, onChanged, day, onDay, onStock }: Props) 
             />
             <label className="inline">
               <input type="checkbox" checked={bookmark || Boolean(photo)} disabled={Boolean(photo)} onChange={(e) => setBookmark(e.target.checked)} />
-              Save to favourites{photo ? " (photos are kept with saved meals)" : ""}
+              Star it, so it always shows in Eat again{photo ? " (photos are kept with starred meals)" : ""}
             </label>
             <div className="actions">
               <button type="submit">Log meal{on}</button>

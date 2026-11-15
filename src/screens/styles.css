@@ -404,43 +404,6 @@ ul.entries li > .status {
   justify-content: space-between;
   gap: 0.6rem;
 }
-ul.saved-list {
-  display: flex;
-  flex-direction: column;
-}
-.saved-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line);
-}
-.saved-row:last-child {
-  border-bottom: none;
-}
-.saved-open {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: left;
-  color: inherit;
-}
-.saved-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.saved-log {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.saved-log input.qty {
-  width: 3.25rem;
-}
 
 .sync-button {
   display: inline-flex;
@@ -5475,23 +5438,9 @@ dl.inventory {
 .quick-done > .grow {
   flex: 1 1 10rem;
 }
-/* A saved or usual meal: its name keeps a line of its own on a narrow phone, the buttons wrap under it. */
-.saved-row {
-  flex-wrap: wrap;
-}
-.saved-row > .grow {
-  flex: 1 1 11rem;
-}
 /* Daily targets: labels like "Protein g (at least)" keep two lines at most, so one field a row on a narrow phone. */
 .targets-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
-}
-.saved-row > .saved-open {
-  flex: 1 1 11rem;
-  min-width: 0;
-}
-.saved-row > .saved-log {
-  margin-left: auto;
 }
 
 /*

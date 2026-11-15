@@ -124,7 +124,7 @@ test("calorie goal: one live goal, history kept when it changes on a later day",
   await assert.rejects(setCalorieGoal(db, 0, "2026-10-26"), /more than 0/);
 });
 
-test("saved meals with photos: bookmark an entry, its history links, photo replace and delete", async () => {
+test("starred (saved) meals with photos: star an entry, its history links, photo replace and delete", async () => {
   const { db } = await migratedDb();
   const first = await logFood(db, { name: "Poke bowl", meal: "lunch", calories: 650, proteinG: 30, carbsG: 80, fatG: 20, atMs: MORNING, timeZone: TZ });
   const second = await logFood(db, { name: "poke bowl", meal: "lunch", calories: 650, proteinG: 30, carbsG: 80, fatG: 20, atMs: MORNING + DAY, timeZone: TZ });
@@ -155,6 +155,7 @@ test("saved meals with photos: bookmark an entry, its history links, photo repla
   assert.deepEqual(await listSavedMeals(db), []);
   assert.equal((await dayFood(db, "2026-10-20")).length, 1, "history stays");
   assert.equal((await dayFood(db, "2026-10-20"))[0].photoId, null);
+  assert.equal((await dayFood(db, "2026-10-20"))[0].savedMealId, null, "unstarred: the entry shows ☆ Star again");
   assert.equal((await db.all("SELECT 1 FROM food_photos WHERE deleted_at IS NULL")).length, 0);
 
   await assert.rejects(saveMeal(db, { name: "x", meal: null, ...none, photo: { ...PHOTO, dataB64: "not base64!" } }), /not valid/);

@@ -179,10 +179,10 @@ test("PageHeader: a frame's menu button opens the side menu at the top of a tab,
   assert.doesNotMatch(renderToStaticMarkup(h(PageHeader, { title: "Chat" })), /menu-button/);
 });
 
-test("food and drinks: the log, drinks and saved meals; meal prep: plan, stock, shopping, recipes", () => {
+test("food and drinks: the log and drinks; meal prep: plan, stock, shopping, recipes", () => {
   assert.deepEqual(
     FOOD_VIEWS.map((v) => v.id),
-    ["log", "drinks", "saved"],
+    ["log", "drinks"],
   );
   assert.deepEqual(
     MEAL_PREP_VIEWS.map((v) => v.id),
