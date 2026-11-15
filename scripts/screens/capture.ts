@@ -297,25 +297,10 @@ const SCREENS: Screen[] = [
   {
     id: "mealprep-log",
     tab: "Food and drinks",
-    title: "Log",
+    title: "Food",
     about:
       "One day's log, today by default (‹ › to any past day, which can be logged to). What is left of the day: calories across the top, protein (still to go), carbs and fat, each with a bar toward its target, and the calories split by macro; daily targets for all four (macros can be filled from the kcal). One tap to eat a meal prep portion from the fridge or a meal eaten often, Log a meal (time optional, with a photo), and the day's entries by meal; an entry's edit can move it to another time or day.",
     go: (p) => section(p, "food"),
-  },
-  {
-    id: "mealprep-history",
-    tab: "Food and drinks",
-    title: "History",
-    about:
-      "Seven days at a time: calories per day against the target (tap a bar to open that day in the log), the daily averages against every target, then each day with its kcal and macros and what was left or over.",
-    go: (p) => sub(p, "History"),
-  },
-  {
-    id: "mealprep-saved",
-    tab: "Food and drinks",
-    title: "Saved meals",
-    about: "Favourite meals to log again in one tap, with servings.",
-    go: (p) => sub(p, "Saved meals"),
   },
   {
     id: "mealprep-plan",
@@ -491,18 +476,6 @@ const SCREENS: Screen[] = [
     },
   },
   {
-    id: "wide-mealprep-saved",
-    tab: "Web app",
-    web: true,
-    title: "Saved meals on a computer",
-    about: "Saved meals two to a row and the meals eaten most this month, with the form for a new saved meal beside them.",
-    viewport: { width: 1440, height: 900, mobile: false },
-    go: async (p) => {
-      await section(p, "food");
-      await sub(p, "Saved meals");
-    },
-  },
-  {
     id: "wide-alcohol",
     tab: "Web app",
     web: true,
@@ -655,11 +628,7 @@ function indexHtml(): string {
       "src/apps/web/SideNav.tsx",
       "Web app: the five sections in a side menu, a drawer on a phone held upright, docked on the left on a wider screen.",
     ],
-    [
-      "StatTile, Meter, BarChart, LineChart, CalendarHeatmap",
-      "src/ui/charts/",
-      "Numbers and charts: Dashboard tiles and charts, goals, food history, supermarket spending.",
-    ],
+    ["StatTile, Meter, BarChart, LineChart, CalendarHeatmap", "src/ui/charts/", "Numbers and charts: Dashboard tiles and charts, goals, supermarket spending."],
     ["StatusBadge, Stepper", "src/ui/controls.tsx", "States as icon and words; portion counts."],
     ["CalorieMeter, MacroSplit", "src/ui/nutrition.tsx", "Calories against the target, macro shares (Log food)."],
     ["StockSummary, PlanDays, PlanStrip, StockAlerts, BatchBar", "src/ui/mealprep/", "Meal prep stock and the tupper plan."],

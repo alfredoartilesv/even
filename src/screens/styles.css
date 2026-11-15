@@ -325,17 +325,6 @@ input.qty.wide {
 .suggestion.dim {
   opacity: 0.7;
 }
-/* Which day the drink taps log for: day (and time for an earlier day) on one line, wrapping on a narrow phone. */
-.drink-when {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
-}
-.drink-when .link {
-  min-height: 44px;
-}
 /* Saved drinks as tiles to log one with a tap: name first, size and strength under it. */
 .drink-picks {
   display: grid;
@@ -414,43 +403,6 @@ ul.entries li > .status {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-}
-ul.saved-list {
-  display: flex;
-  flex-direction: column;
-}
-.saved-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line);
-}
-.saved-row:last-child {
-  border-bottom: none;
-}
-.saved-open {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  text-align: left;
-  color: inherit;
-}
-.saved-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.saved-log {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.saved-log input.qty {
-  width: 3.25rem;
 }
 
 .sync-button {
@@ -3717,12 +3669,6 @@ button:active:not(:disabled) {
   background: var(--warning);
   border-color: var(--warning);
 }
-.drink-when {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.75rem;
-}
 .drink-favs {
   display: flex;
   flex-direction: column;
@@ -4898,9 +4844,6 @@ body:not(:has(.app-frame)) .today .date-step {
   .drinks-col.main > :first-child {
     order: 1;
   }
-  .drinks-col.main > .drink-when {
-    order: 2;
-  }
   /* The period and what it adds up to come before the favourites (15 Nov 2026). */
   .drinks-col.main > .drinks-period,
   .drinks-col.main > .drinks-summary {
@@ -4921,6 +4864,12 @@ body:not(:has(.app-frame)) .today .date-step {
   .drinks-col.main > .drinks-week {
     justify-content: space-between;
   }
+}
+/* Day / Week / Month over the ‹ date › row, as on Today (15 Nov 2026). */
+.drinks-period {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 .drinks-period > * {
   margin: 0;
@@ -5140,15 +5089,6 @@ body {
   box-shadow: none;
   -webkit-tap-highlight-color: transparent;
 }
-/* A week with nothing logged: one line and a way in, not an empty chart beside an empty column. */
-.empty-week {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
 /* The pill keeps its fill and size inside any card or frame (generic button rules are more specific). */
 .period-nav .date-today,
 .app-frame .period-nav .date-today {
@@ -5498,23 +5438,9 @@ dl.inventory {
 .quick-done > .grow {
   flex: 1 1 10rem;
 }
-/* A saved or usual meal: its name keeps a line of its own on a narrow phone, the buttons wrap under it. */
-.saved-row {
-  flex-wrap: wrap;
-}
-.saved-row > .grow {
-  flex: 1 1 11rem;
-}
 /* Daily targets: labels like "Protein g (at least)" keep two lines at most, so one field a row on a narrow phone. */
 .targets-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
-}
-.saved-row > .saved-open {
-  flex: 1 1 11rem;
-  min-width: 0;
-}
-.saved-row > .saved-log {
-  margin-left: auto;
 }
 
 /*

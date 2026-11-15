@@ -4,16 +4,12 @@ import { today } from "../../ui/common";
 import { PageHeader, SubTabs, type Choice } from "../../ui/layout";
 import { AlcoholView } from "../alcohol/AlcoholView";
 import { DayView } from "./DayView";
-import { HistoryView } from "./HistoryView";
-import { SavedView } from "./SavedView";
 
-export type FoodView = "log" | "drinks" | "history" | "saved";
+export type FoodView = "log" | "drinks";
 
 export const FOOD_VIEWS: Choice<FoodView>[] = [
-  { id: "log", label: "Log" },
+  { id: "log", label: "Food" },
   { id: "drinks", label: "Drinks" },
-  { id: "history", label: "History" },
-  { id: "saved", label: "Saved meals" },
 ];
 
 interface Props {
@@ -29,11 +25,12 @@ interface Props {
 
 /**
  * Food and drinks: everything eaten and drunk. The day's log (today, or any past day), the
- * drinks with their favourites and cost, the history by week, and saved meals. Before 0.7 these
- * were the Meal prep tab's food log and the Alcohol tab.
+ * drinks with their favourites and cost. Before 0.7 these were the Meal prep
+ * tab's food log and the Alcohol tab. History and Saved meals went on 15 Nov 2026: Today's week shows the one,
+ * Eat again the starred meals.
  */
 export function FoodScreen({ db, view, onView, version, onChanged, onStock }: Props) {
-  // The day open in the log, kept here so History can open a day in it.
+  // The day open in the log, kept while the owner moves between the views.
   const [day, setDay] = useState(today);
   // The drink favourites are a page of their own on a phone, with the way back to Drinks.
   const [managing, setManaging] = useState(false);
@@ -54,17 +51,6 @@ export function FoodScreen({ db, view, onView, version, onChanged, onStock }: Pr
       {!(managing && view === "drinks") && <SubTabs items={FOOD_VIEWS} value={view} onChange={onView} label="Food and drinks views" />}
       {view === "log" && <DayView db={db} version={v} onChanged={changed} day={day} onDay={setDay} onStock={onStock} />}
       {view === "drinks" && <AlcoholView db={db} version={v} onChanged={changed} managing={managing} onManage={setManaging} />}
-      {view === "history" && (
-        <HistoryView
-          db={db}
-          version={v}
-          onOpenDay={(d) => {
-            setDay(d);
-            onView("log");
-          }}
-        />
-      )}
-      {view === "saved" && <SavedView db={db} version={v} onChanged={changed} />}
     </section>
   );
 }
