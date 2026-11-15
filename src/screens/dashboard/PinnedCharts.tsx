@@ -19,8 +19,8 @@ interface Props {
   /** Tap a day on the steps chart to open it. */
   onDay: (day: string) => void;
   /**
-   * A single day already has its own steps chart (two weeks, beside recovery), so there a pinned
-   * Steps shows as Energy balance, eaten against burned, instead (the owner's ask, 14 Nov 2026).
+   * A single day: it has Eaten vs burned hour by hour, so Energy balance (the week's eaten against
+   * burned) is not offered there; it would repeat it (the owner's ask, 15 Nov 2026).
    */
   daySteps?: boolean;
   /** A day's eaten against burned, hour by hour; null on a week or month, where it is not offered. */
@@ -40,11 +40,9 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false, 
   }, [db]);
   if (pins === null) return null;
 
-  // On a day, Energy balance stands in for a pinned Steps: it reads as pinned, and unpinning it
-  // unpins both.
-  const isOn = (id: ChartId) => pins.includes(id) || (daySteps && id === "energy" && pins.includes("steps"));
+  const isOn = (id: ChartId) => pins.includes(id);
   const toggle = (id: ChartId) => {
-    const next = isOn(id) ? pins.filter((p) => p !== id && !(daySteps && id === "energy" && p === "steps")) : [...pins, id];
+    const next = isOn(id) ? pins.filter((p) => p !== id) : [...pins, id];
     setPins(next);
     void savePins(db, next);
   };
@@ -155,11 +153,9 @@ export function PinnedCharts({ db, d, period, formatX, onDay, daySteps = false, 
     ),
   };
 
-  // Pinned first, in the order they were pinned; the rest after them in the usual order. On a day,
-  // Steps gives its place to Energy balance (once, if that is pinned too) and is not offered.
-  // Eaten vs burned is offered only where there is a day to draw.
-  const swap = (ids: ChartId[]) =>
-    (daySteps ? [...new Set(ids.map((id) => (id === "steps" ? "energy" : id)))] : ids).filter((id) => id !== "intraday" || intraday !== null);
+  // Pinned first, in the order they were pinned; the rest after them in the usual order. A day
+  // leaves out Energy balance; Eaten vs burned is offered only where there is a day to draw.
+  const swap = (ids: ChartId[]) => ids.filter((id) => (id === "intraday" ? intraday !== null : !(daySteps && id === "energy")));
   const pinned = swap(pins);
   const ordered = swap([...pins, ...CHART_IDS.filter((id) => !pins.includes(id))]);
   const shown = all ? ordered : pinned;

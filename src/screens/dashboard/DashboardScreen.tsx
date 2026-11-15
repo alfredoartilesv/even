@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createLogger } from "../../core/log";
 import { newestOnly } from "../../core/newest";
 import type { SqlDriver } from "../../db/driver";
@@ -273,7 +273,6 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
             isToday={anchor === now}
             hour={hour}
             go={go}
-            onOpenDay={openDay}
             onChanged={() => {
               setLocal((v) => v + 1);
               onChanged?.();
@@ -309,59 +308,6 @@ export function DashboardScreen({ db, version, configured, syncWarnings, profile
   );
 }
 
-const STEPS_HEIGHT = 170;
-const WIDE = "(min-width: 60rem)";
-
-/**
- * On a wide screen the two columns of a day should end together: the steps chart, last on the
- * right, grows by what the right column is short of the left (a past day has no Next up, so the
- * right side is shorter), up to a limit. On a phone it keeps its height.
- */
-/**
- * A column's height by its content: each card from its top to its last child's bottom (plus its own
- * padding), and the gaps between cards. Not the column's own box: the columns stretch to one height
- * and the day so far grows to fill (styles.css), so the boxes always match.
- */
-function contentHeight(col: HTMLElement): number {
-  const kids = [...col.children] as HTMLElement[];
-  if (!kids.length) return 0;
-  const gap = parseFloat(getComputedStyle(col).rowGap) || 0;
-  const natural = (el: HTMLElement) => {
-    const last = el.lastElementChild as HTMLElement | null;
-    if (!last) return el.offsetHeight;
-    const cs = getComputedStyle(el);
-    return last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
-  };
-  return kids.reduce((n, k) => n + natural(k), 0) + gap * (kids.length - 1);
-}
-
-function useEvenColumns(key: string) {
-  const [left, leftRef] = useState<HTMLDivElement | null>(null);
-  const [right, rightRef] = useState<HTMLDivElement | null>(null);
-  const [extra, setExtra] = useState(0);
-  const current = useRef(0);
-  const measure = useCallback(() => {
-    if (!left || !right) return;
-    const wide = window.matchMedia(WIDE).matches;
-    const gap = contentHeight(left) - (contentHeight(right) - current.current);
-    const next = wide ? Math.max(0, Math.min(320, Math.round(gap))) : 0;
-    if (Math.abs(next - current.current) > 2) {
-      current.current = next;
-      setExtra(next);
-    }
-  }, [left, right]);
-  // After every render of another day (its cards differ), and whenever a column changes size.
-  useLayoutEffect(measure, [measure, key]);
-  useEffect(() => {
-    if (!left || !right || typeof ResizeObserver === "undefined") return;
-    // The cards, not only the columns: stretched to one height, a column's box no longer changes.
-    const ro = new ResizeObserver(measure);
-    for (const el of [left, right, ...left.children, ...right.children]) ro.observe(el);
-    return () => ro.disconnect();
-  }, [left, right, measure]);
-  return { leftRef, rightRef, extra };
-}
-
 function DayView({
   db,
   d,
@@ -370,7 +316,6 @@ function DayView({
   isToday,
   hour,
   go,
-  onOpenDay,
   onChanged,
 }: {
   db: SqlDriver;
@@ -380,10 +325,8 @@ function DayView({
   isToday: boolean;
   hour: number;
   go: DashboardLinks;
-  onOpenDay: (day: string) => void;
   onChanged: () => void;
 }) {
-  const { leftRef, rightRef, extra } = useEvenColumns(`${day}|${isToday}|${shown.food.length}|${shown.next ? 1 : 0}`);
   const eaten = d.eaten.total;
   const target = d.targets.kcal;
   const left = target !== null ? target - (eaten ?? 0) : null;
@@ -405,10 +348,10 @@ function DayView({
   return (
     <>
       {/* Two columns that stack on their own on a wide screen (no row is as tall as its taller card);
-          on a phone the wrappers step aside (display: contents) and the order is balance, Next up,
-          the day so far, steps. */}
+          on a phone the wrappers step aside (display: contents) and the order is balance, Next up and
+          recovery, then Check in and Activities. */}
       <div className="today-grid">
-        <div className="today-col left" ref={leftRef}>
+        <div className="today-col left">
           <section className="card balance-card" aria-label="Balance">
             <BalanceRing eaten={eaten} target={target} caption="kcal left" macros={macros} />
             <div className="balance-side">
@@ -426,7 +369,7 @@ function DayView({
           />
         </div>
 
-        <div className="today-col right" ref={rightRef}>
+        <div className="today-col right">
           <div className="today-stack">
             {isToday && (
               <NextUpCard
@@ -458,21 +401,6 @@ function DayView({
               />
             </section>
           </div>
-
-          {d.activityTrend.steps.some((v) => v !== null) && (
-            <BarChart
-              height={STEPS_HEIGHT + extra}
-              title="Steps, last two weeks"
-              subtitle={`${d.steps.total !== null ? `${int(d.steps.total)} on ${fmtDay(day)}. ` : ""}Tap a day to open it.`}
-              x={d.trendDays}
-              values={d.activityTrend.steps}
-              formatX={(x) => String(Number(x.slice(8)))}
-              formatXLong={(x) => fmtDay(x)}
-              formatValue={int}
-              selected={day}
-              onSelect={onOpenDay}
-            />
-          )}
         </div>
       </div>
       <Noticed d={d} next={shown.next} go={go} isToday={isToday} />
