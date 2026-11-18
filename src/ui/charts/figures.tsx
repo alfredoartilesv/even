@@ -53,24 +53,28 @@ export function MiniBars({
   const slot = W / n;
   const bw = slot * (n > 14 ? 0.62 : 0.7);
   const ty = target !== null && target > 0 ? H - (target / top) * H : null;
+  // The bars stretch to the cell's width at a fixed height and the day letters are text under them,
+  // so a wide card does not blow the bars and letters up with it.
   return (
-    <svg className="mini-bars" viewBox={`0 -2 ${W} ${H + (letters ? 14 : 4)}`} role="img" aria-label={label}>
-      {values.map((v, i) => {
-        const h = v === null ? 0 : Math.max(1.5, (v / top) * H);
-        const cls = ["mini-bar", limit && target !== null && v !== null && v > target ? "over" : "", i === n - 1 ? "last" : ""].filter(Boolean).join(" ");
-        return (
-          <g key={days[i] ?? i}>
-            {v !== null && <rect className={cls} x={i * slot + (slot - bw) / 2} y={H - h} width={bw} height={h} rx={Math.min(3, bw / 3)} />}
-            {letters && (
-              <text className="mini-day" x={i * slot + slot / 2} y={H + 11} textAnchor="middle">
-                {weekdayLetter(days[i])}
-              </text>
-            )}
-          </g>
-        );
-      })}
-      {ty !== null && <line className="mini-target" x1={0} x2={W} y1={ty} y2={ty} />}
-    </svg>
+    <div className="mini-bars" role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {values.map((v, i) => {
+          const h = v === null ? 0 : Math.max(1.5, (v / top) * H);
+          const cls = ["mini-bar", limit && target !== null && v !== null && v > target ? "over" : "", i === n - 1 ? "last" : ""].filter(Boolean).join(" ");
+          return v === null ? null : <rect key={days[i] ?? i} className={cls} x={i * slot + (slot - bw) / 2} y={H - h} width={bw} height={h} />;
+        })}
+        {ty !== null && <line className="mini-target" x1={0} x2={W} y1={ty} y2={ty} />}
+      </svg>
+      {letters && (
+        <div className="mini-days" aria-hidden="true">
+          {days.map((day, i) => (
+            <span key={day ?? i} className="mini-day">
+              {weekdayLetter(day)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -2886,11 +2886,24 @@ button {
   --cell: var(--area-today);
 }
 .mini-bars {
+  margin-top: 0.5rem;
+}
+.mini-bars svg {
   display: block;
   width: 100%;
-  height: auto;
-  margin-top: 0.5rem;
+  height: 3.25rem;
   overflow: visible;
+}
+.mini-days {
+  display: flex;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1;
+}
+.mini-day {
+  flex: 1;
+  text-align: center;
 }
 .mini-bar {
   fill: color-mix(in srgb, var(--cell, var(--accent)) 72%, var(--surface));
@@ -2905,10 +2918,7 @@ button {
   stroke: var(--muted);
   stroke-width: 1;
   stroke-dasharray: 3 3;
-}
-.mini-day {
-  fill: var(--muted);
-  font-size: 9px;
+  vector-effect: non-scaling-stroke;
 }
 .next-up {
   display: flex;
