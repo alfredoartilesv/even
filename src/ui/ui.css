@@ -37,6 +37,14 @@ figure.viz {
   position: relative;
   width: 100%;
 }
+/* A plot that fills its card: the card's room sets its height, never the drawing inside it. */
+.viz-plot.fill {
+  flex: 1 1 0;
+}
+.viz-plot.fill > svg {
+  position: absolute;
+  inset: 0;
+}
 .viz-plot svg {
   display: block;
   overflow: visible;

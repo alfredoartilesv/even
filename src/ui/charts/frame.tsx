@@ -22,15 +22,21 @@ export const SINGLE = "var(--accent)";
 export function useWidth<T extends HTMLElement>(fallback = 320) {
   const [el, setEl] = useState<T | null>(null);
   const [width, setWidth] = useState(fallback);
+  // The height too, for a chart that fills the space its card gives it (0 until measured).
+  const [height, setHeight] = useState(0);
   useEffect(() => {
     if (!el) return;
     setWidth(el.clientWidth || fallback);
+    setHeight(el.clientHeight);
     if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width) || fallback));
+    const ro = new ResizeObserver(([e]) => {
+      setWidth(Math.round(e.contentRect.width) || fallback);
+      setHeight(Math.round(e.contentRect.height));
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [el, fallback]);
-  return [setEl, width] as const;
+  return [setEl, width, height] as const;
 }
 
 export interface LegendItem {

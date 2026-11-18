@@ -19,7 +19,10 @@ export interface BarChartProps {
   selected?: string | null;
   /** Makes each column a button (tap a day to open it). */
   onSelect?: (x: string) => void;
+  /** The plot's height, or its least height with fill. */
   height?: number;
+  /** Grow the plot into the room its card has (a card stretched beside a taller column). */
+  fill?: boolean;
   dim?: boolean;
   /** A button in the card's head beside Table (Today's pin). */
   action?: ReactNode;
@@ -47,12 +50,14 @@ export function BarChart({
   target = null,
   selected = null,
   onSelect,
-  height = 170,
+  height: least = 170,
+  fill = false,
   dim,
   action,
   footer,
 }: BarChartProps) {
-  const [ref, width] = useWidth<HTMLDivElement>();
+  const [ref, width, room] = useWidth<HTMLDivElement>();
+  const height = fill ? Math.max(least, room) : least;
   const [hover, setHover] = useState<number | null>(null);
   const long = formatXLong ?? formatX;
   const withUnit = (v: number) => `${formatValue(v)}${unit ? ` ${unit}` : ""}`;
@@ -98,7 +103,7 @@ export function BarChart({
 
   return (
     <ChartFrame title={title} subtitle={subtitle} legend={legend} table={table} dim={dim} action={action} footer={footer}>
-      <div ref={ref} className="viz-plot">
+      <div ref={ref} className={fill ? "viz-plot fill" : "viz-plot"} style={fill ? { minHeight: least } : undefined}>
         <svg width={width} height={height} role={onSelect ? "group" : "img"} aria-label={title}>
           {ticks.map((t) => (
             <g key={t}>
