@@ -5003,6 +5003,20 @@ body {
   .period-side .averages-card {
     flex: 1;
   }
+  /* Calories each day ends where Check in and Activities end (the owner's ask, 18 Nov 2026): the card
+     takes its column's height and the picked day's numbers sit at its foot. */
+  .period-days > figure.viz {
+    flex: 1;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .period-days .period-pick {
+    margin-top: auto;
+  }
+  .period-days figure.viz > :has(+ .period-pick) {
+    margin-bottom: 0.9rem;
+  }
 }
 
 /* The date row on a narrow header: the full date between its arrows, the Today pill below if need be. */
