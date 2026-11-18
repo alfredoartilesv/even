@@ -673,6 +673,7 @@ function PeriodView({ d, span, axis, go }: { d: Dashboard; span: Span; axis: (da
           target={d.targets.kcal}
           selected={pickDay}
           onSelect={setSel}
+          fill
           footer={
             r && (
               <div className="period-pick">
