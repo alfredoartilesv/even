@@ -42,7 +42,44 @@ export type ActionRow =
   | { op: "shopping_insert"; table: "shopping_list_items"; id: string }
   | { op: "shopping_quantity"; table: "shopping_list_items"; id: string; before: number | null; after: number | null }
   | { op: "drink_type"; table: "drink_types"; id: string }
-  | { op: "drink_type_fill"; table: "drink_types"; id: string; fields: { calories?: number; price?: number } };
+  | { op: "drink_type_fill"; table: "drink_types"; id: string; fields: { calories?: number; price?: number } }
+  // Edits and deletes (connector, claude.connector_edits). `stamp` is the updated_at / deleted_at the action wrote:
+  // undo only goes ahead while the row still has it, so a later change by the owner is never overwritten.
+  | { op: "food_edit"; table: "food_entries"; id: string; stamp: number; before: FoodSnapshot }
+  | { op: "drink_edit"; table: "drink_entries"; id: string; stamp: number; before: DrinkSnapshot }
+  | { op: "drink_type_edit"; table: "drink_types"; id: string; stamp: number; before: DrinkTypeSnapshot }
+  | { op: "restore"; table: "food_entries" | "drink_entries" | "drink_types"; id: string; stamp: number };
+
+/** A row's columns before an edit, as stored (UTC ms and the offset it was logged with). */
+export interface FoodSnapshot {
+  eaten_at_ms: number;
+  offset_min: number;
+  local_day: string;
+  name: string;
+  meal: string | null;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  notes: string | null;
+}
+export interface DrinkSnapshot {
+  drunk_at_ms: number;
+  offset_min: number;
+  local_day: string;
+  name: string;
+  volume_ml: number;
+  abv_percent: number;
+  calories: number | null;
+  price: number | null;
+}
+export interface DrinkTypeSnapshot {
+  name: string;
+  volume_ml: number;
+  abv_percent: number;
+  calories: number | null;
+  price: number | null;
+}
 
 /** Tables an action may touch, per operation. Undo refuses anything else, even if the log were edited. */
 const OP_TABLES: Record<ActionRow["op"], readonly string[]> = {
@@ -56,6 +93,10 @@ const OP_TABLES: Record<ActionRow["op"], readonly string[]> = {
   shopping_quantity: ["shopping_list_items"],
   drink_type: ["drink_types"],
   drink_type_fill: ["drink_types"],
+  food_edit: ["food_entries"],
+  drink_edit: ["drink_entries"],
+  drink_type_edit: ["drink_types"],
+  restore: ["food_entries", "drink_entries", "drink_types"],
 };
 export const AGENT_TABLES = [...new Set(Object.values(OP_TABLES).flat())];
 
@@ -84,48 +125,48 @@ export interface WriteTool {
   prepare(ctx: ActionContext, input: unknown): Promise<PreparedAction>;
 }
 
-const MEALS = ["breakfast", "lunch", "dinner", "snack", "prep"] as const;
+export const MEALS = ["breakfast", "lunch", "dinner", "snack", "prep"] as const;
 /** Used when a time is not given for a past day. Today without a time means now. */
 const DEFAULT_TIME: Record<string, string> = { breakfast: "08:30", lunch: "14:00", dinner: "21:00", snack: "17:30", prep: "12:00", none: "12:00" };
 
-const nullableNumber = (description: string) => ({ type: ["number", "null"], description });
-const nullableString = (description: string) => ({ type: ["string", "null"], description });
-const nullableMeal = { type: ["string", "null"], enum: [...MEALS, null], description: "breakfast, lunch, dinner, snack, prep, or null" };
-const TIME_DESC = "Local time HH:MM, or null (today: now; another day: a usual time for the meal)";
+export const nullableNumber = (description: string) => ({ type: ["number", "null"], description });
+export const nullableString = (description: string) => ({ type: ["string", "null"], description });
+export const nullableMeal = { type: ["string", "null"], enum: [...MEALS, null], description: "breakfast, lunch, dinner, snack, prep, or null" };
+export const TIME_DESC = "Local time HH:MM, or null (today: now; another day: a usual time for the meal)";
 
-const text = (max: number) => z.string().trim().min(1).max(max);
-const optText = (max: number) =>
+export const text = (max: number) => z.string().trim().min(1).max(max);
+export const optText = (max: number) =>
   z
     .string()
     .trim()
     .max(max)
     .nullable()
     .transform((v) => v || null);
-const time = z
+export const time = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "times are HH:MM")
   .nullable();
 const num = (min: number, max: number) => z.number().min(min).max(max);
-const optNum = (min: number, max: number) => num(min, max).nullable();
-const int = (min: number, max: number) => z.number().int().min(min).max(max);
+export const optNum = (min: number, max: number) => num(min, max).nullable();
+export const int = (min: number, max: number) => z.number().int().min(min).max(max);
 
-function logDay(ctx: ActionContext, d: string, maxDaysBack = 60): string {
+export function logDay(ctx: ActionContext, d: string, maxDaysBack = 60): string {
   const today = localDay(ctx.now, ctx.timeZone);
   if (d > today) throw new Error(`${d} is in the future: only past or current days can be logged`);
   if (d < addDays(today, -maxDaysBack)) throw new Error(`${d} is more than ${maxDaysBack} days ago`);
   return d;
 }
 
-function when(ctx: ActionContext, d: string, t: string | null, meal: string | null): { ms: number; offsetMin: number } {
+export function when(ctx: ActionContext, d: string, t: string | null, meal: string | null): { ms: number; offsetMin: number } {
   if (!t && d === localDay(ctx.now, ctx.timeZone)) return { ms: ctx.now, offsetMin: localDateTimeToMs(d, "12:00", ctx.timeZone).offsetMin };
   return localDateTimeToMs(d, t ?? DEFAULT_TIME[meal ?? "none"], ctx.timeZone);
 }
 
-const hhmm = (ms: number, timeZone: string) => new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
-const kcal = (n: number | null | undefined) => (n == null ? "kcal unknown" : `${Math.round(n)} kcal`);
+export const hhmm = (ms: number, timeZone: string) => new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
+export const kcal = (n: number | null | undefined) => (n == null ? "kcal unknown" : `${Math.round(n)} kcal`);
 const macros = (p?: number | null, c?: number | null, f?: number | null) =>
   p == null && c == null && f == null ? "" : ` (P ${round(p) ?? "?"} g, C ${round(c) ?? "?"} g, F ${round(f) ?? "?"} g)`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const stamp = (ctx: ActionContext): Stamp => ({ deviceId: ctx.deviceId, createdBy: "assistant", now: ctx.now });
 
@@ -990,6 +1031,15 @@ export async function listAgentActions(db: SqlDriver, conversationId?: string): 
   }));
 }
 
+/** Drink type names are unique among live types: an undo must not make two. */
+async function assertTypeNameFree(db: SqlDriver, id: string, name: string): Promise<void> {
+  const [clash] = await db.all<{ n: number }>("SELECT COUNT(*) AS n FROM drink_types WHERE lower(name) = lower(?) AND deleted_at IS NULL AND id <> ?", [
+    name,
+    id,
+  ]);
+  if (clash.n > 0) throw new Error(`There is already a drink called ${name}: rename it in Even first`);
+}
+
 /**
  * Reverse an applied action with the app's own undo for each kind of row (newest effect first):
  * food entries via deleteFood, recipes via deleteMealPrep, batches via deleteBatch, portion moves via
@@ -1008,6 +1058,21 @@ export async function undoAgentAction(db: SqlDriver, actionId: string, now: numb
     if (r.op !== "shopping_quantity") continue;
     const [cur] = await db.all<{ quantity: number | null }>("SELECT quantity FROM shopping_list_items WHERE id = ? AND deleted_at IS NULL", [r.id]);
     if (!cur || cur.quantity !== r.after) throw new Error("The shopping list has changed since; undo the item there instead");
+  }
+  // Edits and deletes are undone only while the row is as the action left it.
+  for (const r of rows) {
+    if (r.op === "food_edit" || r.op === "drink_edit" || r.op === "drink_type_edit") {
+      const [cur] = await db.all<{ n: number }>(`SELECT COUNT(*) AS n FROM ${r.table} WHERE id = ? AND deleted_at IS NULL AND updated_at = ?`, [r.id, r.stamp]);
+      if (cur.n !== 1) throw new Error("That entry has changed since; undo it by editing it in Even");
+      if (r.op === "drink_type_edit") await assertTypeNameFree(db, r.id, r.before.name);
+    } else if (r.op === "restore") {
+      const [cur] = await db.all<{ n: number }>(`SELECT COUNT(*) AS n FROM ${r.table} WHERE id = ? AND deleted_at = ?`, [r.id, r.stamp]);
+      if (cur.n !== 1) throw new Error("That entry was changed after it was deleted; add it again in Even");
+      if (r.table === "drink_types") {
+        const [t] = await db.all<{ name: string }>("SELECT name FROM drink_types WHERE id = ?", [r.id]);
+        await assertTypeNameFree(db, r.id, t.name);
+      }
+    }
   }
   for (const r of [...rows].reverse()) {
     switch (r.op) {
@@ -1035,6 +1100,38 @@ export async function undoAgentAction(db: SqlDriver, actionId: string, now: numb
         break;
       case "drink_type":
         await deleteDrinkType(db, r.id, now);
+        break;
+      case "food_edit": {
+        const b = r.before;
+        await db.run(
+          `UPDATE food_entries SET eaten_at_ms = ?, offset_min = ?, local_day = ?, name = ?, meal = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, notes = ?, updated_at = ? WHERE id = ?`,
+          [b.eaten_at_ms, b.offset_min, b.local_day, b.name, b.meal, b.calories, b.protein_g, b.carbs_g, b.fat_g, b.notes, now, r.id],
+        );
+        break;
+      }
+      case "drink_edit": {
+        const b = r.before;
+        await db.run(
+          `UPDATE drink_entries SET drunk_at_ms = ?, offset_min = ?, local_day = ?, name = ?, volume_ml = ?, abv_percent = ?, calories = ?, price = ?, updated_at = ? WHERE id = ?`,
+          [b.drunk_at_ms, b.offset_min, b.local_day, b.name, b.volume_ml, b.abv_percent, b.calories, b.price, now, r.id],
+        );
+        break;
+      }
+      case "drink_type_edit": {
+        const b = r.before;
+        await db.run("UPDATE drink_types SET name = ?, volume_ml = ?, abv_percent = ?, calories = ?, price = ?, updated_at = ? WHERE id = ?", [
+          b.name,
+          b.volume_ml,
+          b.abv_percent,
+          b.calories,
+          b.price,
+          now,
+          r.id,
+        ]);
+        break;
+      }
+      case "restore":
+        await db.run(`UPDATE ${r.table} SET deleted_at = NULL, updated_at = ? WHERE id = ?`, [now, r.id]);
         break;
       case "drink_type_fill":
         // Only blank a value that is still the one filled in: a later edit by the owner wins.
