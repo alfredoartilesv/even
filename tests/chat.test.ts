@@ -155,6 +155,7 @@ test("request shape: Haiku 5.5, medium effort, no fallbacks, caching, stable pre
       "energy_needs",
       "daily_series",
       "list_food_entries",
+      "list_drink_entries",
       "day_notes",
       "drink_types",
       "alcohol_impact",

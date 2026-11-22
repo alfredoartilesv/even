@@ -161,13 +161,14 @@ Stateless Streamable HTTP with JSON answers, so it runs in the same Vercel funct
 
 The owner asks about their own data in Claude itself (claude.ai, the Claude apps) on their **Claude plan**, instead of the Chat tab on an API key. Claude's apps cannot call into the phone, so the connector runs on the sync server at `<server>/mcp/health` (`server/healthMcp.ts`), for any account, its own data only. Using a subscription's OAuth token inside Even was rejected: Anthropic allows those tokens only in Claude's own apps and Claude Code.
 
-**Both ways at once (decided 31 Oct 2026, replacing "one way or the other" from the same day):** You > Connections > Claude shows the two side by side, each with its own status: **Chat in Even** (the API key, `src/domain/chat/mode.ts`) and **Claude connector**. The Chat tab shows whenever a key is saved on the device; the connector runs on its own consents (`claude.connector`, `claude.connector_changes`). Saving a key no longer turns the connector off, and the old per-device `claude.mode` setting is no longer read. Even's own chat cannot run on the Claude plan: only Claude's apps can.
+**Both ways at once (decided 31 Oct 2026, replacing "one way or the other" from the same day):** You > Connections > Claude shows the two side by side, each with its own status: **Chat in Even** (the API key, `src/domain/chat/mode.ts`) and **Claude connector**. The Chat tab shows whenever a key is saved on the device; the connector runs on its own consents (`claude.connector`, `claude.connector_changes`, `claude.connector_edits`). Saving a key no longer turns the connector off, and the old per-device `claude.mode` setting is no longer read. Even's own chat cannot run on the Claude plan: only Claude's apps can.
 
 **What it can do:** the Chat tab's tools, with the same names, schemas and limits (`src/domain/chat/tools.ts`, `actions.ts`), plus `get_context` (today in the owner's time zone and the Chat tab's opening snapshot). Read tools are read-only; write tools only add, as in the Chat tab. Claude asks before each write tool call (they are marked not read-only), and the owner can undo each change in You > Connections > Claude (Claude connector).
 
 **Consent** (`src/domain/chat/consent.ts`), given on the phone and read by the server from the synced `consents` rows:
 - `claude.connector`: nothing is read without it.
-- `claude.connector_changes`: the write tools.
+- `claude.connector_changes`: the write tools that only add.
+- `claude.connector_edits` (22 Nov 2026): the tools that change or delete food entries, drink entries and saved drink types (architecture.md section 5, decision 22 Nov 2026). Off by default; turned off with the connector.
 - Each read tool still needs its class's consent (`claude.aggregates`, `claude.raw_series`, `claude.notes`), the same switches as the Chat tab.
 Every result sent is logged in `ai_disclosures` (summary "Connector: ...", no conversation) and every change in `agent_actions`; both sync to the phone's "Sent to Claude" list and the connector page.
 
