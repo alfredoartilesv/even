@@ -7,7 +7,7 @@ import { listDisclosures } from "../src/domain/chat/store";
 import { syncApi } from "../src/domain/cloudsync/api";
 import { aesOpen, fromHex, passphraseKeys } from "../src/domain/cloudsync/keys";
 import { open, seal, syncKeyBits, syncKeys, syncKeysFromBits, toB64 } from "../src/domain/cloudsync/seal";
-import { addFood, firstPhone, TEST_PASSPHRASE, type Phone } from "../scripts/lib/syncScenario";
+import { addFood, firstPhone, foods, TEST_PASSPHRASE, type Phone } from "../scripts/lib/syncScenario";
 import { claudeClient, CLAUDE_CALLBACK, testServer } from "./serverHelpers";
 
 // docs/users.md section 10: Claude's own apps read and add to the owner's data through the health
@@ -177,6 +177,58 @@ test("changes need their own consent, sync to the phone, are logged and can be u
   await phone.sync();
   const again = await call(tokens!.access_token, "add_day_note", { ...note, note: "Second try" });
   assert.ok(!again.isError, again.text);
+});
+
+test("editing and deleting food and drinks need their own consent, sync to the phone and can be undone there", async () => {
+  const { email, phone } = await owner();
+  await allow(phone, "claude.connector", "claude.aggregates", "claude.connector_changes");
+  const now = Date.now();
+  await addFood(phone, "f1", "porridge", 410, now);
+  await phone.sync();
+  const { tokens } = await connect(email);
+  const list = await client.rpc(HEALTH, tokens!.access_token, "tools/list");
+  const tools = (list.body!.result as { tools: { name: string; annotations: { destructiveHint: boolean } }[] }).tools;
+  for (const n of [
+    "list_drink_entries",
+    "update_food_entry",
+    "delete_food_entries",
+    "update_drink_entry",
+    "delete_drink_entries",
+    "update_drink_type",
+    "delete_drink_type",
+  ])
+    assert.ok(
+      tools.some((t) => t.name === n),
+      n,
+    );
+  assert.equal(tools.find((t) => t.name === "delete_food_entries")?.annotations.destructiveHint, true);
+
+  const fix = { entry_id: "f1", name: null, meal: null, day: null, time: null, calories: 380, protein_g: null, carbs_g: null, fat_g: null, notes: null };
+  // The consent to add entries is not the consent to change them.
+  const refused = await call(tokens!.access_token, "update_food_entry", fix);
+  assert.ok(refused.isError);
+  assert.match(refused.text, /changing or deleting/);
+  await phone.sync();
+  assert.equal((await foods(phone))[0].calories, 410);
+
+  await allow(phone, "claude.connector_edits");
+  const saved = await call(tokens!.access_token, "update_food_entry", fix);
+  assert.ok(!saved.isError, saved.text);
+  await phone.sync();
+  assert.equal((await foods(phone))[0].calories, 380);
+  const [action] = await listAgentActions(phone.db);
+  assert.equal(action.tool, "update_food_entry");
+  await undoAgentAction(phone.db, action.id);
+  assert.equal((await foods(phone))[0].calories, 410);
+
+  await phone.sync();
+  const gone = await call(tokens!.access_token, "delete_food_entries", { entry_ids: ["f1"] });
+  assert.ok(!gone.isError, gone.text);
+  await phone.sync();
+  assert.notEqual((await foods(phone))[0].deleted_at, null);
+  const [del] = await listAgentActions(phone.db);
+  await undoAgentAction(phone.db, del.id);
+  assert.equal((await foods(phone))[0].deleted_at, null);
 });
 
 test("keys that do not open the account's rows, or a code without keys, are refused", async () => {

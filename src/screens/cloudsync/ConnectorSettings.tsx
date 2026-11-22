@@ -80,13 +80,14 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
   const [msg, setMsg] = useState<Msg>(null);
 
   const load = useCallback(async () => {
-    const [connector, changesOn, agg, actions] = await Promise.all([
+    const [connector, changesOn, editsOn, agg, actions] = await Promise.all([
       hasConsent(db, "claude.connector"),
       hasConsent(db, "claude.connector_changes"),
+      hasConsent(db, "claude.connector_edits"),
       consentStatus(db).then((c) => c["claude.aggregates"]),
       listAgentActions(db),
     ]);
-    setOn({ "claude.connector": connector, "claude.connector_changes": changesOn });
+    setOn({ "claude.connector": connector, "claude.connector_changes": changesOn, "claude.connector_edits": editsOn });
     setAggregates(agg);
     setChanges(actions.filter((a) => a.conversationId === null));
     try {
@@ -119,7 +120,10 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
         const id = await deviceId(db);
         await recordConsent(db, scope, granted, id);
         // Turning the connector off takes its changes with it.
-        if (scope === "claude.connector" && !granted && on?.["claude.connector_changes"]) await recordConsent(db, "claude.connector_changes", false, id);
+        if (scope === "claude.connector" && !granted) {
+          if (on?.["claude.connector_changes"]) await recordConsent(db, "claude.connector_changes", false, id);
+          if (on?.["claude.connector_edits"]) await recordConsent(db, "claude.connector_edits", false, id);
+        }
         // The server reads consents from the synced rows: they count once this device has synced.
         await onSync();
       },
@@ -172,6 +176,13 @@ function Connector({ db, session, onSync, version }: { db: SqlDriver; session: S
               onChange={(v) => void decide("claude.connector_changes", v)}
               label="Add entries"
               description={CONNECTOR_TEXT["claude.connector_changes"]}
+            />
+            <Switch
+              checked={on["claude.connector_edits"]}
+              disabled={!on["claude.connector"]}
+              onChange={(v) => void decide("claude.connector_edits", v)}
+              label="Change and delete entries"
+              description={CONNECTOR_TEXT["claude.connector_edits"]}
             />
           </>
         )}

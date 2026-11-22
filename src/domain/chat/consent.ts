@@ -41,13 +41,15 @@ export const CONSENT_TEXT: Record<ConsentScope, string> = {
  * on the owner's Claude plan, reach the data through Even's server instead of this phone, so they
  * have their own consents. The class consents above still decide what each tool may send.
  */
-export type ConnectorScope = "claude.connector" | "claude.connector_changes";
+export type ConnectorScope = "claude.connector" | "claude.connector_changes" | "claude.connector_edits";
 
 export const CONNECTOR_TEXT: Record<ConnectorScope, string> = {
   "claude.connector":
     "Let Claude's own apps (claude.ai, the Claude app), signed in to your Claude account, ask Even about your data through the Even connector. While a connection is live, Even's server opens your synced data to answer each request and keeps nothing readable afterwards. What Claude receives then falls under your Claude plan's terms. The choices above still decide what kinds of data it may get.",
   "claude.connector_changes":
     "Also let Claude add entries through the connector: food, drinks, meal prep, shopping, measurements, notes and goals. Claude asks you before each one, and you can undo any of them here.",
+  "claude.connector_edits":
+    "Also let Claude change or delete entries already in your food and drink logs, and your saved drink types. Claude asks you before each change, and you can undo any of them here.",
 };
 
 export const CONSENT_POLICY_VERSION: Record<ConsentScope | ConnectorScope, string> = {
@@ -58,6 +60,7 @@ export const CONSENT_POLICY_VERSION: Record<ConsentScope | ConnectorScope, strin
   "claude.files": "2026-10-28",
   "claude.connector": "2026-10-31",
   "claude.connector_changes": "2026-10-31",
+  "claude.connector_edits": "2026-11-22",
 };
 
 export const ALL_SCOPES = Object.keys(CONSENT_TEXT) as ConsentScope[];

@@ -5,7 +5,7 @@ import { dayFood, listSavedMeals } from "../food/food.js";
 import { listMealPreps, loadStock } from "../mealprep/mealPrep.js";
 import { dailySeries, type MetricSeries } from "../metrics/queries.js";
 import { listShopping } from "../mealprep/shopping.js";
-import { getCurrency, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol.js";
+import { getCurrency, listDrinks, listDrinkTypes, servingKcal, weightWithoutAlcohol } from "../alcohol/alcohol.js";
 import { ACTIVITY_FACTORS, bmr, calorieTarget, proteinTarget, slopePerDay, tdee, type ActivityLevel } from "../../core/health.js";
 import { addDays, localDay } from "../../core/tz.js";
 import { latestWeight } from "../alcohol/alcohol.js";
@@ -366,6 +366,43 @@ const listFoodEntries: ChatTool = {
   },
 };
 
+const listDrinkEntries: ChatTool = {
+  dataClass: "raw",
+  definition: tool(
+    "list_drink_entries",
+    "Individual drinks of the drink log over a date range (at most 31 days): id, local time, name, size, ABV, calories, price, drink type and who logged it. Use it to find a drink to change or delete, or to see what was already logged. Sends detailed records, which the owner must allow separately.",
+    { from: { type: "string", description: DATE_DESC }, to: { type: "string", description: DATE_DESC } },
+  ),
+  async run(db, input) {
+    const p = range.parse(input);
+    if (daysBetween(p.from, p.to) > 31) throw new Error("list_drink_entries is limited to 31 days");
+    const drinks = await listDrinks(db, p.from, p.to);
+    const extra = new Map<string, { time: string; logged_by: string }>();
+    for (let i = 0; i < drinks.length; i += 500) {
+      const chunk = drinks.slice(i, i + 500).map((d) => d.id);
+      const rows = await db.all<{ id: string; drunk_at_ms: number; offset_min: number; created_by: string }>(
+        `SELECT id, drunk_at_ms, offset_min, created_by FROM drink_entries WHERE id IN (${chunk.map(() => "?").join(",")})`,
+        chunk,
+      );
+      for (const r of rows) extra.set(r.id, { time: new Date(r.drunk_at_ms + r.offset_min * 60_000).toISOString().slice(11, 16), logged_by: r.created_by });
+    }
+    const entries = drinks.map((d) => ({
+      id: d.id,
+      day: d.localDay,
+      ...extra.get(d.id),
+      name: d.name,
+      volume_ml: d.volumeMl,
+      abv_percent: d.abvPercent,
+      calories: round(d.kcal),
+      calories_estimated: d.kcalEstimated,
+      price: d.price,
+      drink_type_id: d.typeId,
+      notes: d.notes,
+    }));
+    return { result: { from: p.from, to: p.to, entries }, summary: `Drink log entries, ${p.from} to ${p.to} (${entries.length})` };
+  },
+};
+
 const listSavedMealsTool: ChatTool = {
   dataClass: "aggregate",
   definition: tool(
@@ -700,6 +737,7 @@ export const CHAT_TOOLS: ChatTool[] = [
   energyNeeds,
   dailySeriesTool,
   listFoodEntries,
+  listDrinkEntries,
   dayNotes,
   drinkTypesTool,
   alcoholImpact,
